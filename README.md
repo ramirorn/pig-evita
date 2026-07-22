@@ -109,3 +109,12 @@ Para detener los contenedores de Docker (bases de datos, etc.), navega al direct
 ```bash
 docker compose -f docker-compose.dev.yml down
 ```
+
+---
+
+## 👥 Autores
+
+- Ayala, Santiago Tomás
+- Colman, Máximo Javier Alexis
+- Pereyra Roman, Ramiro
+- Zigarán, Lucas Natanael
