@@ -1,0 +1,459 @@
+// ===========================================
+// Juegos Evita Formosa - Prisma Schema
+// ===========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============ ENUMS ============
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN_PROVINCIAL
+  ADMIN_DEPARTAMENTAL
+  ADMIN_ZONAL
+  COORDINADOR
+  DELEGADO
+  ENTRENADOR
+  ARBITRO
+  OPERADOR_MESA
+}
+
+enum Sex {
+  MASCULINO
+  FEMENINO
+  MIXTO
+}
+
+enum DisciplineType {
+  INDIVIDUAL
+  EQUIPO
+}
+
+enum ResultType {
+  TIEMPO
+  GOLES
+  SETS
+  PUNTOS
+  POSICIONES
+}
+
+enum InscriptionStatus {
+  PENDIENTE
+  REVISADA
+  APROBADA
+  RECHAZADA
+}
+
+enum DocumentType {
+  DNI_FRENTE
+  DNI_DORSO
+  CERTIFICADO_MEDICO
+  AUTORIZACION_PARENTAL
+  FOTO
+  OTRO
+}
+
+enum DocumentStatus {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+}
+
+enum CompetitionStage {
+  ZONAL
+  DEPARTAMENTAL
+  PROVINCIAL
+}
+
+enum CompetitionFormat {
+  ROUND_ROBIN
+  ELIMINACION_DIRECTA
+  FASE_GRUPOS
+}
+
+enum CompetitionStatus {
+  BORRADOR
+  ACTIVA
+  FINALIZADA
+}
+
+enum MatchStatus {
+  PROGRAMADO
+  EN_CURSO
+  FINALIZADO
+  SUSPENDIDO
+}
+
+// ============ MODELS ============
+
+/// Usuarios administrativos del sistema
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  role         UserRole
+  isActive     Boolean  @default(true) @map("is_active")
+  department   String?  /// Departamento asignado (para roles zonales/departamentales)
+  zone         String?  /// Zona asignada (para roles zonales)
+  refreshToken String?  @map("refresh_token")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  auditLogs           AuditLog[]
+  reviewedInscriptions Inscription[] @relation("ReviewedBy")
+  approvedInscriptions Inscription[] @relation("ApprovedBy")
+  reviewedDocuments    Document[]    @relation("DocumentReviewedBy")
+
+  @@map("users")
+}
+
+/// Participantes (jugadores) - no tienen login
+model Participant {
+  id          String   @id @default(uuid()) @db.Uuid
+  dni         String   @unique
+  firstName   String   @map("first_name")
+  lastName    String   @map("last_name")
+  birthDate   DateTime @map("birth_date") @db.Date
+  sex         Sex
+  phone       String?
+  email       String?
+  locality    String   /// Localidad del participante
+  department  String   /// Departamento de Formosa
+  address     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  inscriptions Inscription[]
+  documents    Document[]
+  teamMembers  TeamMember[]
+  results      Result[]
+
+  @@index([lastName, firstName])
+  @@index([department])
+  @@index([locality])
+  @@map("participants")
+}
+
+/// Disciplinas deportivas (más de 40)
+model Discipline {
+  id         String         @id @default(uuid()) @db.Uuid
+  name       String         @unique
+  type       DisciplineType
+  resultType ResultType     @map("result_type")
+  rules      String?        @db.Text /// Reglamento de la disciplina
+  minPlayers Int?           @map("min_players") /// Para deportes de equipo
+  maxPlayers Int?           @map("max_players") /// Para deportes de equipo
+  isActive   Boolean        @default(true) @map("is_active")
+  sortOrder  Int            @default(0) @map("sort_order")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  categories   Category[]
+  teams        Team[]
+  competitions Competition[]
+
+  @@map("disciplines")
+}
+
+/// Categorías por disciplina (edad, sexo)
+model Category {
+  id           String   @id @default(uuid()) @db.Uuid
+  disciplineId String   @map("discipline_id") @db.Uuid
+  name         String   /// e.g., "Sub-14 Masculino"
+  minAge       Int      @map("min_age")
+  maxAge       Int      @map("max_age")
+  sex          Sex
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  discipline   Discipline    @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  inscriptions Inscription[]
+  teams        Team[]
+  competitions Competition[]
+
+  @@unique([disciplineId, name])
+  @@map("categories")
+}
+
+/// Equipos
+model Team {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  disciplineId String   @map("discipline_id") @db.Uuid
+  categoryId   String   @map("category_id") @db.Uuid
+  locality     String
+  department   String
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  discipline   Discipline   @relation(fields: [disciplineId], references: [id])
+  category     Category     @relation(fields: [categoryId], references: [id])
+  members      TeamMember[]
+  inscriptions Inscription[]
+  results      Result[]
+
+  @@unique([name, disciplineId, categoryId])
+  @@index([department])
+  @@map("teams")
+}
+
+/// Miembros de equipo (relación N:M entre Participant y Team)
+model TeamMember {
+  id            String   @id @default(uuid()) @db.Uuid
+  teamId        String   @map("team_id") @db.Uuid
+  participantId String   @map("participant_id") @db.Uuid
+  position      String?  /// Posición en el equipo
+  shirtNumber   Int?     @map("shirt_number")
+  isCaptain     Boolean  @default(false) @map("is_captain")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  team        Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id])
+
+  @@unique([teamId, participantId])
+  @@map("team_members")
+}
+
+/// Inscripciones de participantes
+model Inscription {
+  id            String            @id @default(uuid()) @db.Uuid
+  participantId String            @map("participant_id") @db.Uuid
+  categoryId    String            @map("category_id") @db.Uuid
+  teamId        String?           @map("team_id") @db.Uuid
+  status        InscriptionStatus @default(PENDIENTE)
+  qrCode        String            @unique @map("qr_code")
+  notes         String?           @db.Text
+  reviewedById  String?           @map("reviewed_by_id") @db.Uuid
+  reviewedAt    DateTime?         @map("reviewed_at")
+  approvedById  String?           @map("approved_by_id") @db.Uuid
+  approvedAt    DateTime?         @map("approved_at")
+  rejectionNote String?           @map("rejection_note") @db.Text
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  participant Participant @relation(fields: [participantId], references: [id])
+  category    Category    @relation(fields: [categoryId], references: [id])
+  team        Team?       @relation(fields: [teamId], references: [id])
+  reviewedBy  User?       @relation("ReviewedBy", fields: [reviewedById], references: [id])
+  approvedBy  User?       @relation("ApprovedBy", fields: [approvedById], references: [id])
+
+  @@unique([participantId, categoryId])
+  @@index([status])
+  @@index([qrCode])
+  @@map("inscriptions")
+}
+
+/// Documentos adjuntos
+model Document {
+  id            String         @id @default(uuid()) @db.Uuid
+  participantId String         @map("participant_id") @db.Uuid
+  documentType  DocumentType   @map("document_type")
+  fileKey       String         @map("file_key") /// Clave en MinIO/S3
+  originalName  String         @map("original_name")
+  mimeType      String         @map("mime_type")
+  fileSize      Int            @map("file_size") /// En bytes
+  status        DocumentStatus @default(PENDIENTE)
+  reviewedById  String?        @map("reviewed_by_id") @db.Uuid
+  reviewedAt    DateTime?      @map("reviewed_at")
+  rejectionNote String?        @map("rejection_note") @db.Text
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  participant Participant @relation(fields: [participantId], references: [id])
+  reviewedBy  User?       @relation("DocumentReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([participantId, documentType])
+  @@map("documents")
+}
+
+/// Sedes de competencia
+model Venue {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  address    String
+  department String
+  locality   String
+  latitude   Float?
+  longitude  Float?
+  capacity   Int?
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  matches Match[]
+
+  @@map("venues")
+}
+
+/// Competencias
+model Competition {
+  id           String            @id @default(uuid()) @db.Uuid
+  disciplineId String            @map("discipline_id") @db.Uuid
+  categoryId   String            @map("category_id") @db.Uuid
+  stage        CompetitionStage
+  format       CompetitionFormat
+  status       CompetitionStatus @default(BORRADOR)
+  name         String?           /// Nombre descriptivo opcional
+  startDate    DateTime?         @map("start_date") @db.Date
+  endDate      DateTime?         @map("end_date") @db.Date
+  config       Json?             /// Configuración adicional del motor
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  discipline Discipline @relation(fields: [disciplineId], references: [id])
+  category   Category   @relation(fields: [categoryId], references: [id])
+  matches    Match[]
+
+  @@unique([disciplineId, categoryId, stage])
+  @@map("competitions")
+}
+
+/// Partidos / Encuentros
+model Match {
+  id            String      @id @default(uuid()) @db.Uuid
+  competitionId String      @map("competition_id") @db.Uuid
+  venueId       String?     @map("venue_id") @db.Uuid
+  round         Int         /// Ronda o jornada
+  matchNumber   Int         @map("match_number") /// Número de partido en la ronda
+  status        MatchStatus @default(PROGRAMADO)
+  scheduledAt   DateTime?   @map("scheduled_at")
+  startedAt     DateTime?   @map("started_at")
+  finishedAt    DateTime?   @map("finished_at")
+  notes         String?     @db.Text
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  venue       Venue?      @relation(fields: [venueId], references: [id])
+  results     Result[]
+
+  @@index([competitionId, round])
+  @@map("matches")
+}
+
+/// Resultados por partido
+model Result {
+  id            String  @id @default(uuid()) @db.Uuid
+  matchId       String  @map("match_id") @db.Uuid
+  participantId String? @map("participant_id") @db.Uuid /// Para deportes individuales
+  teamId        String? @map("team_id") @db.Uuid /// Para deportes de equipo
+  scoreData     Json    @map("score_data") /// { goals: 3 } | { time: "10.52" } | { sets: [25, 20, 25] } ...
+  ranking       Int?    /// Posición final en el partido
+  isWinner      Boolean @default(false) @map("is_winner")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  match       Match        @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  participant Participant? @relation(fields: [participantId], references: [id])
+  team        Team?        @relation(fields: [teamId], references: [id])
+
+  @@unique([matchId, participantId])
+  @@unique([matchId, teamId])
+  @@map("results")
+}
+
+/// Noticias
+model News {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String
+  slug        String    @unique
+  content     String    @db.Text
+  excerpt     String?   @db.Text
+  imageKey    String?   @map("image_key") /// Imagen en MinIO
+  isPublished Boolean   @default(false) @map("is_published")
+  publishedAt DateTime? @map("published_at")
+  authorId    String?   @map("author_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([isPublished, publishedAt])
+  @@map("news")
+}
+
+/// Eventos del calendario
+model CalendarEvent {
+  id            String           @id @default(uuid()) @db.Uuid
+  title         String
+  description   String?          @db.Text
+  startDate     DateTime         @map("start_date")
+  endDate       DateTime?        @map("end_date")
+  stage         CompetitionStage?
+  venueId       String?          @map("venue_id") @db.Uuid
+  disciplineId  String?          @map("discipline_id") @db.Uuid
+  isPublished   Boolean          @default(false) @map("is_published")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  @@index([startDate, endDate])
+  @@map("calendar_events")
+}
+
+/// Catálogo de departamentos de Formosa
+model Department {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  localities Locality[]
+
+  @@map("departments")
+}
+
+/// Catálogo de localidades de Formosa
+model Locality {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  departmentId String   @map("department_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([name, departmentId])
+  @@map("localities")
+}
+
+/// Log de auditoría
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String   /// CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  entity    String   /// Nombre de la entidad afectada
+  entityId  String?  @map("entity_id") @db.Uuid
+  changes   Json?    /// JSON diff de los cambios
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

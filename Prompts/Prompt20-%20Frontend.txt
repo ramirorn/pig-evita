@@ -1,0 +1,37 @@
+PROMPT MAESTRO FRONTEND
+Objetivo:
+Construir una SPA profesional, accesible y preparada para producción.
+
+Stack:
+React 19, Vite, TypeScript, TailwindCSS, shadcn/ui, React Router, TanStack Query, Axios, React Hook Form, Zod, Recharts.
+
+Diseño:
+UI simple para todas las edades.
+Paleta:
+Primario #0F4C81
+Secundario #2E7D32
+Acento #F9A825
+Fondo #F5F7FA
+Texto #212121
+Error #D32F2F
+Éxito #2E7D32
+
+Accesibilidad:
+WCAG AA, responsive, navegación por teclado, alto contraste, tipografía consistente.
+
+Flujo:
+Público consulta disciplinas, reglamentos, sedes, noticias, calendario y rankings.
+Administradores gestionan participantes, equipos, competencias y reportes.
+Jugadores ingresan mediante QR al formulario de inscripción sin login.
+
+Integración:
+Consumir únicamente la API documentada.
+Centralizar cliente Axios.
+Autenticación JWT solo administración.
+Estados con TanStack Query.
+Validación compartida con Zod.
+Nunca duplicar lógica del backend.
+Respetar contratos OpenAPI.
+
+Metodología:
+Componentes reutilizables, diseño atómico, SOLID, documentación, pruebas, mantener coherencia visual, no romper compatibilidad.

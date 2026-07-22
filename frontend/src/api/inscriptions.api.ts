@@ -1,0 +1,82 @@
+// ===========================================
+// Inscriptions API
+// ===========================================
+import apiClient from './client';
+import type { Inscription, PaginatedResponse } from '@/types';
+
+export interface InscriptionFilters {
+  page?: number;
+  limit?: number;
+  status?: string;
+  categoryId?: string;
+  participantId?: string;
+}
+
+export interface CreateInscriptionPayload {
+  // Participant data (created or matched by DNI)
+  dni: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  sex: string;
+  phone?: string;
+  email?: string;
+  locality: string;
+  department: string;
+  address?: string;
+  // Inscription data
+  categoryId: string;
+  teamId?: string;
+}
+
+export interface ReviewInscriptionPayload {
+  notes?: string;
+}
+
+export interface RejectInscriptionPayload {
+  rejectionNote: string;
+}
+
+export const inscriptionsApi = {
+  /** Public: Create inscription (no auth) */
+  async create(payload: CreateInscriptionPayload): Promise<Inscription> {
+    const { data } = await apiClient.post<Inscription>('/inscriptions', payload);
+    return data;
+  },
+
+  /** Public: Find inscription by QR code (no auth) */
+  async findByQr(qrCode: string): Promise<Inscription> {
+    const { data } = await apiClient.get<Inscription>(`/inscriptions/qr/${qrCode}`);
+    return data;
+  },
+
+  /** Admin: List inscriptions with filters */
+  async findAll(filters?: InscriptionFilters): Promise<PaginatedResponse<Inscription>> {
+    const { data } = await apiClient.get<PaginatedResponse<Inscription>>('/inscriptions', { params: filters });
+    return data;
+  },
+
+  /** Admin: Get inscription detail */
+  async findOne(id: string): Promise<Inscription> {
+    const { data } = await apiClient.get<Inscription>(`/inscriptions/${id}`);
+    return data;
+  },
+
+  /** Admin: Review inscription (PENDIENTE → REVISADA) */
+  async review(id: string, payload: ReviewInscriptionPayload): Promise<Inscription> {
+    const { data } = await apiClient.patch<Inscription>(`/inscriptions/${id}/review`, payload);
+    return data;
+  },
+
+  /** Admin: Approve inscription (REVISADA → APROBADA) */
+  async approve(id: string): Promise<Inscription> {
+    const { data } = await apiClient.patch<Inscription>(`/inscriptions/${id}/approve`);
+    return data;
+  },
+
+  /** Admin: Reject inscription */
+  async reject(id: string, payload: RejectInscriptionPayload): Promise<Inscription> {
+    const { data } = await apiClient.patch<Inscription>(`/inscriptions/${id}/reject`, payload);
+    return data;
+  },
+};
