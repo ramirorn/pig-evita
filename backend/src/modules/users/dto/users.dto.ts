@@ -1,7 +1,12 @@
 // ===========================================
 // Users DTOs
 // ===========================================
-import { ApiProperty, ApiPropertyOptional, PartialType, OmitType } from '@nestjs/swagger';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  PartialType,
+  OmitType,
+} from '@nestjs/swagger';
 import {
   IsEmail,
   IsEnum,
@@ -15,7 +20,10 @@ import { Role } from '../../../common/constants';
 import { PaginationQueryDto } from '../../../common/dto';
 
 export class CreateUserDto {
-  @ApiProperty({ description: 'Email del usuario', example: 'coordinador@juegosevita.gob.ar' })
+  @ApiProperty({
+    description: 'Email del usuario',
+    example: 'coordinador@juegosevita.gob.ar',
+  })
   @IsEmail({}, { message: 'Debe ser un email válido' })
   @IsNotEmpty({ message: 'El email es obligatorio' })
   email: string;

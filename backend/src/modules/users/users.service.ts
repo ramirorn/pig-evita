@@ -81,7 +81,10 @@ export class UsersService {
     }
 
     if (filterDto.department) {
-      where.department = { contains: filterDto.department, mode: 'insensitive' };
+      where.department = {
+        contains: filterDto.department,
+        mode: 'insensitive',
+      };
     }
 
     // Búsqueda general
@@ -99,7 +102,9 @@ export class UsersService {
         select: userSelect,
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: { [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc' },
+        orderBy: {
+          [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc',
+        },
       }),
       this.prisma.user.count({ where }),
     ]);

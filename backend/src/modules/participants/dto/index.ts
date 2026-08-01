@@ -1,1 +1,5 @@
-export { CreateParticipantDto, UpdateParticipantDto, ParticipantFilterDto } from './participants.dto';
+export {
+  CreateParticipantDto,
+  UpdateParticipantDto,
+  ParticipantFilterDto,
+} from './participants.dto';

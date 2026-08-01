@@ -53,7 +53,7 @@ describe('CompetitionsService', () => {
           categoryId: 'cat-id',
           stage: 'ZONAL',
           format: 'ROUND_ROBIN',
-        })
+        }),
       ).rejects.toThrow('Categoría inválida para la disciplina seleccionada');
     });
 

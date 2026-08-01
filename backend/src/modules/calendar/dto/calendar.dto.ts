@@ -35,7 +35,10 @@ export class CreateCalendarEventDto {
   @IsDateString()
   endDate?: string;
 
-  @ApiPropertyOptional({ description: 'Etapa de competencia asociada', enum: CompetitionStage })
+  @ApiPropertyOptional({
+    description: 'Etapa de competencia asociada',
+    enum: CompetitionStage,
+  })
   @IsOptional()
   @IsEnum(CompetitionStage)
   stage?: CompetitionStage;
@@ -56,7 +59,9 @@ export class CreateCalendarEventDto {
   isPublished?: boolean;
 }
 
-export class UpdateCalendarEventDto extends PartialType(CreateCalendarEventDto) {}
+export class UpdateCalendarEventDto extends PartialType(
+  CreateCalendarEventDto,
+) {}
 
 export class CalendarFilterDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filtrar eventos desde (fecha)' })

@@ -9,9 +9,14 @@ import { Request } from 'express';
 import { JwtPayload } from '../interfaces';
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   constructor(configService: ConfigService) {
-    const secret = configService.get<string>('jwt.refreshSecret') || 'default-refresh-secret';
+    const secret =
+      configService.get<string>('jwt.refreshSecret') ||
+      'default-refresh-secret';
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -20,9 +25,14 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     });
   }
 
-  validate(req: Request, payload: JwtPayload): JwtPayload & { refreshToken: string } {
+  validate(
+    req: Request,
+    payload: JwtPayload,
+  ): JwtPayload & { refreshToken: string } {
     if (payload.type !== 'refresh') {
-      throw new UnauthorizedException('Token inválido: se esperaba un refresh token');
+      throw new UnauthorizedException(
+        'Token inválido: se esperaba un refresh token',
+      );
     }
 
     const authHeader = req.get('Authorization');

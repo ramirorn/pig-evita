@@ -1,7 +1,12 @@
 // ===========================================
 // Dashboard Service
 // ===========================================
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import Redis from 'ioredis';
@@ -32,13 +37,17 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       });
 
       this.redisClient.on('error', (err) => {
-        this.logger.warn(`Redis connection error: ${err.message}. Dashboard will fallback to direct DB queries without cache.`);
+        this.logger.warn(
+          `Redis connection error: ${err.message}. Dashboard will fallback to direct DB queries without cache.`,
+        );
       });
-      
+
       // Intentar conectar en background, ignorar fallos para no romper la app si Redis no está
       this.redisClient.connect().catch(() => {});
-    } catch (e) {
-      this.logger.warn('Failed to initialize Redis client for Dashboard. Using DB fallback.');
+    } catch {
+      this.logger.warn(
+        'Failed to initialize Redis client for Dashboard. Using DB fallback.',
+      );
     }
   }
 
@@ -85,9 +94,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       totalTeams,
       totalInscriptions,
       totalCompetitions,
-      demographics: participantsBySex.map(p => ({
+      demographics: participantsBySex.map((p) => ({
         sex: p.sex,
-        count: p._count.sex
+        count: p._count.sex,
       })),
       lastUpdated: new Date().toISOString(),
     };
@@ -95,7 +104,11 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     // 3. Guardar en caché
     if (this.redisClient && this.redisClient.status === 'ready') {
       try {
-        await this.redisClient.setex(this.CACHE_KEY, this.CACHE_TTL_SECONDS, JSON.stringify(stats));
+        await this.redisClient.setex(
+          this.CACHE_KEY,
+          this.CACHE_TTL_SECONDS,
+          JSON.stringify(stats),
+        );
       } catch (e) {
         this.logger.error(`Error writing to Redis cache: ${e.message}`);
       }

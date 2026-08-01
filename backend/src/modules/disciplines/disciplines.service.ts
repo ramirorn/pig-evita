@@ -9,7 +9,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateDisciplineDto, UpdateDisciplineDto, DisciplineFilterDto } from './dto';
+import {
+  CreateDisciplineDto,
+  UpdateDisciplineDto,
+  DisciplineFilterDto,
+} from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
 
 @Injectable()
@@ -24,7 +28,9 @@ export class DisciplinesService {
     });
 
     if (existing) {
-      throw new ConflictException(`La disciplina "${createDto.name}" ya existe`);
+      throw new ConflictException(
+        `La disciplina "${createDto.name}" ya existe`,
+      );
     }
 
     const discipline = await this.prisma.discipline.create({
@@ -93,7 +99,9 @@ export class DisciplinesService {
       });
 
       if (existing) {
-        throw new ConflictException(`La disciplina "${updateDto.name}" ya existe`);
+        throw new ConflictException(
+          `La disciplina "${updateDto.name}" ya existe`,
+        );
       }
     }
 

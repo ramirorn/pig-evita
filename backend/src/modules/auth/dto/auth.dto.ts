@@ -2,15 +2,13 @@
 // Auth DTOs
 // ===========================================
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsEmail,
-  IsNotEmpty,
-  IsString,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
-  @ApiProperty({ description: 'Email del usuario', example: 'admin@juegosevita.gob.ar' })
+  @ApiProperty({
+    description: 'Email del usuario',
+    example: 'admin@juegosevita.gob.ar',
+  })
   @IsEmail({}, { message: 'Debe ser un email válido' })
   @IsNotEmpty({ message: 'El email es obligatorio' })
   email: string;

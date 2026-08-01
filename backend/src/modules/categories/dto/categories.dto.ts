@@ -36,7 +36,10 @@ export class CreateCategoryDto {
   @Min(0)
   maxAge: number;
 
-  @ApiProperty({ description: 'Sexo', enum: ['MASCULINO', 'FEMENINO', 'MIXTO'] })
+  @ApiProperty({
+    description: 'Sexo',
+    enum: ['MASCULINO', 'FEMENINO', 'MIXTO'],
+  })
   @IsEnum(Sex, { message: 'Sexo inválido' })
   sex: Sex;
 
@@ -46,7 +49,9 @@ export class CreateCategoryDto {
   @Min(1)
   maxParticipants?: number;
 
-  @ApiPropertyOptional({ description: 'Cantidad máxima de miembros si es equipo' })
+  @ApiPropertyOptional({
+    description: 'Cantidad máxima de miembros si es equipo',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

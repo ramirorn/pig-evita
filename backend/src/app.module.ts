@@ -54,7 +54,14 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, redisConfig, minioConfig, throttleConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        jwtConfig,
+        redisConfig,
+        minioConfig,
+        throttleConfig,
+      ],
       validate: validateEnv,
     }),
 

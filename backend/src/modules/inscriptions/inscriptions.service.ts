@@ -34,9 +34,18 @@ export class InscriptionsService {
    */
   async create(createDto: CreateInscriptionDto) {
     const {
-      dni, firstName, lastName, birthDate, sex,
-      phone, email, locality, department, address,
-      categoryId, teamId,
+      dni,
+      firstName,
+      lastName,
+      birthDate,
+      sex,
+      phone,
+      email,
+      locality,
+      department,
+      address,
+      categoryId,
+      teamId,
     } = createDto;
 
     // 1. Verificar que la categoría existe y obtener su disciplina
@@ -104,7 +113,9 @@ export class InscriptionsService {
     });
 
     if (existingInscription) {
-      throw new ConflictException('El participante ya está inscripto en esta categoría');
+      throw new ConflictException(
+        'El participante ya está inscripto en esta categoría',
+      );
     }
 
     // 6. Generar código QR único
@@ -132,7 +143,9 @@ export class InscriptionsService {
       color: { dark: '#0F4C81', light: '#FFFFFF' },
     });
 
-    this.logger.log(`Inscription created: ${qrCode} for ${dni} in ${category.name}`);
+    this.logger.log(
+      `Inscription created: ${qrCode} for ${dni} in ${category.name}`,
+    );
 
     return {
       ...inscription,
@@ -162,8 +175,16 @@ export class InscriptionsService {
 
     if (filterDto.search) {
       where.OR = [
-        { participant: { firstName: { contains: filterDto.search, mode: 'insensitive' } } },
-        { participant: { lastName: { contains: filterDto.search, mode: 'insensitive' } } },
+        {
+          participant: {
+            firstName: { contains: filterDto.search, mode: 'insensitive' },
+          },
+        },
+        {
+          participant: {
+            lastName: { contains: filterDto.search, mode: 'insensitive' },
+          },
+        },
         { participant: { dni: { contains: filterDto.search } } },
         { qrCode: { contains: filterDto.search, mode: 'insensitive' } },
       ];
@@ -224,7 +245,9 @@ export class InscriptionsService {
     });
 
     if (!inscription) {
-      throw new NotFoundException('Inscripción no encontrada para el código QR proporcionado');
+      throw new NotFoundException(
+        'Inscripción no encontrada para el código QR proporcionado',
+      );
     }
 
     return inscription;
@@ -257,7 +280,9 @@ export class InscriptionsService {
       },
     });
 
-    this.logger.log(`Inscription reviewed: ${updated.qrCode} by user ${userId}`);
+    this.logger.log(
+      `Inscription reviewed: ${updated.qrCode} by user ${userId}`,
+    );
     return updated;
   }
 
@@ -287,7 +312,9 @@ export class InscriptionsService {
       },
     });
 
-    this.logger.log(`Inscription approved: ${updated.qrCode} by user ${userId}`);
+    this.logger.log(
+      `Inscription approved: ${updated.qrCode} by user ${userId}`,
+    );
     return updated;
   }
 
@@ -299,7 +326,9 @@ export class InscriptionsService {
     const inscription = await this.findOne(id);
 
     if (inscription.status === InscriptionStatus.APROBADA) {
-      throw new BadRequestException('No se puede rechazar una inscripción ya aprobada');
+      throw new BadRequestException(
+        'No se puede rechazar una inscripción ya aprobada',
+      );
     }
 
     if (inscription.status === InscriptionStatus.RECHAZADA) {
@@ -320,7 +349,9 @@ export class InscriptionsService {
       },
     });
 
-    this.logger.log(`Inscription rejected: ${updated.qrCode} by user ${userId}`);
+    this.logger.log(
+      `Inscription rejected: ${updated.qrCode} by user ${userId}`,
+    );
     return updated;
   }
 
@@ -332,7 +363,10 @@ export class InscriptionsService {
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
 
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
       age--;
     }
 

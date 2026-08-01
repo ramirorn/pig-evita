@@ -38,7 +38,11 @@ export class CategoriesController {
 
   @Get()
   @Public() // Público para los combos de inscripción
-  @ApiOperation({ summary: 'Listar categorías', description: 'Endpoint público. Paginado y filtrado por disciplina, sexo, etc.' })
+  @ApiOperation({
+    summary: 'Listar categorías',
+    description:
+      'Endpoint público. Paginado y filtrado por disciplina, sexo, etc.',
+  })
   @ApiResponse({ status: 200, description: 'Lista de categorías' })
   async findAll(@Query() filterDto: CategoryFilterDto) {
     return this.categoriesService.findAll(filterDto);

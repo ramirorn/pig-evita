@@ -5,7 +5,9 @@ import { z } from 'zod';
 
 export const envSchema = z.object({
   // App
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'production', 'test'])
+    .default('development'),
   PORT: z.coerce.number().default(3000),
   API_PREFIX: z.string().default('api/v1'),
   APP_NAME: z.string().default('Juegos Evita Formosa'),
@@ -56,9 +58,7 @@ export function validateEnv(config: Record<string, unknown>): EnvConfig {
     const errorMessages = Object.entries(errors)
       .map(([field, messages]) => `  ${field}: ${messages?.join(', ')}`)
       .join('\n');
-    throw new Error(
-      `\n❌ Invalid environment variables:\n${errorMessages}\n`,
-    );
+    throw new Error(`\n❌ Invalid environment variables:\n${errorMessages}\n`);
   }
   return result.data;
 }

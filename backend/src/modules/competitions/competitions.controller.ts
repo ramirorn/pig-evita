@@ -18,9 +18,14 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CompetitionsService } from './competitions.service';
-import { CreateCompetitionDto, UpdateCompetitionDto, CompetitionFilterDto, GenerateFixtureDto } from './dto';
+import {
+  CreateCompetitionDto,
+  UpdateCompetitionDto,
+  CompetitionFilterDto,
+  GenerateFixtureDto,
+} from './dto';
 import { Roles, Public } from '../../common/decorators';
-import { Role, ADMIN_ROLES } from '../../common/constants';
+import { ADMIN_ROLES } from '../../common/constants';
 
 @ApiTags('Competitions')
 @Controller('competitions')
@@ -64,7 +69,9 @@ export class CompetitionsController {
 
   @Post(':id/fixture')
   @Roles(...ADMIN_ROLES)
-  @ApiOperation({ summary: 'Generar fixture automáticamente (ej. Round Robin)' })
+  @ApiOperation({
+    summary: 'Generar fixture automáticamente (ej. Round Robin)',
+  })
   @ApiResponse({ status: 201, description: 'Fixture generado' })
   async generateFixture(
     @Param('id', ParseUUIDPipe) id: string,

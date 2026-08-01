@@ -10,7 +10,12 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateCompetitionDto, UpdateCompetitionDto, CompetitionFilterDto, GenerateFixtureDto } from './dto';
+import {
+  CreateCompetitionDto,
+  UpdateCompetitionDto,
+  CompetitionFilterDto,
+  GenerateFixtureDto,
+} from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
 import { EngineFactory } from './engine.factory';
 
@@ -35,7 +40,9 @@ export class CompetitionsService {
     });
 
     if (existing) {
-      throw new ConflictException('Ya existe una competencia para esta disciplina, categoría y etapa');
+      throw new ConflictException(
+        'Ya existe una competencia para esta disciplina, categoría y etapa',
+      );
     }
 
     // Verificar disciplina y categoría
@@ -43,14 +50,20 @@ export class CompetitionsService {
       where: { id: createDto.categoryId },
     });
     if (!category || category.disciplineId !== createDto.disciplineId) {
-      throw new BadRequestException('Categoría inválida para la disciplina seleccionada');
+      throw new BadRequestException(
+        'Categoría inválida para la disciplina seleccionada',
+      );
     }
 
     const competition = await this.prisma.competition.create({
       data: {
         ...createDto,
-        config: createDto.config ? (createDto.config as Prisma.InputJsonValue) : undefined,
-        startDate: createDto.startDate ? new Date(createDto.startDate) : undefined,
+        config: createDto.config
+          ? (createDto.config as Prisma.InputJsonValue)
+          : undefined,
+        startDate: createDto.startDate
+          ? new Date(createDto.startDate)
+          : undefined,
         endDate: createDto.endDate ? new Date(createDto.endDate) : undefined,
       },
     });
@@ -80,7 +93,9 @@ export class CompetitionsService {
         },
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: { [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc' },
+        orderBy: {
+          [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc',
+        },
       }),
       this.prisma.competition.count({ where }),
     ]);
@@ -98,8 +113,8 @@ export class CompetitionsService {
           include: {
             venue: true,
             results: {
-              include: { team: true, participant: true }
-            }
+              include: { team: true, participant: true },
+            },
           },
           orderBy: [{ round: 'asc' }, { matchNumber: 'asc' }],
         },
@@ -119,8 +134,12 @@ export class CompetitionsService {
     // Prisma ignora automáticamente los campos undefined
     const updateData: Prisma.CompetitionUpdateInput = {
       ...updateDto,
-      config: updateDto.config ? (updateDto.config as Prisma.InputJsonValue) : undefined,
-      startDate: updateDto.startDate ? new Date(updateDto.startDate) : undefined,
+      config: updateDto.config
+        ? (updateDto.config as Prisma.InputJsonValue)
+        : undefined,
+      startDate: updateDto.startDate
+        ? new Date(updateDto.startDate)
+        : undefined,
       endDate: updateDto.endDate ? new Date(updateDto.endDate) : undefined,
     };
 
@@ -137,12 +156,18 @@ export class CompetitionsService {
     const competition = await this.findOne(id);
 
     if (competition.matches.length > 0) {
-      throw new ConflictException('La competencia ya tiene un fixture generado');
+      throw new ConflictException(
+        'La competencia ya tiene un fixture generado',
+      );
     }
 
-    const ids = generateDto.teamIds?.length ? generateDto.teamIds : generateDto.participantIds;
+    const ids = generateDto.teamIds?.length
+      ? generateDto.teamIds
+      : generateDto.participantIds;
     if (!ids || ids.length < 2) {
-      throw new BadRequestException('Debe proveer al menos 2 IDs de equipos o participantes');
+      throw new BadRequestException(
+        'Debe proveer al menos 2 IDs de equipos o participantes',
+      );
     }
 
     const engine = this.engineFactory.getEngine(competition.format);

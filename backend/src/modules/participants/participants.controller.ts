@@ -18,7 +18,11 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ParticipantsService } from './participants.service';
-import { CreateParticipantDto, UpdateParticipantDto, ParticipantFilterDto } from './dto';
+import {
+  CreateParticipantDto,
+  UpdateParticipantDto,
+  ParticipantFilterDto,
+} from './dto';
 import { Roles } from '../../common/decorators';
 import { Role, ADMIN_ROLES } from '../../common/constants';
 
@@ -29,7 +33,13 @@ export class ParticipantsController {
   constructor(private readonly participantsService: ParticipantsService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL, Role.ADMIN_DEPARTAMENTAL, Role.ADMIN_ZONAL, Role.DELEGADO)
+  @Roles(
+    Role.SUPER_ADMIN,
+    Role.ADMIN_PROVINCIAL,
+    Role.ADMIN_DEPARTAMENTAL,
+    Role.ADMIN_ZONAL,
+    Role.DELEGADO,
+  )
   @ApiOperation({ summary: 'Crear participante' })
   @ApiResponse({ status: 201, description: 'Participante creado' })
   @ApiResponse({ status: 409, description: 'DNI ya registrado' })
@@ -39,7 +49,10 @@ export class ParticipantsController {
 
   @Get()
   @Roles(...ADMIN_ROLES, Role.DELEGADO, Role.COORDINADOR)
-  @ApiOperation({ summary: 'Listar participantes', description: 'Lista paginada con filtros.' })
+  @ApiOperation({
+    summary: 'Listar participantes',
+    description: 'Lista paginada con filtros.',
+  })
   @ApiResponse({ status: 200, description: 'Lista de participantes' })
   async findAll(@Query() filterDto: ParticipantFilterDto) {
     return this.participantsService.findAll(filterDto);
@@ -56,7 +69,10 @@ export class ParticipantsController {
 
   @Get(':id')
   @Roles(...ADMIN_ROLES, Role.DELEGADO, Role.COORDINADOR)
-  @ApiOperation({ summary: 'Obtener participante', description: 'Incluye inscripciones, documentos y equipos.' })
+  @ApiOperation({
+    summary: 'Obtener participante',
+    description: 'Incluye inscripciones, documentos y equipos.',
+  })
   @ApiResponse({ status: 200, description: 'Datos completos del participante' })
   @ApiResponse({ status: 404, description: 'No encontrado' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
@@ -64,7 +80,12 @@ export class ParticipantsController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL, Role.ADMIN_DEPARTAMENTAL, Role.DELEGADO)
+  @Roles(
+    Role.SUPER_ADMIN,
+    Role.ADMIN_PROVINCIAL,
+    Role.ADMIN_DEPARTAMENTAL,
+    Role.DELEGADO,
+  )
   @ApiOperation({ summary: 'Actualizar participante' })
   @ApiResponse({ status: 200, description: 'Participante actualizado' })
   @ApiResponse({ status: 404, description: 'No encontrado' })

@@ -9,16 +9,24 @@ import { PrismaService } from '../../database/prisma.service';
  * Interfaz base para los motores de fixture
  */
 export interface IFixtureEngine {
-  generateFixture(competition: Competition, participantOrTeamIds: string[]): Promise<Match[]>;
+  generateFixture(
+    competition: Competition,
+    participantOrTeamIds: string[],
+  ): Promise<Match[]>;
 }
 
 @Injectable()
 export class RoundRobinEngine implements IFixtureEngine {
   constructor(private readonly prisma: PrismaService) {}
 
-  async generateFixture(competition: Competition, ids: string[]): Promise<Match[]> {
+  async generateFixture(
+    competition: Competition,
+    ids: string[],
+  ): Promise<Match[]> {
     if (ids.length < 2) {
-      throw new Error('Se necesitan al menos 2 participantes/equipos para Round Robin');
+      throw new Error(
+        'Se necesitan al menos 2 participantes/equipos para Round Robin',
+      );
     }
 
     // Agregar un "bye" (descanso) si son impares
@@ -58,24 +66,30 @@ export class RoundRobinEngine implements IFixtureEngine {
     const createdMatches = [];
     for (const matchData of matchesToCreate) {
       const { homeId, awayId, ...rest } = matchData;
-      
+
       const createdMatch = await this.prisma.match.create({
         data: rest,
       });
 
       // Crear registros en Result para que sepamos quién juega en este partido
-      const isTeam = typeof homeId === 'string' && homeId.length > 0 && homeId !== 'BYE' && homeId.includes('-'); // uuid check simple
-      
-      const resultData = isTeam ? [
-        { matchId: createdMatch.id, teamId: homeId, scoreData: {} },
-        { matchId: createdMatch.id, teamId: awayId, scoreData: {} }
-      ] : [
-        { matchId: createdMatch.id, participantId: homeId, scoreData: {} },
-        { matchId: createdMatch.id, participantId: awayId, scoreData: {} }
-      ];
+      const isTeam =
+        typeof homeId === 'string' &&
+        homeId.length > 0 &&
+        homeId !== 'BYE' &&
+        homeId.includes('-'); // uuid check simple
+
+      const resultData = isTeam
+        ? [
+            { matchId: createdMatch.id, teamId: homeId, scoreData: {} },
+            { matchId: createdMatch.id, teamId: awayId, scoreData: {} },
+          ]
+        : [
+            { matchId: createdMatch.id, participantId: homeId, scoreData: {} },
+            { matchId: createdMatch.id, participantId: awayId, scoreData: {} },
+          ];
 
       await this.prisma.result.createMany({ data: resultData as any });
-      
+
       createdMatches.push(createdMatch);
     }
 
@@ -85,9 +99,7 @@ export class RoundRobinEngine implements IFixtureEngine {
 
 @Injectable()
 export class EngineFactory {
-  constructor(
-    private readonly roundRobinEngine: RoundRobinEngine,
-  ) {}
+  constructor(private readonly roundRobinEngine: RoundRobinEngine) {}
 
   getEngine(format: CompetitionFormat): IFixtureEngine {
     switch (format) {
@@ -96,7 +108,9 @@ export class EngineFactory {
       case 'ELIMINACION_DIRECTA':
       case 'FASE_GRUPOS':
       default:
-        throw new NotImplementedException(`El formato ${format} aún no está implementado`);
+        throw new NotImplementedException(
+          `El formato ${format} aún no está implementado`,
+        );
     }
   }
 }

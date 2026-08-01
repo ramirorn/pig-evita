@@ -18,9 +18,13 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { DisciplinesService } from './disciplines.service';
-import { CreateDisciplineDto, UpdateDisciplineDto, DisciplineFilterDto } from './dto';
+import {
+  CreateDisciplineDto,
+  UpdateDisciplineDto,
+  DisciplineFilterDto,
+} from './dto';
 import { Roles, Public } from '../../common/decorators';
-import { Role, ADMIN_ROLES } from '../../common/constants';
+import { Role } from '../../common/constants';
 
 @ApiTags('Disciplines')
 @Controller('disciplines')
@@ -30,7 +34,10 @@ export class DisciplinesController {
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Crear disciplina', description: 'Solo Super Admin y Admin Provincial.' })
+  @ApiOperation({
+    summary: 'Crear disciplina',
+    description: 'Solo Super Admin y Admin Provincial.',
+  })
   @ApiResponse({ status: 201, description: 'Disciplina creada' })
   async create(@Body() createDto: CreateDisciplineDto) {
     return this.disciplinesService.create(createDto);
@@ -38,7 +45,10 @@ export class DisciplinesController {
 
   @Get()
   @Public() // Lista de disciplinas puede ser consultada sin login para armar combos en frontend
-  @ApiOperation({ summary: 'Listar disciplinas', description: 'Endpoint público. Paginado y filtrado.' })
+  @ApiOperation({
+    summary: 'Listar disciplinas',
+    description: 'Endpoint público. Paginado y filtrado.',
+  })
   @ApiResponse({ status: 200, description: 'Lista de disciplinas' })
   async findAll(@Query() filterDto: DisciplineFilterDto) {
     return this.disciplinesService.findAll(filterDto);
@@ -46,7 +56,10 @@ export class DisciplinesController {
 
   @Get(':id')
   @Public()
-  @ApiOperation({ summary: 'Obtener disciplina', description: 'Incluye sus categorías asociadas.' })
+  @ApiOperation({
+    summary: 'Obtener disciplina',
+    description: 'Incluye sus categorías asociadas.',
+  })
   @ApiResponse({ status: 200, description: 'Datos de la disciplina' })
   @ApiResponse({ status: 404, description: 'No encontrada' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {

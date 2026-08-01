@@ -2,7 +2,7 @@
 // Application Bootstrap
 // ===========================================
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
@@ -20,7 +20,9 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port', 3000);
   const apiPrefix = configService.get<string>('app.apiPrefix', 'api/v1');
-  const corsOrigins = configService.get<string[]>('app.corsOrigins', ['http://localhost:5173']);
+  const corsOrigins = configService.get<string[]>('app.corsOrigins', [
+    'http://localhost:5173',
+  ]);
 
   // Security: Helmet
   app.use(helmet());
@@ -96,8 +98,10 @@ async function bootstrap() {
   await app.listen(port);
 
   const logger = new Logger('Bootstrap');
-  logger.log(`🚀 Juegos Evita API running on: http://localhost:${port}/${apiPrefix}`);
+  logger.log(
+    `🚀 Juegos Evita API running on: http://localhost:${port}/${apiPrefix}`,
+  );
   logger.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
 }
 
-bootstrap();
+void bootstrap();

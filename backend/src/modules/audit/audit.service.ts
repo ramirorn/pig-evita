@@ -31,7 +31,9 @@ export class AuditService {
           action: data.action,
           entity: data.entity,
           entityId: data.entityId ?? null,
-          changes: data.changes ? (data.changes as Prisma.InputJsonValue) : undefined,
+          changes: data.changes
+            ? (data.changes as Prisma.InputJsonValue)
+            : undefined,
           ipAddress: data.ipAddress ?? null,
           userAgent: data.userAgent ?? null,
         },
@@ -86,7 +88,9 @@ export class AuditService {
       this.prisma.auditLog.findMany({
         where,
         include: {
-          user: { select: { id: true, email: true, firstName: true, lastName: true } },
+          user: {
+            select: { id: true, email: true, firstName: true, lastName: true },
+          },
         },
         skip: query.skip,
         take: query.take,

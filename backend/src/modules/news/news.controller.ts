@@ -20,7 +20,7 @@ import {
 import { NewsService } from './news.service';
 import { CreateNewsDto, UpdateNewsDto, NewsFilterDto } from './dto';
 import { Roles, Public, CurrentUser } from '../../common/decorators';
-import { Role, ADMIN_ROLES } from '../../common/constants';
+import { ADMIN_ROLES } from '../../common/constants';
 
 @ApiTags('News')
 @Controller('news')
@@ -32,7 +32,10 @@ export class NewsController {
   @Roles(...ADMIN_ROLES)
   @ApiOperation({ summary: 'Crear noticia' })
   @ApiResponse({ status: 201, description: 'Noticia creada' })
-  async create(@Body() createDto: CreateNewsDto, @CurrentUser('sub') userId: string) {
+  async create(
+    @Body() createDto: CreateNewsDto,
+    @CurrentUser('sub') userId: string,
+  ) {
     return this.newsService.create(createDto, userId);
   }
 

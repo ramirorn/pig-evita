@@ -40,7 +40,10 @@ export class DocumentsController {
   @ApiOperation({ summary: 'Subir documento' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: UploadDocumentDto })
-  @ApiResponse({ status: 201, description: 'Documento subido a MinIO y registrado' })
+  @ApiResponse({
+    status: 201,
+    description: 'Documento subido a MinIO y registrado',
+  })
   async upload(
     @Body() body: any,
     @UploadedFile(
@@ -54,7 +57,8 @@ export class DocumentsController {
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
         }),
-    ) file: Express.Multer.File,
+    )
+    file: Express.Multer.File,
   ) {
     return this.documentsService.upload(body.participantId, body.type, file);
   }
@@ -62,8 +66,13 @@ export class DocumentsController {
   @Get('participant/:participantId')
   @Roles(...ADMIN_ROLES, Role.DELEGADO, Role.COORDINADOR)
   @ApiOperation({ summary: 'Listar documentos del participante' })
-  @ApiResponse({ status: 200, description: 'Lista de documentos con URLs presignadas' })
-  async findByParticipant(@Param('participantId', ParseUUIDPipe) participantId: string) {
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de documentos con URLs presignadas',
+  })
+  async findByParticipant(
+    @Param('participantId', ParseUUIDPipe) participantId: string,
+  ) {
     return this.documentsService.findByParticipant(participantId);
   }
 

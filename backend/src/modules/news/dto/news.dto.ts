@@ -2,12 +2,7 @@
 // News DTOs
 // ===========================================
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/dto';
 
 export class CreateNewsDto {

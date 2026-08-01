@@ -20,7 +20,7 @@ import {
 import { VenuesService } from './venues.service';
 import { CreateVenueDto, UpdateVenueDto, VenueFilterDto } from './dto';
 import { Roles, Public } from '../../common/decorators';
-import { Role, ADMIN_ROLES } from '../../common/constants';
+import { ADMIN_ROLES } from '../../common/constants';
 
 @ApiTags('Venues')
 @Controller('venues')

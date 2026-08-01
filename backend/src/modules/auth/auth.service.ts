@@ -29,7 +29,9 @@ export class AuthService {
    * Login con email y contraseña.
    * Retorna access token + refresh token + datos del usuario.
    */
-  async login(loginDto: LoginDto): Promise<AuthResponseDto & { refreshToken: string }> {
+  async login(
+    loginDto: LoginDto,
+  ): Promise<AuthResponseDto & { refreshToken: string }> {
     const { email, password } = loginDto;
 
     // Buscar usuario
@@ -45,15 +47,21 @@ export class AuthService {
 
     // Verificar que esté activo
     if (!user.isActive) {
-      await this.logAuditAction(user.id, 'LOGIN_FAILED', 'User', user.id, { reason: 'inactive' });
-      throw new ForbiddenException('Usuario desactivado. Contacte al administrador.');
+      await this.logAuditAction(user.id, 'LOGIN_FAILED', 'User', user.id, {
+        reason: 'inactive',
+      });
+      throw new ForbiddenException(
+        'Usuario desactivado. Contacte al administrador.',
+      );
     }
 
     // Verificar contraseña con Argon2
     const passwordValid = await argon2.verify(user.passwordHash, password);
 
     if (!passwordValid) {
-      await this.logAuditAction(user.id, 'LOGIN_FAILED', 'User', user.id, { email });
+      await this.logAuditAction(user.id, 'LOGIN_FAILED', 'User', user.id, {
+        email,
+      });
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -108,7 +116,10 @@ export class AuthService {
     }
 
     // Verificar que el refresh token coincida
-    const refreshTokenValid = await argon2.verify(user.refreshToken, refreshToken);
+    const refreshTokenValid = await argon2.verify(
+      user.refreshToken,
+      refreshToken,
+    );
 
     if (!refreshTokenValid) {
       // Posible robo de token — invalidar todos los refresh tokens
@@ -116,7 +127,9 @@ export class AuthService {
         where: { id: userId },
         data: { refreshToken: null },
       });
-      throw new ForbiddenException('Refresh token inválido. Sesión cerrada por seguridad.');
+      throw new ForbiddenException(
+        'Refresh token inválido. Sesión cerrada por seguridad.',
+      );
     }
 
     // Generar nuevos tokens (rotación de refresh token)
@@ -161,14 +174,18 @@ export class AuthService {
         { ...payload, type: 'access' },
         {
           secret: this.configService.get<string>('jwt.accessSecret'),
-          expiresIn: this.configService.get<string>('jwt.accessExpiration') as any,
+          expiresIn: this.configService.get<string>(
+            'jwt.accessExpiration',
+          ) as any,
         },
       ),
       this.jwtService.signAsync(
         { ...payload, type: 'refresh' },
         {
           secret: this.configService.get<string>('jwt.refreshSecret'),
-          expiresIn: this.configService.get<string>('jwt.refreshExpiration') as any,
+          expiresIn: this.configService.get<string>(
+            'jwt.refreshExpiration',
+          ) as any,
         },
       ),
     ]);

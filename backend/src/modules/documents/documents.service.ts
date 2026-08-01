@@ -10,7 +10,7 @@ import {
 import { DocumentStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { MinioService } from './minio.service';
-import { UploadDocumentDto, ReviewDocumentDto } from './dto';
+import { ReviewDocumentDto } from './dto';
 
 @Injectable()
 export class DocumentsService {
@@ -21,11 +21,7 @@ export class DocumentsService {
     private readonly minioService: MinioService,
   ) {}
 
-  async upload(
-    participantId: string,
-    type: string,
-    file: Express.Multer.File,
-  ) {
+  async upload(participantId: string, type: string, file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No se adjuntó ningún archivo');
     }
@@ -41,7 +37,11 @@ export class DocumentsService {
     // 1. Subir archivo a MinIO
     // Formato de nombre: dni/tipo-original.ext
     const filename = `${participant.dni}-${file.originalname}`;
-    const fileUrl = await this.minioService.uploadFile(file, `participants/${participantId}`, filename);
+    const fileUrl = await this.minioService.uploadFile(
+      file,
+      `participants/${participantId}`,
+      filename,
+    );
 
     // 2. Desactivar documento anterior del mismo tipo si existía
     await this.prisma.document.updateMany({
@@ -50,7 +50,10 @@ export class DocumentsService {
         documentType: type as any,
         status: { in: ['PENDIENTE', 'APROBADO', 'RECHAZADO'] },
       },
-      data: { status: 'RECHAZADO', rejectionNote: 'Reemplazado por una versión más reciente' },
+      data: {
+        status: 'RECHAZADO',
+        rejectionNote: 'Reemplazado por una versión más reciente',
+      },
     });
 
     // 3. Crear registro en BD
@@ -66,7 +69,9 @@ export class DocumentsService {
       },
     });
 
-    this.logger.log(`Document ${type} uploaded for participant ${participant.dni}`);
+    this.logger.log(
+      `Document ${type} uploaded for participant ${participant.dni}`,
+    );
     return document;
   }
 
@@ -79,15 +84,19 @@ export class DocumentsService {
     // Añadir presigned URL a cada documento por si el bucket fuera privado
     return Promise.all(
       documents.map(async (doc) => {
-        const presignedUrl = await this.minioService.getPresignedUrl(doc.fileKey);
+        const presignedUrl = await this.minioService.getPresignedUrl(
+          doc.fileKey,
+        );
         return { ...doc, presignedUrl };
-      })
+      }),
     );
   }
 
   async review(id: string, userId: string, reviewDto: ReviewDocumentDto) {
     if (reviewDto.status === DocumentStatus.RECHAZADO && !reviewDto.notes) {
-      throw new BadRequestException('Debe incluir observaciones si rechaza el documento');
+      throw new BadRequestException(
+        'Debe incluir observaciones si rechaza el documento',
+      );
     }
 
     const document = await this.prisma.document.findUnique({
@@ -111,7 +120,9 @@ export class DocumentsService {
       },
     });
 
-    this.logger.log(`Document ${id} reviewed by ${userId} - Status: ${updated.status}`);
+    this.logger.log(
+      `Document ${id} reviewed by ${userId} - Status: ${updated.status}`,
+    );
     return updated;
   }
 }

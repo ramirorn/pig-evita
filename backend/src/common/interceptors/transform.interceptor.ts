@@ -21,9 +21,10 @@ export interface ApiResponse<T> {
  * { success: true, data: ..., meta: ... }
  */
 @Injectable()
-export class TransformInterceptor<T>
-  implements NestInterceptor<T, ApiResponse<T>>
-{
+export class TransformInterceptor<T> implements NestInterceptor<
+  T,
+  ApiResponse<T>
+> {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
@@ -36,7 +37,12 @@ export class TransformInterceptor<T>
         }
 
         // Extraer meta de paginación si existe
-        if (data && typeof data === 'object' && 'items' in data && 'meta' in data) {
+        if (
+          data &&
+          typeof data === 'object' &&
+          'items' in data &&
+          'meta' in data
+        ) {
           return {
             success: true as const,
             data: data.items,

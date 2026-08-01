@@ -58,7 +58,10 @@ export class CreateDisciplineDto {
 export class UpdateDisciplineDto extends PartialType(CreateDisciplineDto) {}
 
 export class DisciplineFilterDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ description: 'Filtrar por tipo', enum: DisciplineType })
+  @ApiPropertyOptional({
+    description: 'Filtrar por tipo',
+    enum: DisciplineType,
+  })
   @IsOptional()
   @IsEnum(DisciplineType)
   type?: DisciplineType;

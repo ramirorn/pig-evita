@@ -1,1 +1,6 @@
-export { CreateCompetitionDto, UpdateCompetitionDto, CompetitionFilterDto, GenerateFixtureDto } from './competitions.dto';
+export {
+  CreateCompetitionDto,
+  UpdateCompetitionDto,
+  CompetitionFilterDto,
+  GenerateFixtureDto,
+} from './competitions.dto';

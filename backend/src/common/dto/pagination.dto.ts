@@ -10,14 +10,23 @@ import { IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
  * Todos los endpoints de listado deben aceptar estos query params.
  */
 export class PaginationQueryDto {
-  @ApiPropertyOptional({ description: 'Número de página', default: 1, minimum: 1 })
+  @ApiPropertyOptional({
+    description: 'Número de página',
+    default: 1,
+    minimum: 1,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ description: 'Elementos por página', default: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({
+    description: 'Elementos por página',
+    default: 20,
+    minimum: 1,
+    maximum: 100,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -25,12 +34,19 @@ export class PaginationQueryDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ description: 'Campo para ordenar', example: 'createdAt' })
+  @ApiPropertyOptional({
+    description: 'Campo para ordenar',
+    example: 'createdAt',
+  })
   @IsOptional()
   @IsString()
   sortBy?: string = 'createdAt';
 
-  @ApiPropertyOptional({ description: 'Dirección del orden', enum: ['asc', 'desc'], default: 'desc' })
+  @ApiPropertyOptional({
+    description: 'Dirección del orden',
+    enum: ['asc', 'desc'],
+    default: 'desc',
+  })
   @IsOptional()
   @IsString()
   sortOrder?: 'asc' | 'desc' = 'desc';

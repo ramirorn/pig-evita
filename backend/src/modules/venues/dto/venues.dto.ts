@@ -14,12 +14,18 @@ import {
 import { PaginationQueryDto } from '../../../common/dto';
 
 export class CreateVenueDto {
-  @ApiProperty({ description: 'Nombre de la sede', example: 'Polideportivo Municipal' })
+  @ApiProperty({
+    description: 'Nombre de la sede',
+    example: 'Polideportivo Municipal',
+  })
   @IsString()
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
   name: string;
 
-  @ApiProperty({ description: 'Dirección física', example: 'Av. San Martín 123' })
+  @ApiProperty({
+    description: 'Dirección física',
+    example: 'Av. San Martín 123',
+  })
   @IsString()
   @IsNotEmpty({ message: 'La dirección es obligatoria' })
   address: string;

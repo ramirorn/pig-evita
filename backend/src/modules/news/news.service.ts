@@ -1,12 +1,7 @@
 // ===========================================
 // News Service
 // ===========================================
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateNewsDto, UpdateNewsDto, NewsFilterDto } from './dto';
@@ -27,7 +22,7 @@ export class NewsService {
 
   async create(createDto: CreateNewsDto, authorId: string) {
     const slug = this.generateSlug(createDto.title);
-    
+
     // Evitar slugs duplicados
     const existing = await this.prisma.news.findUnique({ where: { slug } });
     const finalSlug = existing ? `${slug}-${Date.now()}` : slug;
@@ -67,7 +62,9 @@ export class NewsService {
         where,
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: { [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc' },
+        orderBy: {
+          [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc',
+        },
       }),
       this.prisma.news.count({ where }),
     ]);
@@ -114,7 +111,9 @@ export class NewsService {
     // Si cambia el título, actualizamos el slug
     if (updateDto.title && updateDto.title !== news.title) {
       let newSlug = this.generateSlug(updateDto.title);
-      const existing = await this.prisma.news.findUnique({ where: { slug: newSlug } });
+      const existing = await this.prisma.news.findUnique({
+        where: { slug: newSlug },
+      });
       if (existing && existing.id !== id) {
         newSlug = `${newSlug}-${Date.now()}`;
       }

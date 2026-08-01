@@ -31,13 +31,18 @@ export class CreateParticipantDto {
   @IsNotEmpty({ message: 'El apellido es obligatorio' })
   lastName: string;
 
-  @ApiProperty({ description: 'Fecha de nacimiento (ISO)', example: '2010-05-15' })
+  @ApiProperty({
+    description: 'Fecha de nacimiento (ISO)',
+    example: '2010-05-15',
+  })
   @IsDateString({}, { message: 'Fecha de nacimiento inválida' })
   @IsNotEmpty({ message: 'La fecha de nacimiento es obligatoria' })
   birthDate: string;
 
   @ApiProperty({ description: 'Sexo', enum: ['MASCULINO', 'FEMENINO'] })
-  @IsEnum(Sex, { message: 'Sexo inválido. Valores permitidos: MASCULINO, FEMENINO' })
+  @IsEnum(Sex, {
+    message: 'Sexo inválido. Valores permitidos: MASCULINO, FEMENINO',
+  })
   sex: Sex;
 
   @ApiPropertyOptional({ description: 'Teléfono', example: '3704123456' })
@@ -84,7 +89,10 @@ export class ParticipantFilterDto extends PaginationQueryDto {
   @IsString()
   locality?: string;
 
-  @ApiPropertyOptional({ description: 'Filtrar por sexo', enum: ['MASCULINO', 'FEMENINO'] })
+  @ApiPropertyOptional({
+    description: 'Filtrar por sexo',
+    enum: ['MASCULINO', 'FEMENINO'],
+  })
   @IsOptional()
   @IsEnum(Sex)
   sex?: Sex;

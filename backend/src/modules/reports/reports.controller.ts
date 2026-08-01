@@ -1,12 +1,7 @@
 // ===========================================
 // Reports Controller
 // ===========================================
-import {
-  Controller,
-  Get,
-  Res,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Res, Query } from '@nestjs/common';
 import type { Response } from 'express';
 import {
   ApiTags,
@@ -32,20 +27,30 @@ export class ReportsController {
   async exportParticipants(
     @Query('categoryId') categoryId: string,
     @Query('format') format: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const isExcel = format === 'xlsx' || format === 'excel';
 
     if (isExcel) {
-      const buffer = await this.reportsService.generateParticipantsExcel(categoryId);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename="padron_participantes.xlsx"');
+      const buffer =
+        await this.reportsService.generateParticipantsExcel(categoryId);
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="padron_participantes.xlsx"',
+      );
       return res.status(200).send(buffer);
     }
 
     const csv = await this.reportsService.generateParticipantsCsv(categoryId);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="padron_participantes.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="padron_participantes.csv"',
+    );
     return res.status(200).send('\uFEFF' + csv);
   }
 
@@ -61,20 +66,37 @@ export class ReportsController {
     @Query('categoryId') categoryId: string,
     @Query('status') status: string,
     @Query('format') format: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const isExcel = format === 'xlsx' || format === 'excel';
 
     if (isExcel) {
-      const buffer = await this.reportsService.generateInscriptionsExcel(disciplineId, categoryId, status);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename="inscripciones.xlsx"');
+      const buffer = await this.reportsService.generateInscriptionsExcel(
+        disciplineId,
+        categoryId,
+        status,
+      );
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="inscripciones.xlsx"',
+      );
       return res.status(200).send(buffer);
     }
 
-    const csv = await this.reportsService.generateInscriptionsCsv(disciplineId, categoryId, status);
+    const csv = await this.reportsService.generateInscriptionsCsv(
+      disciplineId,
+      categoryId,
+      status,
+    );
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="inscripciones.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="inscripciones.csv"',
+    );
     return res.status(200).send('\uFEFF' + csv);
   }
 
@@ -86,14 +108,20 @@ export class ReportsController {
   async exportTeams(
     @Query('disciplineId') disciplineId: string,
     @Query('format') format: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const isExcel = format === 'xlsx' || format === 'excel';
 
     if (isExcel) {
       const buffer = await this.reportsService.generateTeamsExcel(disciplineId);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename="equipos.xlsx"');
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="equipos.xlsx"',
+      );
       return res.status(200).send(buffer);
     }
 
@@ -111,20 +139,30 @@ export class ReportsController {
   async exportResults(
     @Query('competitionId') competitionId: string,
     @Query('format') format: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const isExcel = format === 'xlsx' || format === 'excel';
 
     if (isExcel) {
-      const buffer = await this.reportsService.generateResultsExcel(competitionId);
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename="resultados.xlsx"');
+      const buffer =
+        await this.reportsService.generateResultsExcel(competitionId);
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="resultados.xlsx"',
+      );
       return res.status(200).send(buffer);
     }
 
     const csv = await this.reportsService.generateResultsCsv(competitionId);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="resultados.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="resultados.csv"',
+    );
     return res.status(200).send('\uFEFF' + csv);
   }
 }

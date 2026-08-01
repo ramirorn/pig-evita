@@ -20,7 +20,9 @@ export class DashboardController {
 
   @Get('stats')
   @Roles(...ADMIN_ROLES, Role.COORDINADOR)
-  @ApiOperation({ summary: 'Obtener estadísticas globales del sistema (cacheadas)' })
+  @ApiOperation({
+    summary: 'Obtener estadísticas globales del sistema (cacheadas)',
+  })
   @ApiResponse({ status: 200, description: 'Estadísticas globales' })
   async getStats() {
     return this.dashboardService.getGlobalStats();

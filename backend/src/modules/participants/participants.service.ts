@@ -9,7 +9,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateParticipantDto, UpdateParticipantDto, ParticipantFilterDto } from './dto';
+import {
+  CreateParticipantDto,
+  UpdateParticipantDto,
+  ParticipantFilterDto,
+} from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
 
 @Injectable()
@@ -28,7 +32,9 @@ export class ParticipantsService {
     });
 
     if (existing) {
-      throw new ConflictException(`Ya existe un participante con DNI ${createDto.dni}`);
+      throw new ConflictException(
+        `Ya existe un participante con DNI ${createDto.dni}`,
+      );
     }
 
     const participant = await this.prisma.participant.create({
@@ -38,7 +44,9 @@ export class ParticipantsService {
       },
     });
 
-    this.logger.log(`Participant created: ${participant.dni} - ${participant.lastName}, ${participant.firstName}`);
+    this.logger.log(
+      `Participant created: ${participant.dni} - ${participant.lastName}, ${participant.firstName}`,
+    );
     return participant;
   }
 
@@ -53,7 +61,10 @@ export class ParticipantsService {
     }
 
     if (filterDto.department) {
-      where.department = { contains: filterDto.department, mode: 'insensitive' };
+      where.department = {
+        contains: filterDto.department,
+        mode: 'insensitive',
+      };
     }
 
     if (filterDto.locality) {
@@ -78,7 +89,9 @@ export class ParticipantsService {
         where,
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: { [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc' },
+        orderBy: {
+          [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc',
+        },
       }),
       this.prisma.participant.count({ where }),
     ]);
@@ -141,7 +154,9 @@ export class ParticipantsService {
       });
 
       if (existing) {
-        throw new ConflictException(`Ya existe un participante con DNI ${updateDto.dni}`);
+        throw new ConflictException(
+          `Ya existe un participante con DNI ${updateDto.dni}`,
+        );
       }
     }
 

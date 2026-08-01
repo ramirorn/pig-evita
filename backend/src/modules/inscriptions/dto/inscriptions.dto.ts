@@ -77,7 +77,9 @@ export class CreateInscriptionDto {
   @IsNotEmpty({ message: 'La categoría es obligatoria' })
   categoryId: string;
 
-  @ApiPropertyOptional({ description: 'ID del equipo (para deportes de equipo)' })
+  @ApiPropertyOptional({
+    description: 'ID del equipo (para deportes de equipo)',
+  })
   @IsOptional()
   @IsUUID('4', { message: 'ID de equipo inválido' })
   teamId?: string;
@@ -98,7 +100,10 @@ export class RejectInscriptionDto {
 }
 
 export class InscriptionFilterDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ description: 'Filtrar por estado', enum: ['PENDIENTE', 'REVISADA', 'APROBADA', 'RECHAZADA'] })
+  @ApiPropertyOptional({
+    description: 'Filtrar por estado',
+    enum: ['PENDIENTE', 'REVISADA', 'APROBADA', 'RECHAZADA'],
+  })
   @IsOptional()
   @IsString()
   status?: string;

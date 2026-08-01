@@ -10,7 +10,11 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
-import { CompetitionStage, CompetitionFormat, CompetitionStatus } from '@prisma/client';
+import {
+  CompetitionStage,
+  CompetitionFormat,
+  CompetitionStatus,
+} from '@prisma/client';
 import { PaginationQueryDto } from '../../../common/dto';
 
 export class CreateCompetitionDto {
@@ -32,7 +36,9 @@ export class CreateCompetitionDto {
   @IsEnum(CompetitionFormat)
   format: CompetitionFormat;
 
-  @ApiPropertyOptional({ description: 'Nombre opcional (ej: Final Provincial 2024)' })
+  @ApiPropertyOptional({
+    description: 'Nombre opcional (ej: Final Provincial 2024)',
+  })
   @IsOptional()
   @IsString()
   name?: string;
@@ -47,7 +53,9 @@ export class CreateCompetitionDto {
   @IsDateString()
   endDate?: string;
 
-  @ApiPropertyOptional({ description: 'Configuración JSON del motor (ej: puntos por victoria)' })
+  @ApiPropertyOptional({
+    description: 'Configuración JSON del motor (ej: puntos por victoria)',
+  })
   @IsOptional()
   config?: Record<string, any>;
 }
@@ -88,7 +96,9 @@ export class GenerateFixtureDto {
   @IsUUID('4', { each: true })
   teamIds?: string[];
 
-  @ApiProperty({ description: 'ID de los participantes (si es deporte individual)' })
+  @ApiProperty({
+    description: 'ID de los participantes (si es deporte individual)',
+  })
   @IsOptional()
   @IsUUID('4', { each: true })
   participantIds?: string[];

@@ -21,7 +21,12 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { TeamsService } from './teams.service';
-import { CreateTeamDto, UpdateTeamDto, TeamFilterDto, AddTeamMemberDto } from './dto';
+import {
+  CreateTeamDto,
+  UpdateTeamDto,
+  TeamFilterDto,
+  AddTeamMemberDto,
+} from './dto';
 import { Roles } from '../../common/decorators';
 import { Role, ADMIN_ROLES } from '../../common/constants';
 
@@ -33,7 +38,10 @@ export class TeamsController {
 
   @Post()
   @Roles(...ADMIN_ROLES, Role.DELEGADO, Role.COORDINADOR)
-  @ApiOperation({ summary: 'Crear equipo', description: 'Crea un equipo para una disciplina de tipo EQUIPO.' })
+  @ApiOperation({
+    summary: 'Crear equipo',
+    description: 'Crea un equipo para una disciplina de tipo EQUIPO.',
+  })
   @ApiResponse({ status: 201, description: 'Equipo creado' })
   async create(@Body() createDto: CreateTeamDto) {
     return this.teamsService.create(createDto);
@@ -49,7 +57,10 @@ export class TeamsController {
 
   @Get(':id')
   @Roles(...ADMIN_ROLES, Role.DELEGADO, Role.COORDINADOR)
-  @ApiOperation({ summary: 'Obtener equipo', description: 'Incluye a los miembros del equipo.' })
+  @ApiOperation({
+    summary: 'Obtener equipo',
+    description: 'Incluye a los miembros del equipo.',
+  })
   @ApiResponse({ status: 200, description: 'Datos del equipo' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.teamsService.findOne(id);

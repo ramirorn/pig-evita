@@ -22,7 +22,10 @@ export class CreateTeamDto {
   @IsNotEmpty({ message: 'La categoría es obligatoria' })
   categoryId: string;
 
-  @ApiPropertyOptional({ description: 'Institución (club, escuela)', example: 'Escuela N° 1' })
+  @ApiPropertyOptional({
+    description: 'Institución (club, escuela)',
+    example: 'Escuela N° 1',
+  })
   @IsOptional()
   @IsString()
   institution?: string;

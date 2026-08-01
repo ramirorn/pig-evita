@@ -3,7 +3,6 @@
 // ===========================================
 import {
   Injectable,
-  ConflictException,
   NotFoundException,
   BadRequestException,
   Logger,
@@ -21,7 +20,9 @@ export class CategoriesService {
 
   async create(createDto: CreateCategoryDto) {
     if (createDto.minAge > createDto.maxAge) {
-      throw new BadRequestException('La edad mínima no puede ser mayor a la edad máxima');
+      throw new BadRequestException(
+        'La edad mínima no puede ser mayor a la edad máxima',
+      );
     }
 
     // Verificar que la disciplina existe
@@ -33,12 +34,13 @@ export class CategoriesService {
       throw new NotFoundException('La disciplina especificada no existe');
     }
 
-
     const category = await this.prisma.category.create({
       data: createDto,
     });
 
-    this.logger.log(`Category created: ${category.name} in discipline ${discipline.name}`);
+    this.logger.log(
+      `Category created: ${category.name} in discipline ${discipline.name}`,
+    );
     return category;
   }
 
@@ -67,10 +69,7 @@ export class CategoriesService {
         include: { discipline: true },
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: [
-          { discipline: { name: 'asc' } },
-          { name: 'asc' },
-        ],
+        orderBy: [{ discipline: { name: 'asc' } }, { name: 'asc' }],
       }),
       this.prisma.category.count({ where }),
     ]);
@@ -101,7 +100,9 @@ export class CategoriesService {
     const maxAge = updateDto.maxAge ?? category.maxAge;
 
     if (minAge > maxAge) {
-      throw new BadRequestException('La edad mínima no puede ser mayor a la edad máxima');
+      throw new BadRequestException(
+        'La edad mínima no puede ser mayor a la edad máxima',
+      );
     }
 
     if (updateDto.disciplineId) {

@@ -18,9 +18,13 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CalendarService } from './calendar.service';
-import { CreateCalendarEventDto, UpdateCalendarEventDto, CalendarFilterDto } from './dto';
+import {
+  CreateCalendarEventDto,
+  UpdateCalendarEventDto,
+  CalendarFilterDto,
+} from './dto';
 import { Roles, Public } from '../../common/decorators';
-import { Role, ADMIN_ROLES } from '../../common/constants';
+import { ADMIN_ROLES } from '../../common/constants';
 
 @ApiTags('Calendar')
 @Controller('calendar')

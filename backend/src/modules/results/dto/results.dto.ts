@@ -12,12 +12,17 @@ import {
 } from 'class-validator';
 
 export class UpdateResultDto {
-  @ApiPropertyOptional({ description: 'Datos del score en formato JSON', example: { goals: 3 } })
+  @ApiPropertyOptional({
+    description: 'Datos del score en formato JSON',
+    example: { goals: 3 },
+  })
   @IsOptional()
   @IsObject()
   scoreData?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Posición final en el partido (para deportes de tiempo/marca)' })
+  @ApiPropertyOptional({
+    description: 'Posición final en el partido (para deportes de tiempo/marca)',
+  })
   @IsOptional()
   @IsInt()
   ranking?: number;

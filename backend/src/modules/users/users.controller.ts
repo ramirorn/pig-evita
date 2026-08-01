@@ -33,7 +33,10 @@ export class UsersController {
 
   @Post()
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Crear usuario', description: 'Crea un nuevo usuario administrativo. Solo Super Admin.' })
+  @ApiOperation({
+    summary: 'Crear usuario',
+    description: 'Crea un nuevo usuario administrativo. Solo Super Admin.',
+  })
   @ApiResponse({ status: 201, description: 'Usuario creado' })
   @ApiResponse({ status: 409, description: 'Email ya existe' })
   async create(@Body() createUserDto: CreateUserDto) {
@@ -42,7 +45,10 @@ export class UsersController {
 
   @Get()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
-  @ApiOperation({ summary: 'Listar usuarios', description: 'Lista paginada de usuarios con filtros.' })
+  @ApiOperation({
+    summary: 'Listar usuarios',
+    description: 'Lista paginada de usuarios con filtros.',
+  })
   @ApiResponse({ status: 200, description: 'Lista de usuarios' })
   async findAll(@Query() filterDto: UserFilterDto) {
     return this.usersService.findAll(filterDto);
@@ -50,7 +56,10 @@ export class UsersController {
 
   @Get(':id')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
-  @ApiOperation({ summary: 'Obtener usuario', description: 'Obtiene un usuario por ID.' })
+  @ApiOperation({
+    summary: 'Obtener usuario',
+    description: 'Obtiene un usuario por ID.',
+  })
   @ApiResponse({ status: 200, description: 'Datos del usuario' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
@@ -59,7 +68,10 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Actualizar usuario', description: 'Actualiza datos de un usuario. Solo Super Admin.' })
+  @ApiOperation({
+    summary: 'Actualizar usuario',
+    description: 'Actualiza datos de un usuario. Solo Super Admin.',
+  })
   @ApiResponse({ status: 200, description: 'Usuario actualizado' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   @ApiResponse({ status: 409, description: 'Email ya existe' })
@@ -73,7 +85,10 @@ export class UsersController {
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Desactivar usuario', description: 'Desactiva un usuario (soft delete). Solo Super Admin.' })
+  @ApiOperation({
+    summary: 'Desactivar usuario',
+    description: 'Desactiva un usuario (soft delete). Solo Super Admin.',
+  })
   @ApiResponse({ status: 200, description: 'Usuario desactivado' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {

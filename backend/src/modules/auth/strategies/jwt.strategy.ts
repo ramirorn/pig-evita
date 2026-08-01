@@ -10,7 +10,8 @@ import { JwtPayload } from '../interfaces';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(configService: ConfigService) {
-    const secret = configService.get<string>('jwt.accessSecret') || 'default-access-secret';
+    const secret =
+      configService.get<string>('jwt.accessSecret') || 'default-access-secret';
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -20,7 +21,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
   validate(payload: JwtPayload): JwtPayload {
     if (payload.type !== 'access') {
-      throw new UnauthorizedException('Token inválido: se esperaba un access token');
+      throw new UnauthorizedException(
+        'Token inválido: se esperaba un access token',
+      );
     }
     return {
       sub: payload.sub,

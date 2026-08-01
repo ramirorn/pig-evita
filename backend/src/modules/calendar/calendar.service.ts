@@ -1,14 +1,14 @@
 // ===========================================
 // Calendar Service
 // ===========================================
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateCalendarEventDto, UpdateCalendarEventDto, CalendarFilterDto } from './dto';
+import {
+  CreateCalendarEventDto,
+  UpdateCalendarEventDto,
+  CalendarFilterDto,
+} from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
 
 @Injectable()
@@ -39,7 +39,8 @@ export class CalendarService {
 
     if (filterDto.fromDate || filterDto.toDate) {
       where.startDate = {};
-      if (filterDto.fromDate) where.startDate.gte = new Date(filterDto.fromDate);
+      if (filterDto.fromDate)
+        where.startDate.gte = new Date(filterDto.fromDate);
       if (filterDto.toDate) where.startDate.lte = new Date(filterDto.toDate);
     }
 
@@ -80,7 +81,9 @@ export class CalendarService {
 
     const updateData: Prisma.CalendarEventUpdateInput = {
       ...updateDto,
-      startDate: updateDto.startDate ? new Date(updateDto.startDate) : undefined,
+      startDate: updateDto.startDate
+        ? new Date(updateDto.startDate)
+        : undefined,
       endDate: updateDto.endDate ? new Date(updateDto.endDate) : undefined,
     };
 

@@ -77,11 +77,15 @@ export class AuditInterceptor implements NestInterceptor {
 
   private parseUrl(url: string): { entity: string; entityId: string | null } {
     // Parse: /api/v1/users/uuid → entity: "users", entityId: "uuid"
-    const parts = url.replace(/^\/api\/v1\//, '').split('/').filter(Boolean);
+    const parts = url
+      .replace(/^\/api\/v1\//, '')
+      .split('/')
+      .filter(Boolean);
     const entity = parts[0] || 'unknown';
 
     // UUID pattern
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const entityId = parts.find((p) => uuidRegex.test(p)) || null;
 
     return { entity, entityId };

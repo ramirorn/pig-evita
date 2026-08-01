@@ -11,7 +11,11 @@ export class ReportsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  private async createStyledWorkbook(sheetName: string, headers: string[], rows: any[][]): Promise<Buffer> {
+  private async createStyledWorkbook(
+    sheetName: string,
+    headers: string[],
+    rows: any[][],
+  ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Juegos Evita Formosa';
     workbook.created = new Date();
@@ -23,7 +27,12 @@ export class ReportsService {
     const headerRow = worksheet.addRow(headers);
     headerRow.height = 28;
     headerRow.eachCell((cell) => {
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11, name: 'Calibri' };
+      cell.font = {
+        bold: true,
+        color: { argb: 'FFFFFFFF' },
+        size: 11,
+        name: 'Calibri',
+      };
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
@@ -80,23 +89,38 @@ export class ReportsService {
   // PARTICIPANTS
   // ===========================================
   private async getParticipantsData(categoryId?: string) {
-    const whereClause = categoryId ? { inscriptions: { some: { categoryId } } } : {};
-    
+    const whereClause = categoryId
+      ? { inscriptions: { some: { categoryId } } }
+      : {};
+
     const participants = await this.prisma.participant.findMany({
       where: whereClause,
       include: {
-        inscriptions: { include: { category: { include: { discipline: true } } } }
+        inscriptions: {
+          include: { category: { include: { discipline: true } } },
+        },
       },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
 
-    const headers = ['DNI', 'Nombre', 'Apellido', 'Sexo', 'Fecha Nacimiento', 'Departamento', 'Localidad', 'Teléfono', 'Email', 'Categorías'];
-    
-    const rows = participants.map(p => {
+    const headers = [
+      'DNI',
+      'Nombre',
+      'Apellido',
+      'Sexo',
+      'Fecha Nacimiento',
+      'Departamento',
+      'Localidad',
+      'Teléfono',
+      'Email',
+      'Categorías',
+    ];
+
+    const rows = participants.map((p) => {
       const categoriesStr = p.inscriptions
-        .map(i => `${i.category.discipline.name} - ${i.category.name}`)
+        .map((i) => `${i.category.discipline.name} - ${i.category.name}`)
         .join(' | ');
-        
+
       return [
         p.dni,
         p.firstName,
@@ -107,7 +131,7 @@ export class ReportsService {
         p.locality,
         p.phone || '',
         p.email || '',
-        categoriesStr
+        categoriesStr,
       ];
     });
 
@@ -116,7 +140,11 @@ export class ReportsService {
 
   async generateParticipantsCsv(categoryId?: string): Promise<string> {
     const { headers, rows } = await this.getParticipantsData(categoryId);
-    return [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    return [headers, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
+      )
+      .join('\n');
   }
 
   async generateParticipantsExcel(categoryId?: string): Promise<Buffer> {
@@ -127,7 +155,11 @@ export class ReportsService {
   // ===========================================
   // INSCRIPTIONS
   // ===========================================
-  private async getInscriptionsData(disciplineId?: string, categoryId?: string, status?: string) {
+  private async getInscriptionsData(
+    disciplineId?: string,
+    categoryId?: string,
+    status?: string,
+  ) {
     const where: any = {};
     if (categoryId) where.categoryId = categoryId;
     if (status) where.status = status;
@@ -160,7 +192,7 @@ export class ReportsService {
       'Fecha Inscripción',
     ];
 
-    const rows = inscriptions.map(i => [
+    const rows = inscriptions.map((i) => [
       i.qrCode,
       i.participant.dni,
       i.participant.firstName,
@@ -178,13 +210,33 @@ export class ReportsService {
     return { headers, rows };
   }
 
-  async generateInscriptionsCsv(disciplineId?: string, categoryId?: string, status?: string): Promise<string> {
-    const { headers, rows } = await this.getInscriptionsData(disciplineId, categoryId, status);
-    return [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  async generateInscriptionsCsv(
+    disciplineId?: string,
+    categoryId?: string,
+    status?: string,
+  ): Promise<string> {
+    const { headers, rows } = await this.getInscriptionsData(
+      disciplineId,
+      categoryId,
+      status,
+    );
+    return [headers, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
+      )
+      .join('\n');
   }
 
-  async generateInscriptionsExcel(disciplineId?: string, categoryId?: string, status?: string): Promise<Buffer> {
-    const { headers, rows } = await this.getInscriptionsData(disciplineId, categoryId, status);
+  async generateInscriptionsExcel(
+    disciplineId?: string,
+    categoryId?: string,
+    status?: string,
+  ): Promise<Buffer> {
+    const { headers, rows } = await this.getInscriptionsData(
+      disciplineId,
+      categoryId,
+      status,
+    );
     return this.createStyledWorkbook('Inscripciones', headers, rows);
   }
 
@@ -203,16 +255,24 @@ export class ReportsService {
       orderBy: { name: 'asc' },
     });
 
-    const headers = ['ID Equipo', 'Nombre', 'Disciplina', 'Categoría', 'Departamento', 'Localidad', 'Cantidad Miembros'];
+    const headers = [
+      'ID Equipo',
+      'Nombre',
+      'Disciplina',
+      'Categoría',
+      'Departamento',
+      'Localidad',
+      'Cantidad Miembros',
+    ];
 
-    const rows = teams.map(t => [
+    const rows = teams.map((t) => [
       t.id,
       t.name,
       t.category.discipline.name,
       t.category.name,
       t.department,
       t.locality,
-      t._count.members
+      t._count.members,
     ]);
 
     return { headers, rows };
@@ -220,7 +280,11 @@ export class ReportsService {
 
   async generateTeamsCsv(disciplineId?: string): Promise<string> {
     const { headers, rows } = await this.getTeamsData(disciplineId);
-    return [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    return [headers, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
+      )
+      .join('\n');
   }
 
   async generateTeamsExcel(disciplineId?: string): Promise<Buffer> {
@@ -239,11 +303,11 @@ export class ReportsService {
       where,
       include: {
         competition: {
-          include: { discipline: true, category: true }
+          include: { discipline: true, category: true },
         },
         venue: true,
         results: {
-          include: { team: true, participant: true }
+          include: { team: true, participant: true },
         },
       },
       orderBy: [
@@ -269,20 +333,35 @@ export class ReportsService {
       'Sede',
     ];
 
-    const rows = matches.map(m => {
+    const rows = matches.map((m) => {
       const r1 = m.results[0];
       const r2 = m.results[1];
-      const homeName = r1?.team?.name || (r1?.participant ? `${r1.participant.lastName}, ${r1.participant.firstName}` : '-');
-      const awayName = r2?.team?.name || (r2?.participant ? `${r2.participant.lastName}, ${r2.participant.firstName}` : '-');
-      const homeScore = r1?.scoreData && Object.values(r1.scoreData)[0] !== undefined ? String(Object.values(r1.scoreData)[0]) : '-';
-      const awayScore = r2?.scoreData && Object.values(r2.scoreData)[0] !== undefined ? String(Object.values(r2.scoreData)[0]) : '-';
-      
+      const homeName =
+        r1?.team?.name ||
+        (r1?.participant
+          ? `${r1.participant.lastName}, ${r1.participant.firstName}`
+          : '-');
+      const awayName =
+        r2?.team?.name ||
+        (r2?.participant
+          ? `${r2.participant.lastName}, ${r2.participant.firstName}`
+          : '-');
+      const homeScore =
+        r1?.scoreData && Object.values(r1.scoreData)[0] !== undefined
+          ? String(Object.values(r1.scoreData)[0])
+          : '-';
+      const awayScore =
+        r2?.scoreData && Object.values(r2.scoreData)[0] !== undefined
+          ? String(Object.values(r2.scoreData)[0])
+          : '-';
+
       let winnerName = '-';
       if (r1?.isWinner) winnerName = homeName;
       else if (r2?.isWinner) winnerName = awayName;
 
       return [
-        m.competition.name || `${m.competition.discipline.name} - ${m.competition.category.name}`,
+        m.competition.name ||
+          `${m.competition.discipline.name} - ${m.competition.category.name}`,
         m.competition.discipline.name,
         m.competition.category.name,
         m.competition.stage,
@@ -303,7 +382,11 @@ export class ReportsService {
 
   async generateResultsCsv(competitionId?: string): Promise<string> {
     const { headers, rows } = await this.getResultsData(competitionId);
-    return [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    return [headers, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
+      )
+      .join('\n');
   }
 
   async generateResultsExcel(competitionId?: string): Promise<Buffer> {

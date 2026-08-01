@@ -1,1 +1,5 @@
-export { CreateDisciplineDto, UpdateDisciplineDto, DisciplineFilterDto } from './disciplines.dto';
+export {
+  CreateDisciplineDto,
+  UpdateDisciplineDto,
+  DisciplineFilterDto,
+} from './disciplines.dto';

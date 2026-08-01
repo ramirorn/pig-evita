@@ -27,7 +27,10 @@ import {
   InscriptionFilterDto,
 } from './dto';
 import { Public, Roles, CurrentUser } from '../../common/decorators';
-import { Role, INSCRIPTION_REVIEWERS, INSCRIPTION_APPROVERS } from '../../common/constants';
+import {
+  INSCRIPTION_REVIEWERS,
+  INSCRIPTION_APPROVERS,
+} from '../../common/constants';
 
 @ApiTags('Inscriptions')
 @Controller('inscriptions')
@@ -39,11 +42,21 @@ export class InscriptionsController {
   @Public()
   @ApiOperation({
     summary: 'Inscribirse (público)',
-    description: 'Endpoint público para inscripción de participantes. Accesible via QR sin autenticación.',
+    description:
+      'Endpoint público para inscripción de participantes. Accesible via QR sin autenticación.',
   })
-  @ApiResponse({ status: 201, description: 'Inscripción creada exitosamente. Retorna datos + QR image.' })
-  @ApiResponse({ status: 400, description: 'Datos inválidos o edad no compatible con categoría' })
-  @ApiResponse({ status: 409, description: 'Participante ya inscripto en esta categoría' })
+  @ApiResponse({
+    status: 201,
+    description: 'Inscripción creada exitosamente. Retorna datos + QR image.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos o edad no compatible con categoría',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Participante ya inscripto en esta categoría',
+  })
   async create(@Body() createDto: CreateInscriptionDto) {
     return this.inscriptionsService.create(createDto);
   }
@@ -62,7 +75,10 @@ export class InscriptionsController {
   @Get()
   @Roles(...INSCRIPTION_REVIEWERS)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Listar inscripciones', description: 'Lista paginada con filtros.' })
+  @ApiOperation({
+    summary: 'Listar inscripciones',
+    description: 'Lista paginada con filtros.',
+  })
   @ApiResponse({ status: 200, description: 'Lista de inscripciones' })
   async findAll(@Query() filterDto: InscriptionFilterDto) {
     return this.inscriptionsService.findAll(filterDto);
@@ -71,8 +87,14 @@ export class InscriptionsController {
   @Get(':id')
   @Roles(...INSCRIPTION_REVIEWERS)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Obtener inscripción', description: 'Incluye participante, documentos y equipo.' })
-  @ApiResponse({ status: 200, description: 'Datos completos de la inscripción' })
+  @ApiOperation({
+    summary: 'Obtener inscripción',
+    description: 'Incluye participante, documentos y equipo.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Datos completos de la inscripción',
+  })
   @ApiResponse({ status: 404, description: 'No encontrada' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.inscriptionsService.findOne(id);
@@ -82,7 +104,10 @@ export class InscriptionsController {
   @Roles(...INSCRIPTION_REVIEWERS)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Revisar inscripción', description: 'Cambia estado de PENDIENTE → REVISADA.' })
+  @ApiOperation({
+    summary: 'Revisar inscripción',
+    description: 'Cambia estado de PENDIENTE → REVISADA.',
+  })
   @ApiResponse({ status: 200, description: 'Inscripción revisada' })
   @ApiResponse({ status: 400, description: 'Estado inválido para revisión' })
   async review(
@@ -97,7 +122,10 @@ export class InscriptionsController {
   @Roles(...INSCRIPTION_APPROVERS)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Aprobar inscripción', description: 'Cambia estado de REVISADA → APROBADA.' })
+  @ApiOperation({
+    summary: 'Aprobar inscripción',
+    description: 'Cambia estado de REVISADA → APROBADA.',
+  })
   @ApiResponse({ status: 200, description: 'Inscripción aprobada' })
   @ApiResponse({ status: 400, description: 'Estado inválido para aprobación' })
   async approve(
@@ -111,7 +139,10 @@ export class InscriptionsController {
   @Roles(...INSCRIPTION_REVIEWERS)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Rechazar inscripción', description: 'Rechaza con motivo obligatorio.' })
+  @ApiOperation({
+    summary: 'Rechazar inscripción',
+    description: 'Rechaza con motivo obligatorio.',
+  })
   @ApiResponse({ status: 200, description: 'Inscripción rechazada' })
   @ApiResponse({ status: 400, description: 'Estado inválido para rechazo' })
   async reject(

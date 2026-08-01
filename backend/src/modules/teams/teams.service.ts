@@ -10,7 +10,12 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateTeamDto, UpdateTeamDto, TeamFilterDto, AddTeamMemberDto } from './dto';
+import {
+  CreateTeamDto,
+  UpdateTeamDto,
+  TeamFilterDto,
+  AddTeamMemberDto,
+} from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
 
 @Injectable()
@@ -31,7 +36,9 @@ export class TeamsService {
     }
 
     if (category.discipline.type !== 'EQUIPO') {
-      throw new BadRequestException('Esta categoría no permite la creación de equipos (es INDIVIDUAL)');
+      throw new BadRequestException(
+        'Esta categoría no permite la creación de equipos (es INDIVIDUAL)',
+      );
     }
 
     // 2. Crear equipo
@@ -59,7 +66,10 @@ export class TeamsService {
     }
 
     if (filterDto.department) {
-      where.department = { contains: filterDto.department, mode: 'insensitive' };
+      where.department = {
+        contains: filterDto.department,
+        mode: 'insensitive',
+      };
     }
 
     if (filterDto.isActive !== undefined) {
@@ -81,7 +91,9 @@ export class TeamsService {
         },
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: { [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc' },
+        orderBy: {
+          [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc',
+        },
       }),
       this.prisma.team.count({ where }),
     ]);
@@ -176,12 +188,16 @@ export class TeamsService {
         teamId,
         participantId: addMemberDto.participantId,
         isCaptain: addMemberDto.isCaptain || false,
-        shirtNumber: addMemberDto.shirtNumber ? parseInt(addMemberDto.shirtNumber, 10) : null,
+        shirtNumber: addMemberDto.shirtNumber
+          ? parseInt(addMemberDto.shirtNumber, 10)
+          : null,
       },
       include: { participant: true },
     });
 
-    this.logger.log(`Added participant ${participant.dni} to team ${team.name}`);
+    this.logger.log(
+      `Added participant ${participant.dni} to team ${team.name}`,
+    );
     return member;
   }
 

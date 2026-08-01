@@ -1,1 +1,5 @@
-export { CreateCategoryDto, UpdateCategoryDto, CategoryFilterDto } from './categories.dto';
+export {
+  CreateCategoryDto,
+  UpdateCategoryDto,
+  CategoryFilterDto,
+} from './categories.dto';

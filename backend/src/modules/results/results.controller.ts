@@ -29,7 +29,10 @@ export class ResultsController {
   @Patch('match/:matchId')
   @Roles(...ADMIN_ROLES, Role.ARBITRO)
   @ApiOperation({ summary: 'Cargar/Actualizar resultados de un partido' })
-  @ApiResponse({ status: 200, description: 'Resultados guardados y partido finalizado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Resultados guardados y partido finalizado',
+  })
   async updateMatchResults(
     @Param('matchId', ParseUUIDPipe) matchId: string,
     @Body() results: MatchResultDto[],
@@ -39,9 +42,13 @@ export class ResultsController {
 
   @Get('rankings/competition/:competitionId')
   @Public() // Las tablas de posiciones son públicas
-  @ApiOperation({ summary: 'Obtener tabla de posiciones/ranking de una competencia' })
+  @ApiOperation({
+    summary: 'Obtener tabla de posiciones/ranking de una competencia',
+  })
   @ApiResponse({ status: 200, description: 'Tabla de posiciones' })
-  async getRankings(@Param('competitionId', ParseUUIDPipe) competitionId: string) {
+  async getRankings(
+    @Param('competitionId', ParseUUIDPipe) competitionId: string,
+  ) {
     return this.resultsService.getRankings(competitionId);
   }
 }

@@ -1,11 +1,7 @@
 // ===========================================
 // Venues Service
 // ===========================================
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateVenueDto, UpdateVenueDto, VenueFilterDto } from './dto';

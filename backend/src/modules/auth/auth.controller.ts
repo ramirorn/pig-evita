@@ -31,8 +31,16 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 intentos cada 15 min
-  @ApiOperation({ summary: 'Iniciar sesión', description: 'Autenticación con email y contraseña. Retorna access token y refresh token.' })
-  @ApiResponse({ status: 200, description: 'Login exitoso', type: AuthResponseDto })
+  @ApiOperation({
+    summary: 'Iniciar sesión',
+    description:
+      'Autenticación con email y contraseña. Retorna access token y refresh token.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Login exitoso',
+    type: AuthResponseDto,
+  })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
   @ApiResponse({ status: 403, description: 'Usuario desactivado' })
   @ApiResponse({ status: 429, description: 'Demasiados intentos de login' })
@@ -44,20 +52,28 @@ export class AuthController {
   @Public()
   @UseGuards(JwtRefreshGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Renovar token', description: 'Genera un nuevo access token usando el refresh token.' })
-  @ApiResponse({ status: 200, description: 'Token renovado', type: RefreshResponseDto })
+  @ApiOperation({
+    summary: 'Renovar token',
+    description: 'Genera un nuevo access token usando el refresh token.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Token renovado',
+    type: RefreshResponseDto,
+  })
   @ApiResponse({ status: 403, description: 'Refresh token inválido' })
   @ApiBearerAuth('access-token')
-  async refresh(
-    @CurrentUser() user: JwtPayload & { refreshToken: string },
-  ) {
+  async refresh(@CurrentUser() user: JwtPayload & { refreshToken: string }) {
     return this.authService.refreshTokens(user.sub, user.refreshToken);
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Cerrar sesión', description: 'Invalida el refresh token del usuario.' })
+  @ApiOperation({
+    summary: 'Cerrar sesión',
+    description: 'Invalida el refresh token del usuario.',
+  })
   @ApiResponse({ status: 200, description: 'Sesión cerrada' })
   @ApiBearerAuth('access-token')
   async logout(@CurrentUser('sub') userId: string) {
@@ -68,7 +84,10 @@ export class AuthController {
   @Post('me')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Obtener usuario actual', description: 'Retorna los datos del usuario autenticado.' })
+  @ApiOperation({
+    summary: 'Obtener usuario actual',
+    description: 'Retorna los datos del usuario autenticado.',
+  })
   @ApiBearerAuth('access-token')
   async me(@CurrentUser() user: JwtPayload) {
     return {
