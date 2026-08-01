@@ -24,8 +24,8 @@ export function LoginPage() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-primary-900">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-primary-400 border-t-white rounded-full animate-spin" />
-          <p className="text-sm text-primary-200 font-medium">Verificando sesión...</p>
+          <div className="w-10 h-10 border-4 border-primary-400 border-t-accent-500 rounded-full animate-spin" />
+          <p className="text-sm text-celeste-100 font-medium">Verificando sesión...</p>
         </div>
       </div>
     );
@@ -68,26 +68,27 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-800 via-primary-700 to-primary-900 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-800 via-primary-900 to-primary-950 px-4">
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-accent-400/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-secondary-400/10 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-accent-500/15 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-secondary-500/15 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-celeste-400/15 rounded-full blur-2xl" />
       </div>
 
       <div className="relative w-full max-w-md">
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8 animate-scale-in">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 animate-scale-in border border-primary-100/50">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-lg">
-              <Trophy className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-700 to-primary-900 flex items-center justify-center shadow-lg border border-primary-600/30">
+              <Trophy className="w-8 h-8 text-accent-500" />
             </div>
-            <h1 className="text-2xl font-bold text-primary-800">
-              Juegos Evita Formosa
+            <h1 className="text-2xl font-bold text-primary-800 tracking-tight">
+              Juegos Evita Formoseños
             </h1>
-            <p className="text-sm text-primary-500 mt-1">
-              Panel de Administración
+            <p className="text-sm text-primary-500 mt-1 font-medium">
+              Panel de Administración y Gestión
             </p>
           </div>
 
@@ -104,7 +105,7 @@ export function LoginPage() {
             <div>
               <label
                 htmlFor="login-email"
-                className="block text-sm font-medium text-primary-700 mb-1.5"
+                className="block text-sm font-semibold text-primary-700 mb-1.5"
               >
                 Correo electrónico
               </label>
@@ -116,7 +117,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@deportes.formosa.gob.ar"
-                className="w-full px-4 py-2.5 rounded-lg border border-primary-200 bg-surface text-primary-800 placeholder:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors text-sm"
+                className="w-full px-4 py-2.5 rounded-lg border border-primary-200 bg-surface text-primary-900 placeholder:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors text-sm"
                 disabled={isSubmitting}
               />
             </div>
@@ -124,7 +125,7 @@ export function LoginPage() {
             <div>
               <label
                 htmlFor="login-password"
-                className="block text-sm font-medium text-primary-700 mb-1.5"
+                className="block text-sm font-semibold text-primary-700 mb-1.5"
               >
                 Contraseña
               </label>
@@ -137,7 +138,7 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-2.5 pr-12 rounded-lg border border-primary-200 bg-surface text-primary-800 placeholder:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors text-sm"
+                  className="w-full px-4 py-2.5 pr-12 rounded-lg border border-primary-200 bg-surface text-primary-900 placeholder:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors text-sm"
                   disabled={isSubmitting}
                 />
                 <button
@@ -155,7 +156,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 px-4 rounded-lg text-sm font-semibold text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-primary-700 to-primary-800 hover:from-primary-800 hover:to-primary-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
             >
               {isSubmitting ? (
                 <>

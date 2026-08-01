@@ -9,13 +9,15 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-primary-800 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <footer className="bg-primary-800 text-white border-t-2 border-accent-500/30">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
-            <h3 className="text-lg font-bold mb-2">Juegos Evita Formosa</h3>
-            <p className="text-primary-200 text-sm leading-relaxed">
+            <h3 className="text-lg font-bold mb-2 tracking-tight text-white flex items-center gap-2">
+              <span>Juegos Evita Formoseños</span>
+            </h3>
+            <p className="text-celeste-200 text-sm leading-relaxed max-w-sm">
               Plataforma integral de gestión deportiva.
               Secretaría de Deportes de la Provincia de Formosa.
             </p>
@@ -23,41 +25,41 @@ export function Footer() {
 
           {/* Links */}
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-primary-300 mb-3">
-              Enlaces
+            <h4 className="text-sm font-bold uppercase tracking-wider text-accent-500 mb-3">
+              Enlaces Rápidos
             </h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link to={ROUTES.DISCIPLINES} className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.DISCIPLINES} className="text-celeste-100 hover:text-white transition-colors">
                   Disciplinas
                 </Link>
               </li>
               <li>
-                <Link to={ROUTES.NEWS} className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.NEWS} className="text-celeste-100 hover:text-white transition-colors">
                   Noticias
                 </Link>
               </li>
               <li>
-                <Link to={ROUTES.CALENDAR} className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.CALENDAR} className="text-celeste-100 hover:text-white transition-colors">
                   Calendario
                 </Link>
               </li>
               <li>
-                <Link to={ROUTES.VENUES} className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.VENUES} className="text-celeste-100 hover:text-white transition-colors">
                   Sedes
                 </Link>
               </li>
               <li>
-                <Link to={ROUTES.RANKINGS} className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.RANKINGS} className="text-celeste-100 hover:text-white transition-colors">
                   Rankings
                 </Link>
               </li>
-              <li className="pt-2 border-t border-primary-700/60">
+              <li className="pt-2.5 border-t border-primary-700/80">
                 <Link
                   to={ROUTES.DASHBOARD}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-200 hover:text-white hover:underline transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-celeste-100 hover:text-white bg-primary-900/60 hover:bg-primary-900 px-3 py-1.5 rounded-lg border border-primary-700 transition-all group shadow-xs"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-secondary-400" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-accent-500 group-hover:text-accent-400" />
                   <span>Portal Administrativo</span>
                 </Link>
               </li>
@@ -66,18 +68,18 @@ export function Footer() {
 
           {/* Contact */}
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-primary-300 mb-3">
-              Contacto
+            <h4 className="text-sm font-bold uppercase tracking-wider text-accent-500 mb-3">
+              Contacto Institucional
             </h4>
-            <p className="text-primary-200 text-sm">Secretaría de Deportes</p>
-            <p className="text-primary-200 text-sm">Provincia de Formosa</p>
-            <p className="text-primary-200 text-sm">República Argentina</p>
+            <p className="text-celeste-100 text-sm font-medium">Secretaría de Deportes</p>
+            <p className="text-celeste-200 text-sm">Gobierno de la Provincia de Formosa</p>
+            <p className="text-celeste-300 text-xs mt-1">República Argentina</p>
           </div>
         </div>
 
-        <div className="border-t border-primary-700 mt-8 pt-6 text-center">
-          <p className="text-primary-300 text-xs">
-            © {currentYear} Juegos Evita Formosa — Secretaría de Deportes. Todos los derechos reservados.
+        <div className="border-t border-primary-700/80 mt-8 pt-6 text-center">
+          <p className="text-celeste-300 text-xs">
+            © {currentYear} Juegos Evita Formoseños — Secretaría de Deportes de Formosa. Todos los derechos reservados.
           </p>
         </div>
       </div>

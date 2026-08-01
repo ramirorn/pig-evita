@@ -10,6 +10,7 @@ import {
   Medal,
   ArrowRight,
   ClipboardList,
+  Sparkles,
 } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
 
@@ -19,7 +20,7 @@ const QUICK_LINKS = [
     description: 'Consultá las más de 40 disciplinas deportivas disponibles.',
     icon: <Trophy className="w-7 h-7" />,
     path: ROUTES.DISCIPLINES,
-    color: 'from-primary-500 to-primary-600',
+    color: 'from-primary-700 to-primary-800',
   },
   {
     title: 'Rankings',
@@ -40,7 +41,7 @@ const QUICK_LINKS = [
     description: 'Ubicación de las sedes de competencia en toda la provincia.',
     icon: <MapPin className="w-7 h-7" />,
     path: ROUTES.VENUES,
-    color: 'from-primary-400 to-primary-600',
+    color: 'from-celeste-500 to-celeste-600',
   },
 ];
 
@@ -48,45 +49,45 @@ export function HomePage() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary-700 via-primary-800 to-primary-900 text-white">
-        {/* Decorative shapes */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary-800 via-primary-900 to-primary-900 text-white">
+        {/* Decorative shapes and brand lights */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-10 right-10 w-72 h-72 bg-accent-400/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary-500/10 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-primary-400/10 rounded-full blur-2xl" />
+          <div className="absolute top-10 right-10 w-80 h-80 bg-accent-500/15 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary-500/15 rounded-full blur-3xl" />
+          <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-celeste-400/20 rounded-full blur-2xl" />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-sm font-medium mb-6 animate-fade-in">
-              <Trophy className="w-4 h-4 text-accent-400" />
-              <span>Provincia de Formosa</span>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sm font-medium mb-6 animate-fade-in shadow-sm">
+              <Sparkles className="w-4 h-4 text-accent-500" />
+              <span className="text-celeste-100 font-semibold">Provincia de Formosa — Edición Oficial</span>
             </div>
 
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 animate-fade-in stagger-1">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 animate-fade-in stagger-1 tracking-tight">
               Juegos Evita
-              <span className="block text-accent-400">Formosa 2026</span>
+              <span className="block text-accent-500">Formoseños 2026</span>
             </h1>
 
-            <p className="text-lg md:text-xl text-primary-200 max-w-2xl mb-8 leading-relaxed animate-fade-in stagger-2">
+            <p className="text-lg md:text-xl text-celeste-100 max-w-2xl mb-8 leading-relaxed animate-fade-in stagger-2 font-normal">
               Plataforma integral de gestión deportiva. Inscribite, consultá disciplinas,
-              seguí los resultados y descubrí toda la información oficial de los Juegos Evita.
+              seguí los resultados y descubrí toda la pasión deportiva de la provincia de Formosa.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 animate-fade-in stagger-3">
               <Link
                 to={ROUTES.INSCRIPTION}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 text-base font-bold rounded-xl bg-gradient-to-r from-accent-400 to-accent-500 text-primary-900 hover:from-accent-500 hover:to-accent-600 shadow-lg hover:shadow-xl transition-all"
+                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 text-base font-bold rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-primary-950 hover:from-accent-400 hover:to-accent-500 shadow-lg hover:shadow-xl transition-all active:scale-[0.98]"
               >
-                <ClipboardList className="w-5 h-5" />
+                <ClipboardList className="w-5 h-5 text-primary-950" />
                 Inscribirse Ahora
               </Link>
               <Link
                 to={ROUTES.DISCIPLINES}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 text-base font-semibold rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-all"
+                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 text-base font-semibold rounded-xl bg-white/10 backdrop-blur-md border border-white/25 text-white hover:bg-white/20 transition-all active:scale-[0.98]"
               >
                 Ver Disciplinas
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 text-celeste-200" />
               </Link>
             </div>
           </div>
@@ -119,7 +120,7 @@ export function HomePage() {
             <Link
               key={link.path}
               to={link.path}
-              className={`card group p-6 hover:scale-[1.02] transition-all animate-fade-in stagger-${idx + 1}`}
+              className={`card group p-6 hover:scale-[1.02] hover:border-primary-300 transition-all animate-fade-in stagger-${idx + 1}`}
             >
               <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${link.color} flex items-center justify-center text-white shadow-md mb-4 group-hover:shadow-lg transition-shadow`}>
                 {link.icon}
@@ -130,7 +131,7 @@ export function HomePage() {
               <p className="text-sm text-primary-500 leading-relaxed">
                 {link.description}
               </p>
-              <div className="flex items-center gap-1 mt-3 text-sm font-medium text-primary-400 group-hover:text-primary-600 transition-colors">
+              <div className="flex items-center gap-1 mt-3 text-sm font-semibold text-primary-600 group-hover:text-primary-800 transition-colors">
                 Ver más <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </Link>
@@ -149,11 +150,11 @@ export function HomePage() {
               { icon: <Medal className="w-8 h-8" />, value: '∞', label: 'Oportunidades' },
             ].map((stat, idx) => (
               <div key={idx} className={`animate-fade-in stagger-${idx + 1}`}>
-                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-white/10 flex items-center justify-center text-accent-400">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-white/10 flex items-center justify-center text-accent-500 shadow-inner">
                   {stat.icon}
                 </div>
                 <p className="text-3xl md:text-4xl font-extrabold mb-1">{stat.value}</p>
-                <p className="text-primary-300 text-sm font-medium">{stat.label}</p>
+                <p className="text-celeste-200 text-sm font-medium">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -162,7 +163,7 @@ export function HomePage() {
 
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-secondary-500 to-secondary-600 p-8 md:p-12 text-white text-center">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-secondary-500 to-secondary-600 p-8 md:p-12 text-white text-center shadow-lg">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-20 -right-20 w-60 h-60 bg-white/10 rounded-full blur-2xl" />
           </div>
