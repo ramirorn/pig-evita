@@ -3,6 +3,7 @@
 // ===========================================
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import * as ExcelJS from 'exceljs';
 
 @Injectable()
 export class ReportsService {
@@ -10,7 +11,75 @@ export class ReportsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async generateParticipantsCsv(categoryId?: string): Promise<string> {
+  private async createStyledWorkbook(sheetName: string, headers: string[], rows: any[][]): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Juegos Evita Formosa';
+    workbook.created = new Date();
+    const worksheet = workbook.addWorksheet(sheetName, {
+      views: [{ state: 'frozen', ySplit: 1 }],
+    });
+
+    // Add header row
+    const headerRow = worksheet.addRow(headers);
+    headerRow.height = 28;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11, name: 'Calibri' };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF0F4C81' }, // Primary blue Evita
+      };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF0A3560' } },
+        left: { style: 'thin', color: { argb: 'FF0A3560' } },
+        bottom: { style: 'medium', color: { argb: 'FF041A33' } },
+        right: { style: 'thin', color: { argb: 'FF0A3560' } },
+      };
+    });
+
+    // Add data rows
+    rows.forEach((rowValues, idx) => {
+      const row = worksheet.addRow(rowValues);
+      row.height = 22;
+      const isEven = idx % 2 === 1;
+      row.eachCell((cell) => {
+        cell.font = { size: 10, name: 'Calibri' };
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+        if (isEven) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8FAFC' },
+          };
+        }
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+      });
+    });
+
+    // Auto-fit column widths
+    worksheet.columns.forEach((column) => {
+      let maxLength = 10;
+      column.eachCell?.({ includeEmpty: true }, (cell) => {
+        const val = cell.value ? String(cell.value) : '';
+        if (val.length > maxLength) maxLength = val.length;
+      });
+      column.width = Math.min(Math.max(maxLength + 4, 12), 40);
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
+  // ===========================================
+  // PARTICIPANTS
+  // ===========================================
+  private async getParticipantsData(categoryId?: string) {
     const whereClause = categoryId ? { inscriptions: { some: { categoryId } } } : {};
     
     const participants = await this.prisma.participant.findMany({
@@ -21,7 +90,7 @@ export class ReportsService {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
 
-    const header = ['DNI', 'Nombre', 'Apellido', 'Sexo', 'Fecha Nacimiento', 'Departamento', 'Localidad', 'Teléfono', 'Email', 'Categorías'];
+    const headers = ['DNI', 'Nombre', 'Apellido', 'Sexo', 'Fecha Nacimiento', 'Departamento', 'Localidad', 'Teléfono', 'Email', 'Categorías'];
     
     const rows = participants.map(p => {
       const categoriesStr = p.inscriptions
@@ -42,10 +111,23 @@ export class ReportsService {
       ];
     });
 
-    return [header, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    return { headers, rows };
   }
 
-  async generateInscriptionsCsv(disciplineId?: string, categoryId?: string, status?: string): Promise<string> {
+  async generateParticipantsCsv(categoryId?: string): Promise<string> {
+    const { headers, rows } = await this.getParticipantsData(categoryId);
+    return [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  }
+
+  async generateParticipantsExcel(categoryId?: string): Promise<Buffer> {
+    const { headers, rows } = await this.getParticipantsData(categoryId);
+    return this.createStyledWorkbook('Padrón Participantes', headers, rows);
+  }
+
+  // ===========================================
+  // INSCRIPTIONS
+  // ===========================================
+  private async getInscriptionsData(disciplineId?: string, categoryId?: string, status?: string) {
     const where: any = {};
     if (categoryId) where.categoryId = categoryId;
     if (status) where.status = status;
@@ -63,7 +145,7 @@ export class ReportsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const header = [
+    const headers = [
       'Código QR',
       'DNI Participante',
       'Nombre',
@@ -93,10 +175,23 @@ export class ReportsService {
       i.createdAt ? i.createdAt.toISOString().split('T')[0] : '',
     ]);
 
-    return [header, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    return { headers, rows };
   }
 
-  async generateTeamsCsv(disciplineId?: string): Promise<string> {
+  async generateInscriptionsCsv(disciplineId?: string, categoryId?: string, status?: string): Promise<string> {
+    const { headers, rows } = await this.getInscriptionsData(disciplineId, categoryId, status);
+    return [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  }
+
+  async generateInscriptionsExcel(disciplineId?: string, categoryId?: string, status?: string): Promise<Buffer> {
+    const { headers, rows } = await this.getInscriptionsData(disciplineId, categoryId, status);
+    return this.createStyledWorkbook('Inscripciones', headers, rows);
+  }
+
+  // ===========================================
+  // TEAMS
+  // ===========================================
+  private async getTeamsData(disciplineId?: string) {
     const whereClause = disciplineId ? { category: { disciplineId } } : {};
 
     const teams = await this.prisma.team.findMany({
@@ -108,7 +203,7 @@ export class ReportsService {
       orderBy: { name: 'asc' },
     });
 
-    const header = ['ID Equipo', 'Nombre', 'Disciplina', 'Categoría', 'Departamento', 'Localidad', 'Cantidad Miembros'];
+    const headers = ['ID Equipo', 'Nombre', 'Disciplina', 'Categoría', 'Departamento', 'Localidad', 'Cantidad Miembros'];
 
     const rows = teams.map(t => [
       t.id,
@@ -120,10 +215,23 @@ export class ReportsService {
       t._count.members
     ]);
 
-    return [header, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    return { headers, rows };
   }
 
-  async generateResultsCsv(competitionId?: string): Promise<string> {
+  async generateTeamsCsv(disciplineId?: string): Promise<string> {
+    const { headers, rows } = await this.getTeamsData(disciplineId);
+    return [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  }
+
+  async generateTeamsExcel(disciplineId?: string): Promise<Buffer> {
+    const { headers, rows } = await this.getTeamsData(disciplineId);
+    return this.createStyledWorkbook('Equipos', headers, rows);
+  }
+
+  // ===========================================
+  // RESULTS & FIXTURE
+  // ===========================================
+  private async getResultsData(competitionId?: string) {
     const where: any = {};
     if (competitionId) where.competitionId = competitionId;
 
@@ -145,7 +253,7 @@ export class ReportsService {
       ],
     });
 
-    const header = [
+    const headers = [
       'Competencia',
       'Disciplina',
       'Categoría',
@@ -190,7 +298,16 @@ export class ReportsService {
       ];
     });
 
-    return [header, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    return { headers, rows };
+  }
+
+  async generateResultsCsv(competitionId?: string): Promise<string> {
+    const { headers, rows } = await this.getResultsData(competitionId);
+    return [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+  }
+
+  async generateResultsExcel(competitionId?: string): Promise<Buffer> {
+    const { headers, rows } = await this.getResultsData(competitionId);
+    return this.createStyledWorkbook('Resultados y Partidos', headers, rows);
   }
 }
-

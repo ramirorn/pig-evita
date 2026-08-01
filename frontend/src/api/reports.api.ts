@@ -3,38 +3,43 @@
 // ===========================================
 import apiClient from './client';
 
+export type ReportFormat = 'csv' | 'xlsx';
+
 export const reportsApi = {
-  /** Export participants CSV */
-  async exportParticipantsCsv(categoryId?: string): Promise<Blob> {
+  /** Export participants CSV or Excel */
+  async exportParticipants(categoryId?: string, format: ReportFormat = 'csv'): Promise<Blob> {
     const { data } = await apiClient.get('/reports/participants', {
-      params: categoryId ? { categoryId } : undefined,
+      params: { categoryId: categoryId || undefined, format },
       responseType: 'blob',
     });
     return data as Blob;
   },
 
-  /** Export inscriptions CSV */
-  async exportInscriptionsCsv(filters?: { disciplineId?: string; categoryId?: string; status?: string }): Promise<Blob> {
+  /** Export inscriptions CSV or Excel */
+  async exportInscriptions(
+    filters?: { disciplineId?: string; categoryId?: string; status?: string },
+    format: ReportFormat = 'csv'
+  ): Promise<Blob> {
     const { data } = await apiClient.get('/reports/inscriptions', {
-      params: filters,
+      params: { ...filters, format },
       responseType: 'blob',
     });
     return data as Blob;
   },
 
-  /** Export teams CSV */
-  async exportTeamsCsv(disciplineId?: string): Promise<Blob> {
+  /** Export teams CSV or Excel */
+  async exportTeams(disciplineId?: string, format: ReportFormat = 'csv'): Promise<Blob> {
     const { data } = await apiClient.get('/reports/teams', {
-      params: disciplineId ? { disciplineId } : undefined,
+      params: { disciplineId: disciplineId || undefined, format },
       responseType: 'blob',
     });
     return data as Blob;
   },
 
-  /** Export results CSV */
-  async exportResultsCsv(competitionId?: string): Promise<Blob> {
+  /** Export results CSV or Excel */
+  async exportResults(competitionId?: string, format: ReportFormat = 'csv'): Promise<Blob> {
     const { data } = await apiClient.get('/reports/results', {
-      params: competitionId ? { competitionId } : undefined,
+      params: { competitionId: competitionId || undefined, format },
       responseType: 'blob',
     });
     return data as Blob;
