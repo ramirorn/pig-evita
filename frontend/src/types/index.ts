@@ -185,6 +185,7 @@ export interface Inscription {
   teamId?: string | null;
   status: InscriptionStatus;
   qrCode: string;
+  qrImage?: string | null;
   notes?: string | null;
   reviewedById?: string | null;
   reviewedAt?: string | null;

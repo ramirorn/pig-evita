@@ -79,15 +79,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Logo area */}
       <div className="flex items-center h-16 px-4 border-b border-primary-100">
         <Link to={ROUTES.DASHBOARD} className="flex items-center gap-2.5 overflow-hidden">
-          <div className="w-9 h-9 min-w-[36px] rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-sm">
-            <Trophy className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/logo-sinfondo.png"
+            alt="Juegos Evita Formoseños"
+            className="w-9 h-9 min-w-[36px] object-contain"
+          />
           {!collapsed && (
             <div className="animate-fade-in">
               <span className="text-sm font-bold text-primary-800 block leading-tight">
                 Juegos Evita
               </span>
-              <span className="text-[9px] text-primary-500 font-medium uppercase tracking-widest block leading-tight">
+              <span className="text-[9px] text-accent-600 font-bold uppercase tracking-widest block leading-tight">
                 Panel Admin
               </span>
             </div>

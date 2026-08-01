@@ -54,8 +54,9 @@ export function useCreateInscription() {
       // but it's good practice just in case admin is logged in.
       queryClient.invalidateQueries({ queryKey: INSCRIPTION_KEYS.lists() });
     },
-    onError: () => {
-      toast.error('Error al registrar la inscripción');
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al registrar la inscripción';
+      toast.error(typeof message === 'string' ? message : 'Error en los datos ingresados');
     },
   });
 }

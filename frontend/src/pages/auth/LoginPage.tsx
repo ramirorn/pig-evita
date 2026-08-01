@@ -81,14 +81,18 @@ export function LoginPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-8 animate-scale-in border border-primary-100/50">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-700 to-primary-900 flex items-center justify-center shadow-lg border border-primary-600/30">
-              <Trophy className="w-8 h-8 text-accent-500" />
+            <div className="mx-auto mb-4 flex items-center justify-center">
+              <img
+                src="/logo-sinfondo.png"
+                alt="Juegos Evita Formoseños"
+                className="h-20 w-auto object-contain drop-shadow-md"
+              />
             </div>
-            <h1 className="text-2xl font-bold text-primary-800 tracking-tight">
+            <h1 className="text-2xl font-extrabold text-primary-800 tracking-tight">
               Juegos Evita Formoseños
             </h1>
-            <p className="text-sm text-primary-500 mt-1 font-medium">
-              Panel de Administración y Gestión
+            <p className="text-xs text-accent-600 font-bold uppercase tracking-widest mt-0.5">
+              Portal Administrativo Oficial
             </p>
           </div>
 
