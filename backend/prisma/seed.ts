@@ -188,7 +188,160 @@ async function main() {
   }
   console.log(`  ✅ Eventos del Calendario creados`);
 
-  // --- 7. Mock Participants, Teams and Results (Rankings) ---
+  // --- 7. Mock Participants, Teams, Competition and Fixture data ---
+
+  // Buscar la categoría Sub-14 Masculino de Fútbol 11
+  const catFutbolSub14 = await prisma.category.findUnique({
+    where: { disciplineId_name: { disciplineId: dbDisciplines[0].id, name: 'Sub-14 Masculino' } },
+  });
+
+  if (!catFutbolSub14) {
+    console.error('  ❌ No se encontró la categoría Sub-14 Masculino');
+    return;
+  }
+
+  // Datos de los 8 equipos con sus jugadores
+  const teamsData = [
+    { name: 'Los Pumas de Formosa',   department: 'Formosa',   locality: 'Formosa' },
+    { name: 'Águilas de Clorinda',     department: 'Pilcomayo', locality: 'Clorinda' },
+    { name: 'Tigres del Bermejo',      department: 'Bermejo',   locality: 'Laguna Yema' },
+    { name: 'Halcones de Pirané',      department: 'Pirané',    locality: 'Pirané' },
+    { name: 'Leones de El Colorado',   department: 'Pirané',    locality: 'El Colorado' },
+    { name: 'Cóndores de Ibarreta',    department: 'Patiño',    locality: 'Ibarreta' },
+    { name: 'Jaguares de Las Lomitas', department: 'Patiño',    locality: 'Las Lomitas' },
+    { name: 'Toros de Fontana',        department: 'Patiño',    locality: 'Comandante Fontana' },
+  ];
+
+  // Nombres argentinos realistas para participantes
+  const firstNames = [
+    'Mateo', 'Santiago', 'Thiago', 'Benjamín', 'Lucas', 'Bautista', 'Lautaro', 'Valentino',
+    'Tomás', 'Joaquín', 'Agustín', 'Facundo', 'Bruno', 'Franco', 'Ramiro', 'Gonzalo',
+    'Nicolás', 'Martín', 'Sebastián', 'Federico', 'Ignacio', 'Máximo', 'Emiliano', 'Julián',
+    'Dante', 'Gael', 'Lorenzo', 'Ciro', 'Enzo', 'Ian', 'Simón', 'Felipe',
+    'Santino', 'Marcos', 'Juan', 'Pedro', 'Diego', 'Manuel', 'Alejandro', 'Pablo',
+    'Cristian', 'Ezequiel', 'Damián', 'Alan', 'Kevin', 'Brian', 'Jonathan', 'Elías',
+    'Máximiliano', 'Adrián', 'Gustavo', 'Hugo', 'Ricardo', 'Abel', 'Omar', 'Ismael',
+    'Samuel', 'Carlos', 'Jorge', 'Roberto', 'Leonardo', 'Darío', 'Leonel', 'Emilio',
+    'Antonio', 'Rafael', 'Esteban', 'Walter', 'Hernán', 'Andrés', 'Daniel', 'Iván',
+    'Rodrigo', 'Axel', 'Nahuel', 'Matías', 'Gabriel', 'Fernando', 'Oscar', 'Sergio',
+    'Leandro', 'Nelson', 'Rubén', 'Ariel', 'Claudio', 'Fabián', 'Marcelo', 'Patricio',
+    'Renzo', 'Luciano', 'Norberto', 'Gerardo', 'Aldo', 'Néstor', 'Alfredo', 'Ernesto',
+  ];
+  const lastNames = [
+    'González', 'Rodríguez', 'López', 'Martínez', 'García', 'Fernández', 'Pérez', 'Romero',
+    'Sosa', 'Torres', 'Díaz', 'Alvarez', 'Ruiz', 'Ramírez', 'Acosta', 'Medina',
+    'Herrera', 'Suárez', 'Aguirre', 'Molina', 'Castro', 'Pereyra', 'Cabrera', 'Villalba',
+    'Rojas', 'Giménez', 'Benítez', 'Domínguez', 'Silva', 'Flores', 'Morales', 'Ortiz',
+  ];
+
+  let dniCounter = 50000000;
+  const createdTeams: { id: string; name: string }[] = [];
+  let totalParticipants = 0;
+
+  for (const teamData of teamsData) {
+    // Crear o buscar el equipo (unique: name + disciplineId + categoryId)
+    const team = await prisma.team.upsert({
+      where: {
+        name_disciplineId_categoryId: {
+          name: teamData.name,
+          disciplineId: dbDisciplines[0].id,
+          categoryId: catFutbolSub14.id,
+        },
+      },
+      update: {},
+      create: {
+        name: teamData.name,
+        disciplineId: dbDisciplines[0].id,
+        categoryId: catFutbolSub14.id,
+        locality: teamData.locality,
+        department: teamData.department,
+      },
+    });
+    createdTeams.push({ id: team.id, name: team.name });
+
+    // Crear 13 jugadores por equipo (11 titulares + 2 suplentes)
+    for (let j = 0; j < 13; j++) {
+      const nameIdx = (teamsData.indexOf(teamData) * 13 + j);
+      const firstName = firstNames[nameIdx % firstNames.length];
+      const lastName = lastNames[nameIdx % lastNames.length];
+      const dni = String(dniCounter++);
+      const birthYear = 2012 + Math.floor(Math.random() * 2); // 12-14 años
+
+      const participant = await prisma.participant.upsert({
+        where: { dni },
+        update: {},
+        create: {
+          dni,
+          firstName,
+          lastName,
+          birthDate: new Date(`${birthYear}-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`),
+          sex: Sex.MASCULINO,
+          locality: teamData.locality,
+          department: teamData.department,
+        },
+      });
+
+      // Agregar como miembro del equipo
+      await prisma.teamMember.upsert({
+        where: {
+          teamId_participantId: { teamId: team.id, participantId: participant.id },
+        },
+        update: {},
+        create: {
+          teamId: team.id,
+          participantId: participant.id,
+          shirtNumber: j + 1,
+          position: j === 0 ? 'Arquero' : j <= 4 ? 'Defensor' : j <= 8 ? 'Mediocampista' : 'Delantero',
+          isCaptain: j === 5, // El mediocampista #6 es capitán
+        },
+      });
+
+      // Crear inscripción aprobada
+      const qrCode = `INS-FUT14-${teamData.department.substring(0, 3).toUpperCase()}-${dni}`;
+      await prisma.inscription.upsert({
+        where: { participantId_categoryId: { participantId: participant.id, categoryId: catFutbolSub14.id } },
+        update: {},
+        create: {
+          participantId: participant.id,
+          categoryId: catFutbolSub14.id,
+          teamId: team.id,
+          status: 'APROBADA',
+          qrCode,
+        },
+      });
+      totalParticipants++;
+    }
+  }
+  console.log(`  ✅ ${createdTeams.length} Equipos de Fútbol 11 creados con ${totalParticipants} jugadores e inscripciones aprobadas`);
+
+  // Crear competencia en BORRADOR para probar fixture
+  const compFutbol = await prisma.competition.upsert({
+    where: {
+      disciplineId_categoryId_stage: {
+        disciplineId: dbDisciplines[0].id,
+        categoryId: catFutbolSub14.id,
+        stage: CompetitionStage.ZONAL,
+      },
+    },
+    update: { status: CompetitionStatus.BORRADOR, format: CompetitionFormat.ROUND_ROBIN },
+    create: {
+      disciplineId: dbDisciplines[0].id,
+      categoryId: catFutbolSub14.id,
+      stage: CompetitionStage.ZONAL,
+      format: CompetitionFormat.ROUND_ROBIN,
+      status: CompetitionStatus.BORRADOR,
+      name: 'Torneo Zonal Fútbol Sub-14 Masculino',
+      startDate: new Date(Date.now() + 86400000 * 7),
+    },
+  });
+  // Limpiar partidos anteriores si re-ejecutamos la seed
+  await prisma.result.deleteMany({ where: { match: { competitionId: compFutbol.id } } });
+  await prisma.match.deleteMany({ where: { competitionId: compFutbol.id } });
+  console.log(`  ✅ Competencia "${compFutbol.name}" creada en estado BORRADOR (lista para generar fixture)`);
+  console.log(`     ID: ${compFutbol.id}`);
+  console.log(`     Equipos disponibles: ${createdTeams.map(t => t.name).join(', ')}`);
+
+  // --- 8. Datos del torneo de Ajedrez (existente) ---
   const participant1 = await prisma.participant.upsert({
     where: { dni: '40111222' },
     update: {},
@@ -217,7 +370,6 @@ async function main() {
       }
     });
 
-    // We must use findFirst or similar to check if match already exists or clean results
     await prisma.result.deleteMany({ where: { match: { competitionId: compAjedrez.id } } });
     await prisma.match.deleteMany({ where: { competitionId: compAjedrez.id } });
 
@@ -251,10 +403,14 @@ async function main() {
         isWinner: false,
       }
     });
-    console.log(`  ✅ Competición, Partido y Resultados (Rankings) creados`);
+    console.log(`  ✅ Competición de Ajedrez y Resultados creados`);
   }
 
   console.log('\n🎉 Seed completed successfully!');
+  console.log('\n📋 Para probar la generación de fixture:');
+  console.log('   1. Ve a /admin/competencias');
+  console.log('   2. Entrá en "Torneo Zonal Fútbol Sub-14 Masculino"');
+  console.log('   3. Presioná "Generar Fixture Automático"');
 }
 
 main()
@@ -265,3 +421,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+

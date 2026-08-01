@@ -46,6 +46,11 @@ export class UpdateTeamDto extends PartialType(CreateTeamDto) {
 }
 
 export class TeamFilterDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ description: 'Filtrar por disciplina' })
+  @IsOptional()
+  @IsUUID('4')
+  disciplineId?: string;
+
   @ApiPropertyOptional({ description: 'Filtrar por categoría' })
   @IsOptional()
   @IsUUID('4')

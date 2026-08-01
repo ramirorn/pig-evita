@@ -50,6 +50,10 @@ export class TeamsService {
   async findAll(filterDto: TeamFilterDto) {
     const where: Prisma.TeamWhereInput = {};
 
+    if (filterDto.disciplineId) {
+      where.disciplineId = filterDto.disciplineId;
+    }
+
     if (filterDto.categoryId) {
       where.categoryId = filterDto.categoryId;
     }

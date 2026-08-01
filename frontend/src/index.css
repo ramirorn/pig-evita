@@ -110,6 +110,16 @@
     border-radius: var(--radius-sm);
   }
 
+  /* Cursor pointer for interactive elements */
+  button,
+  a[href],
+  select,
+  [role="button"],
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+
   /* Skip to content link */
   .skip-to-content {
     position: absolute;
