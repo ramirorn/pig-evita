@@ -5,18 +5,36 @@ import apiClient from './client';
 
 export const reportsApi = {
   /** Export participants CSV */
-  async exportParticipantsCsv(categoryId: string): Promise<Blob> {
+  async exportParticipantsCsv(categoryId?: string): Promise<Blob> {
     const { data } = await apiClient.get('/reports/participants', {
-      params: { categoryId },
+      params: categoryId ? { categoryId } : undefined,
+      responseType: 'blob',
+    });
+    return data as Blob;
+  },
+
+  /** Export inscriptions CSV */
+  async exportInscriptionsCsv(filters?: { disciplineId?: string; categoryId?: string; status?: string }): Promise<Blob> {
+    const { data } = await apiClient.get('/reports/inscriptions', {
+      params: filters,
       responseType: 'blob',
     });
     return data as Blob;
   },
 
   /** Export teams CSV */
-  async exportTeamsCsv(disciplineId: string): Promise<Blob> {
+  async exportTeamsCsv(disciplineId?: string): Promise<Blob> {
     const { data } = await apiClient.get('/reports/teams', {
-      params: { disciplineId },
+      params: disciplineId ? { disciplineId } : undefined,
+      responseType: 'blob',
+    });
+    return data as Blob;
+  },
+
+  /** Export results CSV */
+  async exportResultsCsv(competitionId?: string): Promise<Blob> {
+    const { data } = await apiClient.get('/reports/results', {
+      params: competitionId ? { competitionId } : undefined,
       responseType: 'blob',
     });
     return data as Blob;
