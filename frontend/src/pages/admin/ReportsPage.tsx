@@ -2,9 +2,9 @@
 // Reports Page
 // ===========================================
 import { useState } from 'react';
-import { BarChart3, Download, FileSpreadsheet, Users, Trophy, Loader2, FileText } from 'lucide-react';
+import { BarChart3, FileSpreadsheet, Users, Trophy, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { reportsApi, downloadBlob, ReportFormat } from '@/api/reports.api';
+import { reportsApi, downloadBlob, type ReportFormat } from '@/api/reports.api';
 import { toast } from 'sonner';
 
 interface ReportCardConfig {
