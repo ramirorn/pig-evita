@@ -75,9 +75,10 @@ export function ReportsPage() {
     const filename = `${baseFilename}.${extension}`;
     const formatLabel = format === 'xlsx' ? 'Excel (.xlsx)' : 'CSV';
 
+    const toastId = toast.loading(`Generando reporte de ${label} en formato ${formatLabel}...`);
+
     try {
       setLoadingAction(actionKey);
-      toast.info(`Generando reporte de ${label} en formato ${formatLabel}...`);
 
       let blob: Blob;
       if (type === 'participantes') {
@@ -91,10 +92,10 @@ export function ReportsPage() {
       }
 
       downloadBlob(blob, filename);
-      toast.success(`Reporte de ${label} (${formatLabel}) descargado exitosamente`);
+      toast.success(`Reporte de ${label} (${formatLabel}) descargado exitosamente`, { id: toastId });
     } catch (error) {
       console.error(error);
-      toast.error(`Error al generar el reporte de ${label}`);
+      toast.error(`Error al generar el reporte de ${label}`, { id: toastId });
     } finally {
       setLoadingAction(null);
     }
