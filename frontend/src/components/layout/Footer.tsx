@@ -1,6 +1,9 @@
 // ===========================================
 // Footer Component
 // ===========================================
+import { Link } from 'react-router';
+import { ShieldCheck } from 'lucide-react';
+import { ROUTES } from '@/lib/constants';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -25,29 +28,38 @@ export function Footer() {
             </h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="/disciplinas" className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.DISCIPLINES} className="text-primary-200 hover:text-white transition-colors">
                   Disciplinas
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/noticias" className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.NEWS} className="text-primary-200 hover:text-white transition-colors">
                   Noticias
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/calendario" className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.CALENDAR} className="text-primary-200 hover:text-white transition-colors">
                   Calendario
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/sedes" className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.VENUES} className="text-primary-200 hover:text-white transition-colors">
                   Sedes
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="/rankings" className="text-primary-200 hover:text-white transition-colors">
+                <Link to={ROUTES.RANKINGS} className="text-primary-200 hover:text-white transition-colors">
                   Rankings
-                </a>
+                </Link>
+              </li>
+              <li className="pt-2 border-t border-primary-700/60">
+                <Link
+                  to={ROUTES.DASHBOARD}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary-200 hover:text-white hover:underline transition-colors"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-secondary-400" />
+                  <span>Portal Administrativo</span>
+                </Link>
               </li>
             </ul>
           </div>

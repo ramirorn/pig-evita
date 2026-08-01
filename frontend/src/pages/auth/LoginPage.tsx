@@ -2,7 +2,7 @@
 // Login Page
 // ===========================================
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router';
+import { useNavigate, useLocation, Navigate } from 'react-router';
 import { Trophy, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/store/auth.store';
 import { ROUTES } from '@/lib/constants';
@@ -11,7 +11,7 @@ import type { AxiosError } from 'axios';
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,10 +19,21 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // If already logged in, redirect
+  // If checking authentication state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-primary-900">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-primary-400 border-t-white rounded-full animate-spin" />
+          <p className="text-sm text-primary-200 font-medium">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If already logged in, redirect declaratively
   if (isAuthenticated) {
-    navigate(ROUTES.DASHBOARD, { replace: true });
-    return null;
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
   }
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || ROUTES.DASHBOARD;

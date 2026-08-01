@@ -1,9 +1,10 @@
 // ===========================================
 // Admin Header Component
 // ===========================================
-import { LogOut } from 'lucide-react';
+import { Link } from 'react-router';
+import { LogOut, Globe } from 'lucide-react';
 import { useAuth } from '@/store/auth.store';
-import { ROLE_LABELS } from '@/lib/constants';
+import { ROLE_LABELS, ROUTES } from '@/lib/constants';
 import { getInitials } from '@/lib/utils';
 
 export function AdminHeader() {
@@ -20,8 +21,18 @@ export function AdminHeader() {
         </h1>
       </div>
 
-      {/* User info */}
-      <div className="flex items-center gap-4">
+      {/* User info & Actions */}
+      <div className="flex items-center gap-3 sm:gap-4">
+        {/* Link to Public Website */}
+        <Link
+          to={ROUTES.HOME}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-600 hover:text-primary-800 bg-primary-50/70 hover:bg-primary-100/70 border border-primary-200 rounded-lg transition-all"
+          title="Ver portal público de Juegos Evita"
+        >
+          <Globe className="w-3.5 h-3.5 text-primary-500" />
+          <span className="hidden sm:inline">Ver Sitio Web</span>
+        </Link>
+
         {/* Role badge */}
         <span className="hidden sm:inline-flex badge bg-primary-50 text-primary-700 border-primary-200 text-xs">
           {ROLE_LABELS[user.role]}
