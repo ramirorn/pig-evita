@@ -8,8 +8,9 @@ import { useTeams } from '@/hooks/useTeams';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CompetitionFormat } from '@/types';
-import { FORMAT_LABELS, STAGE_LABELS } from '@/lib/constants';
+import { FORMAT_LABELS, STAGE_LABELS, ROUTES } from '@/lib/constants';
 import { toast } from 'sonner';
+import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
 
 export function CompetitionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +38,7 @@ export function CompetitionDetailPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-primary-800">Competencia no encontrada</h2>
-        <Button variant="link" onClick={() => navigate('/admin/competencias')}>Volver al listado</Button>
+        <Button variant="link" onClick={() => navigate(ROUTES.COMPETITIONS)}>Volver al listado</Button>
       </div>
     );
   }
@@ -74,8 +75,15 @@ export function CompetitionDetailPage() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
+      <Breadcrumbs
+        items={[
+          { label: 'Competencias', path: ROUTES.COMPETITIONS },
+          { label: competition.name || `${competition.discipline?.name} - ${competition.category?.name}` },
+        ]}
+      />
+
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate('/admin/competencias')}>
+        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.COMPETITIONS)}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1">
@@ -241,4 +249,3 @@ export function CompetitionDetailPage() {
     </div>
   );
 }
-

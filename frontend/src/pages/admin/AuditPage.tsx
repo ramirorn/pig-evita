@@ -2,9 +2,19 @@
 // Audit Page
 // ===========================================
 import { useState } from 'react';
-import { Shield, Search, Calendar, FileText } from 'lucide-react';
+import { Shield, Search, Calendar } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { EmptyState } from '@/components/shared/EmptyState';
 
 // Mock data for audit logs
 const MOCK_AUDIT_LOGS = [
@@ -27,75 +37,77 @@ export function AuditPage() {
     }
   };
 
+  const filtered = MOCK_AUDIT_LOGS.filter(
+    (log) =>
+      log.user.toLowerCase().includes(search.toLowerCase()) ||
+      log.action.toLowerCase().includes(search.toLowerCase()) ||
+      log.details.toLowerCase().includes(search.toLowerCase()),
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-sm">
-          <Shield className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-primary-800">Auditoría del Sistema</h1>
-          <p className="text-sm text-primary-500">Registro de actividades y cambios realizados</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Auditoría del Sistema"
+        description="Registro de actividades, eventos de seguridad y cambios realizados"
+        icon={<Shield className="w-5 h-5 text-white" />}
+      />
 
-      <div className="card p-4 flex flex-wrap gap-4 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-          <Input 
-            placeholder="Buscar por usuario o acción..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative w-40">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-            <Input type="date" className="pl-9" />
+      <div className="card">
+        <div className="p-4 border-b border-primary-100 flex flex-wrap gap-4 items-center">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
+            <Input 
+              placeholder="Buscar por usuario o acción..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative w-40">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
+              <Input type="date" className="pl-9" />
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="card p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-primary-500 uppercase bg-primary-50 border-b border-primary-100">
-              <tr>
-                <th className="px-6 py-3">Fecha y Hora</th>
-                <th className="px-6 py-3">Usuario</th>
-                <th className="px-6 py-3">Acción</th>
-                <th className="px-6 py-3">Entidad</th>
-                <th className="px-6 py-3">Detalles</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-100">
-              {MOCK_AUDIT_LOGS.map((log) => (
-                <tr key={log.id} className="hover:bg-primary-50/50 transition-colors">
-                  <td className="px-6 py-4 text-primary-600 whitespace-nowrap">
-                    {new Date(log.timestamp).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 font-medium text-primary-900">
-                    {log.user}
-                  </td>
-                  <td className="px-6 py-4">
-                    <Badge variant="outline" className={`font-bold ${getActionColor(log.action)}`}>
-                      {log.action}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 text-primary-700 font-medium">
-                    {log.entity}
-                  </td>
-                  <td className="px-6 py-4 text-primary-600 max-w-xs truncate" title={log.details}>
-                    <span className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-primary-400 flex-shrink-0" />
-                      {log.details}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="relative">
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={<Shield className="w-10 h-10" />}
+              title="Sin registros de auditoría"
+              description="No hay eventos registrados que coincidan con la búsqueda."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha y Hora</TableHead>
+                  <TableHead>Usuario</TableHead>
+                  <TableHead>Acción</TableHead>
+                  <TableHead>Entidad</TableHead>
+                  <TableHead>Detalles</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="text-primary-600 font-mono text-xs">
+                      {new Date(log.timestamp).toLocaleString('es-AR')}
+                    </TableCell>
+                    <TableCell className="font-medium text-primary-900">{log.user}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={getActionColor(log.action)}>
+                        {log.action}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-primary-600">{log.entity}</TableCell>
+                    <TableCell className="text-primary-800">{log.details}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
       </div>
     </div>

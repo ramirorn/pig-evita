@@ -11,8 +11,11 @@ import {
   ArrowRight,
   ClipboardList,
   Sparkles,
+  Newspaper,
 } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
+import { useNewsList } from '@/hooks/useNews';
+import { formatDate } from '@/lib/utils';
 
 const QUICK_LINKS = [
   {
@@ -46,15 +49,26 @@ const QUICK_LINKS = [
 ];
 
 export function HomePage() {
+  const { data: newsData } = useNewsList({ isPublished: true, limit: 3 });
+  const latestNews = newsData?.data.slice(0, 3) || [];
+
   return (
     <div>
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-primary-800 via-primary-900 to-primary-900 text-white">
         {/* Decorative shapes and brand lights */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-10 right-10 w-80 h-80 bg-accent-500/15 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary-500/15 rounded-full blur-3xl" />
-          <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-celeste-400/20 rounded-full blur-2xl" />
+          <div className="absolute top-10 right-10 w-80 h-80 bg-accent-500/15 rounded-full blur-3xl animate-float" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary-500/15 rounded-full blur-3xl animate-float-delayed" />
+          <div className="absolute top-1/3 left-1/4 w-72 h-72 bg-celeste-400/20 rounded-full blur-2xl animate-float" />
+          {/* Subtle dot grid overlay */}
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+              backgroundSize: '32px 32px',
+            }}
+          />
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
@@ -175,7 +189,9 @@ export function HomePage() {
                 <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-white/10 flex items-center justify-center text-accent-500 shadow-inner">
                   {stat.icon}
                 </div>
-                <p className="text-3xl md:text-4xl font-extrabold mb-1">{stat.value}</p>
+                <p className="text-3xl md:text-4xl font-extrabold mb-1 animate-count-up" style={{ animationDelay: `${idx * 0.12}s` }}>
+                  {stat.value}
+                </p>
                 <p className="text-celeste-200 text-sm font-medium">{stat.label}</p>
               </div>
             ))}
@@ -183,11 +199,81 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* Latest News Section */}
+      {latestNews.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="flex items-center justify-between mb-10">
+            <div>
+              <h2 className="text-2xl md:text-3xl font-bold text-primary-800 mb-1">
+                Últimas Noticias
+              </h2>
+              <p className="text-primary-500">Lo más reciente de los Juegos Evita Formosa.</p>
+            </div>
+            <Link
+              to={ROUTES.NEWS}
+              className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-primary-600 hover:text-primary-800 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+            >
+              Ver todas <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {latestNews.map((news, idx) => (
+              <Link
+                key={news.id}
+                to={`/noticias/${news.slug}`}
+                className={`card group overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all animate-fade-in stagger-${idx + 1}`}
+              >
+                <div className="h-44 bg-primary-100 flex items-center justify-center overflow-hidden">
+                  {news.imageKey ? (
+                    <img
+                      src={news.imageKey}
+                      alt={news.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Newspaper className="w-10 h-10 text-primary-300" />
+                    </div>
+                  )}
+                </div>
+                <div className="p-5">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-accent-600">
+                      Actualidad
+                    </span>
+                    <span className="text-xs text-primary-400">
+                      {formatDate(news.createdAt)}
+                    </span>
+                  </div>
+                  <h3 className="font-bold text-primary-900 text-lg mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
+                    {news.title}
+                  </h3>
+                  <p className="text-primary-500 text-sm line-clamp-2">
+                    {news.excerpt || news.content.substring(0, 100) + '...'}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="mt-6 text-center sm:hidden">
+            <Link
+              to={ROUTES.NEWS}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-primary-600 bg-primary-50 rounded-lg"
+            >
+              Ver todas las noticias <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </section>
+      )}
+
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-secondary-500 to-secondary-600 p-8 md:p-12 text-white text-center shadow-lg">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-20 -right-20 w-60 h-60 bg-white/10 rounded-full blur-2xl" />
+            <div className="absolute -top-20 -right-20 w-60 h-60 bg-white/10 rounded-full blur-2xl animate-float" />
+            <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-white/5 rounded-full blur-2xl animate-float-delayed" />
           </div>
           <div className="relative">
             <h2 className="text-2xl md:text-3xl font-bold mb-3">

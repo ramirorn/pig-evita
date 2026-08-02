@@ -6,6 +6,7 @@ import { BarChart3, FileSpreadsheet, Users, Trophy, Loader2, FileText } from 'lu
 import { Button } from '@/components/ui/button';
 import { reportsApi, downloadBlob, type ReportFormat } from '@/api/reports.api';
 import { toast } from 'sonner';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 interface ReportCardConfig {
   id: 'participantes' | 'inscripciones' | 'equipos' | 'resultados';
@@ -103,15 +104,11 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-sm">
-          <BarChart3 className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-primary-800">Reportes y Exportación</h1>
-          <p className="text-sm text-primary-500">Descarga información del sistema en formatos CSV y Excel (.xlsx) con diseño profesional</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Reportes y Exportación"
+        description="Descarga información del sistema en formatos CSV y Excel (.xlsx) con diseño profesional"
+        icon={<BarChart3 className="w-5 h-5 text-white" />}
+      />
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {REPORT_CARDS.map((card) => {

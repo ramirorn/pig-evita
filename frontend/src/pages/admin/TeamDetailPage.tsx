@@ -23,9 +23,10 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import type { TeamMember } from '@/types';
+import { ROUTES } from '@/lib/constants';
+import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
 
-// TODO: Replace this with an actual add member form that searches participants
-function AddMemberModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+function AddMemberModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
@@ -75,15 +76,22 @@ export function TeamDetailPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-primary-800">Equipo no encontrado</h2>
-        <Button variant="link" onClick={() => navigate('/admin/equipos')}>Volver a equipos</Button>
+        <Button variant="link" onClick={() => navigate(ROUTES.TEAMS)}>Volver a equipos</Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <Breadcrumbs
+        items={[
+          { label: 'Equipos', path: ROUTES.TEAMS },
+          { label: team.name },
+        ]}
+      />
+
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate('/admin/equipos')}>
+        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.TEAMS)}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1">
@@ -104,7 +112,7 @@ export function TeamDetailPage() {
         {/* Team Stats/Info */}
         <div className="md:col-span-1 space-y-4">
           <div className="card p-4 space-y-4">
-            <h3 className="font-semibold text-primary-900 border-b pb-2">Información</h3>
+            <h3 className="font-semibold text-primary-900 border-b border-primary-100 pb-2">Información</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-primary-500">Disciplina</span>
@@ -128,7 +136,7 @@ export function TeamDetailPage() {
         <div className="md:col-span-3 card">
           <div className="p-4 border-b border-primary-100">
             <h2 className="text-lg font-semibold text-primary-900 flex items-center gap-2">
-              <UsersRound className="w-5 h-5" />
+              <UsersRound className="w-5 h-5 text-primary-500" />
               Lista de Buena Fe
             </h2>
           </div>

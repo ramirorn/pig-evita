@@ -1,9 +1,9 @@
 // ===========================================
 // Public Layout
 // ===========================================
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
-import { Menu, X, Trophy } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
 import { Footer } from './Footer';
@@ -19,7 +19,22 @@ const NAV_LINKS = [
 
 export function PublicLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  // Detect scroll for header style change
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -29,7 +44,14 @@ export function PublicLayout() {
       </a>
 
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-primary-100 shadow-sm">
+      <header
+        className={cn(
+          'sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300',
+          scrolled
+            ? 'bg-white/98 border-primary-200 shadow-md'
+            : 'bg-white/95 border-primary-100 shadow-sm',
+        )}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -93,35 +115,36 @@ export function PublicLayout() {
           </div>
         </div>
 
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t border-primary-100 bg-white animate-fade-in">
-            <nav className="px-4 py-3 space-y-1" role="navigation" aria-label="Navegación móvil">
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    'block px-3 py-2.5 text-sm font-medium rounded-lg transition-colors',
-                    location.pathname === link.path
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-primary-600 hover:bg-primary-50',
-                  )}
-                >
-                  {link.label}
-                </Link>
-              ))}
+        {/* Mobile menu with slide animation */}
+        <div
+          className={cn(
+            'md:hidden border-t border-primary-100 bg-white overflow-hidden transition-all duration-300 ease-in-out',
+            mobileMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0',
+          )}
+        >
+          <nav className="px-4 py-3 space-y-1" role="navigation" aria-label="Navegación móvil">
+            {NAV_LINKS.map((link) => (
               <Link
-                to={ROUTES.INSCRIPTION}
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-3 py-2.5 text-sm font-semibold text-secondary-700 bg-secondary-50 rounded-lg mt-2"
+                key={link.path}
+                to={link.path}
+                className={cn(
+                  'block px-3 py-2.5 text-sm font-medium rounded-lg transition-colors',
+                  location.pathname === link.path
+                    ? 'bg-primary-50 text-primary-700'
+                    : 'text-primary-600 hover:bg-primary-50',
+                )}
               >
-                📝 Inscribirse
+                {link.label}
               </Link>
-            </nav>
-          </div>
-        )}
+            ))}
+            <Link
+              to={ROUTES.INSCRIPTION}
+              className="block px-3 py-2.5 text-sm font-semibold text-secondary-700 bg-secondary-50 rounded-lg mt-2"
+            >
+              📝 Inscribirse
+            </Link>
+          </nav>
+        </div>
       </header>
 
       {/* Main content */}

@@ -2,20 +2,33 @@
 // Admin Header Component
 // ===========================================
 import { Link } from 'react-router';
-import { LogOut, Globe } from 'lucide-react';
+import { LogOut, Globe, Menu } from 'lucide-react';
 import { useAuth } from '@/store/auth.store';
 import { ROLE_LABELS, ROUTES } from '@/lib/constants';
 import { getInitials } from '@/lib/utils';
 
-export function AdminHeader() {
+interface AdminHeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
   const { user, logout } = useAuth();
 
   if (!user) return null;
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-md border-b border-primary-100 flex items-center justify-between px-6">
-      {/* Breadcrumb area */}
-      <div>
+    <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-md border-b border-primary-100 flex items-center justify-between px-4 sm:px-6">
+      {/* Left side */}
+      <div className="flex items-center gap-3">
+        {/* Mobile hamburger */}
+        <button
+          onClick={onMenuClick}
+          className="md:hidden p-2 -ml-2 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
+          aria-label="Abrir menú"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
         <h1 className="text-lg font-semibold text-primary-800">
           Panel de Administración
         </h1>

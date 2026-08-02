@@ -6,7 +6,8 @@ import { Users, ArrowLeft, Loader2, Calendar, MapPin, Mail, Phone } from 'lucide
 import { useParticipant } from '@/hooks/useParticipants';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { SEX_LABELS } from '@/lib/constants';
+import { SEX_LABELS, ROUTES } from '@/lib/constants';
+import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
 
 export function ParticipantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,15 +27,22 @@ export function ParticipantDetailPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-primary-800">Participante no encontrado</h2>
-        <Button variant="link" onClick={() => navigate('/admin/participantes')}>Volver al padrón</Button>
+        <Button variant="link" onClick={() => navigate(ROUTES.PARTICIPANTS)}>Volver al padrón</Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <Breadcrumbs
+        items={[
+          { label: 'Participantes', path: ROUTES.PARTICIPANTS },
+          { label: `${participant.lastName}, ${participant.firstName}` },
+        ]}
+      />
+
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate('/admin/participantes')}>
+        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.PARTICIPANTS)}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1">
@@ -52,7 +60,7 @@ export function ParticipantDetailPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-1 space-y-6">
           <div className="card p-6 space-y-4">
-            <h3 className="font-semibold text-primary-900 border-b pb-2 flex items-center gap-2">
+            <h3 className="font-semibold text-primary-900 border-b border-primary-100 pb-2 flex items-center gap-2">
               <Users className="w-4 h-4 text-primary-500" />
               Datos Personales
             </h3>
@@ -97,7 +105,6 @@ export function ParticipantDetailPage() {
             </div>
             <div className="p-8 text-center text-primary-500 text-sm">
               <p>El participante aún no pertenece a ningún equipo en la edición actual.</p>
-              {/* Aquí se integraría la lista de equipos en los que está inscripto */}
             </div>
           </div>
 

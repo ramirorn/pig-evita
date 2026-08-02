@@ -3,7 +3,7 @@
 // ===========================================
 import { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router';
-import { Trophy, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/store/auth.store';
 import { ROUTES } from '@/lib/constants';
 import type { AxiosError } from 'axios';

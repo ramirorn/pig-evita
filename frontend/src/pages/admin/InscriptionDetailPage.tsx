@@ -15,6 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ROUTES } from '@/lib/constants';
+import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
 
 export function InscriptionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,7 +43,7 @@ export function InscriptionDetailPage() {
     return (
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-primary-800">Inscripción no encontrada</h2>
-        <Button variant="link" onClick={() => navigate('/admin/inscripciones')}>Volver al listado</Button>
+        <Button variant="link" onClick={() => navigate(ROUTES.INSCRIPTIONS)}>Volver al listado</Button>
       </div>
     );
   }
@@ -77,8 +79,15 @@ export function InscriptionDetailPage() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
+      <Breadcrumbs
+        items={[
+          { label: 'Inscripciones', path: ROUTES.INSCRIPTIONS },
+          { label: `Inscripción #${inscription.qrCode}` },
+        ]}
+      />
+
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate('/admin/inscripciones')}>
+        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.INSCRIPTIONS)}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1">
@@ -105,7 +114,7 @@ export function InscriptionDetailPage() {
         {/* Detalles de la inscripción */}
         <div className="md:col-span-2 space-y-6">
           <div className="card p-6">
-            <h3 className="font-semibold text-primary-900 border-b pb-3 mb-4 text-lg">
+            <h3 className="font-semibold text-primary-900 border-b border-primary-100 pb-3 mb-4 text-lg">
               Datos del Solicitante
             </h3>
             <div className="grid grid-cols-2 gap-y-4 text-sm">
@@ -129,7 +138,7 @@ export function InscriptionDetailPage() {
           </div>
 
           <div className="card p-6">
-            <h3 className="font-semibold text-primary-900 border-b pb-3 mb-4 text-lg">
+            <h3 className="font-semibold text-primary-900 border-b border-primary-100 pb-3 mb-4 text-lg">
               Detalle de Competencia
             </h3>
             <div className="grid grid-cols-2 gap-y-4 text-sm">

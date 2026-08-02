@@ -14,30 +14,30 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 export function DocumentsPage() {
   const [search, setSearch] = useState('');
 
-  // Dummy data para visualización de cómo se verá el módulo de revisión
   const pendingReviews = [
     { id: '1', participant: 'Pérez, Juan', dni: '45123456', documentType: 'DNI', submittedAt: '2026-07-20' },
     { id: '2', participant: 'López, María', dni: '46987654', documentType: 'Ficha Médica', submittedAt: '2026-07-21' },
     { id: '3', participant: 'García, Carlos', dni: '44111222', documentType: 'Autorización Menor', submittedAt: '2026-07-21' },
   ];
 
+  const filtered = pendingReviews.filter(
+    (doc) =>
+      doc.participant.toLowerCase().includes(search.toLowerCase()) ||
+      doc.dni.includes(search),
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-sm">
-            <FileText className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-primary-800">Documentos</h1>
-            <p className="text-sm text-primary-500">Revisión y validación de documentación</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Documentos"
+        description="Revisión y validación de documentación deportiva y médica"
+        icon={<FileText className="w-5 h-5 text-white" />}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="card p-6 flex flex-col items-center justify-center text-center">
@@ -88,7 +88,7 @@ export function DocumentsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pendingReviews.map((doc) => (
+            {filtered.map((doc) => (
               <TableRow key={doc.id}>
                 <TableCell className="font-medium text-primary-900">{doc.participant}</TableCell>
                 <TableCell className="text-primary-600">{doc.dni}</TableCell>

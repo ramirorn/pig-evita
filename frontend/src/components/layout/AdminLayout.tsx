@@ -9,25 +9,41 @@ import { AdminHeader } from './AdminHeader';
 
 export function AdminLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-surface">
+      {/* Mobile overlay */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden animate-fade-in"
+          onClick={() => setMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
       <Sidebar
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main content area */}
       <div
         className={cn(
           'transition-all duration-300 ease-in-out',
-          sidebarCollapsed ? 'ml-[72px]' : 'ml-[260px]',
+          // On desktop, shift based on sidebar state
+          'md:ml-[260px]',
+          sidebarCollapsed && 'md:ml-[72px]',
+          // On mobile, no margin since sidebar is overlay
+          'ml-0',
         )}
       >
-        <AdminHeader />
+        <AdminHeader onMenuClick={() => setMobileSidebarOpen(true)} />
 
-        <main className="p-6" id="admin-main-content">
+        <main className="p-4 sm:p-6" id="admin-main-content">
           <Outlet />
         </main>
       </div>

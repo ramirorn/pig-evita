@@ -2,99 +2,114 @@
 // News Admin Page
 // ===========================================
 import { useState } from 'react';
-import { Newspaper, Search, Plus, Loader2 } from 'lucide-react';
+import { Newspaper, Search, Plus, Pencil } from 'lucide-react';
 import { useNewsList } from '@/hooks/useNews';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { SkeletonTable } from '@/components/shared/SkeletonTable';
+import { EmptyState } from '@/components/shared/EmptyState';
 
 export function NewsAdminPage() {
   const [search, setSearch] = useState('');
   const { data: newsData, isLoading } = useNewsList();
 
+  const filtered = (newsData?.data || []).filter((item) =>
+    item.title.toLowerCase().includes(search.toLowerCase()),
+  );
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-sm">
-            <Newspaper className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-primary-800">Noticias</h1>
-            <p className="text-sm text-primary-500">Gestión de novedades y artículos públicos</p>
+      <PageHeader
+        title="Noticias"
+        description="Gestión de novedades y artículos públicos"
+        icon={<Newspaper className="w-5 h-5 text-white" />}
+        actions={
+          <Button className="gap-2">
+            <Plus className="w-4 h-4" />
+            Crear Noticia
+          </Button>
+        }
+      />
+
+      <div className="card">
+        <div className="p-4 border-b border-primary-100 flex items-center gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
+            <Input 
+              placeholder="Buscar noticias por título..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
           </div>
         </div>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          Crear Noticia
-        </Button>
-      </div>
 
-      <div className="card p-4 flex flex-wrap gap-4 items-center">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-          <Input 
-            placeholder="Buscar noticias por título..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      </div>
-
-      <div className="card p-0">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-12 text-primary-500">
-            <Loader2 className="w-8 h-8 animate-spin mb-4" />
-            <p>Cargando noticias...</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-primary-500 uppercase bg-primary-50 border-b border-primary-100">
-                <tr>
-                  <th className="px-6 py-3">Noticia</th>
-                  <th className="px-6 py-3">Fecha de Publicación</th>
-                  <th className="px-6 py-3">Estado</th>
-                  <th className="px-6 py-3 text-right">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
-                {newsData?.data.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-primary-500">
-                      No se encontraron noticias.
-                    </td>
-                  </tr>
-                ) : (
-                  newsData?.data.map((news) => (
-                    <tr key={news.id} className="hover:bg-primary-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-primary-900 line-clamp-1">{news.title}</div>
-                        <div className="text-xs text-primary-500 line-clamp-1 mt-1">{news.excerpt}</div>
-                      </td>
-                      <td className="px-6 py-4 text-primary-600">
-                        {news.publishedAt ? new Date(news.publishedAt).toLocaleDateString() : 'No publicada'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge variant="outline" className={
-                          news.isPublished ? 'text-green-600 bg-green-50 border-green-200' : 'text-orange-600 bg-orange-50 border-orange-200'
-                        }>
-                          {news.isPublished ? 'Publicada' : 'Borrador'}
+        <div className="relative">
+          {isLoading ? (
+            <SkeletonTable rows={5} columns={4} />
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={<Newspaper className="w-10 h-10" />}
+              title="Sin noticias"
+              description="No se encontraron artículos o novedades cargadas."
+              action={
+                <Button className="gap-2">
+                  <Plus className="w-4 h-4" /> Crear Noticia
+                </Button>
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Noticia</TableHead>
+                  <TableHead>Fecha de Publicación</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="w-[100px] text-right">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium text-primary-900">
+                      <div>
+                        <p className="font-semibold">{item.title}</p>
+                        {item.excerpt && <p className="text-xs text-primary-500 line-clamp-1">{item.excerpt}</p>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-primary-600">
+                      {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('es-AR') : 'Borrador'}
+                    </TableCell>
+                    <TableCell>
+                      {item.isPublished ? (
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
+                          Publicado
                         </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button variant="ghost" size="sm">
-                          Editar
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      ) : (
+                        <Badge variant="secondary">Borrador</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
       </div>
     </div>
   );

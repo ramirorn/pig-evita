@@ -2,12 +2,17 @@
 // Teams Admin Page
 // ===========================================
 import { useState } from 'react';
-import { UsersRound, Plus, Pencil, MoreVertical, Loader2 } from 'lucide-react';
+import { UsersRound, Plus, Pencil, MoreVertical } from 'lucide-react';
 import { useTeams } from '@/hooks/useTeams';
 import type { Team } from '@/types';
 import { TeamForm } from './components/TeamForm';
 import { useDisciplines } from '@/hooks/useDisciplines';
 import { useCategories } from '@/hooks/useCategories';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { Pagination } from '@/components/shared/Pagination';
+import { SkeletonTable } from '@/components/shared/SkeletonTable';
+import { EmptyState } from '@/components/shared/EmptyState';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +50,8 @@ export function TeamsAdminPage() {
   const [department, setDepartment] = useState('');
   const [disciplineId, setDisciplineId] = useState<string>('all');
   const [categoryId, setCategoryId] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | undefined>();
@@ -58,6 +65,8 @@ export function TeamsAdminPage() {
     department: department || undefined,
     disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
     categoryId: categoryId !== 'all' ? categoryId : undefined,
+    page,
+    limit,
   });
 
   const handleCreate = () => {
@@ -77,33 +86,28 @@ export function TeamsAdminPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center shadow-sm">
-            <UsersRound className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-primary-800">Equipos</h1>
-            <p className="text-sm text-primary-500">Gestión de equipos inscriptos</p>
-          </div>
-        </div>
-
-        <Button onClick={handleCreate} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Nuevo Equipo
-        </Button>
-      </div>
+      <PageHeader
+        title="Equipos"
+        description="Gestión de equipos inscriptos y listas de buena fe"
+        icon={<UsersRound className="w-5 h-5 text-white" />}
+        actions={
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Nuevo Equipo
+          </Button>
+        }
+      />
 
       <div className="card">
         <div className="p-4 border-b border-primary-100 flex flex-wrap gap-4">
           <Input 
             placeholder="Buscar por departamento..." 
             value={department}
-            onChange={(e) => setDepartment(e.target.value)}
+            onChange={(e) => { setDepartment(e.target.value); setPage(1); }}
             className="w-full sm:w-[250px]"
           />
           
-          <Select value={disciplineId} onValueChange={(v) => { setDisciplineId(v); setCategoryId('all'); }}>
+          <Select value={disciplineId} onValueChange={(v) => { setDisciplineId(v); setCategoryId('all'); setPage(1); }}>
             <SelectTrigger className="w-full sm:w-[250px]">
               <SelectValue placeholder="Disciplina" />
             </SelectTrigger>
@@ -115,7 +119,7 @@ export function TeamsAdminPage() {
             </SelectContent>
           </Select>
 
-          <Select value={categoryId} onValueChange={setCategoryId} disabled={disciplineId === 'all'}>
+          <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1); }} disabled={disciplineId === 'all'}>
             <SelectTrigger className="w-full sm:w-[250px]">
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>
@@ -130,10 +134,18 @@ export function TeamsAdminPage() {
 
         <div className="relative">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-primary-500">
-              <Loader2 className="w-8 h-8 animate-spin mb-4" />
-              <p>Cargando equipos...</p>
-            </div>
+            <SkeletonTable rows={limit > 5 ? 8 : 5} columns={6} />
+          ) : !teamsData?.data.length ? (
+            <EmptyState
+              icon={<UsersRound className="w-10 h-10" />}
+              title="Sin equipos"
+              description="No se encontraron equipos con los filtros seleccionados."
+              action={
+                <Button onClick={handleCreate} className="gap-2">
+                  <Plus className="w-4 h-4" /> Crear Equipo
+                </Button>
+              }
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -147,55 +159,59 @@ export function TeamsAdminPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {teamsData?.data.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-primary-500">
-                      No se encontraron equipos
+                {teamsData.data.map((team) => (
+                  <TableRow key={team.id}>
+                    <TableCell>
+                      <Link to={`/admin/equipos/${team.id}`} className="font-medium text-primary-600 hover:underline">
+                        {team.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{team.discipline?.name || '—'}</TableCell>
+                    <TableCell>{team.category?.name || '—'}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{team.department}</span>
+                        <span className="text-xs text-primary-500">{team.locality}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {team.members?.length || 0} / {team.discipline?.maxPlayers || '-'} Jugadores
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(team)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  teamsData?.data.map((team) => (
-                    <TableRow key={team.id}>
-                      <TableCell>
-                        <Link to={`/admin/equipos/${team.id}`} className="font-medium text-primary-600 hover:underline">
-                          {team.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{team.discipline?.name || '—'}</TableCell>
-                      <TableCell>{team.category?.name || '—'}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{team.department}</span>
-                          <span className="text-xs text-primary-500">{team.locality}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {team.members?.length || 0} / {team.discipline?.maxPlayers || '-'} Jugadores
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(team)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           )}
         </div>
+
+        {/* Pagination */}
+        {teamsData && teamsData.meta.totalPages > 1 && (
+          <Pagination
+            page={teamsData.meta.page}
+            totalPages={teamsData.meta.totalPages}
+            total={teamsData.meta.total}
+            limit={limit}
+            onPageChange={setPage}
+            onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+          />
+        )}
       </div>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

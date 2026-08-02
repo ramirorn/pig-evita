@@ -24,6 +24,22 @@ export const createUserSchema = z.object({
   zone: z.string().optional(),
 });
 
+export const updateUserSchema = z.object({
+  email: z.string().email('Debe ser un email válido'),
+  password: z
+    .string()
+    .refine((val) => !val || val.length >= 8, {
+      message: 'La nueva contraseña debe tener al menos 8 caracteres',
+    })
+    .optional(),
+  firstName: z.string().min(2, 'El nombre es obligatorio'),
+  lastName: z.string().min(2, 'El apellido es obligatorio'),
+  role: z.nativeEnum(UserRole, { message: 'Rol inválido' }),
+  department: z.string().optional(),
+  zone: z.string().optional(),
+  isActive: z.boolean().default(true),
+});
+
 // ==========================================
 // Participant Schemas
 // ==========================================
