@@ -52,6 +52,10 @@ export const teamsApi = {
     return data;
   },
 
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/teams/${id}`);
+  },
+
   async addMember(teamId: string, payload: AddTeamMemberPayload): Promise<TeamMember> {
     const { data } = await apiClient.post<TeamMember>(`/teams/${teamId}/members`, payload);
     return data;

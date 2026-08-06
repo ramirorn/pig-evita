@@ -113,4 +113,37 @@ export class DisciplinesService {
     this.logger.log(`Discipline updated: ${discipline.name}`);
     return discipline;
   }
+
+  async remove(id: string) {
+    const discipline = await this.findOne(id);
+
+    const counts = await this.prisma.discipline.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            competitions: true,
+            teams: true,
+          },
+        },
+      },
+    });
+
+    if (counts && (counts._count.competitions > 0 || counts._count.teams > 0)) {
+      this.logger.log(
+        `Discipline ${discipline.name} has associated competitions/teams, deactivating instead of permanent delete`,
+      );
+      return this.prisma.discipline.update({
+        where: { id },
+        data: { isActive: false },
+      });
+    }
+
+    const deleted = await this.prisma.discipline.delete({
+      where: { id },
+    });
+
+    this.logger.log(`Discipline deleted: ${deleted.name}`);
+    return deleted;
+  }
 }

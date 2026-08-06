@@ -43,8 +43,12 @@ export function useCreateCompetition() {
       toast.success('Competencia creada exitosamente');
       queryClient.invalidateQueries({ queryKey: COMPETITION_KEYS.lists() });
     },
-    onError: () => {
-      toast.error('Error al crear la competencia');
+    onError: (error: any) => {
+      const message = error?.response?.data?.message;
+      const errorText = Array.isArray(message)
+        ? message.join(', ')
+        : message || 'Error al crear la competencia';
+      toast.error(errorText);
     },
   });
 }
@@ -60,8 +64,12 @@ export function useUpdateCompetition() {
       queryClient.invalidateQueries({ queryKey: COMPETITION_KEYS.lists() });
       queryClient.invalidateQueries({ queryKey: COMPETITION_KEYS.detail(variables.id) });
     },
-    onError: () => {
-      toast.error('Error al actualizar la competencia');
+    onError: (error: any) => {
+      const message = error?.response?.data?.message;
+      const errorText = Array.isArray(message)
+        ? message.join(', ')
+        : message || 'Error al actualizar la competencia';
+      toast.error(errorText);
     },
   });
 }

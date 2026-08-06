@@ -2,8 +2,8 @@
 // Categories Admin Page
 // ===========================================
 import { useState } from 'react';
-import { Tag, Plus, Pencil, MoreVertical } from 'lucide-react';
-import { useCategories } from '@/hooks/useCategories';
+import { Tag, Plus, Pencil, Trash2, MoreVertical } from 'lucide-react';
+import { useCategories, useDeleteCategory } from '@/hooks/useCategories';
 import type { Category } from '@/types';
 import { SEX_LABELS } from '@/lib/constants';
 import { CategoryForm } from './components/CategoryForm';
@@ -11,6 +11,7 @@ import { useDisciplines } from '@/hooks/useDisciplines';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { SkeletonTable } from '@/components/shared/SkeletonTable';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -46,11 +47,13 @@ export function CategoriesAdminPage() {
   const [disciplineId, setDisciplineId] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | undefined>();
+  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
 
   const { data: disciplines } = useDisciplines();
   const { data: categoriesData, isLoading } = useCategories({
     disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
   });
+  const deleteMutation = useDeleteCategory();
 
   const handleCreate = () => {
     setEditingCategory(undefined);
@@ -65,6 +68,16 @@ export function CategoriesAdminPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingCategory(undefined);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingCategory) return;
+    try {
+      await deleteMutation.mutateAsync(deletingCategory.id);
+      setDeletingCategory(null);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -164,6 +177,13 @@ export function CategoriesAdminPage() {
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeletingCategory(category)}
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Eliminar
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -189,6 +209,15 @@ export function CategoriesAdminPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        isOpen={!!deletingCategory}
+        title="¿Eliminar categoría?"
+        description={`¿Estás seguro de que deseas eliminar la categoría "${deletingCategory?.name}"? Si contiene inscripciones o equipos asociados, pasará a estado Inactivo.`}
+        isLoading={deleteMutation.isPending}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeletingCategory(null)}
+      />
     </div>
   );
 }

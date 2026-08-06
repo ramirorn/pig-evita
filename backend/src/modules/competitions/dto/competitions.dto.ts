@@ -2,6 +2,7 @@
 // Competitions DTOs
 // ===========================================
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
@@ -40,16 +41,19 @@ export class CreateCompetitionDto {
     description: 'Nombre opcional (ej: Final Provincial 2024)',
   })
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value?.trim()))
   @IsString()
   name?: string;
 
   @ApiPropertyOptional({ description: 'Fecha de inicio' })
   @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
   @IsDateString()
   startDate?: string;
 
   @ApiPropertyOptional({ description: 'Fecha de fin' })
   @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
   @IsDateString()
   endDate?: string;
 

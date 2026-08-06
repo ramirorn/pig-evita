@@ -76,6 +76,14 @@ export class TeamsController {
     return this.teamsService.update(id, updateDto);
   }
 
+  @Delete(':id')
+  @Roles(...ADMIN_ROLES, Role.DELEGADO)
+  @ApiOperation({ summary: 'Eliminar equipo' })
+  @ApiResponse({ status: 200, description: 'Equipo eliminado' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.teamsService.remove(id);
+  }
+
   @Post(':id/members')
   @Roles(...ADMIN_ROLES, Role.DELEGADO, Role.COORDINADOR)
   @ApiOperation({ summary: 'Agregar participante al equipo' })

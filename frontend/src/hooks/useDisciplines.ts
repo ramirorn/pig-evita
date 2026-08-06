@@ -59,3 +59,18 @@ export function useUpdateDiscipline() {
     },
   });
 }
+
+export function useDeleteDiscipline() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => disciplinesApi.delete(id),
+    onSuccess: () => {
+      toast.success('Disciplina eliminada exitosamente');
+      queryClient.invalidateQueries({ queryKey: DISCIPLINE_KEYS.lists() });
+    },
+    onError: () => {
+      toast.error('Error al eliminar la disciplina');
+    },
+  });
+}

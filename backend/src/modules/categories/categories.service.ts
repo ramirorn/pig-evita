@@ -123,4 +123,43 @@ export class CategoriesService {
     this.logger.log(`Category updated: ${updated.name}`);
     return updated;
   }
+
+  async remove(id: string) {
+    const category = await this.findOne(id);
+
+    const counts = await this.prisma.category.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            inscriptions: true,
+            teams: true,
+            competitions: true,
+          },
+        },
+      },
+    });
+
+    if (
+      counts &&
+      (counts._count.inscriptions > 0 ||
+        counts._count.teams > 0 ||
+        counts._count.competitions > 0)
+    ) {
+      this.logger.log(
+        `Category ${category.name} has associated data, deactivating instead of permanent delete`,
+      );
+      return this.prisma.category.update({
+        where: { id },
+        data: { isActive: false },
+      });
+    }
+
+    const deleted = await this.prisma.category.delete({
+      where: { id },
+    });
+
+    this.logger.log(`Category deleted: ${deleted.name}`);
+    return deleted;
+  }
 }

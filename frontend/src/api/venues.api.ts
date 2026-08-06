@@ -44,4 +44,9 @@ export const venuesApi = {
     const { data } = await apiClient.patch<Venue>(`/venues/${id}`, payload);
     return data;
   },
+
+  async delete(id: string): Promise<{ success: boolean; message?: string }> {
+    const { data } = await apiClient.delete(`/venues/${id}`);
+    return data;
+  },
 };

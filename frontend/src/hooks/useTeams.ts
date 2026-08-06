@@ -91,3 +91,18 @@ export function useRemoveTeamMember() {
     },
   });
 }
+
+export function useDeleteTeam() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => teamsApi.delete(id),
+    onSuccess: () => {
+      toast.success('Equipo eliminado exitosamente');
+      queryClient.invalidateQueries({ queryKey: TEAM_KEYS.lists() });
+    },
+    onError: () => {
+      toast.error('Error al eliminar el equipo');
+    },
+  });
+}

@@ -109,9 +109,9 @@ export const competitionSchema = z.object({
   categoryId: z.string().uuid('Debe seleccionar una categoría'),
   stage: z.nativeEnum(CompetitionStage),
   format: z.nativeEnum(CompetitionFormat),
-  name: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  name: z.string().optional().nullable().or(z.literal('')),
+  startDate: z.string().optional().nullable().or(z.literal('')),
+  endDate: z.string().optional().nullable().or(z.literal('')),
 });
 
 // ==========================================
@@ -132,4 +132,54 @@ export const calendarEventSchema = z.object({
   isPublished: z.boolean().default(true),
 });
 
+// ==========================================
+// Venue Schemas
+// ==========================================
 
+export const venueSchema = z.object({
+  name: z.string().min(2, 'El nombre de la sede es obligatorio'),
+  address: z.string().min(2, 'La dirección es obligatoria'),
+  department: z.string().min(2, 'El departamento es obligatorio'),
+  locality: z.string().min(2, 'La localidad es obligatoria'),
+  capacity: z
+    .union([z.number(), z.string(), z.null(), z.undefined()])
+    .transform((val) => {
+      if (val === '' || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    })
+    .optional(),
+  latitude: z
+    .union([z.number(), z.string(), z.null(), z.undefined()])
+    .transform((val) => {
+      if (val === '' || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    })
+    .optional(),
+  longitude: z
+    .union([z.number(), z.string(), z.null(), z.undefined()])
+    .transform((val) => {
+      if (val === '' || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    })
+    .optional(),
+  isActive: z.boolean().default(true),
+});
+
+export type VenueFormValues = z.infer<typeof venueSchema>;
+
+// ==========================================
+// News Schemas
+// ==========================================
+
+export const newsSchema = z.object({
+  title: z.string().min(3, 'El título es obligatorio (mínimo 3 caracteres)'),
+  excerpt: z.string().optional().nullable().or(z.literal('')),
+  content: z.string().min(10, 'El contenido debe tener al menos 10 caracteres'),
+  imageKey: z.string().optional().nullable().or(z.literal('')),
+  isPublished: z.boolean().default(false),
+});
+
+export type NewsFormValues = z.infer<typeof newsSchema>;

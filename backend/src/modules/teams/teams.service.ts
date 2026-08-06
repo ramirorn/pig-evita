@@ -230,4 +230,44 @@ export class TeamsService {
     this.logger.log(`Removed participant ${participantId} from team ${teamId}`);
     return { message: 'Miembro removido exitosamente' };
   }
+
+  async remove(id: string) {
+    const team = await this.findOne(id);
+
+    const counts = await this.prisma.team.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            inscriptions: true,
+            results: true,
+          },
+        },
+      },
+    });
+
+    if (
+      counts &&
+      (counts._count.inscriptions > 0 || counts._count.results > 0)
+    ) {
+      this.logger.log(
+        `Team ${team.name} has inscriptions/results, deactivating instead of permanent delete`,
+      );
+      return this.prisma.team.update({
+        where: { id },
+        data: { isActive: false },
+      });
+    }
+
+    await this.prisma.teamMember.deleteMany({
+      where: { teamId: id },
+    });
+
+    const deleted = await this.prisma.team.delete({
+      where: { id },
+    });
+
+    this.logger.log(`Team deleted: ${deleted.name}`);
+    return deleted;
+  }
 }

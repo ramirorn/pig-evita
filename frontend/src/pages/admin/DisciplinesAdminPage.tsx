@@ -2,8 +2,8 @@
 // Disciplines Admin Page
 // ===========================================
 import { useState } from 'react';
-import { Trophy, Plus, Pencil, MoreVertical, Search } from 'lucide-react';
-import { useDisciplines } from '@/hooks/useDisciplines';
+import { Trophy, Plus, Pencil, Trash2, MoreVertical, Search } from 'lucide-react';
+import { useDisciplines, useDeleteDiscipline } from '@/hooks/useDisciplines';
 import type { Discipline } from '@/types';
 import { DisciplineType } from '@/types';
 import { DisciplineForm } from './components/DisciplineForm';
@@ -11,6 +11,7 @@ import { DISCIPLINE_TYPE_LABELS, RESULT_TYPE_LABELS } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { SkeletonTable } from '@/components/shared/SkeletonTable';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,8 +41,10 @@ export function DisciplinesAdminPage() {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDiscipline, setEditingDiscipline] = useState<Discipline | undefined>();
+  const [deletingDiscipline, setDeletingDiscipline] = useState<Discipline | null>(null);
 
   const { data, isLoading } = useDisciplines();
+  const deleteMutation = useDeleteDiscipline();
 
   const filteredDisciplines = (data?.data || []).filter((d) =>
     !search ||
@@ -62,6 +65,16 @@ export function DisciplinesAdminPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingDiscipline(undefined);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingDiscipline) return;
+    try {
+      await deleteMutation.mutateAsync(deletingDiscipline.id);
+      setDeletingDiscipline(null);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -155,6 +168,13 @@ export function DisciplinesAdminPage() {
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeletingDiscipline(discipline)}
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Eliminar
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -180,6 +200,15 @@ export function DisciplinesAdminPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        isOpen={!!deletingDiscipline}
+        title="¿Eliminar disciplina?"
+        description={`¿Estás seguro de que deseas eliminar la disciplina "${deletingDiscipline?.name}"? Si contiene torneos o partidos registrados, pasará a estado Inactivo.`}
+        isLoading={deleteMutation.isPending}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeletingDiscipline(null)}
+      />
     </div>
   );
 }

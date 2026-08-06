@@ -6,6 +6,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -67,5 +68,14 @@ export class CategoriesController {
     @Body() updateDto: UpdateCategoryDto,
   ) {
     return this.categoriesService.update(id, updateDto);
+  }
+
+  @Delete(':id')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Eliminar categoría' })
+  @ApiResponse({ status: 200, description: 'Categoría eliminada' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.categoriesService.remove(id);
   }
 }

@@ -128,4 +128,15 @@ export class NewsService {
     this.logger.log(`News updated: ${updated.title}`);
     return updated;
   }
+
+  async remove(id: string) {
+    await this.findOne(id);
+
+    const news = await this.prisma.news.delete({
+      where: { id },
+    });
+
+    this.logger.log(`News deleted: ${news.title}`);
+    return news;
+  }
 }

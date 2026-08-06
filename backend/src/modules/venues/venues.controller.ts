@@ -6,6 +6,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -59,5 +60,12 @@ export class VenuesController {
     @Body() updateDto: UpdateVenueDto,
   ) {
     return this.venuesService.update(id, updateDto);
+  }
+
+  @Delete(':id')
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Eliminar sede' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.venuesService.remove(id);
   }
 }

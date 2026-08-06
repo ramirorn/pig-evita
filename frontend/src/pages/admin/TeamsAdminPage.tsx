@@ -2,8 +2,8 @@
 // Teams Admin Page
 // ===========================================
 import { useState } from 'react';
-import { UsersRound, Plus, Pencil, MoreVertical } from 'lucide-react';
-import { useTeams } from '@/hooks/useTeams';
+import { UsersRound, Plus, Pencil, Trash2, MoreVertical } from 'lucide-react';
+import { useTeams, useDeleteTeam } from '@/hooks/useTeams';
 import type { Team } from '@/types';
 import { TeamForm } from './components/TeamForm';
 import { useDisciplines } from '@/hooks/useDisciplines';
@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Pagination } from '@/components/shared/Pagination';
 import { SkeletonTable } from '@/components/shared/SkeletonTable';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +57,7 @@ export function TeamsAdminPage() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | undefined>();
+  const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
 
   const { data: disciplines } = useDisciplines();
   const { data: categories } = useCategories({ 
@@ -70,6 +72,7 @@ export function TeamsAdminPage() {
     page,
     limit,
   });
+  const deleteMutation = useDeleteTeam();
 
   const handleCreate = () => {
     setEditingTeam(undefined);
@@ -84,6 +87,16 @@ export function TeamsAdminPage() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingTeam(undefined);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingTeam) return;
+    try {
+      await deleteMutation.mutateAsync(deletingTeam.id);
+      setDeletingTeam(null);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -200,6 +213,13 @@ export function TeamsAdminPage() {
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeletingTeam(team)}
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Eliminar
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -237,6 +257,15 @@ export function TeamsAdminPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        isOpen={!!deletingTeam}
+        title="¿Eliminar equipo?"
+        description={`¿Estás seguro de que deseas eliminar el equipo "${deletingTeam?.name}"? Si ya posee partidos o inscripciones jugadas, pasará a estado Inactivo.`}
+        isLoading={deleteMutation.isPending}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeletingTeam(null)}
+      />
     </div>
   );
 }

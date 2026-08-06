@@ -64,3 +64,18 @@ export function useUpdateVenue() {
     },
   });
 }
+
+export function useDeleteVenue() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => venuesApi.delete(id),
+    onSuccess: () => {
+      toast.success('Sede eliminada exitosamente');
+      queryClient.invalidateQueries({ queryKey: VENUE_KEYS.lists() });
+    },
+    onError: () => {
+      toast.error('Error al eliminar la sede');
+    },
+  });
+}

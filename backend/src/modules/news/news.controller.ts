@@ -6,6 +6,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -69,5 +70,12 @@ export class NewsController {
     @Body() updateDto: UpdateNewsDto,
   ) {
     return this.newsService.update(id, updateDto);
+  }
+
+  @Delete(':id')
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Eliminar noticia' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.newsService.remove(id);
   }
 }

@@ -45,4 +45,8 @@ export const newsApi = {
     const { data } = await apiClient.patch<News>(`/news/${id}`, payload);
     return data;
   },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/news/${id}`);
+  },
 };

@@ -59,3 +59,18 @@ export function useUpdateCategory() {
     },
   });
 }
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => categoriesApi.delete(id),
+    onSuccess: () => {
+      toast.success('Categoría eliminada exitosamente');
+      queryClient.invalidateQueries({ queryKey: CATEGORY_KEYS.lists() });
+    },
+    onError: () => {
+      toast.error('Error al eliminar la categoría');
+    },
+  });
+}

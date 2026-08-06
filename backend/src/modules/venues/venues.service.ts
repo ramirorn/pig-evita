@@ -80,4 +80,22 @@ export class VenuesService {
     this.logger.log(`Venue updated: ${venue.name}`);
     return venue;
   }
+
+  async remove(id: string) {
+    const venue = await this.findOne(id);
+
+    // If venue has matches associated, soft delete by marking inactive
+    if (venue._count && venue._count.matches > 0) {
+      this.logger.log(`Venue ${venue.name} has matches, soft-deleting (deactivating)`);
+      return this.prisma.venue.update({
+        where: { id },
+        data: { isActive: false },
+      });
+    }
+
+    this.logger.log(`Venue deleted: ${venue.name}`);
+    return this.prisma.venue.delete({
+      where: { id },
+    });
+  }
 }

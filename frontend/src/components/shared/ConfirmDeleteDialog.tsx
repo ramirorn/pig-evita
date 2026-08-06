@@ -13,30 +13,45 @@ import {
 import { Button } from '@/components/ui/button';
 
 interface ConfirmDeleteDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open?: boolean;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onCancel?: () => void;
   title?: string;
   itemName?: string;
   description?: string;
   onConfirm: () => Promise<void> | void;
   isDeleting?: boolean;
+  isLoading?: boolean;
 }
 
 export function ConfirmDeleteDialog({
   open,
+  isOpen,
   onOpenChange,
+  onCancel,
   title = '¿Eliminar elemento?',
   itemName,
   description,
   onConfirm,
   isDeleting = false,
+  isLoading = false,
 }: ConfirmDeleteDialogProps) {
+  const isDialogOpen = open !== undefined ? open : !!isOpen;
+  const loading = isDeleting || isLoading;
+
+  const handleClose = () => {
+    if (loading) return;
+    onOpenChange?.(false);
+    onCancel?.();
+  };
+
   const handleConfirm = async () => {
     await onConfirm();
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !isDeleting && onOpenChange(v)}>
+    <Dialog open={isDialogOpen} onOpenChange={(v) => (!v ? handleClose() : onOpenChange?.(true))}>
       <DialogContent className="sm:max-w-[440px] p-6">
         <div className="flex flex-col items-center text-center space-y-3">
           <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-red-600 mb-1">
@@ -67,8 +82,8 @@ export function ConfirmDeleteDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isDeleting}
+            onClick={handleClose}
+            disabled={loading}
             className="w-full sm:w-auto"
           >
             Cancelar
@@ -77,11 +92,11 @@ export function ConfirmDeleteDialog({
             type="button"
             variant="destructive"
             onClick={handleConfirm}
-            disabled={isDeleting}
+            disabled={loading}
             className="w-full sm:w-auto gap-2"
           >
-            {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isDeleting ? 'Eliminando...' : 'Sí, eliminar'}
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loading ? 'Eliminando...' : 'Sí, eliminar'}
           </Button>
         </DialogFooter>
       </DialogContent>

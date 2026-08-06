@@ -75,3 +75,18 @@ export function useUpdateNews() {
     },
   });
 }
+
+export function useDeleteNews() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => newsApi.delete(id),
+    onSuccess: () => {
+      toast.success('Noticia eliminada exitosamente');
+      queryClient.invalidateQueries({ queryKey: NEWS_KEYS.lists() });
+    },
+    onError: () => {
+      toast.error('Error al eliminar la noticia');
+    },
+  });
+}

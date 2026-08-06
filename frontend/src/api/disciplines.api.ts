@@ -45,4 +45,8 @@ export const disciplinesApi = {
     const { data } = await apiClient.patch<Discipline>(`/disciplines/${id}`, payload);
     return data;
   },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/disciplines/${id}`);
+  },
 };

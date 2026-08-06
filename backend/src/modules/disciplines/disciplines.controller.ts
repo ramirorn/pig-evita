@@ -6,6 +6,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -76,5 +77,14 @@ export class DisciplinesController {
     @Body() updateDto: UpdateDisciplineDto,
   ) {
     return this.disciplinesService.update(id, updateDto);
+  }
+
+  @Delete(':id')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Eliminar disciplina' })
+  @ApiResponse({ status: 200, description: 'Disciplina eliminada' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.disciplinesService.remove(id);
   }
 }
