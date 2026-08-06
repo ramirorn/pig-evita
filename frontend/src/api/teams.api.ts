@@ -10,6 +10,8 @@ export interface TeamFilters {
   disciplineId?: string;
   categoryId?: string;
   department?: string;
+  locality?: string;
+  search?: string;
 }
 
 export interface CreateTeamPayload {

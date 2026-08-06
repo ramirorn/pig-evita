@@ -22,18 +22,25 @@ export class ReportsController {
   @Get('participants')
   @Roles(...ADMIN_ROLES, Role.DELEGADO)
   @ApiOperation({ summary: 'Exportar lista de participantes a CSV o Excel' })
+  @ApiQuery({ name: 'disciplineId', required: false })
   @ApiQuery({ name: 'categoryId', required: false })
+  @ApiQuery({ name: 'locality', required: false })
+  @ApiQuery({ name: 'department', required: false })
   @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx'] })
   async exportParticipants(
+    @Query('disciplineId') disciplineId: string,
     @Query('categoryId') categoryId: string,
+    @Query('locality') locality: string,
+    @Query('department') department: string,
     @Query('format') format: string,
     @Res() res: Response,
   ) {
     const isExcel = format === 'xlsx' || format === 'excel';
+    const filters = { disciplineId, categoryId, locality, department };
 
     if (isExcel) {
       const buffer =
-        await this.reportsService.generateParticipantsExcel(categoryId);
+        await this.reportsService.generateParticipantsExcel(filters);
       res.setHeader(
         'Content-Type',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -45,7 +52,7 @@ export class ReportsController {
       return res.status(200).send(buffer);
     }
 
-    const csv = await this.reportsService.generateParticipantsCsv(categoryId);
+    const csv = await this.reportsService.generateParticipantsCsv(filters);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader(
       'Content-Disposition',
@@ -104,16 +111,23 @@ export class ReportsController {
   @Roles(...ADMIN_ROLES, Role.DELEGADO)
   @ApiOperation({ summary: 'Exportar lista de equipos a CSV o Excel' })
   @ApiQuery({ name: 'disciplineId', required: false })
+  @ApiQuery({ name: 'categoryId', required: false })
+  @ApiQuery({ name: 'locality', required: false })
+  @ApiQuery({ name: 'department', required: false })
   @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx'] })
   async exportTeams(
     @Query('disciplineId') disciplineId: string,
+    @Query('categoryId') categoryId: string,
+    @Query('locality') locality: string,
+    @Query('department') department: string,
     @Query('format') format: string,
     @Res() res: Response,
   ) {
     const isExcel = format === 'xlsx' || format === 'excel';
+    const filters = { disciplineId, categoryId, locality, department };
 
     if (isExcel) {
-      const buffer = await this.reportsService.generateTeamsExcel(disciplineId);
+      const buffer = await this.reportsService.generateTeamsExcel(filters);
       res.setHeader(
         'Content-Type',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -125,7 +139,7 @@ export class ReportsController {
       return res.status(200).send(buffer);
     }
 
-    const csv = await this.reportsService.generateTeamsCsv(disciplineId);
+    const csv = await this.reportsService.generateTeamsCsv(filters);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="equipos.csv"');
     return res.status(200).send('\uFEFF' + csv);

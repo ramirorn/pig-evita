@@ -4,6 +4,8 @@
 import { useState } from 'react';
 import { Users, Plus, Pencil, MoreVertical, Search } from 'lucide-react';
 import { useParticipants } from '@/hooks/useParticipants';
+import { useDisciplines } from '@/hooks/useDisciplines';
+import { useCategories } from '@/hooks/useCategories';
 import type { Participant } from '@/types';
 import { ParticipantForm } from './components/ParticipantForm';
 import { SEX_LABELS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
@@ -14,6 +16,13 @@ import { EmptyState } from '@/components/shared/EmptyState';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -40,16 +49,25 @@ export function ParticipantsPage() {
   const [search, setSearch] = useState('');
   const [department, setDepartment] = useState('');
   const [locality, setLocality] = useState('');
+  const [disciplineId, setDisciplineId] = useState<string>('all');
+  const [categoryId, setCategoryId] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingParticipant, setEditingParticipant] = useState<Participant | undefined>();
 
+  const { data: disciplines } = useDisciplines();
+  const { data: categories } = useCategories({
+    disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
+  });
+
   const { data: participantsData, isLoading } = useParticipants({
     search: search || undefined,
     department: department || undefined,
     locality: locality || undefined,
+    disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
+    categoryId: categoryId !== 'all' ? categoryId : undefined,
     page,
     limit,
   });
@@ -94,17 +112,59 @@ export function ParticipantsPage() {
               className="pl-9"
             />
           </div>
+          <Select
+            value={disciplineId}
+            onValueChange={(v) => {
+              setDisciplineId(v);
+              setCategoryId('all');
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Disciplina" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las disciplinas</SelectItem>
+              {disciplines?.data.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={categoryId}
+            onValueChange={(v) => {
+              setCategoryId(v);
+              setPage(1);
+            }}
+            disabled={disciplineId === 'all'}
+          >
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las categorías</SelectItem>
+              {categories?.data.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <Input
             placeholder="Departamento..."
             value={department}
             onChange={(e) => { setDepartment(e.target.value); setPage(1); }}
-            className="w-full sm:w-[200px]"
+            className="w-full sm:w-[180px]"
           />
           <Input
             placeholder="Localidad..."
             value={locality}
             onChange={(e) => { setLocality(e.target.value); setPage(1); }}
-            className="w-full sm:w-[200px]"
+            className="w-full sm:w-[180px]"
           />
         </div>
 

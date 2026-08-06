@@ -11,6 +11,8 @@ export interface ParticipantFilters {
   department?: string;
   locality?: string;
   sex?: string;
+  disciplineId?: string;
+  categoryId?: string;
 }
 
 export interface CreateParticipantPayload {

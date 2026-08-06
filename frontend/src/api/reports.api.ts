@@ -5,11 +5,28 @@ import apiClient from './client';
 
 export type ReportFormat = 'csv' | 'xlsx';
 
+export interface ParticipantReportFilters {
+  disciplineId?: string;
+  categoryId?: string;
+  locality?: string;
+  department?: string;
+}
+
+export interface TeamReportFilters {
+  disciplineId?: string;
+  categoryId?: string;
+  locality?: string;
+  department?: string;
+}
+
 export const reportsApi = {
   /** Export participants CSV or Excel */
-  async exportParticipants(categoryId?: string, format: ReportFormat = 'csv'): Promise<Blob> {
+  async exportParticipants(
+    filters?: ParticipantReportFilters,
+    format: ReportFormat = 'csv'
+  ): Promise<Blob> {
     const { data } = await apiClient.get('/reports/participants', {
-      params: { categoryId: categoryId || undefined, format },
+      params: { ...filters, format },
       responseType: 'blob',
     });
     return data as Blob;
@@ -28,9 +45,12 @@ export const reportsApi = {
   },
 
   /** Export teams CSV or Excel */
-  async exportTeams(disciplineId?: string, format: ReportFormat = 'csv'): Promise<Blob> {
+  async exportTeams(
+    filters?: TeamReportFilters,
+    format: ReportFormat = 'csv'
+  ): Promise<Blob> {
     const { data } = await apiClient.get('/reports/teams', {
-      params: { disciplineId: disciplineId || undefined, format },
+      params: { ...filters, format },
       responseType: 'blob',
     });
     return data as Blob;

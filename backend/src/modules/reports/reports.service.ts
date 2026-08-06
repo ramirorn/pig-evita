@@ -1,9 +1,21 @@
-// ===========================================
-// Reports Service
-// ===========================================
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import * as ExcelJS from 'exceljs';
+
+export interface ParticipantReportFilters {
+  disciplineId?: string;
+  categoryId?: string;
+  locality?: string;
+  department?: string;
+}
+
+export interface TeamReportFilters {
+  disciplineId?: string;
+  categoryId?: string;
+  locality?: string;
+  department?: string;
+}
 
 @Injectable()
 export class ReportsService {
@@ -88,13 +100,30 @@ export class ReportsService {
   // ===========================================
   // PARTICIPANTS
   // ===========================================
-  private async getParticipantsData(categoryId?: string) {
-    const whereClause = categoryId
-      ? { inscriptions: { some: { categoryId } } }
-      : {};
+  private async getParticipantsData(filters?: ParticipantReportFilters) {
+    const where: Prisma.ParticipantWhereInput = {};
+
+    if (filters?.department) {
+      where.department = { contains: filters.department, mode: 'insensitive' };
+    }
+
+    if (filters?.locality) {
+      where.locality = { contains: filters.locality, mode: 'insensitive' };
+    }
+
+    if (filters?.disciplineId || filters?.categoryId) {
+      where.inscriptions = {
+        some: {
+          ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+          ...(filters.disciplineId
+            ? { category: { disciplineId: filters.disciplineId } }
+            : {}),
+        },
+      };
+    }
 
     const participants = await this.prisma.participant.findMany({
-      where: whereClause,
+      where,
       include: {
         inscriptions: {
           include: { category: { include: { discipline: true } } },
@@ -138,8 +167,10 @@ export class ReportsService {
     return { headers, rows };
   }
 
-  async generateParticipantsCsv(categoryId?: string): Promise<string> {
-    const { headers, rows } = await this.getParticipantsData(categoryId);
+  async generateParticipantsCsv(
+    filters?: ParticipantReportFilters,
+  ): Promise<string> {
+    const { headers, rows } = await this.getParticipantsData(filters);
     return [headers, ...rows]
       .map((row) =>
         row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
@@ -147,8 +178,10 @@ export class ReportsService {
       .join('\n');
   }
 
-  async generateParticipantsExcel(categoryId?: string): Promise<Buffer> {
-    const { headers, rows } = await this.getParticipantsData(categoryId);
+  async generateParticipantsExcel(
+    filters?: ParticipantReportFilters,
+  ): Promise<Buffer> {
+    const { headers, rows } = await this.getParticipantsData(filters);
     return this.createStyledWorkbook('Padrón Participantes', headers, rows);
   }
 
@@ -243,11 +276,27 @@ export class ReportsService {
   // ===========================================
   // TEAMS
   // ===========================================
-  private async getTeamsData(disciplineId?: string) {
-    const whereClause = disciplineId ? { category: { disciplineId } } : {};
+  private async getTeamsData(filters?: TeamReportFilters) {
+    const where: Prisma.TeamWhereInput = {};
+
+    if (filters?.disciplineId) {
+      where.disciplineId = filters.disciplineId;
+    }
+
+    if (filters?.categoryId) {
+      where.categoryId = filters.categoryId;
+    }
+
+    if (filters?.department) {
+      where.department = { contains: filters.department, mode: 'insensitive' };
+    }
+
+    if (filters?.locality) {
+      where.locality = { contains: filters.locality, mode: 'insensitive' };
+    }
 
     const teams = await this.prisma.team.findMany({
-      where: whereClause,
+      where,
       include: {
         category: { include: { discipline: true } },
         _count: { select: { members: true } },
@@ -278,8 +327,8 @@ export class ReportsService {
     return { headers, rows };
   }
 
-  async generateTeamsCsv(disciplineId?: string): Promise<string> {
-    const { headers, rows } = await this.getTeamsData(disciplineId);
+  async generateTeamsCsv(filters?: TeamReportFilters): Promise<string> {
+    const { headers, rows } = await this.getTeamsData(filters);
     return [headers, ...rows]
       .map((row) =>
         row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
@@ -287,8 +336,8 @@ export class ReportsService {
       .join('\n');
   }
 
-  async generateTeamsExcel(disciplineId?: string): Promise<Buffer> {
-    const { headers, rows } = await this.getTeamsData(disciplineId);
+  async generateTeamsExcel(filters?: TeamReportFilters): Promise<Buffer> {
+    const { headers, rows } = await this.getTeamsData(filters);
     return this.createStyledWorkbook('Equipos', headers, rows);
   }
 

@@ -72,6 +72,13 @@ export class TeamsService {
       };
     }
 
+    if (filterDto.locality) {
+      where.locality = {
+        contains: filterDto.locality,
+        mode: 'insensitive',
+      };
+    }
+
     if (filterDto.isActive !== undefined) {
       where.isActive = filterDto.isActive;
     }

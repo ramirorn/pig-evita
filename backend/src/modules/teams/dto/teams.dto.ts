@@ -64,6 +64,11 @@ export class TeamFilterDto extends PaginationQueryDto {
   @IsString()
   department?: string;
 
+  @ApiPropertyOptional({ description: 'Filtrar por localidad' })
+  @IsOptional()
+  @IsString()
+  locality?: string;
+
   @ApiPropertyOptional({ description: 'Filtrar por estado activo' })
   @IsOptional()
   @IsBoolean()

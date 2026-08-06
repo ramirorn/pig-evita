@@ -9,6 +9,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
 } from 'class-validator';
 import { Sex } from '@prisma/client';
@@ -96,4 +97,14 @@ export class ParticipantFilterDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(Sex)
   sex?: Sex;
+
+  @ApiPropertyOptional({ description: 'Filtrar por disciplina' })
+  @IsOptional()
+  @IsUUID('4')
+  disciplineId?: string;
+
+  @ApiPropertyOptional({ description: 'Filtrar por categoría' })
+  @IsOptional()
+  @IsUUID('4')
+  categoryId?: string;
 }

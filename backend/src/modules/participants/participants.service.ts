@@ -75,6 +75,17 @@ export class ParticipantsService {
       where.sex = filterDto.sex;
     }
 
+    if (filterDto.disciplineId || filterDto.categoryId) {
+      where.inscriptions = {
+        some: {
+          ...(filterDto.categoryId ? { categoryId: filterDto.categoryId } : {}),
+          ...(filterDto.disciplineId
+            ? { category: { disciplineId: filterDto.disciplineId } }
+            : {}),
+        },
+      };
+    }
+
     // Búsqueda general por nombre, apellido o DNI
     if (filterDto.search) {
       where.OR = [

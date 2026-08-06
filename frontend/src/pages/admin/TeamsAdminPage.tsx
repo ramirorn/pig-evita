@@ -48,6 +48,7 @@ import { Link } from 'react-router';
 
 export function TeamsAdminPage() {
   const [department, setDepartment] = useState('');
+  const [locality, setLocality] = useState('');
   const [disciplineId, setDisciplineId] = useState<string>('all');
   const [categoryId, setCategoryId] = useState<string>('all');
   const [page, setPage] = useState(1);
@@ -63,6 +64,7 @@ export function TeamsAdminPage() {
   
   const { data: teamsData, isLoading } = useTeams({
     department: department || undefined,
+    locality: locality || undefined,
     disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
     categoryId: categoryId !== 'all' ? categoryId : undefined,
     page,
@@ -100,15 +102,8 @@ export function TeamsAdminPage() {
 
       <div className="card">
         <div className="p-4 border-b border-primary-100 flex flex-wrap gap-4">
-          <Input 
-            placeholder="Buscar por departamento..." 
-            value={department}
-            onChange={(e) => { setDepartment(e.target.value); setPage(1); }}
-            className="w-full sm:w-[250px]"
-          />
-          
           <Select value={disciplineId} onValueChange={(v) => { setDisciplineId(v); setCategoryId('all'); setPage(1); }}>
-            <SelectTrigger className="w-full sm:w-[250px]">
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Disciplina" />
             </SelectTrigger>
             <SelectContent>
@@ -120,7 +115,7 @@ export function TeamsAdminPage() {
           </Select>
 
           <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1); }} disabled={disciplineId === 'all'}>
-            <SelectTrigger className="w-full sm:w-[250px]">
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Categoría" />
             </SelectTrigger>
             <SelectContent>
@@ -130,6 +125,20 @@ export function TeamsAdminPage() {
               ))}
             </SelectContent>
           </Select>
+
+          <Input 
+            placeholder="Buscar por departamento..." 
+            value={department}
+            onChange={(e) => { setDepartment(e.target.value); setPage(1); }}
+            className="w-full sm:w-[200px]"
+          />
+
+          <Input 
+            placeholder="Buscar por localidad..." 
+            value={locality}
+            onChange={(e) => { setLocality(e.target.value); setPage(1); }}
+            className="w-full sm:w-[200px]"
+          />
         </div>
 
         <div className="relative">
