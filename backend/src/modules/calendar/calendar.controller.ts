@@ -6,6 +6,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -63,5 +64,12 @@ export class CalendarController {
     @Body() updateDto: UpdateCalendarEventDto,
   ) {
     return this.calendarService.update(id, updateDto);
+  }
+
+  @Delete(':id')
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Eliminar evento' })
+  async remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.calendarService.remove(id);
   }
 }

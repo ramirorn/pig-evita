@@ -42,8 +42,9 @@ export function useCreateCalendarEvent() {
       toast.success('Evento creado exitosamente');
       queryClient.invalidateQueries({ queryKey: CALENDAR_KEYS.lists() });
     },
-    onError: () => {
-      toast.error('Error al crear el evento');
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al crear el evento';
+      toast.error(Array.isArray(message) ? message.join(', ') : message);
     },
   });
 }
@@ -59,8 +60,25 @@ export function useUpdateCalendarEvent() {
       queryClient.invalidateQueries({ queryKey: CALENDAR_KEYS.lists() });
       queryClient.invalidateQueries({ queryKey: CALENDAR_KEYS.detail(variables.id) });
     },
-    onError: () => {
-      toast.error('Error al actualizar el evento');
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al actualizar el evento';
+      toast.error(Array.isArray(message) ? message.join(', ') : message);
+    },
+  });
+}
+
+export function useDeleteCalendarEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => calendarApi.delete(id),
+    onSuccess: () => {
+      toast.success('Evento eliminado exitosamente');
+      queryClient.invalidateQueries({ queryKey: CALENDAR_KEYS.lists() });
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Error al eliminar el evento';
+      toast.error(Array.isArray(message) ? message.join(', ') : message);
     },
   });
 }

@@ -113,3 +113,20 @@ export const competitionSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
 });
+
+// ==========================================
+// Calendar Event Schemas
+// ==========================================
+
+export const calendarEventSchema = z.object({
+  title: z.string().min(2, 'El título es obligatorio'),
+  description: z.string().optional().nullable().or(z.literal('')),
+  startDate: z.string().min(1, 'La fecha y hora de inicio es obligatoria'),
+  endDate: z.string().optional().nullable().or(z.literal('')),
+  stage: z.nativeEnum(CompetitionStage).optional().nullable().or(z.literal('')).or(z.literal('none')),
+  disciplineId: z.string().optional().nullable().or(z.literal('')),
+  venueId: z.string().optional().nullable().or(z.literal('')),
+  isPublished: z.boolean().default(true),
+});
+
+

@@ -20,9 +20,14 @@ export class CalendarService {
   async create(createDto: CreateCalendarEventDto) {
     const event = await this.prisma.calendarEvent.create({
       data: {
-        ...createDto,
+        title: createDto.title,
+        description: createDto.description || null,
         startDate: new Date(createDto.startDate),
-        endDate: createDto.endDate ? new Date(createDto.endDate) : undefined,
+        endDate: createDto.endDate ? new Date(createDto.endDate) : null,
+        stage: createDto.stage || null,
+        venueId: createDto.venueId || null,
+        disciplineId: createDto.disciplineId || null,
+        isPublished: createDto.isPublished ?? false,
       },
     });
 
@@ -80,11 +85,14 @@ export class CalendarService {
     await this.findOne(id); // Verificar que existe
 
     const updateData: Prisma.CalendarEventUpdateInput = {
-      ...updateDto,
-      startDate: updateDto.startDate
-        ? new Date(updateDto.startDate)
-        : undefined,
-      endDate: updateDto.endDate ? new Date(updateDto.endDate) : undefined,
+      ...(updateDto.title !== undefined ? { title: updateDto.title } : {}),
+      ...(updateDto.description !== undefined ? { description: updateDto.description || null } : {}),
+      ...(updateDto.startDate !== undefined ? { startDate: new Date(updateDto.startDate) } : {}),
+      ...(updateDto.endDate !== undefined ? { endDate: updateDto.endDate ? new Date(updateDto.endDate) : null } : {}),
+      ...(updateDto.stage !== undefined ? { stage: updateDto.stage || null } : {}),
+      ...(updateDto.venueId !== undefined ? { venueId: updateDto.venueId || null } : {}),
+      ...(updateDto.disciplineId !== undefined ? { disciplineId: updateDto.disciplineId || null } : {}),
+      ...(updateDto.isPublished !== undefined ? { isPublished: updateDto.isPublished } : {}),
     };
 
     const updated = await this.prisma.calendarEvent.update({
@@ -94,5 +102,14 @@ export class CalendarService {
 
     this.logger.log(`Calendar Event updated: ${updated.title}`);
     return updated;
+  }
+
+  async remove(id: string) {
+    await this.findOne(id);
+    const deleted = await this.prisma.calendarEvent.delete({
+      where: { id },
+    });
+    this.logger.log(`Calendar Event deleted: ${deleted.title}`);
+    return deleted;
   }
 }

@@ -16,12 +16,12 @@ export interface CalendarFilters {
 
 export interface CreateCalendarEventPayload {
   title: string;
-  description?: string;
+  description?: string | null;
   startDate: string;
-  endDate?: string;
-  stage?: string;
-  venueId?: string;
-  disciplineId?: string;
+  endDate?: string | null;
+  stage?: string | null;
+  venueId?: string | null;
+  disciplineId?: string | null;
   isPublished?: boolean;
 }
 
@@ -46,5 +46,9 @@ export const calendarApi = {
   async update(id: string, payload: UpdateCalendarEventPayload): Promise<CalendarEvent> {
     const { data } = await apiClient.patch<CalendarEvent>(`/calendar/${id}`, payload);
     return data;
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/calendar/${id}`);
   },
 };
