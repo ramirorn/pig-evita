@@ -45,11 +45,14 @@ import {
 import { PageHeader } from '@/components/shared/PageHeader';
 import { SkeletonTable } from '@/components/shared/SkeletonTable';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 export function CalendarAdminPage() {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | undefined>();
+  const [eventToDelete, setEventToDelete] = useState<CalendarEvent | undefined>();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const { data: calendarData, isLoading } = useCalendarEvents();
   const { data: disciplinesData } = useDisciplines();
@@ -76,9 +79,16 @@ export function CalendarAdminPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (event: CalendarEvent) => {
-    if (window.confirm(`¿Estás seguro de eliminar el evento "${event.title}"?`)) {
-      await deleteMutation.mutateAsync(event.id);
+  const handleDeleteClick = (event: CalendarEvent) => {
+    setEventToDelete(event);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (eventToDelete) {
+      await deleteMutation.mutateAsync(eventToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setEventToDelete(undefined);
     }
   };
 
@@ -227,7 +237,7 @@ export function CalendarAdminPage() {
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleDelete(item)}
+                              onClick={() => handleDeleteClick(item)}
                               className="gap-2 text-destructive focus:text-destructive cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -247,7 +257,7 @@ export function CalendarAdminPage() {
 
       {/* Modal Crear / Editar Evento */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-6">
           <DialogHeader>
             <DialogTitle>
               {editingEvent ? 'Editar Evento del Calendario' : 'Crear Nuevo Evento'}
@@ -261,6 +271,16 @@ export function CalendarAdminPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Confirmación de Eliminación */}
+      <ConfirmDeleteDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="¿Eliminar evento del calendario?"
+        itemName={eventToDelete?.title}
+        onConfirm={handleConfirmDelete}
+        isDeleting={deleteMutation.isPending}
+      />
     </div>
   );
 }

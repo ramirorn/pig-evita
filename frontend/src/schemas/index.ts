@@ -121,8 +121,11 @@ export const competitionSchema = z.object({
 export const calendarEventSchema = z.object({
   title: z.string().min(2, 'El título es obligatorio'),
   description: z.string().optional().nullable().or(z.literal('')),
-  startDate: z.string().min(1, 'La fecha y hora de inicio es obligatoria'),
+  startDate: z.string().min(1, 'La fecha de inicio es obligatoria'),
+  startTime: z.string().min(1, 'La hora de inicio es obligatoria'),
+  hasEndDate: z.boolean().default(false),
   endDate: z.string().optional().nullable().or(z.literal('')),
+  endTime: z.string().optional().nullable().or(z.literal('')),
   stage: z.nativeEnum(CompetitionStage).optional().nullable().or(z.literal('')).or(z.literal('none')),
   disciplineId: z.string().optional().nullable().or(z.literal('')),
   venueId: z.string().optional().nullable().or(z.literal('')),
