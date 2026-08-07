@@ -21,6 +21,11 @@ export class CreateNewsDto {
   @IsString()
   excerpt?: string;
 
+  @ApiPropertyOptional({ description: 'Clave o URL de imagen principal' })
+  @IsOptional()
+  @IsString()
+  imageKey?: string;
+
   @ApiPropertyOptional({ description: 'Publicar inmediatamente' })
   @IsOptional()
   @IsBoolean()

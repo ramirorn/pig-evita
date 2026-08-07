@@ -1,12 +1,16 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Newspaper, ArrowLeft, Loader2, Calendar, Share2 } from 'lucide-react';
+import { Newspaper, ArrowLeft, Loader2, Calendar, Share2, Clock, Check } from 'lucide-react';
 import { useNewsBySlug } from '@/hooks/useNews';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { formatDate } from '@/lib/utils';
 
 export function NewsDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const { data: news, isLoading } = useNewsBySlug(slug || '');
 
@@ -29,68 +33,100 @@ export function NewsDetailPage() {
 
   const handleShare = () => {
     if (navigator.share) {
-      navigator.share({
-        title: news.title,
-        text: news.excerpt || undefined,
-        url: window.location.href,
-      }).catch(console.error);
+      navigator
+        .share({
+          title: news.title,
+          text: news.excerpt || undefined,
+          url: window.location.href,
+        })
+        .catch(console.error);
     } else {
       navigator.clipboard.writeText(window.location.href);
-      alert('Enlace copiado al portapapeles');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
   return (
-    <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fade-in">
-      <Button variant="ghost" className="mb-8 -ml-4" onClick={() => navigate('/noticias')}>
+    <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-fade-in">
+      <Button
+        variant="ghost"
+        className="mb-6 -ml-3 text-primary-600 hover:text-primary-900 hover:bg-primary-50 cursor-pointer"
+        onClick={() => navigate('/noticias')}
+      >
         <ArrowLeft className="w-4 h-4 mr-2" />
         Volver a Noticias
       </Button>
 
-      <div className="mb-10 text-center">
-        <Badge variant="outline" className="mb-4 bg-primary-50 text-primary-700 border-primary-200">
-          Actualidad
-        </Badge>
-        <h1 className="text-4xl md:text-5xl font-bold text-primary-900 mb-6 leading-tight">
+      {/* Header del Artículo */}
+      <div className="mb-8">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <Badge className="bg-primary-50 text-primary-800 border-primary-200 uppercase tracking-wider font-bold text-xs">
+            Actualidad
+          </Badge>
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-primary-500">
+            <Calendar className="w-3.5 h-3.5" />
+            {formatDate(news.createdAt)}
+          </span>
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-primary-400">
+            <Clock className="w-3.5 h-3.5" />
+            Lectura de 3 min
+          </span>
+        </div>
+
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-primary-950 mb-6 leading-tight">
           {news.title}
         </h1>
+
         {news.excerpt && (
-          <p className="text-xl text-primary-600 max-w-3xl mx-auto font-light">
+          <p className="text-lg md:text-xl text-primary-600 font-normal leading-relaxed border-l-4 border-primary-500 pl-4 py-1">
             {news.excerpt}
           </p>
         )}
-        <div className="flex items-center justify-center gap-6 mt-8 text-sm text-primary-500">
-          <span className="flex items-center gap-2">
-            <Calendar className="w-4 h-4" />
-            {new Date(news.createdAt).toLocaleDateString('es-AR', {
-              year: 'numeric', month: 'long', day: 'numeric'
-            })}
-          </span>
-          <button 
+
+        <div className="flex items-center justify-end mt-6 pt-4 border-t border-primary-100">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleShare}
-            className="flex items-center gap-2 hover:text-primary-700 transition-colors"
+            className="gap-2 text-xs font-semibold text-primary-700 cursor-pointer"
           >
-            <Share2 className="w-4 h-4" />
-            Compartir
-          </button>
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-green-600" /> Enlace copiado
+              </>
+            ) : (
+              <>
+                <Share2 className="w-3.5 h-3.5" /> Compartir artículo
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
-      {news.imageKey ? (
-        <div className="w-full h-[400px] md:h-[500px] rounded-2xl overflow-hidden mb-12 shadow-lg">
-          <img 
-            src={news.imageKey} 
-            alt={news.title} 
-            className="w-full h-full object-cover" 
+      {/* Imagen Principal de Portada */}
+      {news.imageKey && !imgError ? (
+        <div className="w-full h-[360px] md:h-[480px] rounded-3xl overflow-hidden mb-10 shadow-lg border border-primary-100 bg-primary-900">
+          <img
+            src={news.imageKey}
+            alt={news.title}
+            onError={() => setImgError(true)}
+            className="w-full h-full object-cover"
           />
         </div>
       ) : (
-        <div className="w-full h-[300px] rounded-2xl bg-primary-100 flex items-center justify-center mb-12">
-          <Newspaper className="w-24 h-24 text-primary-300" />
+        <div className="w-full h-[240px] md:h-[300px] rounded-3xl bg-gradient-to-br from-primary-900 via-primary-800 to-celeste-900 flex flex-col items-center justify-center mb-10 text-white text-center p-6 shadow-inner relative overflow-hidden">
+          <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mb-3">
+            <Newspaper className="w-8 h-8 text-celeste-300" />
+          </div>
+          <span className="text-white/80 font-bold uppercase tracking-wider text-xs">
+            Juegos Evita Formosa
+          </span>
         </div>
       )}
 
-      <div className="prose prose-lg prose-primary max-w-3xl mx-auto text-primary-800">
+      {/* Cuerpo del Artículo */}
+      <div className="prose prose-lg prose-primary max-w-none text-primary-900 leading-relaxed font-normal bg-white p-6 sm:p-10 rounded-3xl border border-primary-100 shadow-xs">
         <div dangerouslySetInnerHTML={{ __html: news.content.replace(/\n/g, '<br/>') }} />
       </div>
     </article>

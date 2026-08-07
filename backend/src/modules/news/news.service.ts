@@ -33,6 +33,7 @@ export class NewsService {
         slug: finalSlug,
         content: createDto.content,
         excerpt: createDto.excerpt,
+        imageKey: createDto.imageKey,
         isPublished: createDto.isPublished || false,
         publishedAt: createDto.isPublished ? new Date() : null,
         authorId,
