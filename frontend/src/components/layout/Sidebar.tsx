@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
+  UserPlus,
   Trophy,
   Tag,
   UsersRound,
@@ -47,6 +48,7 @@ const NAV_ITEMS: NavItem[] = [
   // Gestión
   { label: 'Participantes', path: ROUTES.PARTICIPANTS, icon: <Users className="w-5 h-5" />, separator: true },
   { label: 'Inscripciones', path: ROUTES.INSCRIPTIONS, icon: <ClipboardList className="w-5 h-5" /> },
+  { label: 'Nueva Inscripción', path: ROUTES.NEW_INSCRIPTION, icon: <UserPlus className="w-5 h-5" />, roles: [...ADMIN_ROLES, UserRole.DELEGADO] },
   { label: 'Equipos', path: ROUTES.TEAMS, icon: <UsersRound className="w-5 h-5" /> },
   { label: 'Documentos', path: ROUTES.DOCUMENTS, icon: <FileText className="w-5 h-5" /> },
   // Competencias

@@ -39,6 +39,7 @@ export const ROUTES = {
   PARTICIPANT_DETAIL: '/admin/participantes/:id',
   INSCRIPTIONS: '/admin/inscripciones',
   INSCRIPTION_DETAIL: '/admin/inscripciones/:id',
+  NEW_INSCRIPTION: '/admin/nueva-inscripcion',
   DISCIPLINES_ADMIN: '/admin/disciplinas',
   CATEGORIES_ADMIN: '/admin/categorias',
   TEAMS: '/admin/equipos',

@@ -23,6 +23,15 @@ export const ADMIN_ROLES: Role[] = [
   Role.ADMIN_ZONAL,
 ];
 
+/** Roles que pueden crear inscripciones (delegados) */
+export const INSCRIPTION_CREATORS: Role[] = [
+  Role.SUPER_ADMIN,
+  Role.ADMIN_PROVINCIAL,
+  Role.ADMIN_DEPARTAMENTAL,
+  Role.ADMIN_ZONAL,
+  Role.DELEGADO,
+];
+
 /** Roles que pueden revisar inscripciones */
 export const INSCRIPTION_REVIEWERS: Role[] = [
   Role.SUPER_ADMIN,

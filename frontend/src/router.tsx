@@ -14,7 +14,7 @@ import { LoginPage } from '@/pages/auth/LoginPage';
 
 // Public pages
 import { HomePage } from '@/pages/public/HomePage';
-import { InscriptionPage } from '@/pages/public/InscriptionPage';
+import { InscriptionInfoPage } from '@/pages/public/InscriptionInfoPage';
 import {
   DisciplinesPage,
   DisciplineDetailPage,
@@ -33,6 +33,7 @@ import {
   ParticipantDetailPage,
   InscriptionsPage,
   InscriptionDetailPage,
+  DelegateInscriptionPage,
   DisciplinesAdminPage,
   CategoriesAdminPage,
   TeamsAdminPage,
@@ -66,8 +67,8 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // ============ INSCRIPTION (standalone, no layout) ============
-  { path: ROUTES.INSCRIPTION, element: <InscriptionPage /> },
+  // ============ INSCRIPTION (standalone info page, no layout) ============
+  { path: ROUTES.INSCRIPTION, element: <InscriptionInfoPage /> },
 
   // ============ AUTH ============
   { path: ROUTES.LOGIN, element: <LoginPage /> },
@@ -86,6 +87,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.PARTICIPANT_DETAIL, element: <ParticipantDetailPage /> },
       { path: ROUTES.INSCRIPTIONS, element: <InscriptionsPage /> },
       { path: ROUTES.INSCRIPTION_DETAIL, element: <InscriptionDetailPage /> },
+      { path: ROUTES.NEW_INSCRIPTION, element: <DelegateInscriptionPage /> },
       { path: ROUTES.DISCIPLINES_ADMIN, element: <DisciplinesAdminPage /> },
       { path: ROUTES.CATEGORIES_ADMIN, element: <CategoriesAdminPage /> },
       { path: ROUTES.TEAMS, element: <TeamsAdminPage /> },

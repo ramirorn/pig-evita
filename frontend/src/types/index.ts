@@ -183,6 +183,7 @@ export interface Inscription {
   participantId: string;
   categoryId: string;
   teamId?: string | null;
+  createdById?: string | null;
   status: InscriptionStatus;
   qrCode: string;
   qrImage?: string | null;
@@ -198,6 +199,7 @@ export interface Inscription {
   participant?: Participant;
   category?: Category;
   team?: Team;
+  createdBy?: User;
   reviewedBy?: User;
   approvedBy?: User;
 }

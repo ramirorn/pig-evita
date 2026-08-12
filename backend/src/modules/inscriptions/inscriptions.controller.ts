@@ -28,6 +28,7 @@ import {
 } from './dto';
 import { Public, Roles, CurrentUser } from '../../common/decorators';
 import {
+  INSCRIPTION_CREATORS,
   INSCRIPTION_REVIEWERS,
   INSCRIPTION_APPROVERS,
 } from '../../common/constants';
@@ -37,13 +38,14 @@ import {
 export class InscriptionsController {
   constructor(private readonly inscriptionsService: InscriptionsService) {}
 
-  // --- Endpoint PÚBLICO (acceso por QR, sin login) ---
+  // --- Endpoint AUTENTICADO: inscripción por delegado ---
   @Post()
-  @Public()
+  @Roles(...INSCRIPTION_CREATORS)
+  @ApiBearerAuth('access-token')
   @ApiOperation({
-    summary: 'Inscribirse (público)',
+    summary: 'Inscribir participante (delegado)',
     description:
-      'Endpoint público para inscripción de participantes. Accesible via QR sin autenticación.',
+      'Inscripción de participantes realizada por delegados autenticados. Registra quién creó la inscripción.',
   })
   @ApiResponse({
     status: 201,
@@ -57,8 +59,11 @@ export class InscriptionsController {
     status: 409,
     description: 'Participante ya inscripto en esta categoría',
   })
-  async create(@Body() createDto: CreateInscriptionDto) {
-    return this.inscriptionsService.create(createDto);
+  async create(
+    @Body() createDto: CreateInscriptionDto,
+    @CurrentUser('sub') userId: string,
+  ) {
+    return this.inscriptionsService.create(createDto, userId);
   }
 
   // --- Endpoint PÚBLICO: consulta por QR ---

@@ -109,7 +109,8 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  auditLogs           AuditLog[]
+  auditLogs            AuditLog[]
+  createdInscriptions  Inscription[] @relation("CreatedBy")
   reviewedInscriptions Inscription[] @relation("ReviewedBy")
   approvedInscriptions Inscription[] @relation("ApprovedBy")
   reviewedDocuments    Document[]    @relation("DocumentReviewedBy")
@@ -237,6 +238,7 @@ model Inscription {
   participantId String            @map("participant_id") @db.Uuid
   categoryId    String            @map("category_id") @db.Uuid
   teamId        String?           @map("team_id") @db.Uuid
+  createdById   String?           @map("created_by_id") @db.Uuid
   status        InscriptionStatus @default(PENDIENTE)
   qrCode        String            @unique @map("qr_code")
   notes         String?           @db.Text
@@ -252,6 +254,7 @@ model Inscription {
   participant Participant @relation(fields: [participantId], references: [id])
   category    Category    @relation(fields: [categoryId], references: [id])
   team        Team?       @relation(fields: [teamId], references: [id])
+  createdBy   User?       @relation("CreatedBy", fields: [createdById], references: [id])
   reviewedBy  User?       @relation("ReviewedBy", fields: [reviewedById], references: [id])
   approvedBy  User?       @relation("ApprovedBy", fields: [approvedById], references: [id])
 

@@ -10,6 +10,7 @@ export { ParticipantsPage } from './ParticipantsPage';
 export { ParticipantDetailPage } from './ParticipantDetailPage';
 export { InscriptionsPage } from './InscriptionsPage';
 export { InscriptionDetailPage } from './InscriptionDetailPage';
+export { DelegateInscriptionPage } from './DelegateInscriptionPage';
 export { CompetitionsPage } from './CompetitionsPage';
 export { CompetitionDetailPage } from './CompetitionDetailPage';
 export { ResultsPage } from './ResultsPage';

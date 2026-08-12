@@ -32,7 +32,7 @@ export class InscriptionsService {
    * - Valida edad vs categoría.
    * - Genera código QR único.
    */
-  async create(createDto: CreateInscriptionDto) {
+  async create(createDto: CreateInscriptionDto, createdById: string) {
     const {
       dni,
       firstName,
@@ -128,6 +128,7 @@ export class InscriptionsService {
         categoryId,
         teamId,
         qrCode,
+        createdById,
         status: InscriptionStatus.PENDIENTE,
       },
       include: {
@@ -197,6 +198,7 @@ export class InscriptionsService {
           participant: true,
           category: { include: { discipline: true } },
           team: true,
+          createdBy: { select: { id: true, firstName: true, lastName: true } },
           reviewedBy: { select: { id: true, firstName: true, lastName: true } },
           approvedBy: { select: { id: true, firstName: true, lastName: true } },
         },
@@ -220,6 +222,7 @@ export class InscriptionsService {
         participant: { include: { documents: true } },
         category: { include: { discipline: true } },
         team: { include: { members: { include: { participant: true } } } },
+        createdBy: { select: { id: true, firstName: true, lastName: true } },
         reviewedBy: { select: { id: true, firstName: true, lastName: true } },
         approvedBy: { select: { id: true, firstName: true, lastName: true } },
       },

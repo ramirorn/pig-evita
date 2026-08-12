@@ -38,7 +38,7 @@ export interface RejectInscriptionPayload {
 }
 
 export const inscriptionsApi = {
-  /** Public: Create inscription (no auth) */
+  /** Authenticated: Create inscription (delegado/admin) */
   async create(payload: CreateInscriptionPayload): Promise<Inscription> {
     const { data } = await apiClient.post<Inscription>('/inscriptions', payload);
     return data;

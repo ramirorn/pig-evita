@@ -98,7 +98,7 @@ export function PublicLayout() {
                 to={ROUTES.INSCRIPTION}
                 className="hidden sm:inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-secondary-500 to-secondary-600 rounded-lg hover:from-secondary-600 hover:to-secondary-700 shadow-sm hover:shadow transition-all"
               >
-                Inscribirse
+                Inscripciones
               </Link>
 
               {/* Mobile menu button */}
@@ -141,7 +141,7 @@ export function PublicLayout() {
               to={ROUTES.INSCRIPTION}
               className="block px-3 py-2.5 text-sm font-semibold text-secondary-700 bg-secondary-50 rounded-lg mt-2"
             >
-              📝 Inscribirse
+              📝 Inscripciones
             </Link>
           </nav>
         </div>

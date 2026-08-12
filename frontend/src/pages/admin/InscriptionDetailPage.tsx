@@ -106,6 +106,11 @@ export function InscriptionDetailPage() {
           </div>
           <p className="text-sm text-primary-500 mt-1">
             Enviada el {new Date(inscription.createdAt).toLocaleString()}
+            {inscription.createdBy && (
+              <span className="ml-2">
+                · Inscripto por: <span className="font-medium text-primary-700">{inscription.createdBy.firstName} {inscription.createdBy.lastName}</span>
+              </span>
+            )}
           </p>
         </div>
       </div>
