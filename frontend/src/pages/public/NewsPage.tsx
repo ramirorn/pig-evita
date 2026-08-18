@@ -1,24 +1,38 @@
 // ===========================================
 // News Page — Public
 // ===========================================
-import { useState, useMemo } from 'react';
-import { Newspaper, ArrowRight, Calendar, Clock, Sparkles, Search, X, Tag } from 'lucide-react';
-import { useNewsList } from '@/hooks/useNews';
-import { Link } from 'react-router';
-import { PageHero } from '@/components/shared/PageHero';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { Input } from '@/components/ui/input';
-import { formatDate } from '@/lib/utils';
-import type { News } from '@/types';
+import { useState, useMemo } from "react";
+import {
+  Newspaper,
+  ArrowRight,
+  Calendar,
+  Clock,
+  Sparkles,
+  Search,
+  X,
+  Tag,
+} from "lucide-react";
+import { useNewsList } from "@/hooks/useNews";
+import { Link } from "react-router";
+import { PageHero } from "@/components/shared/PageHero";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { Input } from "@/components/ui/input";
+import { formatDate } from "@/lib/utils";
 
 // Fallback visual elegante cuando no hay imagen o falla la carga
-function NewsImagePlaceholder({ title, isLarge = false }: { title: string; isLarge?: boolean }) {
+function NewsImagePlaceholder({
+  title,
+  isLarge = false,
+}: {
+  title: string;
+  isLarge?: boolean;
+}) {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary-900 via-primary-800 to-celeste-900 p-6 text-center relative overflow-hidden select-none">
       {/* Patrón decorativo de fondo */}
       <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-celeste-400/10 blur-2xl pointer-events-none" />
       <div className="absolute -left-10 -top-10 w-48 h-48 rounded-full bg-accent-400/10 blur-2xl pointer-events-none" />
-      
+
       <div className="relative z-10 flex flex-col items-center">
         <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 flex items-center justify-center mb-3 shadow-inner">
           <Newspaper className="w-7 h-7 text-celeste-300" />
@@ -37,7 +51,15 @@ function NewsImagePlaceholder({ title, isLarge = false }: { title: string; isLar
 }
 
 // Componente de Imagen con manejo seguro de errores
-function SafeNewsImage({ src, alt, isLarge = false }: { src?: string | null; alt: string; isLarge?: boolean }) {
+function SafeNewsImage({
+  src,
+  alt,
+  isLarge = false,
+}: {
+  src?: string | null;
+  alt: string;
+  isLarge?: boolean;
+}) {
   const [hasError, setHasError] = useState(false);
 
   if (!src || hasError) {
@@ -55,15 +77,20 @@ function SafeNewsImage({ src, alt, isLarge = false }: { src?: string | null; alt
 }
 
 export function NewsPage() {
-  const [search, setSearch] = useState('');
-  const { data: newsData, isLoading } = useNewsList({ isPublished: true, limit: 50 });
+  const [search, setSearch] = useState("");
+  const { data: newsData, isLoading } = useNewsList({
+    isPublished: true,
+    limit: 50,
+  });
   const allNews = newsData?.data || [];
 
   const filteredNews = useMemo(() => {
     if (!search.trim()) return allNews;
     const q = search.toLowerCase();
     return allNews.filter(
-      (n) => n.title.toLowerCase().includes(q) || (n.excerpt && n.excerpt.toLowerCase().includes(q)),
+      (n) =>
+        n.title.toLowerCase().includes(q) ||
+        (n.excerpt && n.excerpt.toLowerCase().includes(q)),
     );
   }, [allNews, search]);
 
@@ -83,8 +110,12 @@ export function NewsPage() {
         {/* Barra superior de Búsqueda y Estadísticas */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-xl font-bold text-primary-900">Últimas Publicaciones</h2>
-            <p className="text-xs text-primary-600">Actualidad institucional y cronogramas de juego</p>
+            <h2 className="text-xl font-bold text-primary-900">
+              Últimas Publicaciones
+            </h2>
+            <p className="text-xs text-primary-600">
+              Actualidad institucional y cronogramas de juego
+            </p>
           </div>
 
           <div className="w-full sm:w-72 relative">
@@ -97,7 +128,7 @@ export function NewsPage() {
             />
             {search && (
               <button
-                onClick={() => setSearch('')}
+                onClick={() => setSearch("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-primary-400 hover:text-primary-700"
               >
                 <X className="w-3.5 h-3.5" />
@@ -122,7 +153,10 @@ export function NewsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white rounded-2xl border border-primary-100 overflow-hidden shadow-sm">
+                <div
+                  key={i}
+                  className="bg-white rounded-2xl border border-primary-100 overflow-hidden shadow-sm"
+                >
                   <div className="h-48 bg-primary-100 animate-shimmer" />
                   <div className="p-6 space-y-3">
                     <div className="h-3 w-20 bg-primary-100 rounded animate-shimmer" />
@@ -139,20 +173,27 @@ export function NewsPage() {
             title="Sin noticias disponibles"
             description={
               search
-                ? 'No se encontraron artículos que coincidan con tu búsqueda.'
-                : 'No hay noticias publicadas en este momento. ¡Volvé a consultar pronto!'
+                ? "No se encontraron artículos que coincidan con tu búsqueda."
+                : "No hay noticias publicadas en este momento. ¡Volvé a consultar pronto!"
             }
           />
         ) : (
           <div className="space-y-10">
             {/* NOTICIA DESTACADA (Hero Card) */}
             {featured && (
-              <Link to={`/noticias/${featured.slug}`} className="block group animate-fade-in">
+              <Link
+                to={`/noticias/${featured.slug}`}
+                className="block group animate-fade-in"
+              >
                 <div className="bg-white rounded-3xl border border-primary-100 shadow-sm hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
                   <div className="grid md:grid-cols-12 items-stretch">
                     {/* Contenedor de Imagen (5 columnas en desktop) */}
                     <div className="md:col-span-6 lg:col-span-7 h-72 md:h-96 relative overflow-hidden bg-primary-900">
-                      <SafeNewsImage src={featured.imageKey} alt={featured.title} isLarge />
+                      <SafeNewsImage
+                        src={featured.imageKey}
+                        alt={featured.title}
+                        isLarge
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-primary-950/40 via-transparent to-transparent pointer-events-none" />
                     </div>
 
@@ -170,8 +211,7 @@ export function NewsPage() {
                             {formatDate(featured.createdAt)}
                           </span>
                           <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary-400 ml-auto hidden sm:inline-flex">
-                            <Clock className="w-3.5 h-3.5" />
-                            3 min de lectura
+                            <Clock className="w-3.5 h-3.5" />3 min de lectura
                           </span>
                         </div>
 
@@ -182,7 +222,8 @@ export function NewsPage() {
 
                         {/* Resumen / Bajada */}
                         <p className="text-primary-600 text-sm md:text-base leading-relaxed line-clamp-3 mb-6">
-                          {featured.excerpt || featured.content.substring(0, 180) + '...'}
+                          {featured.excerpt ||
+                            featured.content.substring(0, 180) + "..."}
                         </p>
                       </div>
 
@@ -241,7 +282,8 @@ export function NewsPage() {
                             </h4>
 
                             <p className="text-primary-600 text-xs sm:text-sm leading-relaxed line-clamp-3 mb-4">
-                              {news.excerpt || news.content.substring(0, 120) + '...'}
+                              {news.excerpt ||
+                                news.content.substring(0, 120) + "..."}
                             </p>
                           </div>
 
@@ -263,4 +305,3 @@ export function NewsPage() {
     </div>
   );
 }
-
