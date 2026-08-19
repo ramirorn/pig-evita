@@ -1187,6 +1187,86 @@ payload "después" lo produce el código real, no el test.
 
 ---
 
+### T13 (post-auditoría DevSecOps) — Namespace de `queryKey` por `userId` (F4, F5, F6, F7)
+
+> Corresponde a `tasks.md → Fase 4 → T13`. Quinto ítem del Bloque 2; completa la
+> fortaleza del cache junto con T12.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente ⚛️ FE: Frontend Engineer)
+- **Hallazgos cubiertos:** F4-F7 (`queryKey` sin el usuario en inscriptions, participants, users, teams)
+- **Duración estimada / real:** 1h / ~0,5h
+
+#### Prompt utilizado
+
+> procede con la siguiente task
+
+#### Código generado
+
+- `frontend/src/hooks/useQueryScope.ts` *(nuevo)* — hook que devuelve
+  `user?.id ?? 'anon'`, con la explicación de por qué existe.
+- `frontend/src/hooks/useInscriptions.ts`, `useParticipants.ts`, `useUsers.ts`,
+  `useTeams.ts` — las *key factories* pasan a recibir el `userId`, y cada hook y
+  cada mutación lo obtienen de `useQueryScope()`.
+
+#### Decisiones de implementación
+
+**1. El dominio va primero, el `userId` inmediatamente después.** La forma es
+`['inscriptions', <userId>, 'list', filtros]`. El DoD pedía el `userId` como
+"primer segmento", pero ponerlo antes del dominio rompería
+`invalidateQueries({ queryKey: ['inscriptions'] })` y la agrupación por dominio en
+las DevTools. La propiedad que importa —que dos usuarios nunca compartan
+entrada— se cumple igual, y hay un chequeo dedicado a que la invalidación por
+dominio siga funcionando.
+
+**2. Un hook, no un parámetro.** `useQueryScope()` centraliza el
+`user?.id ?? 'anon'`. Si mañana el ámbito tuviera que incluir el rol (un usuario
+que cambia de rol vería datos distintos), se cambia en un solo lugar.
+
+**3. La consulta pública por QR queda fuera del namespace.** `useInscriptionByQr`
+usa `['inscriptions', 'public', 'qr', <código>]`: desde T01 esa respuesta es
+idéntica para cualquiera, así que namespacearla sólo obligaría a re-pedirla en
+cada sesión sin ganar nada.
+
+**4. Ámbito `'anon'` para las sesiones sin usuario.** Evita que la clave quede
+malformada mientras la sesión se rehidrata (T03) o en las pantallas públicas.
+
+#### Correcciones manuales
+
+- La reescritura automática de las *factories* también alcanzó a
+  `useInscriptionByQr`, que había quedado con `INSCRIPTION_KEYS.details(scope)`.
+  Se le dio su propia clave pública (punto 3).
+
+#### Verificación (DoD)
+
+Se ejecutaron las *key factories* reales y un `QueryClient` real:
+
+| # | Chequeo | Resultado |
+|---|---|---|
+| 1 | Forma de la clave | `["inscriptions","aaaaaaaa-…-0001","list",{"filters":{…}}]` |
+| 2 | Mismos filtros, dos usuarios → hash distinto en los 4 dominios | ✅ |
+| 3 | A y B consultando con los mismos filtros | **2 entradas** en cache; B lee sus propios datos |
+| 4 | `invalidateQueries({ queryKey: ['inscriptions'] })` | alcanza las 2 entradas ✅ |
+| 5 | Clave pública del QR | compartida entre sesiones y sin `userId` ✅ |
+
+- [x] El `queryKey` incluye el `userId` (posición 1, detrás del dominio).
+- [x] Dos usuarios distintos con los mismos filtros generan **dos entradas
+  separadas** en el cache.
+- [x] `npx tsc --noEmit` limpio · `npm run build` OK · `npm run lint` sin errores.
+
+#### Notas / aprendizajes
+
+- El chequeo 4 es el que justifica la decisión de orden: sin él, "el userId está
+  en la clave" podría haberse logrado rompiendo todas las invalidaciones del
+  proyecto sin que ningún test se quejara.
+- T12 (vaciar la cache en el logout) y T13 son complementarias: T12 limpia entre
+  sesiones sucesivas; T13 hace que ni siquiera colisionen si aparece un camino que
+  no pase por `logout()`. Ninguna vuelve redundante a la otra.
+- Con `'anon'` como ámbito, las pantallas públicas que usan estos hooks siguen
+  compartiendo cache entre visitantes anónimos, que es lo correcto: ven lo mismo.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

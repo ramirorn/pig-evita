@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20 y T21 completadas**; siguen T13/T14 → T05–T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21 y T13 completadas**; siguen T14 → T05–T09.
 
 ---
 
@@ -172,13 +172,13 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T13 🟡 ⚛️ FE — Namespace de queryKeys por userId (F4, F5, F6, F7)
 
-- [ ] **Descripción:** Los `queryKey` de `useInscriptions`, `useParticipants`, `useUsers`, `useTeams` no incluyen el `userId` del usuario autenticado. Aunque T12 mitiga el problema con `clear()` en logout, si dos usuarios comparten sesión el hijack sigue latente. Refactor: convertir `INSCRIPTION_KEYS.list(filters)` en `INSCRIPTION_KEYS.list(userId, filters)` — el hook lee `user.id` del `authStore` y lo pasa al key. Repetir para `PARTICIPANT_KEYS`, `USER_KEYS`, `TEAM_KEYS`.
+- [x] **Descripción:** Los `queryKey` de `useInscriptions`, `useParticipants`, `useUsers`, `useTeams` no incluyen el `userId` del usuario autenticado. Aunque T12 mitiga el problema con `clear()` en logout, si dos usuarios comparten sesión el hijack sigue latente. Refactor: convertir `INSCRIPTION_KEYS.list(filters)` en `INSCRIPTION_KEYS.list(userId, filters)` — el hook lee `user.id` del `authStore` y lo pasa al key. Repetir para `PARTICIPANT_KEYS`, `USER_KEYS`, `TEAM_KEYS`.
 - **Archivos:**
   - `frontend/src/hooks/useInscriptions.ts:14-26`
   - `frontend/src/hooks/useParticipants.ts:13-34`
   - `frontend/src/hooks/useUsers.ts:13-34`
   - `frontend/src/hooks/useTeams.ts:8-20`
-- **DoD:** `queryKey` inspeccionado en React Query DevTools muestra el `userId` como primer segmento. Test manual: dos usuarios distintos que consulten el mismo endpoint con los mismos filtros generan **dos entradas separadas** en el cache.
+- **DoD:** `queryKey` inspeccionado en React Query DevTools muestra el `userId` como primer segmento. Test manual: dos usuarios distintos que consulten el mismo endpoint con los mismos filtros generan **dos entradas separadas** en el cache. ✅ Verificado con las key factories y un `QueryClient` reales: clave `['inscriptions', <userId>, 'list', {filtros}]`, hash distinto por usuario en los 4 dominios, y **2 entradas separadas** cuando A y B consultan con los mismos filtros. **Desvío deliberado:** el `userId` va en la posición 1 y no en la 0, para no romper `invalidateQueries({ queryKey: ['inscriptions'] })` — hay un chequeo dedicado a eso. Evidencia en `PROCESO.md → sección 4 → T13 (post-auditoría)`.
 
 ### T14 🟡 ⚛️ FE — `ProtectedRoute`: exigir `allowedRoles` explícito por ruta admin (F8)
 

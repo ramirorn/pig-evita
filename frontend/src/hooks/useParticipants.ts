@@ -9,27 +9,42 @@ import {
   type UpdateParticipantPayload 
 } from '@/api/participants.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { useQueryScope } from './useQueryScope';
 import { toast } from 'sonner';
 
+/**
+ * Claves de cache namespaceadas por usuario (hallazgos F4-F7).
+ *
+ * Forma: `['participants', <userId>, 'list' | 'detail', ...]`. El dominio va
+ * primero para que `invalidateQueries({ queryKey: ['participants'] })` siga
+ * alcanzando a todo el dominio; el `userId` va inmediatamente después, de modo
+ * que dos usuarios nunca comparten una entrada.
+ */
 export const PARTICIPANT_KEYS = {
-  all: ['participants'] as const,
-  lists: () => [...PARTICIPANT_KEYS.all, 'list'] as const,
-  list: (filters?: ParticipantFilters) => [...PARTICIPANT_KEYS.lists(), { filters }] as const,
-  details: () => [...PARTICIPANT_KEYS.all, 'detail'] as const,
-  detail: (id: string) => [...PARTICIPANT_KEYS.details(), id] as const,
+  all: (userId: string) => ['participants', userId] as const,
+  lists: (userId: string) => [...PARTICIPANT_KEYS.all(userId), 'list'] as const,
+  list: (userId: string, filters?: ParticipantFilters) =>
+    [...PARTICIPANT_KEYS.lists(userId), { filters }] as const,
+  details: (userId: string) => [...PARTICIPANT_KEYS.all(userId), 'detail'] as const,
+  detail: (userId: string, id: string) =>
+    [...PARTICIPANT_KEYS.details(userId), id] as const,
 };
 
 export function useParticipants(filters?: ParticipantFilters) {
+  const scope = useQueryScope();
+
   return useQuery({
-    queryKey: PARTICIPANT_KEYS.list(filters),
+    queryKey: PARTICIPANT_KEYS.list(scope, filters),
     queryFn: () => participantsApi.findAll(filters),
     staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 
 export function useParticipant(id: string) {
+  const scope = useQueryScope();
+
   return useQuery({
-    queryKey: PARTICIPANT_KEYS.detail(id),
+    queryKey: PARTICIPANT_KEYS.detail(scope, id),
     queryFn: () => participantsApi.findOne(id),
     enabled: !!id,
     staleTime: STALE_TIME.OPERATIONAL,
@@ -37,8 +52,10 @@ export function useParticipant(id: string) {
 }
 
 export function useParticipantByDni(dni: string) {
+  const scope = useQueryScope();
+
   return useQuery({
-    queryKey: [...PARTICIPANT_KEYS.details(), 'dni', dni],
+    queryKey: [...PARTICIPANT_KEYS.details(scope), 'dni', dni],
     queryFn: () => participantsApi.findByDni(dni),
     enabled: !!dni && dni.length >= 7,
     retry: false, // Don't retry if not found, since it's a valid case when searching
@@ -48,12 +65,13 @@ export function useParticipantByDni(dni: string) {
 
 export function useCreateParticipant() {
   const queryClient = useQueryClient();
+  const scope = useQueryScope();
 
   return useMutation({
     mutationFn: (payload: CreateParticipantPayload) => participantsApi.create(payload),
     onSuccess: () => {
       toast.success('Participante creado exitosamente');
-      queryClient.invalidateQueries({ queryKey: PARTICIPANT_KEYS.lists() });
+      queryClient.invalidateQueries({ queryKey: PARTICIPANT_KEYS.lists(scope) });
     },
     onError: () => {
       toast.error('Error al crear el participante');
@@ -63,14 +81,15 @@ export function useCreateParticipant() {
 
 export function useUpdateParticipant() {
   const queryClient = useQueryClient();
+  const scope = useQueryScope();
 
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateParticipantPayload }) => 
       participantsApi.update(id, payload),
     onSuccess: (_, variables) => {
       toast.success('Participante actualizado exitosamente');
-      queryClient.invalidateQueries({ queryKey: PARTICIPANT_KEYS.lists() });
-      queryClient.invalidateQueries({ queryKey: PARTICIPANT_KEYS.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: PARTICIPANT_KEYS.lists(scope) });
+      queryClient.invalidateQueries({ queryKey: PARTICIPANT_KEYS.detail(scope, variables.id) });
     },
     onError: () => {
       toast.error('Error al actualizar el participante');
