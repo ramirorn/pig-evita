@@ -3,6 +3,7 @@
 // ===========================================
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { documentsApi, type ReviewDocumentPayload } from '@/api/documents.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const DOCUMENT_KEYS = {
@@ -15,6 +16,7 @@ export function useParticipantDocuments(participantId: string) {
     queryKey: DOCUMENT_KEYS.participant(participantId),
     queryFn: () => documentsApi.findByParticipant(participantId),
     enabled: !!participantId,
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 

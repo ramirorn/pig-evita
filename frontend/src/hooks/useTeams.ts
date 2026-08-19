@@ -3,6 +3,7 @@
 // ===========================================
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { teamsApi, type TeamFilters, type CreateTeamPayload, type UpdateTeamPayload, type AddTeamMemberPayload } from '@/api/teams.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const TEAM_KEYS = {
@@ -17,6 +18,7 @@ export function useTeams(filters: TeamFilters = {}) {
   return useQuery({
     queryKey: TEAM_KEYS.list(filters),
     queryFn: () => teamsApi.findAll(filters),
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 
@@ -25,6 +27,7 @@ export function useTeam(id: string) {
     queryKey: TEAM_KEYS.detail(id),
     queryFn: () => teamsApi.findOne(id),
     enabled: !!id,
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 

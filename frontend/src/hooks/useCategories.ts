@@ -3,6 +3,7 @@
 // ===========================================
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { categoriesApi, type CategoryFilters, type CreateCategoryPayload, type UpdateCategoryPayload } from '@/api/categories.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const CATEGORY_KEYS = {
@@ -17,6 +18,7 @@ export function useCategories(filters: CategoryFilters = {}) {
   return useQuery({
     queryKey: CATEGORY_KEYS.list(filters),
     queryFn: () => categoriesApi.findAll(filters),
+    staleTime: STALE_TIME.CATALOG,
   });
 }
 
@@ -25,6 +27,7 @@ export function useCategory(id: string) {
     queryKey: CATEGORY_KEYS.detail(id),
     queryFn: () => categoriesApi.findOne(id),
     enabled: !!id,
+    staleTime: STALE_TIME.CATALOG,
   });
 }
 

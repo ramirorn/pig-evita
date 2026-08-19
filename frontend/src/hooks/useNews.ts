@@ -8,6 +8,7 @@ import {
   type CreateNewsPayload,
   type UpdateNewsPayload
 } from '@/api/news.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const NEWS_KEYS = {
@@ -24,6 +25,7 @@ export function useNewsList(filters?: NewsFilters) {
   return useQuery({
     queryKey: NEWS_KEYS.list(filters),
     queryFn: () => newsApi.findAll(filters),
+    staleTime: STALE_TIME.CATALOG,
   });
 }
 
@@ -32,6 +34,7 @@ export function useNews(id: string) {
     queryKey: NEWS_KEYS.detail(id),
     queryFn: () => newsApi.findOne(id),
     enabled: !!id,
+    staleTime: STALE_TIME.CATALOG,
   });
 }
 
@@ -40,6 +43,7 @@ export function useNewsBySlug(slug: string) {
     queryKey: NEWS_KEYS.slug(slug),
     queryFn: () => newsApi.findBySlug(slug),
     enabled: !!slug,
+    staleTime: STALE_TIME.CATALOG,
   });
 }
 

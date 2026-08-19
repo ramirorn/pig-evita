@@ -9,6 +9,7 @@ import {
   type ReviewInscriptionPayload,
   type RejectInscriptionPayload
 } from '@/api/inscriptions.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const INSCRIPTION_KEYS = {
@@ -23,6 +24,7 @@ export function useInscriptions(filters?: InscriptionFilters) {
   return useQuery({
     queryKey: INSCRIPTION_KEYS.list(filters),
     queryFn: () => inscriptionsApi.findAll(filters),
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 
@@ -31,6 +33,7 @@ export function useInscription(id: string) {
     queryKey: INSCRIPTION_KEYS.detail(id),
     queryFn: () => inscriptionsApi.findOne(id),
     enabled: !!id,
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 
@@ -40,6 +43,7 @@ export function useInscriptionByQr(qrCode: string) {
     queryFn: () => inscriptionsApi.findByQr(qrCode),
     enabled: !!qrCode,
     retry: false,
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 

@@ -8,6 +8,7 @@ import {
   type CreateParticipantPayload, 
   type UpdateParticipantPayload 
 } from '@/api/participants.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const PARTICIPANT_KEYS = {
@@ -22,6 +23,7 @@ export function useParticipants(filters?: ParticipantFilters) {
   return useQuery({
     queryKey: PARTICIPANT_KEYS.list(filters),
     queryFn: () => participantsApi.findAll(filters),
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 
@@ -30,6 +32,7 @@ export function useParticipant(id: string) {
     queryKey: PARTICIPANT_KEYS.detail(id),
     queryFn: () => participantsApi.findOne(id),
     enabled: !!id,
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 
@@ -39,6 +42,7 @@ export function useParticipantByDni(dni: string) {
     queryFn: () => participantsApi.findByDni(dni),
     enabled: !!dni && dni.length >= 7,
     retry: false, // Don't retry if not found, since it's a valid case when searching
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 

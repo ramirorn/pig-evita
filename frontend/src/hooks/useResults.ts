@@ -6,6 +6,7 @@ import {
   resultsApi, 
   type MatchResultPayload
 } from '@/api/results.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const RESULT_KEYS = {
@@ -18,6 +19,7 @@ export function useRankings(competitionId: string) {
     queryKey: RESULT_KEYS.rankings(competitionId),
     queryFn: () => resultsApi.getRankings(competitionId),
     enabled: !!competitionId,
+    staleTime: STALE_TIME.LIVE,
   });
 }
 

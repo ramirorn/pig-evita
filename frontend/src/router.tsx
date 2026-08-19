@@ -3,6 +3,12 @@
 // ===========================================
 import { createBrowserRouter } from 'react-router';
 import { ROUTES } from '@/lib/constants';
+import { queryClient, STALE_TIME } from '@/lib/queryClient';
+import { getAccessToken } from '@/api/client';
+import { disciplinesApi } from '@/api/disciplines.api';
+import { categoriesApi } from '@/api/categories.api';
+import { DISCIPLINE_KEYS } from '@/hooks/useDisciplines';
+import { CATEGORY_KEYS } from '@/hooks/useCategories';
 
 // Layouts
 import { PublicLayout } from '@/components/layout/PublicLayout';
@@ -50,6 +56,42 @@ import {
   AuditPage,
 } from '@/pages/admin/index';
 
+
+/**
+ * Precarga los catálogos que comparten casi todas las pantallas admin
+ * (hallazgo Q14): disciplinas y categorías alimentan combos en formularios,
+ * filtros y reportes.
+ *
+ * No se espera el resultado a propósito — la navegación no debe bloquearse por
+ * un prefetch. Con el `staleTime` de catálogo, si ya están frescos
+ * `prefetchQuery` no dispara ninguna request.
+ */
+function prefetchCatalogosAdmin() {
+  // Sin sesión, la ruta admin va a redirigir al login: no vale la pena pedir nada.
+  if (!getAccessToken()) return null;
+
+  void queryClient.prefetchQuery({
+    queryKey: DISCIPLINE_KEYS.list({}),
+    queryFn: () => disciplinesApi.findAll({}),
+    staleTime: STALE_TIME.CATALOG,
+  });
+
+  // Variante que usan los formularios (CategoryForm, TeamForm, CompetitionForm).
+  void queryClient.prefetchQuery({
+    queryKey: DISCIPLINE_KEYS.list({ isActive: true }),
+    queryFn: () => disciplinesApi.findAll({ isActive: true }),
+    staleTime: STALE_TIME.CATALOG,
+  });
+
+  void queryClient.prefetchQuery({
+    queryKey: CATEGORY_KEYS.list({}),
+    queryFn: () => categoriesApi.findAll({}),
+    staleTime: STALE_TIME.CATALOG,
+  });
+
+  return null;
+}
+
 export const router = createBrowserRouter([
   // ============ PUBLIC ROUTES ============
   {
@@ -80,6 +122,7 @@ export const router = createBrowserRouter([
         <AdminLayout />
       </ProtectedRoute>
     ),
+    loader: prefetchCatalogosAdmin,
     children: [
       { path: ROUTES.ADMIN, element: <DashboardPage /> },
       { path: ROUTES.DASHBOARD, element: <DashboardPage /> },

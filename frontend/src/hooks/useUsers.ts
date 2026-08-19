@@ -8,6 +8,7 @@ import {
   type CreateUserPayload,
   type UpdateUserPayload
 } from '@/api/users.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const USER_KEYS = {
@@ -22,6 +23,7 @@ export function useUsers(filters?: UserFilters) {
   return useQuery({
     queryKey: USER_KEYS.list(filters),
     queryFn: () => usersApi.findAll(filters),
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 
@@ -30,6 +32,7 @@ export function useUser(id: string) {
     queryKey: USER_KEYS.detail(id),
     queryFn: () => usersApi.findOne(id),
     enabled: !!id,
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 

@@ -8,6 +8,7 @@ import {
   type CreateCalendarEventPayload,
   type UpdateCalendarEventPayload
 } from '@/api/calendar.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const CALENDAR_KEYS = {
@@ -22,6 +23,7 @@ export function useCalendarEvents(filters?: CalendarFilters) {
   return useQuery({
     queryKey: CALENDAR_KEYS.list(filters),
     queryFn: () => calendarApi.findAll(filters),
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 
@@ -30,6 +32,7 @@ export function useCalendarEvent(id: string) {
     queryKey: CALENDAR_KEYS.detail(id),
     queryFn: () => calendarApi.findOne(id),
     enabled: !!id,
+    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
 

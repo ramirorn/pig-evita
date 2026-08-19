@@ -9,6 +9,7 @@ import {
   type UpdateCompetitionPayload,
   type GenerateFixturePayload
 } from '@/api/competitions.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const COMPETITION_KEYS = {
@@ -23,6 +24,7 @@ export function useCompetitions(filters?: CompetitionFilters) {
   return useQuery({
     queryKey: COMPETITION_KEYS.list(filters),
     queryFn: () => competitionsApi.findAll(filters),
+    staleTime: STALE_TIME.LIVE,
   });
 }
 
@@ -31,6 +33,7 @@ export function useCompetition(id: string) {
     queryKey: COMPETITION_KEYS.detail(id),
     queryFn: () => competitionsApi.findOne(id),
     enabled: !!id,
+    staleTime: STALE_TIME.LIVE,
   });
 }
 

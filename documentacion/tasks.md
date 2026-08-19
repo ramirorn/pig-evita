@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18 completada**; siguen T19 → T20 → T21 → T13/T14 → T05–T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18 y T19 completadas**; siguen T20 → T21 → T13/T14 → T05–T09.
 
 ---
 
@@ -244,7 +244,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T19 🚀 ⚛️ FE — Ajustar `staleTime` de React Query por dominio (Q4, Q14)
 
-- [ ] **Descripción:** El `staleTime` global es 30s — demasiado corto para datos casi estáticos. Refactor:
+- [x] **Descripción:** El `staleTime` global es 30s — demasiado corto para datos casi estáticos. Refactor:
   - Global default: 5 min.
   - Override por dominio: `disciplines`, `categories`, `venues`, `news` → 10 min. `inscriptions`, `participants` → 1-2 min. `results`, `matches` → 30s (más volátil).
   - Agregar `prefetchQuery` en `router.tsx` (loader) para `disciplines` y `categories` — se comparten en muchas páginas admin.
@@ -252,7 +252,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `frontend/src/App.tsx:7-15` (defaults globales)
   - `frontend/src/hooks/useDisciplines.ts`, `useCategories.ts`, `useVenues.ts`, `useNews.ts` (overrides)
   - `frontend/src/router.tsx` (loaders con prefetch)
-- **DoD:** Network tab de DevTools: al navegar entre pantallas admin en 2-3 min, `disciplines` y `categories` no se re-fetchean.
+- **DoD:** Network tab de DevTools: al navegar entre pantallas admin en 2-3 min, `disciplines` y `categories` no se re-fetchean. ✅ Verificado ejecutando el `queryClient` y las key factories reales: 6 navegaciones admin seguidas generan **1** request de `disciplines` y **1** de `categories` (contra **6** con el `staleTime: 0` anterior), los datos volátiles siguen revalidando a los 30 s, y ningún hook quedó sin declarar frescura. Evidencia en `PROCESO.md → sección 4 → T19 (post-auditoría)`.
 
 ### T20 🚀 ⚛️ FE — Code splitting: lazy loading de rutas admin (Q6)
 

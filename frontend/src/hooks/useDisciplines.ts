@@ -3,6 +3,7 @@
 // ===========================================
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { disciplinesApi, type DisciplineFilters, type CreateDisciplinePayload, type UpdateDisciplinePayload } from '@/api/disciplines.api';
+import { STALE_TIME } from '@/lib/queryClient';
 import { toast } from 'sonner';
 
 export const DISCIPLINE_KEYS = {
@@ -17,6 +18,7 @@ export function useDisciplines(filters: DisciplineFilters = {}) {
   return useQuery({
     queryKey: DISCIPLINE_KEYS.list(filters),
     queryFn: () => disciplinesApi.findAll(filters),
+    staleTime: STALE_TIME.CATALOG,
   });
 }
 
@@ -25,6 +27,7 @@ export function useDiscipline(id: string) {
     queryKey: DISCIPLINE_KEYS.detail(id),
     queryFn: () => disciplinesApi.findOne(id),
     enabled: !!id,
+    staleTime: STALE_TIME.CATALOG,
   });
 }
 

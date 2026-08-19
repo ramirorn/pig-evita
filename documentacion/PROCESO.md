@@ -904,6 +904,98 @@ siente instantánea y el contenido se actualiza igual.
 
 ---
 
+### T19 (post-auditoría DevSecOps) — `staleTime` de React Query por dominio (Q4, Q14)
+
+> Corresponde a `tasks.md → Fase 5 → T19`. Segundo ítem del Bloque 2.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente ⚛️ FE: Frontend Engineer)
+- **Hallazgos cubiertos:** Q4 (staleTime global demasiado corto), Q14 (sin prefetch de catálogos compartidos)
+- **Duración estimada / real:** 1h / ~0,5h
+
+#### Prompt utilizado
+
+> procede con la siguiente task
+
+#### Código generado
+
+- `frontend/src/lib/queryClient.ts` — default global 30 s → **5 min** y nuevas
+  constantes `STALE_TIME` (`CATALOG` 10 min · `OPERATIONAL` 2 min · `LIVE` 30 s).
+- Hooks con `staleTime` explícito (24 queries en 12 archivos):
+
+  | Grupo | Hooks |
+  |---|---|
+  | `CATALOG` (10 min) | `useDisciplines`, `useCategories`, `useVenues`, `useNews` |
+  | `OPERATIONAL` (2 min) | `useInscriptions`, `useParticipants`, `useTeams`, `useUsers`, `useCalendar`, `useDocuments` |
+  | `LIVE` (30 s) | `useResults`, `useCompetitions` |
+
+- `frontend/src/router.tsx` — `loader: prefetchCatalogosAdmin` en la rama
+  `/admin/*`, que precarga disciplinas y categorías.
+
+#### Decisiones de implementación
+
+**1. Constantes por dominio, no números sueltos.** `STALE_TIME.CATALOG` en cada
+hook dice *por qué* ese dato dura 10 minutos. Ajustar la política de un dominio es
+tocar una constante, no 24 llamadas.
+
+**2. El prefetch no bloquea la navegación.** El loader lanza los `prefetchQuery`
+sin `await` y devuelve `null` de inmediato. Si esperara, la pantalla admin no
+pintaría hasta que respondieran los catálogos — el efecto contrario al buscado.
+
+**3. El loader no pide nada sin sesión.** Si `getAccessToken()` es `null`, la ruta
+admin va a redirigir al login, así que no tiene sentido pedir catálogos. Como
+efecto secundario, en el primer render tras un F5 la sesión todavía se está
+rehidratando (T03) y el prefetch se saltea; el beneficio aparece en las
+navegaciones siguientes, que es el caso que describe el DoD.
+
+**4. Se precargan dos variantes de disciplinas.** Las pantallas de listado llaman
+`useDisciplines()` (filtros `{}`) y los formularios `useDisciplines({ isActive: true })`.
+Son dos entradas distintas de cache y ambas se usan en casi todas las pantallas.
+
+#### Correcciones manuales
+
+- El chequeo estructural del script de verificación (punto 5) encontró que
+  `useDocuments.ts` había quedado sin `staleTime`. No estaba en la lista de la
+  tarea, pero dejarlo afuera rompía el invariante "toda query declara su dominio".
+  Se sumó a `OPERATIONAL`.
+
+#### Verificación (DoD)
+
+Se ejecutó el `queryClient` real y las *key factories* reales de los hooks
+(bundleados con esbuild), simulando la navegación entre pantallas admin:
+
+| # | Chequeo | Resultado |
+|---|---|---|
+| 1 | Configuración | global 5 min · CATALOG 600 s · OPERATIONAL 120 s · LIVE 30 s |
+| 2 | 6 pantallas admin seguidas | **1** request de `disciplines`, **1** de `categories` |
+| 3 | Contraste con el comportamiento anterior (`staleTime: 0`) | **6** requests |
+| 4 | Dato volátil envejecido más allá de 30 s | se vuelve a pedir ✅ |
+| 5 | Hooks con `useQuery` sin `staleTime` | **0** |
+
+- [x] Al navegar entre pantallas admin, `disciplines` y `categories` no se
+  re-fetchean (chequeo 2, contra el chequeo 3 que reproduce el comportamiento viejo).
+- [x] Los datos volátiles siguen revalidándose (chequeo 4): la optimización no
+  congela resultados ni fixtures.
+- [x] `npx tsc --noEmit` limpio · `npm run build` OK · `npm run lint` sin errores nuevos.
+- [ ] Comprobación manual en el Network tab del navegador: **no ejecutada**. El
+  invariante que observa está probado arriba.
+
+#### Notas / aprendizajes
+
+- El chequeo 3 es el que le da sentido al número: sin el contraste, "1 request"
+  no dice nada. Con `staleTime: 0` las mismas 6 navegaciones cuestan 6 requests
+  por catálogo — y son dos catálogos en casi todas las pantallas.
+- El punto 5 del script no prueba comportamiento sino **consistencia**: recorre
+  `src/hooks/` y compara la cantidad de `useQuery({` con la de `staleTime:`. Es un
+  chequeo barato que evita que el próximo hook nazca sin política de frescura.
+- `prefetchQuery` respeta el `staleTime`: si el dato está fresco no dispara
+  request, así que el loader corriendo en cada navegación no genera tráfico extra.
+- Junto con T18 (`Cache-Control` de 10 min en los mismos catálogos), el navegador
+  tiene ahora dos niveles de caché: React Query evita el request, y si igual
+  ocurre, el HTTP cache puede resolverlo sin llegar al servidor.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.
