@@ -1450,6 +1450,113 @@ bruta— se topa con el límite enseguida.
 
 ---
 
+### T06 (post-auditoría DevSecOps) — Ocultar Swagger en producción (A-02)
+
+> Corresponde a `tasks.md → Fase 2 → T06`. **Primera tarea ejecutada delegando en
+> el agente `Backend Architect`** (`.claude/agents/engineering-backend-architect.md`),
+> según el flujo por tarea de `tasks.md`.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente 🏗️ **Backend Architect**
+- **Hallazgo cubierto:** A-02 (documentación de la API expuesta en producción)
+- **Duración estimada / real:** 0,25h / ~0,3h
+
+#### Prompt utilizado
+
+Prompt enviado al agente `Backend Architect` (resumen de lo sustantivo):
+
+> Te toca **T06** del backend NestJS. Descripción de `tasks.md`: envolver el bloque
+> `SwaggerModule.createDocument/setup` de `main.ts` con `if (nodeEnv !== 'production')`.
+> DoD: con `NODE_ENV=production`, `GET /api/docs` devuelve 404.
+>
+> Restricciones del proyecto: comentarios en español rioplatense explicando el
+> **por qué**; no adelantar T07 (`trust proxy`) ni T09 (CORS/CSP); los tests van en
+> `backend/test/*.e2e-spec.ts` siguiendo el estilo de `http-cache.e2e-spec.ts`.
+>
+> **Sobre la verificación:** cada tarea de este proyecto se cierra con evidencia
+> ejecutable. Si levantar el `AppModule` completo no es viable (no hay base de datos
+> disponible), extraé la lógica de Swagger a una función exportada y testeable y
+> testeá esa función con una app Nest mínima. Elegí vos el enfoque; lo que no vale es
+> cerrar la tarea sin evidencia ejecutable.
+>
+> Devolveme: archivos tocados, decisiones de diseño y por qué, comando de
+> verificación con su salida, y lo que hayas encontrado fuera del alcance.
+
+#### Código generado
+
+- `backend/src/swagger.ts` *(nuevo)* — `setupSwagger(app, nodeEnv)` con todo el
+  bloque `DocumentBuilder` / `createDocument` / `setup`. Corta temprano con
+  `if (nodeEnv === 'production') return false;` y exporta `SWAGGER_PATH` para que
+  ruta, log y test compartan una única fuente.
+- `backend/src/main.ts` — se agrega `nodeEnv` a las lecturas del `ConfigService`,
+  el bloque de ~40 líneas se reemplaza por `setupSwagger(app, nodeEnv)`, se
+  elimina el import de `@nestjs/swagger` y el log `📚 Swagger docs` pasa a salir
+  sólo si efectivamente se montó.
+- `backend/test/swagger-production.e2e-spec.ts` *(nuevo)* — 6 casos e2e sin DB.
+
+#### Decisiones del agente (y por qué)
+
+**1. Función extraída en vez de un `if` inline.** El DoD pide evidencia de que
+`/api/docs` da 404 en producción, y eso no se puede testear desde `main.ts`:
+`bootstrap()` levanta el `AppModule` completo (Postgres, Redis, MinIO) y sólo se
+ejecuta como *side effect* de `void bootstrap()`. Con la función exportada, el
+test monta una app Nest mínima con un controller de prueba y pega HTTP real. El
+comportamiento en runtime es idéntico; la diferencia es que ahora es verificable.
+
+**2. Se omite el bloque entero, no se protege la ruta.** En producción no se
+genera el documento: no queda spec en memoria ni ruta que puentear por un orden
+de middlewares mal puesto.
+
+**3. Se cubre también `/api/docs-json`.** El spec crudo filtra el mismo mapa de
+endpoints que la UI y es la ruta que suele quedar olvidada. Con el early return
+cae sola, pero queda cubierta contra regresiones.
+
+**4. El log dejó de mentir.** Antes anunciaba `📚 Swagger docs: …` siempre,
+incluso donde la doc no existía.
+
+#### Correcciones manuales
+
+- **Ninguna sobre el código entregado.** El rol acá fue de revisión: se leyó el
+  diff completo y se **reejecutó la verificación de forma independiente** en vez de
+  tomar el reporte del agente como válido. Los números coinciden.
+- Detalle que el propio agente reportó de su proceso: su primer assert de la UI en
+  desarrollo buscaba el título `'Juegos Evita'` en el HTML y falló, porque el
+  título lo inyecta `swagger-ui-init.js` y no el shell. Lo corrigió buscando
+  `swagger-ui`.
+
+#### Verificación (DoD)
+
+**6 tests e2e** (`npx jest --config ./test/jest-e2e.json --testPathPatterns swagger-production`):
+
+| # | Chequeo | Resultado |
+|---|---|---|
+| 1 | `NODE_ENV=production` → `GET /api/docs` | **404** |
+| 2 | `NODE_ENV=production` → `GET /api/docs-json` | 404 |
+| 3 | La app sigue sirviendo sus rutas normales en producción | ✅ |
+| 4 | En desarrollo la UI está disponible | ✅ |
+| 5 | En desarrollo el JSON de OpenAPI lista los endpoints | ✅ |
+| 6 | `NODE_ENV` ausente se trata como desarrollo | ✅ |
+
+Reejecutado por fuera del agente: `npx tsc --noEmit` OK · `npm run build` OK ·
+`npx jest` **44/44** · e2e completa **35/35** (29 previos + 6 nuevos).
+
+- [x] Con `NODE_ENV=production`, `GET /api/docs` devuelve 404.
+
+#### Notas / aprendizajes
+
+- **Sobre delegar en el agente:** la instrucción que cambió el resultado fue la de
+  exigir evidencia ejecutable dejando el *cómo* a criterio del agente. Con un `if`
+  inline la tarea se cerraba en tres líneas y sin forma de probar el DoD; el
+  agente eligió extraer la función justamente para poder verificarlo.
+- Revisar el diff y reejecutar los comandos es parte del flujo, no un extra: el
+  reporte de un agente es un insumo, no la evidencia.
+- **Fuera de alcance, reportado por el agente:** `SwaggerModule.setup('api/docs', …)`
+  ignora el prefijo global `api/v1`, así que la doc vive en `/api/docs` y no en
+  `/api/v1/docs`. Es el comportamiento previo y el DoD nombra `/api/docs`, así que
+  quedó igual.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

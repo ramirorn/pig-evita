@@ -4,12 +4,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { AppModule } from './app.module';
+import { setupSwagger, SWAGGER_PATH } from './swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -20,6 +20,7 @@ async function bootstrap() {
   app.useLogger(app.get(PinoLogger));
 
   const configService = app.get(ConfigService);
+  const nodeEnv = configService.get<string>('app.nodeEnv', 'development');
   const port = configService.get<number>('app.port', 3000);
   const apiPrefix = configService.get<string>('app.apiPrefix', 'api/v1');
   const corsOrigins = configService.get<string[]>('app.corsOrigins', [
@@ -60,50 +61,8 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger / OpenAPI
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Juegos Evita Formosa - API')
-    .setDescription(
-      'API REST de la Plataforma Integral de Gestión de los Juegos Evita - Secretaría de Deportes de Formosa',
-    )
-    .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        description: 'Token JWT de acceso',
-      },
-      'access-token',
-    )
-    .addTag('Health', 'Estado del sistema')
-    .addTag('Auth', 'Autenticación y autorización')
-    .addTag('Users', 'Gestión de usuarios administrativos')
-    .addTag('Participants', 'Gestión de participantes')
-    .addTag('Inscriptions', 'Inscripciones')
-    .addTag('Disciplines', 'Disciplinas deportivas')
-    .addTag('Categories', 'Categorías por disciplina')
-    .addTag('Teams', 'Equipos')
-    .addTag('Documents', 'Documentación')
-    .addTag('Competitions', 'Competencias')
-    .addTag('Results', 'Resultados y rankings')
-    .addTag('Venues', 'Sedes')
-    .addTag('News', 'Noticias')
-    .addTag('Calendar', 'Calendario')
-    .addTag('Reports', 'Reportes')
-    .addTag('Audit', 'Auditoría')
-    .addTag('Public', 'Endpoints públicos')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      docExpansion: 'none',
-      filter: true,
-      showRequestDuration: true,
-    },
-  });
+  // Swagger / OpenAPI (se omite en producción, ver swagger.ts)
+  const swaggerHabilitado = setupSwagger(app, nodeEnv);
 
   await app.listen(port);
 
@@ -111,7 +70,9 @@ async function bootstrap() {
   logger.log(
     `🚀 Juegos Evita API running on: http://localhost:${port}/${apiPrefix}`,
   );
-  logger.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
+  if (swaggerHabilitado) {
+    logger.log(`📚 Swagger docs: http://localhost:${port}/${SWAGGER_PATH}`);
+  }
 }
 
 void bootstrap();

@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13, T14 y T05 completadas**; siguen T06 → T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13, T14, T05 y T06 completadas**; siguen T07 → T09.
 
 ---
 
@@ -94,9 +94,9 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T06 🟡 🏗️ BE — Ocultar Swagger en producción (A-02)
 
-- [ ] **Descripción:** Envolver el bloque `SwaggerModule.createDocument/setup` en `main.ts` con `if (nodeEnv !== 'production')`.
+- [x] **Descripción:** Envolver el bloque `SwaggerModule.createDocument/setup` en `main.ts` con `if (nodeEnv !== 'production')`.
 - **Archivos:** `backend/src/main.ts:88-96`
-- **DoD:** con `NODE_ENV=production`, `GET /api/docs` devuelve 404.
+- **DoD:** con `NODE_ENV=production`, `GET /api/docs` devuelve 404. ✅ Verificado con 6 tests e2e (`backend/test/swagger-production.e2e-spec.ts`): 404 en `/api/docs` y en `/api/docs-json` bajo producción, disponible en desarrollo, y `NODE_ENV` ausente tratado como desarrollo. Implementada por el agente **🏗️ Backend Architect**, que extrajo `setupSwagger()` a `src/swagger.ts` para poder testear el DoD. Evidencia en `PROCESO.md → sección 4 → T06 (post-auditoría)`.
 
 ### T07 🟡 🏗️ BE — Enriquecer `AuditInterceptor` con IP y User-Agent (A-06)
 
@@ -448,7 +448,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 13 de 28 tareas completadas.**
+**Progreso: 14 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -458,7 +458,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T03** | 🔴 | 🔀 FS | Migrar tokens a cookie httpOnly + access token en memoria | ✅ Completada |
 | **T04** | 🔴 | 🏗️ BE | Guardrails contra secrets default en env | ✅ Completada |
 | **T05** | 🟡 | 🏗️ BE | Rate limiting en endpoints públicos scrapeables | ✅ Completada |
-| **T06** | 🟡 | 🏗️ BE | Ocultar Swagger en producción | ⬜ Pendiente |
+| **T06** | 🟡 | 🏗️ BE | Ocultar Swagger en producción | ✅ Completada |
 | **T07** | 🟡 | 🏗️ BE | Enriquecer `AuditInterceptor` con IP y User-Agent | ⬜ Pendiente |
 | **T08** | 🟡 | ⚛️ FE | Silenciar `console.error` en producción del frontend | ⬜ Pendiente |
 | **T09** | 🟠 | 🏗️ BE | Endurecer CORS y CSP | ⬜ Pendiente |
@@ -487,7 +487,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | Severidad | Completadas | Total |
 |---|---|---|
 | 🔴 Crítico | 6 | 6 |
-| 🟡 Alto | 3 | 6 |
+| 🟡 Alto | 4 | 6 |
 | 🟠 Medio | 0 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 0 | 4 |
