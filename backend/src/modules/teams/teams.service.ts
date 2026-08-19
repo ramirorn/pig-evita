@@ -17,6 +17,11 @@ import {
   AddTeamMemberDto,
 } from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
+import {
+  CATEGORY_WITH_DISCIPLINE,
+  DISCIPLINE_SUMMARY,
+  TEAM_MEMBER_WITH_PARTICIPANT,
+} from '../../common/prisma-selects';
 
 @Injectable()
 export class TeamsService {
@@ -92,8 +97,18 @@ export class TeamsService {
     const [teams, total] = await Promise.all([
       this.prisma.team.findMany({
         where,
-        include: {
-          category: { include: { discipline: true } },
+        // La tabla muestra nombre, disciplina, categoría, zona y cantidad de
+        // integrantes. La disciplina faltaba en la proyección anterior, así que
+        // la columna "Disciplina" venía vacía; se agrega junto con el `select`.
+        select: {
+          id: true,
+          name: true,
+          locality: true,
+          department: true,
+          isActive: true,
+          createdAt: true,
+          discipline: { select: DISCIPLINE_SUMMARY },
+          category: { select: CATEGORY_WITH_DISCIPLINE },
           _count: { select: { members: true } },
         },
         skip: filterDto.skip,
@@ -111,11 +126,20 @@ export class TeamsService {
   async findOne(id: string) {
     const team = await this.prisma.team.findUnique({
       where: { id },
-      include: {
-        category: { include: { discipline: true } },
-        members: {
-          include: { participant: true },
-        },
+      select: {
+        id: true,
+        name: true,
+        locality: true,
+        department: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        discipline: { select: DISCIPLINE_SUMMARY },
+        category: { select: CATEGORY_WITH_DISCIPLINE },
+        // El plantel muestra DNI, nombre, dorsal, posición y capitanía: no hace
+        // falta el participante completo.
+        members: { select: TEAM_MEMBER_WITH_PARTICIPANT },
+        _count: { select: { members: true } },
       },
     });
 

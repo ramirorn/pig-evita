@@ -20,6 +20,14 @@ import {
   PublicInscriptionDto,
 } from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
+import {
+  CATEGORY_WITH_DISCIPLINE,
+  PARTICIPANT_CONTACT,
+  PARTICIPANT_SUMMARY,
+  TEAM_MEMBER_WITH_PARTICIPANT,
+  TEAM_SUMMARY,
+  USER_SUMMARY,
+} from '../../common/prisma-selects';
 
 @Injectable()
 export class InscriptionsService {
@@ -195,13 +203,20 @@ export class InscriptionsService {
     const [inscriptions, total] = await Promise.all([
       this.prisma.inscription.findMany({
         where,
-        include: {
-          participant: true,
-          category: { include: { discipline: true } },
-          team: true,
-          createdBy: { select: { id: true, firstName: true, lastName: true } },
-          reviewedBy: { select: { id: true, firstName: true, lastName: true } },
-          approvedBy: { select: { id: true, firstName: true, lastName: true } },
+        // `select` explícito: la tabla de inscripciones muestra código, estado,
+        // nombre + DNI, categoría y equipo. Las notas internas y los timestamps
+        // de revisión sólo se usan en el detalle, así que no viajan en la lista.
+        select: {
+          id: true,
+          qrCode: true,
+          status: true,
+          createdAt: true,
+          participant: { select: PARTICIPANT_SUMMARY },
+          category: { select: CATEGORY_WITH_DISCIPLINE },
+          team: { select: TEAM_SUMMARY },
+          createdBy: { select: USER_SUMMARY },
+          reviewedBy: { select: USER_SUMMARY },
+          approvedBy: { select: USER_SUMMARY },
         },
         skip: filterDto.skip,
         take: filterDto.take,
@@ -219,13 +234,30 @@ export class InscriptionsService {
   async findOne(id: string) {
     const inscription = await this.prisma.inscription.findUnique({
       where: { id },
-      include: {
-        participant: { include: { documents: true } },
-        category: { include: { discipline: true } },
-        team: { include: { members: { include: { participant: true } } } },
-        createdBy: { select: { id: true, firstName: true, lastName: true } },
-        reviewedBy: { select: { id: true, firstName: true, lastName: true } },
-        approvedBy: { select: { id: true, firstName: true, lastName: true } },
+      // El detalle sí muestra datos de contacto, notas y trazabilidad. Los
+      // documentos del participante no se usan en esta pantalla y se piden por
+      // su propio endpoint (`GET /documents/participant/:id`).
+      select: {
+        id: true,
+        qrCode: true,
+        status: true,
+        notes: true,
+        rejectionNote: true,
+        createdAt: true,
+        updatedAt: true,
+        reviewedAt: true,
+        approvedAt: true,
+        participant: { select: PARTICIPANT_CONTACT },
+        category: { select: CATEGORY_WITH_DISCIPLINE },
+        team: {
+          select: {
+            ...TEAM_SUMMARY,
+            members: { select: TEAM_MEMBER_WITH_PARTICIPANT },
+          },
+        },
+        createdBy: { select: USER_SUMMARY },
+        reviewedBy: { select: USER_SUMMARY },
+        approvedBy: { select: USER_SUMMARY },
       },
     });
 

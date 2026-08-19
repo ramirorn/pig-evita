@@ -198,7 +198,7 @@ export function TeamsAdminPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">
-                        {team.members?.length || 0} / {team.discipline?.maxPlayers || '-'} Jugadores
+                        {team._count?.members ?? team.members?.length ?? 0} / {team.discipline?.maxPlayers || '-'} Jugadores
                       </Badge>
                     </TableCell>
                     <TableCell>

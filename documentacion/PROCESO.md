@@ -1088,6 +1088,105 @@ Chequeos automatizados sobre `dist/`:
 
 ---
 
+### T21 (post-auditoría DevSecOps) — `include` → `select` en los services (Q2, Q9, Q11, Q17)
+
+> Corresponde a `tasks.md → Fase 5 → T21`. Cuarto ítem del Bloque 2.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente 🏗️ BE: Backend Architect)
+- **Hallazgos cubiertos:** Q2, Q9, Q11, Q17 (entidades completas donde la UI usa 3-4 campos)
+- **Duración estimada / real:** 1h / ~1h
+
+#### Prompt utilizado
+
+> procede con la siguiente task
+
+#### Código generado
+
+- `backend/src/common/prisma-selects.ts` *(nuevo)* — proyecciones compartidas:
+  `USER_SUMMARY`, `PARTICIPANT_SUMMARY`, `PARTICIPANT_CONTACT`,
+  `DISCIPLINE_SUMMARY`, `CATEGORY_WITH_DISCIPLINE`, `TEAM_SUMMARY`,
+  `TEAM_MEMBER_WITH_PARTICIPANT`. Tipadas con `satisfies Prisma.XxxSelect`.
+- `backend/src/modules/inscriptions/inscriptions.service.ts` — `findAll` y
+  `findOne` con `select` explícito.
+- `backend/src/modules/teams/teams.service.ts` — ídem.
+- `backend/src/modules/results/results.service.ts` — `getRankings` deja de traer
+  `team` y `participant` completos.
+- `backend/test/payload-size.e2e-spec.ts` *(nuevo)* — 3 tests.
+- `frontend/src/types/index.ts` y `frontend/src/pages/admin/TeamsAdminPage.tsx` —
+  el listado de equipos usa `_count.members`.
+
+#### Decisiones de implementación
+
+**1. Dos proyecciones de participante, no una.** `PARTICIPANT_SUMMARY`
+(id, nombre, apellido, DNI) para listados y `PARTICIPANT_CONTACT` (agrega
+nacimiento, sexo, localidad, departamento, email, teléfono) para el detalle. El
+comentario del archivo advierte explícitamente que no se agreguen datos de
+contacto al primero: es el mismo criterio de T01, pero para las pantallas admin.
+
+**2. `include` no es sólo payload de más, es una decisión que se toma sola.**
+`include: { participant: true }` arrastra automáticamente cualquier columna que
+se agregue después al modelo. Con `select` explícito, exponer un campo nuevo pasa
+a ser deliberado. Quedó anotado en el encabezado del archivo.
+
+**3. La lista de inscripciones deja fuera `notes` y `rejectionNote`.** Son
+columnas `Text` que sólo se muestran en el detalle y viajaban en cada una de las
+50 filas.
+
+**4. El plantel completo sale del listado de equipos.** `findAll` devuelve
+`_count.members` en vez de los integrantes; el frontend pasa a leer ese contador.
+`findOne` sí trae el plantel, que es donde se muestra.
+
+#### Correcciones manuales
+
+- **Bug preexistente encontrado al reescribir la query:** `teams.findAll`
+  proyectaba `category.discipline` pero nunca la relación directa
+  `Team.discipline`, así que en `TeamsAdminPage` la columna "Disciplina" mostraba
+  siempre "—" y el cupo se veía como "0 / -". Se incorporó `discipline` al nuevo
+  `select`. No estaba en la auditoría; apareció al comparar la proyección con lo
+  que la UI lee.
+- El primer intento del test leía `res.body.data` y fallaba: el módulo de prueba
+  no registraba el `TransformInterceptor`, así que la respuesta no venía envuelta
+  en `{ success, data, meta }`. Se agregó el interceptor al módulo de prueba para
+  que la forma sea la de producción.
+
+#### Verificación (DoD)
+
+El test monta el `InscriptionsController` real con un mock de Prisma que **aplica
+el `select` del service** sobre filas completas (mismo enfoque que en T03): el
+payload "después" lo produce el código real, no el test.
+
+| Chequeo | Resultado |
+|---|---|
+| Payload de `GET /inscriptions?limit=50` | **127.451 B → 34.218 B (73,2% menos)** — el DoD pedía ≥30% |
+| La lista conserva qrCode, status, createdAt, participante (nombre + DNI), categoría, disciplina, equipo y autor | ✅ |
+| La lista ya no incluye `notes`, `rejectionNote`, el reglamento de la disciplina ni el contacto del participante | ✅ |
+
+- [x] Payload de `GET /inscriptions` reducido ≥30% (73,2% medido).
+- [x] Ninguna funcionalidad UI se rompe: se recorrieron los consumidores
+  (`InscriptionsPage`, `DashboardPage`, `InscriptionDetailPage`, `TeamsAdminPage`,
+  `TeamDetailPage`) campo por campo antes de recortar. El único ajuste necesario
+  fue `_count.members`.
+- [x] 44 unit + 24 e2e en verde · `tsc` y `build` limpios en backend y frontend.
+
+#### Notas / aprendizajes
+
+- El 73% supera con holgura el 30% estimado porque el reglamento de la disciplina
+  (`rules`, un `Text` largo) viajaba **repetido en cada fila**: 50 inscripciones de
+  la misma disciplina traían 50 copias del mismo reglamento.
+- La forma de medir importa: se comparan las mismas 50 filas antes y después,
+  aplicando el `select` real del service. Escribir a mano las dos versiones
+  habría medido lo que uno espera, no lo que el código hace.
+- Recorrer los consumidores del frontend **antes** de recortar es lo que hizo que
+  no se rompiera nada, y de paso destapó el bug de la disciplina faltante.
+- `npm run test:e2e` sigue en rojo por `test/app.e2e-spec.ts`, el boilerplate de
+  Nest que espera `GET /` → `Hello World!` (ruta que no existe) y que además
+  levanta el `AppModule` completo con base de datos. Es previo a estas tareas, pero
+  ahora tapa el resultado de las 4 suites e2e nuevas y deja rojo el job de CI:
+  conviene borrarlo o adaptarlo.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

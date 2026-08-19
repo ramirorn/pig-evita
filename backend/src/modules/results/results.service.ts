@@ -4,6 +4,7 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { DISCIPLINE_SUMMARY } from '../../common/prisma-selects';
 import { MatchResultDto } from './dto';
 
 @Injectable()
@@ -80,16 +81,30 @@ export class ResultsService {
   async getRankings(competitionId: string) {
     const competition = await this.prisma.competition.findUnique({
       where: { id: competitionId },
-      include: {
+      // La tabla de posiciones sólo necesita, por cada resultado, a quién
+      // corresponde y si ganó. Traer `team` y `participant` completos cargaba
+      // toda la ficha del participante (DNI, contacto, domicilio) para terminar
+      // usando su nombre.
+      select: {
+        id: true,
         matches: {
           where: { status: 'FINALIZADO' },
-          include: {
+          select: {
+            id: true,
             results: {
-              include: { team: true, participant: true },
+              select: {
+                teamId: true,
+                participantId: true,
+                isWinner: true,
+                team: { select: { id: true, name: true } },
+                participant: {
+                  select: { id: true, firstName: true, lastName: true },
+                },
+              },
             },
           },
         },
-        discipline: true,
+        discipline: { select: DISCIPLINE_SUMMARY },
       },
     });
 

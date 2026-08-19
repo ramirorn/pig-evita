@@ -162,7 +162,9 @@ export interface Team {
   // Relations
   discipline?: Discipline;
   category?: Category;
+  /** Sólo en el detalle: el listado devuelve `_count` para no traer el plantel. */
   members?: TeamMember[];
+  _count?: { members: number };
 }
 
 export interface TeamMember {

@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19 y T20 completadas**; siguen T21 → T13/T14 → T05–T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20 y T21 completadas**; siguen T13/T14 → T05–T09.
 
 ---
 
@@ -268,7 +268,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T21 🚀 🏗️ BE — Reemplazar `include: X: true` por `select` en services (Q2, Q9, Q11, Q17)
 
-- [ ] **Descripción:** Múltiples services traen entidades completas cuando la UI solo necesita 3-4 campos. Aplicar `select` explícito en:
+- [x] **Descripción:** Múltiples services traen entidades completas cuando la UI solo necesita 3-4 campos. Aplicar `select` explícito en:
   - `inscriptions.findAll` y `findOne` (participant, category, team, createdBy/reviewedBy/approvedBy).
   - `teams.findAll` y `findOne` (members.participant).
   - `results.rankings` (participant/team).
@@ -278,7 +278,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `backend/src/modules/teams/teams.service.ts:92-120`
   - `backend/src/modules/results/results.service.ts`
   - `backend/src/common/prisma-selects.ts` (nuevo)
-- **DoD:** payload JSON de `GET /inscriptions?pageSize=50` se reduce ≥30%. Ninguna funcionalidad UI se rompe.
+- **DoD:** payload JSON de `GET /inscriptions?pageSize=50` se reduce ≥30%. Ninguna funcionalidad UI se rompe. ✅ **127.451 B → 34.218 B (73,2% menos)** medido con el `select` real del service aplicado sobre filas completas (`backend/test/payload-size.e2e-spec.ts`). Se recorrieron los consumidores del frontend campo por campo antes de recortar; único ajuste necesario: el listado de equipos pasa a `_count.members`. Evidencia en `PROCESO.md → sección 4 → T21 (post-auditoría)`.
 
 ### T22 📈 🔀 FS — Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas (Q3)
 
