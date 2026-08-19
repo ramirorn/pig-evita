@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Siguiente bloque: T18 → T19 → T20 → T21 → T13/T14 → T05–T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18 completada**; siguen T19 → T20 → T21 → T13/T14 → T05–T09.
 
 ---
 
@@ -229,7 +229,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T18 🚀 🏗️ BE — Quick wins backend: `compression` + `Cache-Control` en endpoints públicos (Q1, Q4, Q7, Q8)
 
-- [ ] **Descripción:**
+- [x] **Descripción:**
   - Agregar `compression` middleware en `main.ts` antes de `app.listen()`. Reduce 60-70% el payload JSON.
   - Crear `@CacheControl(maxAgeSeconds)` decorator + interceptor que setea header `Cache-Control: public, max-age=N` y aplicarlo a `disciplines.findAll`, `categories.findAll`, `venues.findAll`, `news.findAll` (5-10 min de TTL).
 - **Archivos:**
@@ -240,6 +240,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 - **DoD:**
   - Response headers de un endpoint público muestran `Content-Encoding: gzip` (con `Accept-Encoding: gzip`) y `Cache-Control: public, max-age=600`.
   - Ningún endpoint privado o mutable recibe caché.
+  - ✅ Verificado con 7 tests e2e (`backend/test/http-cache.e2e-spec.ts`): payload de 13.830 B → 513 B con gzip, `Cache-Control: public, max-age=600` en el listado público, y tres tests negativos (endpoint sin decorador, endpoint mutable, y request con `Authorization`). Evidencia en `PROCESO.md → sección 4 → T18 (post-auditoría)`.
 
 ### T19 🚀 ⚛️ FE — Ajustar `staleTime` de React Query por dominio (Q4, Q14)
 

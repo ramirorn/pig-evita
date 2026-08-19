@@ -812,6 +812,98 @@ OK   | el default historico falla ->  JWT_ACCESS_SECRET: JWT_ACCESS_SECRET conti
 
 ---
 
+### T18 (post-auditoría DevSecOps) — `compression` + `Cache-Control` en endpoints públicos (Q1, Q4, Q7, Q8)
+
+> Corresponde a `tasks.md → Fase 5 → T18`. Primer ítem del Bloque 2 y primera
+> tarea de optimización, ya cerrado el bloque de críticos.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente 🏗️ BE: Backend Architect)
+- **Hallazgos cubiertos:** Q1 (sin compresión), Q4/Q7/Q8 (sin caché HTTP en endpoints casi estáticos)
+- **Duración estimada / real:** 15 min / ~40 min
+
+#### Prompt utilizado
+
+> procede con la siguiente task
+
+#### Código generado
+
+- `backend/src/main.ts` — `app.use(compression())`.
+- `backend/src/common/decorators/cache-control.decorator.ts` *(nuevo)* —
+  `@CacheControl(segundos)` + constantes `CACHE_TTL.CATALOG` (10 min) y
+  `CACHE_TTL.CONTENT` (5 min).
+- `backend/src/common/interceptors/cache-control.interceptor.ts` *(nuevo)* —
+  aplica el header sólo donde corresponde.
+- `backend/src/app.module.ts` — registra el interceptor como `APP_INTERCEPTOR`.
+- Controllers con el decorador aplicado a `findAll`:
+  `disciplines` y `categories` y `venues` (CATALOG, 600 s), `news` (CONTENT, 300 s).
+- `backend/test/http-cache.e2e-spec.ts` *(nuevo)* — 7 tests.
+- `backend/package.json` — `compression` + `@types/compression`.
+
+#### Decisiones de implementación
+
+**1. Opt-in, no opt-out.** El interceptor es global pero no hace nada sin el
+decorador. Un `Cache-Control` por defecto con excepciones sería una fuente de
+fugas: alcanzaría con olvidarse de excluir un endpoint nuevo con datos privados.
+
+**2. Tres guardas que dependen del request, no del endpoint.** El decorador dice
+"esto es cacheable"; el interceptor decide si *este* request lo es:
+
+| Guarda | Motivo |
+|---|---|
+| Sólo `GET` | Un `POST` cacheable no tiene sentido. |
+| Nunca con `Authorization` o `req.user` | Aunque el endpoint sea público, la respuesta podría variar para un usuario logueado, y `public` habilitaría a un proxy compartido a servírsela a otra persona. Después de T01/T12, esta es la guarda que evita reintroducir por HTTP la fuga que cerramos en la app. |
+| Sólo respuestas < 400 | Un 404 cacheado 10 minutos es una fuente inagotable de reportes de bugs. |
+
+**3. `Vary: Origin, Accept-Encoding`.** La respuesta depende del `Origin` (CORS) y
+de la codificación negociada; sin el `Vary`, un proxy podría servir la variante
+equivocada (por ejemplo, un cuerpo gzip a un cliente que no lo acepta).
+
+**4. `stale-while-revalidate` igual al `max-age`.** El navegador puede seguir
+mostrando la copia vieja mientras revalida en segundo plano: la navegación se
+siente instantánea y el contenido se actualiza igual.
+
+#### Correcciones manuales
+
+- El test que compara tamaños daba `NaN`: las respuestas gzip van *chunked*, así
+  que no traen `Content-Length`, y supertest además descomprime en el camino. Se
+  reescribió con `node:http` crudo, contando los bytes que realmente viajan.
+
+#### Verificación (DoD)
+
+**7 tests e2e** (`npx jest --config ./test/jest-e2e.json --testPathPatterns http-cache`):
+
+| Chequeo | Resultado |
+|---|---|
+| `Accept-Encoding: gzip` → `Content-Encoding: gzip` | ✅ |
+| `Accept-Encoding: identity` → sin compresión | ✅ |
+| Reducción de payload | **13.830 B → 513 B (96,3% menos)** |
+| Listado público → `Cache-Control: public, max-age=600` + `Vary` | ✅ |
+| Endpoint **sin** decorador (`GET /disciplines/:id`) | ✅ sin `Cache-Control` |
+| Endpoint **mutable** (`POST /disciplines`) | ✅ sin `Cache-Control` |
+| Mismo endpoint público **con** `Authorization` | ✅ sin `Cache-Control` |
+
+- [x] Los headers de un endpoint público muestran `Content-Encoding: gzip` y
+  `Cache-Control: public, max-age=600`.
+- [x] Ningún endpoint privado o mutable recibe caché (tres tests negativos).
+- [x] 44 unit + 21 e2e en verde · `npm run build` OK.
+
+#### Notas / aprendizajes
+
+- El 96,3% del test es optimista: el fixture repite la misma cadena 40 veces y
+  gzip la aprovecha al máximo. En payloads reales la reducción esperable es la que
+  estimaba la auditoría, 60-70%, que sigue siendo enorme para conexiones móviles.
+- **Compensación aceptada:** con `max-age=300` en noticias, una nota recién
+  publicada puede tardar hasta 5 minutos en aparecerle a un visitante que ya tenía
+  la lista cacheada. Si eso molesta durante los Juegos, bajar `CACHE_TTL.CONTENT`
+  es cambiar una constante.
+- La guarda de `Authorization` no estaba en la tarea original. Se agregó porque el
+  decorador y el uso real están separados en el tiempo: dentro de seis meses
+  alguien puede marcar como cacheable un endpoint que devuelve datos distintos
+  según quién pregunta, y el interceptor lo cubre.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

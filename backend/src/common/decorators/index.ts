@@ -32,3 +32,9 @@ export const CurrentUser = createParamDecorator(
     return data ? user?.[data] : user;
   },
 );
+
+export {
+  CacheControl,
+  CACHE_CONTROL_KEY,
+  CACHE_TTL,
+} from './cache-control.decorator';

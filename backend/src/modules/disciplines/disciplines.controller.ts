@@ -24,7 +24,12 @@ import {
   UpdateDisciplineDto,
   DisciplineFilterDto,
 } from './dto';
-import { Roles, Public } from '../../common/decorators';
+import {
+  Roles,
+  Public,
+  CacheControl,
+  CACHE_TTL,
+} from '../../common/decorators';
 import { Role } from '../../common/constants';
 
 @ApiTags('Disciplines')
@@ -46,6 +51,7 @@ export class DisciplinesController {
 
   @Get()
   @Public() // Lista de disciplinas puede ser consultada sin login para armar combos en frontend
+  @CacheControl(CACHE_TTL.CATALOG)
   @ApiOperation({
     summary: 'Listar disciplinas',
     description: 'Endpoint público. Paginado y filtrado.',

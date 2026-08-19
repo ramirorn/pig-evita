@@ -20,7 +20,13 @@ import {
 } from '@nestjs/swagger';
 import { NewsService } from './news.service';
 import { CreateNewsDto, UpdateNewsDto, NewsFilterDto } from './dto';
-import { Roles, Public, CurrentUser } from '../../common/decorators';
+import {
+  Roles,
+  Public,
+  CurrentUser,
+  CacheControl,
+  CACHE_TTL,
+} from '../../common/decorators';
 import { ADMIN_ROLES } from '../../common/constants';
 
 @ApiTags('News')
@@ -42,6 +48,7 @@ export class NewsController {
 
   @Get()
   @Public() // Lista pública de noticias
+  @CacheControl(CACHE_TTL.CONTENT)
   @ApiOperation({ summary: 'Listar noticias' })
   @ApiResponse({ status: 200, description: 'Lista de noticias paginada' })
   async findAll(@Query() filterDto: NewsFilterDto) {

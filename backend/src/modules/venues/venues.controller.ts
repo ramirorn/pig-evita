@@ -20,7 +20,12 @@ import {
 } from '@nestjs/swagger';
 import { VenuesService } from './venues.service';
 import { CreateVenueDto, UpdateVenueDto, VenueFilterDto } from './dto';
-import { Roles, Public } from '../../common/decorators';
+import {
+  Roles,
+  Public,
+  CacheControl,
+  CACHE_TTL,
+} from '../../common/decorators';
 import { ADMIN_ROLES } from '../../common/constants';
 
 @ApiTags('Venues')
@@ -39,6 +44,7 @@ export class VenuesController {
 
   @Get()
   @Public() // Las sedes pueden ser consultadas públicamente para mapas o información general
+  @CacheControl(CACHE_TTL.CATALOG)
   @ApiOperation({ summary: 'Listar sedes' })
   @ApiResponse({ status: 200, description: 'Lista de sedes paginada' })
   async findAll(@Query() filterDto: VenueFilterDto) {

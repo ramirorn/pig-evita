@@ -8,6 +8,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -30,6 +31,10 @@ async function bootstrap() {
 
   // Cookies: el refresh token viaja en una cookie httpOnly (ver auth.cookies.ts)
   app.use(cookieParser());
+
+  // Compresión gzip/deflate de las respuestas. Los JSON de listados son texto
+  // muy repetitivo: comprime ~60-70%.
+  app.use(compression());
 
   // CORS
   app.enableCors({

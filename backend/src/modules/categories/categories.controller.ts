@@ -20,7 +20,12 @@ import {
 } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto, CategoryFilterDto } from './dto';
-import { Roles, Public } from '../../common/decorators';
+import {
+  Roles,
+  Public,
+  CacheControl,
+  CACHE_TTL,
+} from '../../common/decorators';
 import { Role } from '../../common/constants';
 
 @ApiTags('Categories')
@@ -39,6 +44,7 @@ export class CategoriesController {
 
   @Get()
   @Public() // Público para los combos de inscripción
+  @CacheControl(CACHE_TTL.CATALOG)
   @ApiOperation({
     summary: 'Listar categorías',
     description:

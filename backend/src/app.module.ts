@@ -23,7 +23,10 @@ import { DatabaseModule } from './database/database.module';
 
 // Common
 import { GlobalExceptionFilter } from './common/filters';
-import { TransformInterceptor } from './common/interceptors';
+import {
+  TransformInterceptor,
+  CacheControlInterceptor,
+} from './common/interceptors';
 import { RolesGuard } from './common/guards';
 
 // Feature Modules
@@ -130,6 +133,11 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     {
       provide: APP_INTERCEPTOR,
       useClass: AuditInterceptor,
+    },
+    // Cache-Control en los endpoints marcados con @CacheControl()
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: CacheControlInterceptor,
     },
     // Global JWT Auth Guard (all routes require JWT unless @Public())
     {
