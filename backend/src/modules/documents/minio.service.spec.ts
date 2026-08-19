@@ -24,7 +24,7 @@ const VALID_CONFIG: Record<string, unknown> = {
   'minio.port': 9000,
   'minio.useSSL': false,
   'minio.accessKey': 'evita-dev-access-key',
-  'minio.secretKey': 'un-secreto-largo-y-random',
+  'minio.secretKey': 'K7pQx2vNfR9tLmYw3bZc8Ghd',
   'minio.bucket': 'juegos-evita',
 };
 
@@ -71,8 +71,17 @@ describe('MinioService', () => {
 
     it('rechaza credenciales demasiado cortas', () => {
       expect(
-        () => new MinioService(buildConfigService({ 'minio.accessKey': 'abc123' })),
+        () => new MinioService(buildConfigService({ 'minio.accessKey': 'abc12' })),
       ).toThrow(/al menos 8 caracteres/);
+    });
+
+    it('rechaza un secret key que contenga la palabra "secret"', () => {
+      expect(
+        () =>
+          new MinioService(
+            buildConfigService({ 'minio.secretKey': 'un-secreto-largo-y-random' }),
+          ),
+      ).toThrow(/valor por defecto/);
     });
 
     it('acepta credenciales propias', () => {

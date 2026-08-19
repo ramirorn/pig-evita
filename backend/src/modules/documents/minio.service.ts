@@ -11,24 +11,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import * as Minio from 'minio';
+import { assertStrongSecret } from '../../common/security/forbidden-secrets';
 
-/**
- * Credenciales que nunca deben llegar a un entorno real. Se validan en el
- * constructor: si aparecen, la aplicación no arranca (fail fast en bootstrap).
- */
-const FORBIDDEN_CREDENTIALS = new Set([
-  'minioadmin',
-  'minio',
-  'admin',
-  'root',
-  'password',
-  'secret',
-  'changeme',
-  'change-me',
-  'test',
-]);
-
-const MIN_CREDENTIAL_LENGTH = 8;
+/** Largos mínimos de las credenciales de MinIO. */
+const MIN_ACCESS_KEY_LENGTH = 8;
+const MIN_SECRET_KEY_LENGTH = 16;
 
 /** Extensiones aceptadas. Cualquier otra cosa se guarda como `.bin`. */
 const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.pdf']);
@@ -55,8 +42,11 @@ export class MinioService implements OnModuleInit {
     const accessKey = this.configService.get<string>('minio.accessKey');
     const secretKey = this.configService.get<string>('minio.secretKey');
 
-    this.assertStrongCredential('MINIO_ACCESS_KEY', accessKey);
-    this.assertStrongCredential('MINIO_SECRET_KEY', secretKey);
+    // Misma lista de defaults prohibidos que usa el schema Zod del arranque
+    // (ver common/security/forbidden-secrets.ts). Acá se repite el chequeo
+    // porque el ConfigService puede recibir valores por otras vías.
+    assertStrongSecret('MINIO_ACCESS_KEY', accessKey, MIN_ACCESS_KEY_LENGTH);
+    assertStrongSecret('MINIO_SECRET_KEY', secretKey, MIN_SECRET_KEY_LENGTH);
 
     this.minioClient = new Minio.Client({
       endPoint: this.configService.get<string>('minio.endpoint') || 'localhost',
@@ -74,34 +64,6 @@ export class MinioService implements OnModuleInit {
   // -------------------------------------------------
   // Bootstrap / configuración del bucket
   // -------------------------------------------------
-
-  /**
-   * Rechaza credenciales vacías, cortas o de la lista de defaults conocidos.
-   * Se ejecuta en el constructor para que un despliegue mal configurado falle
-   * al arrancar y no en el primer upload.
-   */
-  private assertStrongCredential(envVar: string, value?: string): void {
-    const trimmed = (value ?? '').trim();
-
-    if (!trimmed) {
-      throw new Error(
-        `❌ ${envVar} no está definida. Generá una credencial dedicada para MinIO.`,
-      );
-    }
-
-    if (FORBIDDEN_CREDENTIALS.has(trimmed.toLowerCase())) {
-      throw new Error(
-        `❌ ${envVar} usa una credencial por defecto ("${trimmed}"). ` +
-          'Generá una credencial propia antes de levantar la aplicación.',
-      );
-    }
-
-    if (trimmed.length < MIN_CREDENTIAL_LENGTH) {
-      throw new Error(
-        `❌ ${envVar} debe tener al menos ${MIN_CREDENTIAL_LENGTH} caracteres.`,
-      );
-    }
-  }
 
   /**
    * Crea el bucket si no existe y garantiza que sea PRIVADO.

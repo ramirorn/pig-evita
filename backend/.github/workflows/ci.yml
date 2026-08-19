@@ -103,24 +103,24 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/juegos_evita_test?schema=public
-          JWT_ACCESS_SECRET: test-access-secret-at-least-32-chars
-          JWT_REFRESH_SECRET: test-refresh-secret-at-least-32-chars
+          JWT_ACCESS_SECRET: ci-Xk29fR7tLmYw3bZc8GhdV7pQx2vNfR9tLmYw3bZ
+          JWT_REFRESH_SECRET: ci-Zc8GhdV7pQx2vNfR9tLmYw3bZc8GhdV7pQx2vNfR9
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           MINIO_ACCESS_KEY: ci-minio-access-key
-          MINIO_SECRET_KEY: ci-minio-secret-key-not-a-default
+          MINIO_SECRET_KEY: ci-K7pQx2vNfR9tLmYw3bZc8Ghd
         run: npm run test -- --coverage
 
       - name: Run e2e tests
         working-directory: backend
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/juegos_evita_test?schema=public
-          JWT_ACCESS_SECRET: test-access-secret-at-least-32-chars
-          JWT_REFRESH_SECRET: test-refresh-secret-at-least-32-chars
+          JWT_ACCESS_SECRET: ci-Xk29fR7tLmYw3bZc8GhdV7pQx2vNfR9tLmYw3bZ
+          JWT_REFRESH_SECRET: ci-Zc8GhdV7pQx2vNfR9tLmYw3bZc8GhdV7pQx2vNfR9
           REDIS_HOST: localhost
           REDIS_PORT: 6379
           MINIO_ACCESS_KEY: ci-minio-access-key
-          MINIO_SECRET_KEY: ci-minio-secret-key-not-a-default
+          MINIO_SECRET_KEY: ci-K7pQx2vNfR9tLmYw3bZc8Ghd
         run: npm run test:e2e
 
   docker:

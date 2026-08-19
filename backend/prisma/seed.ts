@@ -92,7 +92,17 @@ async function main() {
 
   // --- 1. Crear Super Admin ---
   const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@juegosevita.gob.ar';
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Admin123!@#';
+
+  // Sin fallback (hallazgo C-05): un default acá creaba un SUPER_ADMIN con
+  // contraseña conocida y publicada en el repo.
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+
+  if (!adminPassword) {
+    throw new Error(
+      '❌ SEED_ADMIN_PASSWORD no está definida. Generala con: ' +
+        `node -e "console.log(require('crypto').randomBytes(12).toString('base64url'))"`,
+    );
+  }
 
   const passwordHash = await argon2.hash(adminPassword);
 

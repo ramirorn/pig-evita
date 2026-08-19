@@ -692,6 +692,126 @@ lectura ni escritura de `evita_access_token`, `evita_refresh_token` ni `evita_us
 
 ---
 
+### T04 (post-auditoría DevSecOps) — Guardrails contra secrets por defecto en env (C-05)
+
+> Corresponde a `tasks.md → Fase 1 → T04`. Último ítem del Bloque 1: cierra la
+> fase de críticos.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente 🏗️ BE: Backend Architect)
+- **Hallazgo cubierto:** C-05 (secretos por defecto en `.env`)
+- **Duración estimada / real:** 1h / ~0,75h
+
+#### Prompt utilizado
+
+> Procede con la siguiente task, no te olvides marcar como completadas las que ya
+> hiciste en el archivo tasks.md
+
+#### Código generado
+
+- `backend/src/common/security/forbidden-secrets.ts` *(nuevo)* — lista única de
+  patrones prohibidos + `findForbiddenPattern()`, `assertStrongSecret()` y el
+  armador del mensaje de error.
+- `backend/src/config/config.validation.ts` — `superRefine` sobre el schema Zod
+  que audita las variables sensibles y emite los issues con `path: [VARIABLE]`.
+- `backend/src/config/config.validation.spec.ts` *(nuevo)* — 19 tests.
+- `backend/src/modules/documents/minio.service.ts` — deja de tener su propia lista
+  y reutiliza `assertStrongSecret()` (pendiente que dejé anotado al cerrar T02).
+- `backend/prisma/seed.ts` — se elimina el fallback `'Admin123!@#'`.
+- `backend/.env` — `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` y
+  `SEED_ADMIN_PASSWORD` regenerados con `crypto.randomBytes`.
+- `backend/.env.example` — placeholders explícitos + comando de generación.
+- `backend/.github/workflows/ci.yml` — los secretos de CI dejan de contener la
+  palabra `secret`, que ahora está prohibida.
+
+#### Decisiones de implementación
+
+**1. El chequeo mira el contenido, no sólo el largo.** Los `.min()` que ya existían
+no servían para esto: `change-me-access-secret-at-least-32-chars` tiene 41
+caracteres y pasaba sin objeción. El `superRefine` rechaza el *valor*.
+
+**2. Dos niveles de estrictez.**
+
+| Variables | Cuándo se auditan | Por qué |
+|---|---|---|
+| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `SEED_ADMIN_PASSWORD` | siempre | Son secretos de la aplicación; nada justifica un default en ningún entorno. |
+| `DATABASE_URL`, `REDIS_PASSWORD`, `CORS_ORIGINS` | sólo en producción | La contraseña de Postgres quedó grabada en el volumen de Docker: cambiarla en dev implica recrear el volumen y perder los datos locales. En producción un default es inaceptable, y `CORS_ORIGINS` apuntando a `localhost` es un error de despliegue. |
+
+**3. Coincidencia por substring, con lista de excepciones exactas.** `admin`,
+`root`, `test` o `evita` son fragmentos demasiado comunes para prohibirlos dentro
+de un valor, pero sí se rechazan cuando **son** el secreto completo. El resto
+(`change-me`, `minioadmin`, `admin123`, `password`, `secret`, `qwerty`, `123456`,
+`default`, ...) se busca como substring: un valor de `randomBytes(64)` no contiene
+ninguno salvo por casualidad astronómica.
+
+**4. Una sola lista, dos consumidores.** `MinioService` validaba credenciales con
+su propia lista desde T02. Ahora ambos leen de `common/security/forbidden-secrets.ts`,
+como quedó anotado en las notas de aquella tarea. El chequeo en el constructor de
+MinIO se conserva igual: el `ConfigService` puede recibir valores por vías que no
+pasan por el schema.
+
+**5. El seed también dejó de tener default.** `prisma/seed.ts` caía en
+`'Admin123!@#'` si la variable faltaba, o sea que creaba un `SUPER_ADMIN` con
+contraseña publicada en el repositorio. Ahora falla con un mensaje explícito.
+
+#### Correcciones manuales
+
+- Efecto colateral esperable: el fixture del spec de MinIO usaba
+  `'un-secreto-largo-y-random'` como secret key válida… que contiene `secret` y
+  ahora se rechaza. Se cambió por un valor aleatorio y se agregó un test que
+  documenta el caso.
+- Los dos jobs de CI exportaban `test-access-secret-at-least-32-chars`: mismo
+  problema. Se reemplazaron por valores aleatorios (siguen siendo descartables,
+  pero ya no matchean la lista).
+
+#### Verificación (DoD)
+
+**19 tests unitarios** (`npx jest src/config`) sobre `validateEnv`:
+
+| Grupo | Cubre |
+|---|---|
+| Defaults históricos | Los 5 valores que estuvieron realmente en el repo (`change-me-*` ×2, `minioadmin` ×2, `Admin123!@#`) hacen fallar el arranque |
+| Mensaje | Nombra la variable, cita el patrón detectado y muestra el comando para generar uno nuevo |
+| Múltiples fallas | Si hay dos variables inválidas, el error nombra las dos (no corta en la primera) |
+| Otros patrones | `password`, `secret`, `default`, `qwerty` y secretos cortos |
+| Producción | `DATABASE_URL` con `evita_password` y `CORS_ORIGINS` con `localhost` fallan; en desarrollo se toleran |
+| Regresión | `DATABASE_URL` sigue siendo obligatoria; los defaults de las opcionales se siguen aplicando |
+
+**Verificación contra los archivos reales** (ejecutando `validateEnv` compilado):
+
+```
+OK   | backend/.env pasa la validacion
+OK   | el entorno de CI pasa la validacion
+OK   | el default historico falla ->  JWT_ACCESS_SECRET: JWT_ACCESS_SECRET contiene
+       un valor por defecto ("change-me"). Generá uno propio:
+       node -e "console.log(require('crypto').randomBytes(64).toString('base64url'))"
+```
+
+- [x] Levantar el backend con cualquier default histórico falla con un mensaje
+  claro que apunta a la variable inválida.
+- [x] `.env` local regenerado con `crypto.randomBytes(64).toString('base64url')`.
+- [x] `.env.example` con placeholders explícitos.
+- [x] Suite completa: 44 unit + 14 e2e en verde · `npm run build` OK.
+
+#### Notas / aprendizajes
+
+- Prohibir la palabra `secret` dentro de un secreto suena exagerado hasta que uno
+  ve que los tres lugares del repo que tenían un valor de ejemplo la usaban
+  (`.env.example`, los dos jobs de CI y el fixture de MinIO). Es justamente el
+  patrón que delata un valor copiado de una plantilla.
+- El `superRefine` emite los issues con `path: [VARIABLE]`, que es lo que hace que
+  `flatten().fieldErrors` los agrupe por variable y el mensaje de arranque quede
+  legible. Sin el `path`, todo caía en `formErrors` sin decir qué variable revisar.
+- **Acción pendiente para el operador:** el `SEED_ADMIN_PASSWORD` nuevo no cambia
+  la contraseña del admin que ya existe en la base. El `upsert` del seed actualiza
+  el `passwordHash`, así que hay que correr `npm run db:seed` para que tome efecto;
+  hasta entonces, el login sigue siendo con la contraseña anterior.
+- Con esta tarea queda cerrado el Bloque 1 (T11, T12, T03, T01, T02, T04) y con él
+  la regla dura de `tasks.md`: ninguna tarea 🔴 abierta antes de exponer la app
+  fuera de la red local.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

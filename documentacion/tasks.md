@@ -11,6 +11,8 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Siguiente bloque: T18 → T19 → T20 → T21 → T13/T14 → T05–T09.
+
 ---
 
 ## 🤝 Asignación de agentes
@@ -74,11 +76,11 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T04 🔴 🏗️ BE — Guardrails contra secrets default en env (C-05)
 
-- [ ] **Descripción:** Agregar al Zod schema de `config.validation.ts` un `refine` que rechace patrones `change-me`, `minioadmin`, `Admin123`, `password`, `secret`. Regenerar `.env` local con `crypto.randomBytes(64).toString('base64url')`. Actualizar `.env.example` con placeholders explícitos (`<GENERAR-CON-crypto-randomBytes-64>`).
+- [x] **Descripción:** Agregar al Zod schema de `config.validation.ts` un `refine` que rechace patrones `change-me`, `minioadmin`, `Admin123`, `password`, `secret`. Regenerar `.env` local con `crypto.randomBytes(64).toString('base64url')`. Actualizar `.env.example` con placeholders explícitos (`<GENERAR-CON-crypto-randomBytes-64>`).
 - **Archivos:**
   - `backend/src/config/config.validation.ts`
   - `backend/.env.example`
-- **DoD:** intentar levantar el backend con cualquier default histórico falla con mensaje claro apuntando a la variable inválida.
+- **DoD:** intentar levantar el backend con cualquier default histórico falla con mensaje claro apuntando a la variable inválida. ✅ Verificado con 19 tests (`backend/src/config/config.validation.spec.ts`) que cubren los 5 defaults que estuvieron realmente en el repo, y ejecutando `validateEnv` contra el `.env` real. Evidencia en `PROCESO.md → sección 4 → T04 (post-auditoría)`.
 
 ---
 
