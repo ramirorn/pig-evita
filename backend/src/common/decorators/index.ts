@@ -38,3 +38,8 @@ export {
   CACHE_CONTROL_KEY,
   CACHE_TTL,
 } from './cache-control.decorator';
+
+export {
+  PublicReadThrottle,
+  PUBLIC_READ_RATE_LIMIT,
+} from './throttle.decorator';

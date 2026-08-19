@@ -24,7 +24,7 @@ import {
   CompetitionFilterDto,
   GenerateFixtureDto,
 } from './dto';
-import { Roles, Public } from '../../common/decorators';
+import { Roles, Public, PublicReadThrottle } from '../../common/decorators';
 import { ADMIN_ROLES } from '../../common/constants';
 
 @ApiTags('Competitions')
@@ -43,6 +43,7 @@ export class CompetitionsController {
 
   @Get()
   @Public() // Los fixtures/competencias se ven públicamente
+  @PublicReadThrottle()
   @ApiOperation({ summary: 'Listar competencias' })
   @ApiResponse({ status: 200, description: 'Lista de competencias paginada' })
   async findAll(@Query() filterDto: CompetitionFilterDto) {
@@ -51,6 +52,7 @@ export class CompetitionsController {
 
   @Get(':id')
   @Public()
+  @PublicReadThrottle()
   @ApiOperation({ summary: 'Obtener competencia y su fixture (partidos)' })
   @ApiResponse({ status: 200, description: 'Datos de la competencia' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {

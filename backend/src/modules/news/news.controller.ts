@@ -26,6 +26,7 @@ import {
   CurrentUser,
   CacheControl,
   CACHE_TTL,
+  PublicReadThrottle,
 } from '../../common/decorators';
 import { ADMIN_ROLES } from '../../common/constants';
 
@@ -48,6 +49,7 @@ export class NewsController {
 
   @Get()
   @Public() // Lista pública de noticias
+  @PublicReadThrottle()
   @CacheControl(CACHE_TTL.CONTENT)
   @ApiOperation({ summary: 'Listar noticias' })
   @ApiResponse({ status: 200, description: 'Lista de noticias paginada' })
@@ -57,6 +59,7 @@ export class NewsController {
 
   @Get('slug/:slug')
   @Public()
+  @PublicReadThrottle()
   @ApiOperation({ summary: 'Obtener noticia por slug' })
   async findBySlug(@Param('slug') slug: string) {
     return this.newsService.findBySlug(slug);
@@ -64,6 +67,7 @@ export class NewsController {
 
   @Get(':id')
   @Public()
+  @PublicReadThrottle()
   @ApiOperation({ summary: 'Obtener noticia por ID' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.newsService.findOne(id);

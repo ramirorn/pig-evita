@@ -17,7 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { ResultsService } from './results.service';
 import { MatchResultDto } from './dto';
-import { Roles, Public } from '../../common/decorators';
+import { Roles, Public, PublicReadThrottle } from '../../common/decorators';
 import { Role, ADMIN_ROLES } from '../../common/constants';
 
 @ApiTags('Results')
@@ -42,6 +42,7 @@ export class ResultsController {
 
   @Get('rankings/competition/:competitionId')
   @Public() // Las tablas de posiciones son públicas
+  @PublicReadThrottle()
   @ApiOperation({
     summary: 'Obtener tabla de posiciones/ranking de una competencia',
   })

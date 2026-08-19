@@ -29,6 +29,7 @@ import {
   Public,
   CacheControl,
   CACHE_TTL,
+  PublicReadThrottle,
 } from '../../common/decorators';
 import { Role } from '../../common/constants';
 
@@ -51,6 +52,7 @@ export class DisciplinesController {
 
   @Get()
   @Public() // Lista de disciplinas puede ser consultada sin login para armar combos en frontend
+  @PublicReadThrottle()
   @CacheControl(CACHE_TTL.CATALOG)
   @ApiOperation({
     summary: 'Listar disciplinas',
@@ -63,6 +65,7 @@ export class DisciplinesController {
 
   @Get(':id')
   @Public()
+  @PublicReadThrottle()
   @ApiOperation({
     summary: 'Obtener disciplina',
     description: 'Incluye sus categorías asociadas.',

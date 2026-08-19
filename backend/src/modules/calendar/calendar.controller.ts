@@ -24,7 +24,7 @@ import {
   UpdateCalendarEventDto,
   CalendarFilterDto,
 } from './dto';
-import { Roles, Public } from '../../common/decorators';
+import { Roles, Public, PublicReadThrottle } from '../../common/decorators';
 import { ADMIN_ROLES } from '../../common/constants';
 
 @ApiTags('Calendar')
@@ -43,6 +43,7 @@ export class CalendarController {
 
   @Get()
   @Public() // Calendario público
+  @PublicReadThrottle()
   @ApiOperation({ summary: 'Listar eventos del calendario' })
   @ApiResponse({ status: 200, description: 'Lista de eventos paginada' })
   async findAll(@Query() filterDto: CalendarFilterDto) {
@@ -51,6 +52,7 @@ export class CalendarController {
 
   @Get(':id')
   @Public()
+  @PublicReadThrottle()
   @ApiOperation({ summary: 'Obtener evento por ID' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.calendarService.findOne(id);

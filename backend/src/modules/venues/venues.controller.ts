@@ -25,6 +25,7 @@ import {
   Public,
   CacheControl,
   CACHE_TTL,
+  PublicReadThrottle,
 } from '../../common/decorators';
 import { ADMIN_ROLES } from '../../common/constants';
 
@@ -44,6 +45,7 @@ export class VenuesController {
 
   @Get()
   @Public() // Las sedes pueden ser consultadas públicamente para mapas o información general
+  @PublicReadThrottle()
   @CacheControl(CACHE_TTL.CATALOG)
   @ApiOperation({ summary: 'Listar sedes' })
   @ApiResponse({ status: 200, description: 'Lista de sedes paginada' })
@@ -53,6 +55,7 @@ export class VenuesController {
 
   @Get(':id')
   @Public()
+  @PublicReadThrottle()
   @ApiOperation({ summary: 'Obtener sede por ID' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.venuesService.findOne(id);

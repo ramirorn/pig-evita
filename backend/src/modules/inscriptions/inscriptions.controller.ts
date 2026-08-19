@@ -27,7 +27,12 @@ import {
   InscriptionFilterDto,
   PublicInscriptionDto,
 } from './dto';
-import { Public, Roles, CurrentUser } from '../../common/decorators';
+import {
+  Public,
+  Roles,
+  CurrentUser,
+  PublicReadThrottle,
+} from '../../common/decorators';
 import {
   INSCRIPTION_CREATORS,
   INSCRIPTION_REVIEWERS,
@@ -70,6 +75,7 @@ export class InscriptionsController {
   // --- Endpoint PÚBLICO: consulta por QR ---
   @Get('qr/:qrCode')
   @Public()
+  @PublicReadThrottle()
   @ApiOperation({
     summary: 'Consultar inscripción por QR (público)',
     description:

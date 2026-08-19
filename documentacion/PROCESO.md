@@ -1367,6 +1367,89 @@ Renderizando el `ProtectedRoute` real con `react-dom/server`:
 
 ---
 
+### T05 (post-auditoría DevSecOps) — Rate limiting en endpoints públicos scrapeables (A-01)
+
+> Corresponde a `tasks.md → Fase 2 → T05`. Arranca la tanda de severidad alta del
+> Bloque 2.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente 🏗️ BE: Backend Architect)
+- **Hallazgo cubierto:** A-01 (endpoints públicos sin cupo propio)
+- **Duración estimada / real:** 0,5h / ~0,5h
+
+#### Prompt utilizado
+
+> procede con la siguiente task y al final de archivo tasks.md agrega un cuadro
+> con las tareas y su estado
+
+#### Código generado
+
+- `backend/src/common/decorators/throttle.decorator.ts` *(nuevo)* —
+  `@PublicReadThrottle()` y la constante `PUBLIC_READ_RATE_LIMIT`.
+- **15 endpoints públicos** decorados en 8 módulos: `inscriptions` (QR),
+  `competitions` (2), `results` (rankings), `disciplines` (2), `categories` (2),
+  `venues` (2), `news` (3), `calendar` (2).
+- `backend/test/public-throttle.e2e-spec.ts` *(nuevo)* — 5 tests.
+
+#### Decisiones de implementación
+
+**1. Un decorador con nombre en lugar de repetir el literal.** La tarea pedía
+`@Throttle({ default: { limit: 20, ttl: 60_000 } })` en cada endpoint.
+`@PublicReadThrottle()` es exactamente eso, pero dice *por qué* está: ajustar el
+cupo de todos los endpoints públicos pasa a ser cambiar una constante, y el
+JSDoc explica el criterio en un solo lugar.
+
+**2. `/health` queda fuera, a propósito.** Es `@Public()`, pero los chequeos de
+disponibilidad consultan cada pocos segundos y quedarían bloqueados a los 20.
+Está anotado como advertencia en el decorador.
+
+**3. `/auth/login` y `/auth/refresh` tampoco se tocaron.** El login ya tiene su
+propio cupo, más estricto y adecuado a un endpoint de credenciales
+(`@Throttle({ default: { limit: 5, ttl: 900000 } })`, 5 intentos cada 15 min), y
+limitar el refresh a 20/min podría cortar sesiones legítimas.
+
+**4. Por qué 20/min alcanza.** Es el cupo para una persona navegando el sitio
+público, y desde T19 React Query cachea los catálogos 10 minutos, así que una
+sesión real hace muchas menos requests que eso. Un scraper que quiera bajarse el
+padrón de disciplinas, sedes o competencias —o probar códigos QR por fuerza
+bruta— se topa con el límite enseguida.
+
+#### Correcciones manuales
+
+- Ninguna sobre lo generado. La única decisión de criterio fue excluir `/health`
+  y los endpoints de `auth`, que la tarea no mencionaba.
+
+#### Verificación (DoD)
+
+**5 tests e2e** con el `ThrottlerGuard` real montado como guard global:
+
+| # | Chequeo | Resultado |
+|---|---|---|
+| 1 | El cupo público es 20/60 s | ✅ |
+| 2 | **30 requests seguidas al listado público** | **20 OK y 10 rechazadas; el primer 429 llega en la #21** |
+| 3 | El detalle público también está limitado (25 requests) | 5 rechazadas ✅ |
+| 4 | Agotar el cupo del listado **no** deja sin servicio al detalle | ✅ contadores independientes |
+| 5 | Un endpoint no decorado (`POST /disciplines`) | conserva el cupo global de 100/min ✅ |
+
+- [x] Un script de 30 requests seguidas al mismo endpoint desde la misma IP
+  recibe `429` a partir de la #21.
+- [x] 44 unit + 29 e2e en verde · `npm run build` OK.
+
+#### Notas / aprendizajes
+
+- El chequeo 4 fue una duda real antes de escribirlo: si el contador fuera por IP
+  y nada más, agotar el listado dejaría sin sitio público al visitante. El
+  `ThrottlerGuard` lleva un contador por IP **y por handler**, así que el límite
+  es por endpoint. Queda documentado con un test para que se note si eso cambia.
+- El chequeo 5 es el contrapeso: confirma que el cupo estricto no se derramó sobre
+  las operaciones de back-office, que necesitan el margen de 100/min.
+- Detrás de un reverse proxy el `ThrottlerGuard` ve la IP del proxy y limitaría a
+  **todos** los visitantes juntos. **T07 activa `trust proxy`**, que es lo que hace
+  que `request.ip` sea la IP real del cliente: hasta entonces, este límite no está
+  bien calibrado en producción. Conviene no desplegar T05 sin T07.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

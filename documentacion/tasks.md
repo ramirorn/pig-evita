@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13 y T14 completadas**; siguen T05 → T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13, T14 y T05 completadas**; siguen T06 → T09.
 
 ---
 
@@ -88,9 +88,9 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T05 🟡 🏗️ BE — Rate limiting en endpoints públicos scrapeables (A-01)
 
-- [ ] **Descripción:** Aplicar `@Throttle({ default: { limit: 20, ttl: 60_000 } })` a `inscriptions.findByQr`, `competitions.findAll`, `results.rankings`, `disciplines.findAll` y demás endpoints `@Public()` de lectura.
+- [x] **Descripción:** Aplicar `@Throttle({ default: { limit: 20, ttl: 60_000 } })` a `inscriptions.findByQr`, `competitions.findAll`, `results.rankings`, `disciplines.findAll` y demás endpoints `@Public()` de lectura.
 - **Archivos:** cada controller con endpoints `@Public()` de lectura.
-- **DoD:** un script de 30 requests seguidas al mismo endpoint desde la misma IP recibe `429` a partir de la #21.
+- **DoD:** un script de 30 requests seguidas al mismo endpoint desde la misma IP recibe `429` a partir de la #21. ✅ Verificado con el `ThrottlerGuard` real (`backend/test/public-throttle.e2e-spec.ts`): **20 OK, primer 429 en la #21**. Aplicado a 15 endpoints públicos vía `@PublicReadThrottle()`; `/health` y los de `auth` quedan fuera a propósito. ⚠️ **Depende de T07**: detrás del reverse proxy, sin `trust proxy` el guard ve la IP del proxy y limitaría a todos los visitantes juntos. Evidencia en `PROCESO.md → sección 4 → T05 (post-auditoría)`.
 
 ### T06 🟡 🏗️ BE — Ocultar Swagger en producción (A-02)
 
@@ -440,3 +440,55 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 17. **T26, T27** (⚛️ FE + 🎨 UI — memoización + componentes reutilizables frontend).
 18. **T10** (⚛️ FE + 🎨 UI — descomposición monolitos) — beneficia a T27.
 19. **T28** (🔀 FS — tsconfig strict, pagination max, MinIO retry) — cierre.
+
+---
+
+## 📊 Estado de las tareas
+
+> Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
+> en `PROCESO.md → sección 4` y su propio commit.
+
+**Progreso: 13 de 28 tareas completadas.**
+Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
+
+| Tarea | Sev. | Agente | Título | Estado |
+|---|---|---|---|---|
+| **T01** | 🔴 | 🔀 FS | Cerrar exposición de PII en endpoint público QR | ✅ Completada |
+| **T02** | 🔴 | 🏗️ BE | Endurecer módulo de documentos MinIO | ✅ Completada |
+| **T03** | 🔴 | 🔀 FS | Migrar tokens a cookie httpOnly + access token en memoria | ✅ Completada |
+| **T04** | 🔴 | 🏗️ BE | Guardrails contra secrets default en env | ✅ Completada |
+| **T05** | 🟡 | 🏗️ BE | Rate limiting en endpoints públicos scrapeables | ✅ Completada |
+| **T06** | 🟡 | 🏗️ BE | Ocultar Swagger en producción | ⬜ Pendiente |
+| **T07** | 🟡 | 🏗️ BE | Enriquecer `AuditInterceptor` con IP y User-Agent | ⬜ Pendiente |
+| **T08** | 🟡 | ⚛️ FE | Silenciar `console.error` en producción del frontend | ⬜ Pendiente |
+| **T09** | 🟠 | 🏗️ BE | Endurecer CORS y CSP | ⬜ Pendiente |
+| **T10** | 🟠 | ⚛️ FE + 🎨 UI | Descomponer componentes React monolíticos | ⬜ Pendiente |
+| **T11** | 🔴 | ⚛️ FE | Sanitizar HTML del backend antes de renderizar con `dangerouslySetInnerHTML` | ✅ Completada |
+| **T12** | 🔴 | ⚛️ FE | Limpiar cache de React Query en logout | ✅ Completada |
+| **T13** | 🟡 | ⚛️ FE | Namespace de queryKeys por userId | ✅ Completada |
+| **T14** | 🟡 | ⚛️ FE | `ProtectedRoute`: exigir `allowedRoles` explícito por ruta admin | ✅ Completada |
+| **T15** | 🟠 | ⚛️ FE | Fortalecer schemas Zod | ⬜ Pendiente |
+| **T16** | 🟠 | ⚛️ FE | Sanitizar mensajes de error del backend antes de mostrarlos al usuario | ⬜ Pendiente |
+| **T17** | 🟠 | ⚛️ FE | Validar schema de URLs dinámicas en `href` | ⬜ Pendiente |
+| **T18** | 🚀 | 🏗️ BE | Quick wins backend: `compression` + `Cache-Control` en endpoints públicos | ✅ Completada |
+| **T19** | 🚀 | ⚛️ FE | Ajustar `staleTime` de React Query por dominio | ✅ Completada |
+| **T20** | 🚀 | ⚛️ FE | Code splitting: lazy loading de rutas admin | ✅ Completada |
+| **T21** | 🚀 | 🏗️ BE | Reemplazar `include: X: true` por `select` en services | ✅ Completada |
+| **T22** | 📈 | 🔀 FS | Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas | ⬜ Pendiente |
+| **T23** | 📈 | 🏗️ BE | Streaming + paginación en reports Excel/CSV | ⬜ Pendiente |
+| **T24** | 📈 | 🏗️ BE | DRY backend: validators, DTOs con `PartialType`, includes reusables | ⬜ Pendiente |
+| **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ⬜ Pendiente |
+| **T26** | ✨ | ⚛️ FE | Memoización de valores derivados en páginas admin | ⬜ Pendiente |
+| **T27** | ✨ | 🎨 UI + ⚛️ FE | DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables | ⬜ Pendiente |
+| **T28** | ✨ | 🔀 FS | Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO | ⬜ Pendiente |
+
+### Resumen por severidad
+
+| Severidad | Completadas | Total |
+|---|---|---|
+| 🔴 Crítico | 6 | 6 |
+| 🟡 Alto | 3 | 6 |
+| 🟠 Medio | 0 | 5 |
+| 🚀 Optimización alta | 4 | 4 |
+| 📈 Optimización media | 0 | 4 |
+| ✨ Polish | 0 | 3 |

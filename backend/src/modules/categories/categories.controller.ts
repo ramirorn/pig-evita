@@ -25,6 +25,7 @@ import {
   Public,
   CacheControl,
   CACHE_TTL,
+  PublicReadThrottle,
 } from '../../common/decorators';
 import { Role } from '../../common/constants';
 
@@ -44,6 +45,7 @@ export class CategoriesController {
 
   @Get()
   @Public() // Público para los combos de inscripción
+  @PublicReadThrottle()
   @CacheControl(CACHE_TTL.CATALOG)
   @ApiOperation({
     summary: 'Listar categorías',
@@ -57,6 +59,7 @@ export class CategoriesController {
 
   @Get(':id')
   @Public()
+  @PublicReadThrottle()
   @ApiOperation({ summary: 'Obtener categoría' })
   @ApiResponse({ status: 200, description: 'Datos de la categoría' })
   @ApiResponse({ status: 404, description: 'No encontrada' })
