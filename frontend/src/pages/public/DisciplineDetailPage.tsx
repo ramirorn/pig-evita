@@ -3,6 +3,7 @@ import { Trophy, ArrowLeft, Loader2, Users, FileText } from 'lucide-react';
 import { useDiscipline } from '@/hooks/useDisciplines';
 import { useCategories } from '@/hooks/useCategories';
 import { Button } from '@/components/ui/button';
+import { PlainTextContent } from '@/components/shared/PlainTextContent';
 import { Link } from 'react-router';
 
 export function DisciplineDetailPage() {
@@ -69,11 +70,10 @@ export function DisciplineDetailPage() {
               <h2 className="text-2xl font-bold text-primary-900">Reglamento</h2>
             </div>
             <div className="prose prose-primary max-w-none text-primary-700">
-              {discipline.rules ? (
-                <div dangerouslySetInnerHTML={{ __html: discipline.rules.replace(/\n/g, '<br/>') }} />
-              ) : (
-                <p className="italic text-primary-400">El reglamento aún no ha sido cargado para esta disciplina.</p>
-              )}
+              <PlainTextContent
+                text={discipline.rules}
+                fallback="El reglamento aún no ha sido cargado para esta disciplina."
+              />
             </div>
           </section>
 

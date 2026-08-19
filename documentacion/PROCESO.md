@@ -343,6 +343,108 @@ decide reducir superficie de ataque antes del despliegue: basta con quitar
 
 ---
 
+### T11 (post-auditoría DevSecOps) — Eliminar el XSS de `dangerouslySetInnerHTML` en páginas públicas (F1, F2)
+
+> Corresponde a `tasks.md → Fase 4 → T11`. Primer ítem del Bloque 1 del orden de
+> ejecución recomendado.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente ⚛️ FE: Frontend Engineer)
+- **Hallazgos cubiertos:** F1 (`discipline.rules`), F2 (`news.content`)
+- **Duración estimada / real:** 1h / ~0,5h
+
+#### Prompt utilizado
+
+> Procede con la siguiente task
+
+#### Decisión de alcance: texto plano en vez de DOMPurify
+
+`tasks.md` proponía instalar `dompurify` y sanitizar, pero pedía explícitamente
+**evaluar antes si los campos son texto plano**. Se verificó que lo son:
+
+| Campo | Cómo se carga | Tipo en Prisma | Cómo se renderizaba |
+|---|---|---|---|
+| `news.content` | `<Textarea>` plano en `NewsForm.tsx:143` | `String @db.Text` | `content.replace(/\n/g, '<br/>')` |
+| `discipline.rules` | ni siquiera hay input en `DisciplineForm.tsx` (sólo viaja en `defaultValues`); se carga por seed/DB | `String? @db.Text` | `rules.replace(/\n/g, '<br/>')` |
+
+Ese `replace(/\n/g, '<br/>')` es la prueba de que el contenido es texto plano: lo
+único que aportaba el HTML era el salto de línea. Ninguno de los dos campos tiene
+editor de texto enriquecido en el panel admin.
+
+Por eso se optó por **eliminar `dangerouslySetInnerHTML` por completo** en vez de
+sanitizarlo. Es estrictamente mejor en este caso:
+
+- El vector desaparece; no queda superficie de bypass de sanitizador que mantener
+  al día (DOMPurify acumula CVEs de bypass con regularidad).
+- Cero dependencias nuevas.
+- `whitespace-pre-wrap` conserva saltos de línea **y párrafos en blanco**, que el
+  `<br/>` manejaba peor.
+
+Queda documentado en el JSDoc del componente que, si en el futuro se agrega un
+editor rico en el admin, la vía correcta es DOMPurify con allowlist explícita.
+
+#### Código generado
+
+- **Archivos creados/modificados:**
+  - `frontend/src/components/shared/PlainTextContent.tsx` *(nuevo)* — componente
+    compartido que renderiza texto plano multilínea con `whitespace-pre-wrap` +
+    `break-words`, con `fallback` para contenido vacío. El JSDoc explica por qué
+    no se usa `dangerouslySetInnerHTML`.
+  - `frontend/src/pages/public/DisciplineDetailPage.tsx:73` — reemplazado el
+    render de `discipline.rules`; el estado vacío (antes un ternario inline) ahora
+    lo cubre el `fallback` del componente.
+  - `frontend/src/pages/public/NewsDetailPage.tsx:131` — reemplazado el render de
+    `news.content`.
+
+- **Resumen del cambio:** `grep -rn "dangerouslySetInnerHTML" frontend/src/` ya no
+  devuelve ningún uso real (la única coincidencia es la advertencia en el JSDoc del
+  componente nuevo).
+
+#### Correcciones manuales
+
+- El script de verificación marcaba dos falsos positivos: buscaba substrings como
+  `onerror=` en la salida, que aparecen **escapados e inertes** dentro de
+  `&lt;img src=x onerror=alert(1)&gt;`. Se corrigió el criterio: extraer el
+  contenido interno del wrapper y verificar que **no sobreviva ningún `<` sin
+  escapar** — un tag vivo es exactamente eso.
+- El estado vacío del reglamento se movió del ternario de la página al `fallback`
+  del componente, para que las dos páginas se comporten igual.
+
+#### Verificación (DoD)
+
+- [x] **Un `news.content` con `<img src=x onerror=alert(1)>` NO ejecuta el script.**
+- [x] **Payloads XSS estándar confirmados.** Se renderizaron los componentes reales
+  con `react-dom/server` (`renderToStaticMarkup`) y se inspeccionó el HTML de salida.
+  El script bundlea el componente con esbuild resolviendo el alias `@` y **primero
+  reproduce el comportamiento anterior** como control:
+
+  | Payload | Antes (`dangerouslySetInnerHTML`) | Después (`PlainTextContent`) |
+  |---|---|---|
+  | `<img src=x onerror=alert(1)>` | `<div><img src=x onerror=alert(1)></div>` — tag vivo | `&lt;img src=x onerror=alert(1)&gt;` — texto inerte |
+  | `<script>alert('xss')</script>` | — | `&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;` |
+  | `<svg onload=alert(1)>` | — | `&lt;svg onload=alert(1)&gt;` |
+  | `<iframe src=javascript:alert(1)>` | — | `&lt;iframe src=javascript:alert(1)&gt;` |
+  | `<a href="javascript:alert(1)">` | — | `&lt;a href=&quot;javascript:alert(1)&quot;&gt;` |
+
+- [x] **No hay regresión visual:** el texto multilínea conserva saltos de línea y
+  párrafos en blanco; el fallback de contenido vacío se renderiza igual que antes.
+- [x] `npx tsc --noEmit -p tsconfig.app.json` sin errores · `npm run build` OK ·
+  `npm run lint` sin errores nuevos en los archivos tocados.
+
+#### Notas / aprendizajes
+
+- Antes de instalar un sanitizador conviene mirar **cómo se carga el dato**. Acá el
+  `replace(/\n/g, '<br/>')` delataba que el HTML nunca fue un requisito: era un
+  atajo para los saltos de línea, y pagaba con un XSS a visitantes anónimos.
+- Verificar ausencia de XSS por substrings (`onerror=`, `<script`) da falsos
+  positivos sobre texto escapado. El criterio correcto sobre HTML renderizado es
+  buscar `<` sin escapar en el contenido.
+- Renderizar el componente real con `react-dom/server` + esbuild permitió obtener
+  evidencia concreta sin agregar un runner de tests al frontend (que hoy no tiene).
+  Si en algún momento se suma Vitest, estos casos son el primer test obvio a portar.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

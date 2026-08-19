@@ -5,6 +5,7 @@ import { useNewsBySlug } from '@/hooks/useNews';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils';
+import { PlainTextContent } from '@/components/shared/PlainTextContent';
 
 export function NewsDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -127,7 +128,7 @@ export function NewsDetailPage() {
 
       {/* Cuerpo del Artículo */}
       <div className="prose prose-lg prose-primary max-w-none text-primary-900 leading-relaxed font-normal bg-white p-6 sm:p-10 rounded-3xl border border-primary-100 shadow-xs">
-        <div dangerouslySetInnerHTML={{ __html: news.content.replace(/\n/g, '<br/>') }} />
+        <PlainTextContent text={news.content} />
       </div>
     </article>
   );

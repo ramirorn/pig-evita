@@ -148,13 +148,15 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T11 🔴 ⚛️ FE — Sanitizar HTML del backend antes de renderizar con `dangerouslySetInnerHTML` (F1, F2)
 
-- [ ] **Descripción:** Dos páginas públicas renderizan HTML del backend sin sanitizar (`discipline.rules` y `news.content`). Un admin comprometido puede inyectar `<script>` que se ejecuta en el browser de cualquier visitante. Instalar `dompurify` (`npm i dompurify` + `@types/dompurify`) y sanitizar antes del render. Además, evaluar si los campos son texto plano (usar `<p style={{ whiteSpace: 'pre-wrap' }}>` es más seguro que HTML) o realmente necesitan HTML rico (entonces usar DOMPurify).
+- [x] **Descripción:** Dos páginas públicas renderizan HTML del backend sin sanitizar (`discipline.rules` y `news.content`). Un admin comprometido puede inyectar `<script>` que se ejecuta en el browser de cualquier visitante. Instalar `dompurify` (`npm i dompurify` + `@types/dompurify`) y sanitizar antes del render. Además, evaluar si los campos son texto plano (usar `<p style={{ whiteSpace: 'pre-wrap' }}>` es más seguro que HTML) o realmente necesitan HTML rico (entonces usar DOMPurify).
 - **Archivos:**
   - `frontend/src/pages/public/DisciplineDetailPage.tsx:73`
   - `frontend/src/pages/public/NewsDetailPage.tsx:130`
 - **DoD:**
   - Un `news.content` con `<img src=x onerror=alert(1)>` NO ejecuta el script tras el render.
   - Test manual con payload XSS estándar (`<script>alert('xss')</script>`, `<svg onload=alert(1)>`, `<iframe src=javascript:alert(1)>`) confirma sanitización.
+  - ✅ **Resuelto sin DOMPurify:** se verificó que ambos campos son texto plano (se cargan desde `<textarea>`, columnas `Text`, y se renderizaban con `replace(/
+/g, '<br/>')`), así que se eliminó `dangerouslySetInnerHTML` por completo a favor del componente `PlainTextContent` con `whitespace-pre-wrap`. Los 5 payloads se verificaron renderizando los componentes reales con `react-dom/server`. Evidencia en `PROCESO.md → sección 4 → T11 (post-auditoría)`.
 
 ### T12 🔴 ⚛️ FE — Limpiar cache de React Query en logout (F3)
 
