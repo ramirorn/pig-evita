@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21 y T13 completadas**; siguen T14 → T05–T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13 y T14 completadas**; siguen T05 → T09.
 
 ---
 
@@ -182,11 +182,11 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T14 🟡 ⚛️ FE — `ProtectedRoute`: exigir `allowedRoles` explícito por ruta admin (F8)
 
-- [ ] **Descripción:** Actualmente `ProtectedRoute` renderiza `<>{children}</>` cuando `allowedRoles` es `undefined`. Esto significa que cualquier usuario autenticado (incluso `ARBITRO` u `OPERADOR_MESA`) puede navegar a `/admin/usuarios` o `/admin/auditoria` — el backend rechaza con 403, pero la ruta es alcanzable y el intento queda en logs de error. Fix: (a) hacer `allowedRoles` obligatorio en el tipo TS del componente; (b) en `router.tsx`, envolver cada `/admin/*` con `<ProtectedRoute allowedRoles={[...]}>` explícito basado en los mismos roles que el backend exige.
+- [x] **Descripción:** Actualmente `ProtectedRoute` renderiza `<>{children}</>` cuando `allowedRoles` es `undefined`. Esto significa que cualquier usuario autenticado (incluso `ARBITRO` u `OPERADOR_MESA`) puede navegar a `/admin/usuarios` o `/admin/auditoria` — el backend rechaza con 403, pero la ruta es alcanzable y el intento queda en logs de error. Fix: (a) hacer `allowedRoles` obligatorio en el tipo TS del componente; (b) en `router.tsx`, envolver cada `/admin/*` con `<ProtectedRoute allowedRoles={[...]}>` explícito basado en los mismos roles que el backend exige.
 - **Archivos:**
   - `frontend/src/components/shared/ProtectedRoute.tsx:33-47`
   - `frontend/src/router.tsx` (todas las rutas `/admin/*`)
-- **DoD:** un usuario `ARBITRO` navegando a `/admin/usuarios` ve la pantalla "Acceso Denegado" sin que se dispare ninguna request al backend.
+- **DoD:** un usuario `ARBITRO` navegando a `/admin/usuarios` ve la pantalla "Acceso Denegado" sin que se dispare ninguna request al backend. ✅ Verificado renderizando el `ProtectedRoute` real: `ARBITRO` en `/admin/usuarios` ve "Acceso Denegado" y el contenido de la página **no se renderiza** (por eso no se dispara ninguna request: los hooks sólo corren al montarse). Las **21** rutas admin declaran roles espejados de los `@Roles(...)` del backend, y el tipo TS ahora obliga a declararlos. Evidencia en `PROCESO.md → sección 4 → T14 (post-auditoría)`.
 
 ### T15 🟠 ⚛️ FE — Fortalecer schemas Zod (F10, F11, F12)
 

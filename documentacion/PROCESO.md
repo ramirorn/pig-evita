@@ -1267,6 +1267,106 @@ Se ejecutaron las *key factories* reales y un `QueryClient` real:
 
 ---
 
+### T14 (post-auditoría DevSecOps) — `ProtectedRoute` con `allowedRoles` obligatorio (F8)
+
+> Corresponde a `tasks.md → Fase 4 → T14`. Cierra el refuerzo de acceso del
+> Bloque 2 junto con T13.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente ⚛️ FE: Frontend Engineer)
+- **Hallazgo cubierto:** F8 (`ProtectedRoute` sin `allowedRoles` deja la ruta abierta a cualquier autenticado)
+- **Duración estimada / real:** 1h / ~0,75h
+
+#### Prompt utilizado
+
+> procede con la siguiente task
+
+#### Código generado
+
+- `frontend/src/lib/roles.ts` *(nuevo)* — grupos de roles espejados de los
+  `@Roles(...)` del backend: `ADMIN_ROLES`, `CATALOG_MANAGERS`,
+  `INSCRIPTION_MANAGERS`, `PARTICIPANT_MANAGERS`, `RESULT_LOADERS`,
+  `REPORT_VIEWERS`, `DASHBOARD_VIEWERS`, `SYSTEM_MANAGERS` y `ADMIN_AREA_ROLES`.
+- `frontend/src/components/shared/ProtectedRoute.tsx` — `allowedRoles` pasa a ser
+  obligatorio y la comprobación deja de ser condicional.
+- `frontend/src/router.tsx` — las 21 rutas admin declaran sus roles con el helper
+  `conRoles(...)`.
+
+#### Decisiones de implementación
+
+**1. Dos niveles de control.** El `ProtectedRoute` exterior (el que envuelve
+`AdminLayout`) usa `ADMIN_AREA_ROLES` y responde "¿podés entrar al área?"; cada
+ruta agrega su propio `allowedRoles` y responde "¿podés ver *esta* pantalla?".
+Un `ARBITRO` entra al área —carga resultados— y aun así no alcanza
+`/admin/usuarios`.
+
+**2. Los roles salen de los controllers, uno por uno.** Se recorrieron los
+`@Roles(...)` de cada módulo del backend para armar la tabla:
+
+| Ruta | Roles | Fuente en el backend |
+|---|---|---|
+| Dashboard | admins + coordinador | `dashboard.controller` |
+| Participantes, equipos, documentos | admins + delegado + coordinador | `participants` / `teams` / `documents` |
+| Inscripciones (incl. alta) | admins + delegado | `INSCRIPTION_REVIEWERS` / `INSCRIPTION_CREATORS` |
+| Disciplinas y categorías | super admin + admin provincial | mutaciones de `disciplines` / `categories` |
+| Competencias, noticias, calendario, sedes | admins | mutaciones de cada módulo |
+| Resultados | admins + árbitro | `results.controller` |
+| Reportes | admins + delegado | `reports.controller` |
+| Usuarios y auditoría | super admin + admin provincial | `users` / `audit` |
+
+Para las pantallas de gestión cuyo `GET` es público (disciplinas, categorías,
+sedes, noticias, calendario, competencias) se tomaron los roles de **mutación**:
+son pantallas de administración, no de consulta.
+
+**3. `!user` cuenta como denegado.** La comprobación pasó de
+`if (allowedRoles && user && ...)` a `if (!user || !allowedRoles.includes(...))`.
+Antes, un estado raro con sesión "autenticada" pero sin objeto `user` caía en el
+`return <>{children}</>`.
+
+#### Correcciones manuales
+
+- La verificación necesitó dos ajustes de andamiaje, no de código de producción:
+  un stub del store de auth (aliasado con esbuild) para poder fijar el rol, y un
+  `<MemoryRouter>` alrededor, porque `ProtectedRoute` usa `useLocation()`.
+
+#### Verificación (DoD)
+
+Renderizando el `ProtectedRoute` real con `react-dom/server`:
+
+| # | Chequeo | Resultado |
+|---|---|---|
+| 1 | `ARBITRO` en `/admin/usuarios` | ve **"Acceso Denegado"**; la página **no** se renderiza |
+| 2 | `ARBITRO` en `/admin/auditoria` | denegado |
+| 2 | `ARBITRO` en `/admin/resultados` | permitido |
+| 2 | `DELEGADO` en `/admin/usuarios` / `/admin/participantes` | denegado / permitido |
+| 2 | `SUPER_ADMIN` en `/admin/usuarios` | permitido |
+| 2 | `ENTRENADOR` en el área admin | denegado |
+| 3 | Rutas admin sin `allowedRoles` | **0 de 21** |
+| 4 | `allowedRoles?:` en el tipo | ya no existe; es requerido |
+
+- [x] Un usuario `ARBITRO` que navega a `/admin/usuarios` ve "Acceso Denegado".
+- [x] **Sin request al backend:** el chequeo 1 confirma que el contenido de la
+  página no se renderiza. Como las páginas admin son lazy y sus hooks
+  (`useUsers`, etc.) sólo corren al montarse, no llegan a dispararse.
+- [x] `allowedRoles` obligatorio en el tipo TS: el compilador rechaza una ruta sin
+  roles — de hecho, el primer `tsc` tras el cambio falló señalando exactamente el
+  `ProtectedRoute` del router que faltaba completar.
+- [x] `npm run build` OK · `npm run lint` sin errores.
+
+#### Notas / aprendizajes
+
+- Que el tipo sea obligatorio es la mitad más valiosa de la tarea: la lista de
+  rutas de hoy queda cubierta por los tests, pero la ruta que alguien agregue en
+  seis meses la cubre el compilador.
+- El chequeo 3 (contar rutas contra usos de `conRoles`) protege el caso de agregar
+  una ruta admin **fuera** del helper.
+- Queda pendiente algo que esta tarea no cubre: el `Sidebar` sigue mostrando los
+  links de todas las secciones. Un `ARBITRO` ve "Usuarios" en el menú y al hacer
+  click recibe "Acceso Denegado". Funciona, pero es mala UX; filtrar el menú con
+  las mismas constantes de `lib/roles.ts` sería el complemento natural.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

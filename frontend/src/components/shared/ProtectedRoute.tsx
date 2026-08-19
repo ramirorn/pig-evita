@@ -8,7 +8,15 @@ import type { UserRole } from '@/types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: UserRole[];
+  /**
+   * Roles habilitados para esta ruta. **Obligatorio** (hallazgo F8): antes era
+   * opcional y, sin valor, la ruta quedaba abierta a cualquier usuario
+   * autenticado. El backend igual respondía 403, pero la pantalla era alcanzable
+   * y cada intento dejaba un error en los logs.
+   *
+   * Los grupos viven en `@/lib/roles`, espejados de los `@Roles(...)` del backend.
+   */
+  allowedRoles: UserRole[];
 }
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -30,7 +38,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to={ROUTES.LOGIN} state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+  if (!user || !allowedRoles.includes(user.role)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-surface">
         <div className="card p-8 max-w-md text-center">

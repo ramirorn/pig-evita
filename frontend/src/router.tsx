@@ -5,6 +5,18 @@ import { lazy } from 'react';
 import { createBrowserRouter } from 'react-router';
 import { ROUTES } from '@/lib/constants';
 import { queryClient, STALE_TIME } from '@/lib/queryClient';
+import {
+  ADMIN_AREA_ROLES,
+  ADMIN_ROLES,
+  CATALOG_MANAGERS,
+  DASHBOARD_VIEWERS,
+  INSCRIPTION_MANAGERS,
+  PARTICIPANT_MANAGERS,
+  REPORT_VIEWERS,
+  RESULT_LOADERS,
+  SYSTEM_MANAGERS,
+} from '@/lib/roles';
+import type { UserRole } from '@/types';
 import { getAccessToken } from '@/api/client';
 import { disciplinesApi } from '@/api/disciplines.api';
 import { categoriesApi } from '@/api/categories.api';
@@ -135,6 +147,18 @@ function prefetchCatalogosAdmin() {
   return null;
 }
 
+
+/**
+ * Envuelve el elemento de una ruta con su control de acceso.
+ *
+ * Cada ruta admin declara explícitamente qué roles la pueden ver (hallazgo F8).
+ * El `ProtectedRoute` exterior sólo verifica que el usuario pueda entrar al área;
+ * el de acá decide si puede ver *esta* pantalla.
+ */
+function conRoles(allowedRoles: UserRole[], element: React.ReactNode) {
+  return <ProtectedRoute allowedRoles={allowedRoles}>{element}</ProtectedRoute>;
+}
+
 export const router = createBrowserRouter([
   // ============ PUBLIC ROUTES ============
   {
@@ -160,34 +184,36 @@ export const router = createBrowserRouter([
 
   // ============ ADMIN ROUTES (Protected) ============
   {
+    // Primer filtro: ¿puede entrar al área admin? El permiso fino lo pone cada
+    // ruta con su propio `allowedRoles`.
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute allowedRoles={ADMIN_AREA_ROLES}>
         <AdminLayout />
       </ProtectedRoute>
     ),
     loader: prefetchCatalogosAdmin,
     children: [
-      { path: ROUTES.ADMIN, element: <DashboardPage /> },
-      { path: ROUTES.DASHBOARD, element: <DashboardPage /> },
-      { path: ROUTES.PARTICIPANTS, element: <ParticipantsPage /> },
-      { path: ROUTES.PARTICIPANT_DETAIL, element: <ParticipantDetailPage /> },
-      { path: ROUTES.INSCRIPTIONS, element: <InscriptionsPage /> },
-      { path: ROUTES.INSCRIPTION_DETAIL, element: <InscriptionDetailPage /> },
-      { path: ROUTES.NEW_INSCRIPTION, element: <DelegateInscriptionPage /> },
-      { path: ROUTES.DISCIPLINES_ADMIN, element: <DisciplinesAdminPage /> },
-      { path: ROUTES.CATEGORIES_ADMIN, element: <CategoriesAdminPage /> },
-      { path: ROUTES.TEAMS, element: <TeamsAdminPage /> },
-      { path: ROUTES.TEAM_DETAIL, element: <TeamDetailPage /> },
-      { path: ROUTES.COMPETITIONS, element: <CompetitionsPage /> },
-      { path: ROUTES.COMPETITION_DETAIL, element: <CompetitionDetailPage /> },
-      { path: ROUTES.RESULTS, element: <ResultsPage /> },
-      { path: ROUTES.DOCUMENTS, element: <DocumentsPage /> },
-      { path: ROUTES.NEWS_ADMIN, element: <NewsAdminPage /> },
-      { path: ROUTES.CALENDAR_ADMIN, element: <CalendarAdminPage /> },
-      { path: ROUTES.VENUES_ADMIN, element: <VenuesAdminPage /> },
-      { path: ROUTES.USERS, element: <UsersPage /> },
-      { path: ROUTES.REPORTS, element: <ReportsPage /> },
-      { path: ROUTES.AUDIT, element: <AuditPage /> },
+      { path: ROUTES.ADMIN, element: conRoles(DASHBOARD_VIEWERS, <DashboardPage />) },
+      { path: ROUTES.DASHBOARD, element: conRoles(DASHBOARD_VIEWERS, <DashboardPage />) },
+      { path: ROUTES.PARTICIPANTS, element: conRoles(PARTICIPANT_MANAGERS, <ParticipantsPage />) },
+      { path: ROUTES.PARTICIPANT_DETAIL, element: conRoles(PARTICIPANT_MANAGERS, <ParticipantDetailPage />) },
+      { path: ROUTES.INSCRIPTIONS, element: conRoles(INSCRIPTION_MANAGERS, <InscriptionsPage />) },
+      { path: ROUTES.INSCRIPTION_DETAIL, element: conRoles(INSCRIPTION_MANAGERS, <InscriptionDetailPage />) },
+      { path: ROUTES.NEW_INSCRIPTION, element: conRoles(INSCRIPTION_MANAGERS, <DelegateInscriptionPage />) },
+      { path: ROUTES.DISCIPLINES_ADMIN, element: conRoles(CATALOG_MANAGERS, <DisciplinesAdminPage />) },
+      { path: ROUTES.CATEGORIES_ADMIN, element: conRoles(CATALOG_MANAGERS, <CategoriesAdminPage />) },
+      { path: ROUTES.TEAMS, element: conRoles(PARTICIPANT_MANAGERS, <TeamsAdminPage />) },
+      { path: ROUTES.TEAM_DETAIL, element: conRoles(PARTICIPANT_MANAGERS, <TeamDetailPage />) },
+      { path: ROUTES.COMPETITIONS, element: conRoles(ADMIN_ROLES, <CompetitionsPage />) },
+      { path: ROUTES.COMPETITION_DETAIL, element: conRoles(ADMIN_ROLES, <CompetitionDetailPage />) },
+      { path: ROUTES.RESULTS, element: conRoles(RESULT_LOADERS, <ResultsPage />) },
+      { path: ROUTES.DOCUMENTS, element: conRoles(PARTICIPANT_MANAGERS, <DocumentsPage />) },
+      { path: ROUTES.NEWS_ADMIN, element: conRoles(ADMIN_ROLES, <NewsAdminPage />) },
+      { path: ROUTES.CALENDAR_ADMIN, element: conRoles(ADMIN_ROLES, <CalendarAdminPage />) },
+      { path: ROUTES.VENUES_ADMIN, element: conRoles(ADMIN_ROLES, <VenuesAdminPage />) },
+      { path: ROUTES.USERS, element: conRoles(SYSTEM_MANAGERS, <UsersPage />) },
+      { path: ROUTES.REPORTS, element: conRoles(REPORT_VIEWERS, <ReportsPage />) },
+      { path: ROUTES.AUDIT, element: conRoles(SYSTEM_MANAGERS, <AuditPage />) },
     ],
   },
 ]);
