@@ -17,6 +17,7 @@ import {
   ReviewInscriptionDto,
   RejectInscriptionDto,
   InscriptionFilterDto,
+  PublicInscriptionDto,
 } from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
 
@@ -236,14 +237,28 @@ export class InscriptionsService {
   }
 
   /**
-   * Buscar inscripción por código QR.
+   * Buscar inscripción por código QR (endpoint PÚBLICO, sin autenticación).
+   *
+   * Superficie de datos mínima a propósito: cualquier persona que conozca el
+   * código QR puede llamar a este endpoint. Se exponen únicamente nombre y
+   * apellido del participante, disciplina, categoría y estado del trámite.
+   * NO agregar dni, email, phone, birthDate, address, department ni notas
+   * internas (`notes` / `rejectionNote`) al `select` ni al objeto devuelto.
    */
-  async findByQr(qrCode: string) {
+  async findByQr(qrCode: string): Promise<PublicInscriptionDto> {
     const inscription = await this.prisma.inscription.findUnique({
       where: { qrCode },
-      include: {
-        participant: true,
-        category: { include: { discipline: true } },
+      select: {
+        qrCode: true,
+        status: true,
+        createdAt: true,
+        participant: { select: { firstName: true, lastName: true } },
+        category: {
+          select: {
+            name: true,
+            discipline: { select: { name: true } },
+          },
+        },
       },
     });
 
@@ -253,7 +268,21 @@ export class InscriptionsService {
       );
     }
 
-    return inscription;
+    // Mapeo explícito: evita que un cambio futuro en el `select` filtre campos
+    // nuevos sin pasar por una revisión de este contrato.
+    return {
+      qrCode: inscription.qrCode,
+      status: inscription.status,
+      createdAt: inscription.createdAt,
+      participant: {
+        firstName: inscription.participant.firstName,
+        lastName: inscription.participant.lastName,
+      },
+      category: {
+        name: inscription.category.name,
+        discipline: { name: inscription.category.discipline.name },
+      },
+    };
   }
 
   /**

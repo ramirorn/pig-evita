@@ -45,7 +45,9 @@ export class DocumentsController {
     description: 'Documento subido a MinIO y registrado',
   })
   async upload(
-    @Body() body: any,
+    // Tipado explícito: el ValidationPipe global valida `participantId` (UUID)
+    // y `type` (enum) antes de que lleguen a Prisma.
+    @Body() body: UploadDocumentDto,
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addFileTypeValidator({

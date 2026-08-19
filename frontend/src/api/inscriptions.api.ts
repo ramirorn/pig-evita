@@ -2,7 +2,7 @@
 // Inscriptions API
 // ===========================================
 import apiClient from './client';
-import type { Inscription, PaginatedResponse } from '@/types';
+import type { Inscription, PaginatedResponse, PublicInscription } from '@/types';
 
 export interface InscriptionFilters {
   page?: number;
@@ -44,9 +44,9 @@ export const inscriptionsApi = {
     return data;
   },
 
-  /** Public: Find inscription by QR code (no auth) */
-  async findByQr(qrCode: string): Promise<Inscription> {
-    const { data } = await apiClient.get<Inscription>(`/inscriptions/qr/${qrCode}`);
+  /** Public: Find inscription by QR code (no auth). Devuelve datos mínimos, sin PII. */
+  async findByQr(qrCode: string): Promise<PublicInscription> {
+    const { data } = await apiClient.get<PublicInscription>(`/inscriptions/qr/${qrCode}`);
     return data;
   },
 

@@ -7,7 +7,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { DocumentStatus } from '@prisma/client';
+import { DocumentStatus, DocumentType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { MinioService } from './minio.service';
 import { ReviewDocumentDto } from './dto';
@@ -21,7 +21,11 @@ export class DocumentsService {
     private readonly minioService: MinioService,
   ) {}
 
-  async upload(participantId: string, type: string, file: Express.Multer.File) {
+  async upload(
+    participantId: string,
+    type: DocumentType,
+    file: Express.Multer.File,
+  ) {
     if (!file) {
       throw new BadRequestException('No se adjuntó ningún archivo');
     }
@@ -34,20 +38,20 @@ export class DocumentsService {
       throw new NotFoundException('Participante no encontrado');
     }
 
-    // 1. Subir archivo a MinIO
-    // Formato de nombre: dni/tipo-original.ext
-    const filename = `${participant.dni}-${file.originalname}`;
-    const fileUrl = await this.minioService.uploadFile(
+    // 1. Subir archivo a MinIO.
+    // El nombre original se sanitiza dentro de MinioService (UUID + charset
+    // acotado). No se incluye el DNI en la clave: viaja en las URLs firmadas.
+    const objectName = await this.minioService.uploadFile(
       file,
       `participants/${participantId}`,
-      filename,
+      file.originalname,
     );
 
     // 2. Desactivar documento anterior del mismo tipo si existía
     await this.prisma.document.updateMany({
       where: {
         participantId,
-        documentType: type as any,
+        documentType: type,
         status: { in: ['PENDIENTE', 'APROBADO', 'RECHAZADO'] },
       },
       data: {
@@ -60,8 +64,8 @@ export class DocumentsService {
     const document = await this.prisma.document.create({
       data: {
         participantId,
-        documentType: type as any,
-        fileKey: fileUrl,
+        documentType: type,
+        fileKey: objectName,
         originalName: file.originalname,
         mimeType: file.mimetype,
         fileSize: file.size,
@@ -81,7 +85,8 @@ export class DocumentsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Añadir presigned URL a cada documento por si el bucket fuera privado
+    // El bucket es privado: la única forma de acceder al archivo es una URL
+    // pre-firmada de corta duración generada en cada consulta.
     return Promise.all(
       documents.map(async (doc) => {
         const presignedUrl = await this.minioService.getPresignedUrl(

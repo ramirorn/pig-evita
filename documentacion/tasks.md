@@ -37,23 +37,23 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T01 🔴 🔀 FS — Cerrar exposición de PII en endpoint público QR (C-01)
 
-- [ ] **Descripción:** Refactorizar `InscriptionsService.findByQr()` para devolver únicamente `firstName + lastName + disciplina + categoría + estado`. Nunca DNI, email, teléfono, fecha de nacimiento ni dirección. Ajustar el frontend `InscriptionInfoPage` a los nuevos campos.
+- [x] **Descripción:** Refactorizar `InscriptionsService.findByQr()` para devolver únicamente `firstName + lastName + disciplina + categoría + estado`. Nunca DNI, email, teléfono, fecha de nacimiento ni dirección. Ajustar el frontend `InscriptionInfoPage` a los nuevos campos.
 - **Reparto:**
   - **🏗️ BE:** modificar `select` en `findByQr()` y actualizar el tipo de respuesta en el DTO.
   - **⚛️ FE:** actualizar consumidor en `InscriptionInfoPage.tsx` y el tipo en `src/types/`.
 - **Archivos:**
   - `backend/src/modules/inscriptions/inscriptions.service.ts:241-257`
   - `frontend/src/pages/public/InscriptionInfoPage.tsx` (si existe consumidor)
-- **DoD:** un test e2e comprueba que la respuesta pública **no contiene** `dni`, `email`, `phone`, `birthDate`, `address`.
+- **DoD:** un test e2e comprueba que la respuesta pública **no contiene** `dni`, `email`, `phone`, `birthDate`, `address`. ✅ `backend/test/inscriptions-public.e2e-spec.ts` (4 tests, en verde). Evidencia en `PROCESO.md → sección 4 → T01 (post-auditoría)`.
 
 ### T02 🔴 🏗️ BE — Endurecer módulo de documentos MinIO (C-02, C-04)
 
-- [ ] **Descripción:** (a) Remover la policy pública del bucket; (b) sanitizar `filename` con regex + `randomUUID()`; (c) validar en constructor que las credenciales no sean `minioadmin`; (d) `uploadFile` devuelve `objectName` y el consumidor sirve todo vía `getPresignedUrl()`.
+- [x] **Descripción:** (a) Remover la policy pública del bucket; (b) sanitizar `filename` con regex + `randomUUID()`; (c) validar en constructor que las credenciales no sean `minioadmin`; (d) `uploadFile` devuelve `objectName` y el consumidor sirve todo vía `getPresignedUrl()`.
 - **Alternativa aceptable:** dado que MinIO es Out of Scope MVP (ver `spec.md`), desactivar `DocumentsModule` en `app.module.ts` hasta V2 y documentar la decisión en `PROCESO.md`.
 - **Archivos:**
   - `backend/src/modules/documents/minio.service.ts`
   - `backend/src/modules/documents/documents.controller.ts`
-- **DoD:** intentar acceder a un objeto sin URL presignada devuelve 403 desde MinIO; test unitario cubre el sanitizado de filename (`../../etc/passwd.pdf` → `___.._etc_passwd.pdf`).
+- **DoD:** intentar acceder a un objeto sin URL presignada devuelve 403 desde MinIO; test unitario cubre el sanitizado de filename (`../../etc/passwd.pdf` → `___.._etc_passwd.pdf`). ✅ Sanitizado cubierto por `backend/src/modules/documents/minio.service.spec.ts` (21 tests). ✅ 403 sin URL pre-firmada verificado contra el MinIO real de `docker-compose.dev.yml` (evidencia en `PROCESO.md → sección 4 → T02 (post-auditoría)`).
 
 ### T03 🔴 🔀 FS — Migrar tokens a cookie httpOnly + access token en memoria (C-03, A-03, F17)
 

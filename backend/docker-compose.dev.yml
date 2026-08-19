@@ -45,8 +45,9 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      # Se toman de backend/.env — no hay defaults: el backend rechaza "minioadmin".
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?definir MINIO_ACCESS_KEY en backend/.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?definir MINIO_SECRET_KEY en backend/.env}
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"

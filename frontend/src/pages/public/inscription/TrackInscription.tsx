@@ -3,7 +3,7 @@
 // ===========================================
 import React from 'react';
 import { QrCode, Search, XCircle, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
-import { InscriptionStatus, type Inscription } from '@/types';
+import { InscriptionStatus, type PublicInscription } from '@/types';
 
 interface TrackInscriptionProps {
   searchQr: string;
@@ -11,7 +11,7 @@ interface TrackInscriptionProps {
   submittedQr: string;
   loadingTrack: boolean;
   errorTrack: boolean;
-  trackedInscription?: Inscription;
+  trackedInscription?: PublicInscription;
   onSubmit: (e: React.FormEvent) => void;
 }
 
@@ -111,35 +111,21 @@ export function TrackInscription({
             <div className="flex justify-between py-1 border-b border-primary-50">
               <span className="text-primary-500">Participante:</span>
               <span className="font-bold text-primary-900">
-                {trackedInscription.participant?.lastName}, {trackedInscription.participant?.firstName}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-1 border-b border-primary-50">
-              <span className="text-primary-500">DNI:</span>
-              <span className="font-mono font-semibold text-primary-800">
-                {trackedInscription.participant?.dni}
+                {trackedInscription.participant.lastName}, {trackedInscription.participant.firstName}
               </span>
             </div>
 
             <div className="flex justify-between py-1 border-b border-primary-50">
               <span className="text-primary-500">Disciplina:</span>
               <span className="font-bold text-primary-800">
-                {trackedInscription.category?.discipline?.name}
+                {trackedInscription.category.discipline.name}
               </span>
             </div>
 
             <div className="flex justify-between py-1 border-b border-primary-50">
               <span className="text-primary-500">Categoría:</span>
               <span className="font-medium text-primary-800">
-                {trackedInscription.category?.name}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-1 border-b border-primary-50">
-              <span className="text-primary-500">Departamento:</span>
-              <span className="font-medium text-primary-800">
-                {trackedInscription.participant?.department}
+                {trackedInscription.category.name}
               </span>
             </div>
 
@@ -172,9 +158,11 @@ export function TrackInscription({
                 <AlertCircle className="w-4 h-4 text-destructive-500" />
                 Inscripción Rechazada
               </div>
-              {trackedInscription.rejectionNote && (
-                <p className="text-[11px] pl-6">Motivo: {trackedInscription.rejectionNote}</p>
-              )}
+              {/* El motivo del rechazo es una nota interna: se consulta con el delegado,
+                  no se expone en esta pantalla pública. */}
+              <p className="text-[11px] pl-6">
+                Consultá el motivo con el delegado responsable de tu institución.
+              </p>
             </div>
           )}
         </div>

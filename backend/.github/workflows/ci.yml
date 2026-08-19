@@ -107,8 +107,8 @@ jobs:
           JWT_REFRESH_SECRET: test-refresh-secret-at-least-32-chars
           REDIS_HOST: localhost
           REDIS_PORT: 6379
-          MINIO_ACCESS_KEY: minioadmin
-          MINIO_SECRET_KEY: minioadmin
+          MINIO_ACCESS_KEY: ci-minio-access-key
+          MINIO_SECRET_KEY: ci-minio-secret-key-not-a-default
         run: npm run test -- --coverage
 
       - name: Run e2e tests
@@ -119,8 +119,8 @@ jobs:
           JWT_REFRESH_SECRET: test-refresh-secret-at-least-32-chars
           REDIS_HOST: localhost
           REDIS_PORT: 6379
-          MINIO_ACCESS_KEY: minioadmin
-          MINIO_SECRET_KEY: minioadmin
+          MINIO_ACCESS_KEY: ci-minio-access-key
+          MINIO_SECRET_KEY: ci-minio-secret-key-not-a-default
         run: npm run test:e2e
 
   docker:

@@ -12,7 +12,7 @@ import {
   IsUUID,
   Matches,
 } from 'class-validator';
-import { Sex } from '@prisma/client';
+import { InscriptionStatus, Sex } from '@prisma/client';
 import { PaginationQueryDto } from '../../../common/dto';
 
 /**
@@ -117,4 +117,58 @@ export class InscriptionFilterDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   department?: string;
+}
+
+// ===========================================
+// Respuesta pública (consulta por QR)
+// ===========================================
+
+/**
+ * Datos mínimos del participante expuestos públicamente.
+ * NUNCA debe incluir dni, email, phone, birthDate ni address.
+ */
+export class PublicInscriptionParticipantDto {
+  @ApiProperty({ description: 'Nombre', example: 'Juan' })
+  firstName: string;
+
+  @ApiProperty({ description: 'Apellido', example: 'Pérez' })
+  lastName: string;
+}
+
+export class PublicInscriptionDisciplineDto {
+  @ApiProperty({ description: 'Nombre de la disciplina', example: 'Fútbol' })
+  name: string;
+}
+
+export class PublicInscriptionCategoryDto {
+  @ApiProperty({ description: 'Nombre de la categoría', example: 'Sub-14' })
+  name: string;
+
+  @ApiProperty({ type: PublicInscriptionDisciplineDto })
+  discipline: PublicInscriptionDisciplineDto;
+}
+
+/**
+ * Contrato de la respuesta del endpoint público `GET /inscriptions/qr/:qrCode`.
+ * Superficie mínima: identificación del trámite + nombre + disciplina/categoría + estado.
+ * Cualquier campo agregado acá queda expuesto a cualquier persona que conozca el código QR.
+ */
+export class PublicInscriptionDto {
+  @ApiProperty({ description: 'Código QR de la inscripción' })
+  qrCode: string;
+
+  @ApiProperty({
+    description: 'Estado del trámite',
+    enum: ['PENDIENTE', 'REVISADA', 'APROBADA', 'RECHAZADA'],
+  })
+  status: InscriptionStatus;
+
+  @ApiProperty({ description: 'Fecha de registro de la inscripción' })
+  createdAt: Date;
+
+  @ApiProperty({ type: PublicInscriptionParticipantDto })
+  participant: PublicInscriptionParticipantDto;
+
+  @ApiProperty({ type: PublicInscriptionCategoryDto })
+  category: PublicInscriptionCategoryDto;
 }

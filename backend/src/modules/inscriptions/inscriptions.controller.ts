@@ -25,6 +25,7 @@ import {
   ReviewInscriptionDto,
   RejectInscriptionDto,
   InscriptionFilterDto,
+  PublicInscriptionDto,
 } from './dto';
 import { Public, Roles, CurrentUser } from '../../common/decorators';
 import {
@@ -69,10 +70,22 @@ export class InscriptionsController {
   // --- Endpoint PÚBLICO: consulta por QR ---
   @Get('qr/:qrCode')
   @Public()
-  @ApiOperation({ summary: 'Consultar inscripción por QR (público)' })
-  @ApiResponse({ status: 200, description: 'Datos de la inscripción' })
+  @ApiOperation({
+    summary: 'Consultar inscripción por QR (público)',
+    description:
+      'Devuelve únicamente nombre y apellido del participante, disciplina, ' +
+      'categoría y estado. No expone datos personales (DNI, email, teléfono, ' +
+      'fecha de nacimiento, dirección).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Datos públicos de la inscripción',
+    type: PublicInscriptionDto,
+  })
   @ApiResponse({ status: 404, description: 'Código QR no encontrado' })
-  async findByQr(@Param('qrCode') qrCode: string) {
+  async findByQr(
+    @Param('qrCode') qrCode: string,
+  ): Promise<PublicInscriptionDto> {
     return this.inscriptionsService.findByQr(qrCode);
   }
 

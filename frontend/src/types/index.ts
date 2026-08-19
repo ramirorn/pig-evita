@@ -204,6 +204,27 @@ export interface Inscription {
   approvedBy?: User;
 }
 
+/**
+ * Respuesta del endpoint PÚBLICO `GET /inscriptions/qr/:qrCode`.
+ * Superficie mínima a propósito: el backend no devuelve DNI, email, teléfono,
+ * fecha de nacimiento, dirección ni notas internas para esta consulta.
+ */
+export interface PublicInscription {
+  qrCode: string;
+  status: InscriptionStatus;
+  createdAt: string;
+  participant: {
+    firstName: string;
+    lastName: string;
+  };
+  category: {
+    name: string;
+    discipline: {
+      name: string;
+    };
+  };
+}
+
 export interface DocumentEntity {
   id: string;
   participantId: string;
