@@ -1,4 +1,6 @@
+# ==============================
 # Logs
+# ==============================
 logs
 *.log
 npm-debug.log*
@@ -7,15 +9,46 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# ==============================
+# Build / dependencias
+# ==============================
 node_modules
 dist
 dist-ssr
 *.local
+
+# ==============================
+# Vite / bundler cache y análisis
+# ==============================
+.vite/
+stats.html
+bundle-analyzer.html
+
+# ==============================
+# Cache de compilación / linters
+# ==============================
+*.tsbuildinfo
+.eslintcache
+.oxlintcache
+
+# ==============================
+# Tests
+# ==============================
+coverage/
+test-results/
+playwright-report/
+*.lcov
+
+# ==============================
+# Environment
+# ==============================
 .env
 .env.*
 !.env.example
 
+# ==============================
 # Editor directories and files
+# ==============================
 .vscode/*
 !.vscode/extensions.json
 .idea

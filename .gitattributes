@@ -1,0 +1,83 @@
+# ==============================
+# Normalización de line endings
+# El equipo trabaja en Windows; CI y contenedores corren Linux.
+# Git normaliza a LF en el repo y convierte a CRLF al checkout en Windows.
+# ==============================
+
+# Default: autodetectar texto vs binario, guardar como LF en el repo
+* text=auto eol=lf
+
+# ==============================
+# Código fuente (LF explícito)
+# ==============================
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.jsx       text eol=lf
+*.mjs       text eol=lf
+*.cjs       text eol=lf
+*.json      text eol=lf
+*.jsonc     text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.md        text eol=lf
+*.mdx       text eol=lf
+*.html      text eol=lf
+*.css       text eol=lf
+*.scss      text eol=lf
+*.prisma    text eol=lf
+*.sql       text eol=lf
+*.graphql   text eol=lf
+*.env.example text eol=lf
+Dockerfile  text eol=lf
+*.dockerfile text eol=lf
+
+# ==============================
+# Shell / scripts (LF obligatorio — CRLF los rompe)
+# ==============================
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+# ==============================
+# Scripts de Windows (CRLF)
+# ==============================
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# ==============================
+# Binarios (nunca modificar)
+# ==============================
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.webp      binary
+*.avif      binary
+*.svg       text eol=lf
+*.pdf       binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.otf       binary
+*.eot       binary
+*.zip       binary
+*.gz        binary
+*.tar       binary
+*.mp4       binary
+*.webm      binary
+*.mov       binary
+
+# ==============================
+# Lockfiles (no colapsar diffs, siempre LF)
+# ==============================
+package-lock.json  text eol=lf -diff
+yarn.lock          text eol=lf -diff
+pnpm-lock.yaml     text eol=lf -diff
+
+# ==============================
+# Linguist hints (para stats de GitHub)
+# ==============================
+*.md linguist-detectable=true
+documentacion/** linguist-documentation
