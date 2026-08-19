@@ -1,6 +1,11 @@
 // ===========================================
 // Admin Pages — Barrel Exports
 // ===========================================
+//
+// ⚠️ NO importar este barrel desde `router.tsx`. Las rutas admin se cargan con
+// `React.lazy()` archivo por archivo (hallazgo Q6): traer el barrel arrastraría
+// las 20 páginas al mismo chunk y anularía el code splitting, devolviendo al
+// visitante público los ~500 KB de JS admin que hoy no descarga.
 export { DisciplinesAdminPage } from './DisciplinesAdminPage';
 export { CategoriesAdminPage } from './CategoriesAdminPage';
 export { TeamsAdminPage } from './TeamsAdminPage';

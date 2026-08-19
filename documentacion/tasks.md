@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18 y T19 completadas**; siguen T20 → T21 → T13/T14 → T05–T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19 y T20 completadas**; siguen T21 → T13/T14 → T05–T09.
 
 ---
 
@@ -256,7 +256,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T20 🚀 ⚛️ FE — Code splitting: lazy loading de rutas admin (Q6)
 
-- [ ] **Descripción:** Actualmente `router.tsx` importa las 20+ admin pages estáticamente → el visitante público descarga ~150-200KB de JS admin innecesario. Refactor a `React.lazy()` + `Suspense` boundary por sección admin (`AdminLayout` envuelve el `Outlet` con `<Suspense fallback={<PageSkeleton />}>`).
+- [x] **Descripción:** Actualmente `router.tsx` importa las 20+ admin pages estáticamente → el visitante público descarga ~150-200KB de JS admin innecesario. Refactor a `React.lazy()` + `Suspense` boundary por sección admin (`AdminLayout` envuelve el `Outlet` con `<Suspense fallback={<PageSkeleton />}>`).
 - **Archivos:**
   - `frontend/src/router.tsx`
   - `frontend/src/components/layout/AdminLayout.tsx` (agregar Suspense)
@@ -264,6 +264,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 - **DoD:**
   - `npm run build` genera chunks separados por página admin (`DashboardPage-<hash>.js`, `InscriptionsPage-<hash>.js`, etc.).
   - Bundle de entrada para ruta pública `/` no incluye código de admin (verificar con `npm run build -- --report` o `rollup-plugin-visualizer`).
+  - ✅ **Entry: 1.269.368 B → 524.305 B (58,7% menos; 358 → 155 kB gzip)**, con 501 KB de código admin repartido en 20 chunks diferidos. Verificado por contenido además de por tamaño: marcadores exclusivos de páginas admin ausentes del entry y presentes en su chunk. Evidencia en `PROCESO.md → sección 4 → T20 (post-auditoría)`.
 
 ### T21 🚀 🏗️ BE — Reemplazar `include: X: true` por `select` en services (Q2, Q9, Q11, Q17)
 

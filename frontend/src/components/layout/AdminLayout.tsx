@@ -1,9 +1,10 @@
 // ===========================================
 // Admin Layout
 // ===========================================
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Outlet } from 'react-router';
 import { cn } from '@/lib/utils';
+import { PageSkeleton } from '@/components/shared/PageSkeleton';
 import { Sidebar } from './Sidebar';
 import { AdminHeader } from './AdminHeader';
 
@@ -44,7 +45,12 @@ export function AdminLayout() {
         <AdminHeader onMenuClick={() => setMobileSidebarOpen(true)} />
 
         <main className="p-4 sm:p-6" id="admin-main-content">
-          <Outlet />
+          {/* Las páginas admin se cargan bajo demanda (ver router.tsx): este
+              boundary cubre la descarga del chunk. Está acá y no en cada ruta
+              para que el sidebar y el header no parpadeen al navegar. */}
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

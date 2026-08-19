@@ -996,6 +996,98 @@ Se ejecutó el `queryClient` real y las *key factories* reales de los hooks
 
 ---
 
+### T20 (post-auditoría DevSecOps) — Code splitting: lazy loading de rutas admin (Q6)
+
+> Corresponde a `tasks.md → Fase 5 → T20`. Tercer ítem del Bloque 2.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente ⚛️ FE: Frontend Engineer)
+- **Hallazgo cubierto:** Q6 (el visitante público descarga el JS del panel admin)
+- **Duración estimada / real:** 1-2h / ~0,5h
+
+#### Prompt utilizado
+
+> procede con la siguiente task
+
+#### Código generado
+
+- `frontend/src/router.tsx` — las 20 páginas admin pasan de import estático a
+  `lazy(() => import('@/pages/admin/<Página>'))`.
+- `frontend/src/components/layout/AdminLayout.tsx` — `<Suspense>` alrededor del
+  `<Outlet />`.
+- `frontend/src/components/shared/PageSkeleton.tsx` *(nuevo)* — fallback del
+  Suspense, con encabezado, tarjetas y tabla para minimizar el salto de layout.
+- `frontend/src/pages/admin/index.tsx` — advertencia de no importar el barrel
+  desde el router.
+
+#### Decisiones de implementación
+
+**1. Import archivo por archivo, no desde el barrel.** Es el detalle del que
+depende toda la tarea: `lazy(() => import('@/pages/admin/index').then(...))`
+compila igual pero arrastra las 20 páginas al mismo chunk, y el split queda en
+nada. Cada `lazy()` apunta al archivo concreto. Se dejó una advertencia en el
+propio barrel, porque el error es fácil de cometer y silencioso: no rompe nada,
+sólo devuelve los 500 KB al visitante público.
+
+**2. Un solo `<Suspense>` en el layout, no uno por ruta.** Envolver el `<Outlet />`
+mantiene sidebar y header montados mientras baja el chunk: sólo parpadea el área
+de contenido.
+
+**3. El fallback imita la estructura real.** Un spinner centrado haría saltar el
+layout cuando llega el contenido. El esqueleto reproduce encabezado + tarjetas +
+tabla, que es la forma de casi todas las pantallas admin. Lleva `role="status"` y
+`aria-busy` para que un lector de pantalla anuncie la carga.
+
+#### Correcciones manuales
+
+- El primer script de verificación dio un falso positivo: usaba el título
+  `"Sedes de Competencia"` como marcador exclusivo de `VenuesAdminPage`, pero la
+  página **pública** `VenuesPage` usa exactamente el mismo título, así que la
+  cadena aparece legítimamente en el bundle de entrada. Se cambió por
+  `"¿Eliminar Sede?"`, que sí es exclusivo del admin.
+
+#### Verificación (DoD)
+
+**Salida real de `npm run build`:**
+
+| | Antes | Después |
+|---|---|---|
+| Bundle de entrada | **1.269.368 B** (358 kB gzip) | **524.305 B** (155 kB gzip) |
+| Reducción del entry | — | **58,7%** |
+| Chunks admin diferidos | 0 | **501.178 B** en 20 chunks |
+
+Chequeos automatizados sobre `dist/`:
+
+| # | Chequeo | Resultado |
+|---|---|---|
+| 1 | Cada una de las 20 páginas admin tiene su chunk (`DashboardPage-<hash>.js`, `InscriptionsPage-<hash>.js`, …) | ✅ 0 faltantes |
+| 2 | Marcadores exclusivos de 4 páginas admin **ausentes** del bundle de entrada | ✅ |
+| 3 | Esos mismos marcadores **presentes** en su chunk correspondiente | ✅ |
+| 4 | Entry por debajo de 600 KB | ✅ 524 KB |
+
+- [x] `npm run build` genera chunks separados por página admin.
+- [x] El bundle de entrada de la ruta pública `/` no incluye código de admin
+  (verificado por contenido, no sólo por tamaño).
+- [x] `npx tsc --noEmit` limpio · `npm run lint` sin errores nuevos.
+
+#### Notas / aprendizajes
+
+- El chequeo 2 vale más que el tamaño: un entry más chico podría deberse a
+  cualquier cosa. Buscar cadenas que **sólo** existen en páginas admin prueba que
+  el código no está ahí. Y el chequeo 3 evita el error opuesto: que el marcador
+  haya desaparecido del build por otra razón y el test pase por accidente.
+- `DashboardPage` quedó en 322 KB, con diferencia el chunk más pesado: se lleva
+  `recharts`. Ahora al menos sólo lo descarga quien entra al dashboard. Si molesta,
+  el siguiente paso sería cargar los gráficos con `lazy()` dentro de la página.
+- **Hallazgo fuera del alcance de T20:** el entry sigue en 524 KB porque las
+  páginas **públicas** también se importan estáticamente desde
+  `@/pages/public/index`. Aplicarles el mismo tratamiento (dejando `HomePage`
+  estática, que es la que se ve primero) bajaría bastante más el arranque. No se
+  hizo porque T20 dice explícitamente "rutas admin"; queda anotado como
+  candidato para el Bloque 4.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.
