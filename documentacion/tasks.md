@@ -160,12 +160,12 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T12 🔴 ⚛️ FE — Limpiar cache de React Query en logout (F3)
 
-- [ ] **Descripción:** Cuando el usuario A hace logout y luego el usuario B loguea en el mismo navegador, B ve datos cacheados de A porque `queryClient.clear()` nunca se llama. En `auth.store.tsx:100-107`, después de `authApi.logout()` y antes de limpiar el user, invocar `queryClient.clear()`. Exponer `queryClient` desde `App.tsx` (o crear un módulo `lib/queryClient.ts` singleton) y consumirlo desde el store.
+- [x] **Descripción:** Cuando el usuario A hace logout y luego el usuario B loguea en el mismo navegador, B ve datos cacheados de A porque `queryClient.clear()` nunca se llama. En `auth.store.tsx:100-107`, después de `authApi.logout()` y antes de limpiar el user, invocar `queryClient.clear()`. Exponer `queryClient` desde `App.tsx` (o crear un módulo `lib/queryClient.ts` singleton) y consumirlo desde el store.
 - **Archivos:**
   - `frontend/src/store/auth.store.tsx:100-107`
   - `frontend/src/App.tsx:7-15` (extraer `queryClient` a módulo compartido)
   - `frontend/src/lib/queryClient.ts` (nuevo, singleton)
-- **DoD:** flujo manual: login como A → visitar `/admin/inscripciones` → logout → login como B → visitar `/admin/inscripciones` → el Network tab muestra request nuevo (no cache hit); React Query DevTools muestra 0 queries en el momento del logout.
+- **DoD:** flujo manual: login como A → visitar `/admin/inscripciones` → logout → login como B → visitar `/admin/inscripciones` → el Network tab muestra request nuevo (no cache hit); React Query DevTools muestra 0 queries en el momento del logout. ✅ Invariante verificado de forma automatizada sobre el módulo real (`lib/queryClient.ts`): tras el cambio de sesión quedan **0 queries** en cache y una request en vuelo que resuelve *después* del logout ya no la repuebla. El flujo manual en navegador queda como verificación de aceptación. Evidencia en `PROCESO.md → sección 4 → T12 (post-auditoría)`.
 
 ### T13 🟡 ⚛️ FE — Namespace de queryKeys por userId (F4, F5, F6, F7)
 

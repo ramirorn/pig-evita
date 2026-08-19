@@ -445,6 +445,100 @@ editor rico en el admin, la vía correcta es DOMPurify con allowlist explícita.
 
 ---
 
+### T12 (post-auditoría DevSecOps) — Limpiar la cache de React Query al cambiar de sesión (F3)
+
+> Corresponde a `tasks.md → Fase 4 → T12`. Segundo ítem del Bloque 1.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agente ⚛️ FE: Frontend Engineer)
+- **Hallazgo cubierto:** F3 (la cache de TanStack Query sobrevive al logout)
+- **Duración estimada / real:** 1h / ~0,5h
+
+#### Prompt utilizado
+
+> commitea y luego procede a la siguiente task segun el orden correspondiente
+
+#### Código generado
+
+- **Archivos creados/modificados:**
+  - `frontend/src/lib/queryClient.ts` *(nuevo)* — singleton del `QueryClient` con
+    los mismos defaults que tenía `App.tsx`, más el helper `resetQueryCache()`.
+  - `frontend/src/App.tsx` — deja de crear el cliente y consume el singleton.
+  - `frontend/src/store/auth.store.tsx` — invoca `resetQueryCache()` en los tres
+    puntos donde cambia la sesión.
+
+- **Resumen del cambio:** el `QueryClient` vivía dentro de `App.tsx`, así que nada
+  fuera del árbol de React podía vaciarlo y `queryClient.clear()` no se llamaba
+  nunca. Ahora vive en su propio módulo y el store de autenticación lo limpia.
+
+#### Decisiones de implementación
+
+**1. `cancelQueries()` antes de `clear()`.** `resetQueryCache()` no se limita a
+`clear()`: primero cancela las requests en vuelo. Sin eso queda una carrera real —
+una request lanzada *antes* del logout que resuelve *después* de `clear()` vuelve a
+poblar la cache con datos del usuario anterior, que es exactamente la fuga que la
+tarea busca cerrar. El chequeo 4 de la verificación cubre este caso.
+
+**2. Tres puntos de limpieza, no uno.** La tarea pedía limpiar en el logout. Se
+agregaron dos más porque el logout explícito no es la única forma de terminar una
+sesión:
+
+| Punto | Por qué |
+|---|---|
+| `logout()` | El caso del hallazgo. Va en el `finally` para que también limpie si la request de logout falla. |
+| `login()` | Si la sesión anterior murió por token vencido (el interceptor hace `clearTokens()` y sólo redirige cuando la ruta empieza con `/admin`), la cache queda poblada y el login siguiente la heredaría. |
+| `checkSession()` (token inválido al montar) | Mismo motivo: se descarta la sesión, hay que descartar sus datos. |
+
+**3. Orden dentro del logout.** Se vacía la cache **antes** de `setUser(null)`, como
+indicaba la tarea. Vaciarla después dejaría una ventana en la que los componentes
+todavía montados podrían leer datos del usuario anterior.
+
+#### Correcciones manuales
+
+- Ninguna sobre lo generado. El único ajuste de criterio fue extender la limpieza a
+  `login()` y `checkSession()`, que la tarea no mencionaba.
+
+#### Verificación (DoD)
+
+El DoD describe un flujo manual de navegador (login A → logout → login B →
+verificar en Network/DevTools). Se verificó el **invariante que ese flujo observa**
+—que la cache queda vacía al cambiar de sesión— de forma automatizada, importando
+el módulo real `lib/queryClient.ts` (bundleado con esbuild resolviendo el alias `@`)
+y ejecutándolo en Node:
+
+| # | Chequeo | Resultado |
+|---|---|---|
+| 1 | Sesión de A: 3 queries en cache con sus datos | 3 queries, datos presentes |
+| 2 | `resetQueryCache()` | **0 queries**, 0 mutaciones |
+| 3 | B lee `inscriptions`, `participants`, `users` | `undefined` en los tres |
+| 4 | Request en vuelo que resuelve **después** del logout | la `queryFn` alcanzó a resolver, pero **no repobló la cache** |
+
+Con 0 queries en cache, cualquier pantalla que B abra dispara necesariamente una
+request nueva, que es lo que el flujo manual verifica en el Network tab.
+
+- [x] `queryClient.clear()` se ejecuta en el logout (antes no se llamaba nunca).
+- [x] React Query DevTools mostraría 0 queries en el momento del logout —
+  equivalente al chequeo 2.
+- [x] El usuario B no lee datos de A — chequeo 3.
+- [ ] Flujo manual en navegador con dos usuarios reales: **no ejecutado**. El
+  invariante está probado arriba; queda como verificación de aceptación.
+- [x] `npx tsc --noEmit -p tsconfig.app.json` sin errores · `npm run build` OK ·
+  `npm run lint` sin errores nuevos.
+
+#### Notas / aprendizajes
+
+- `clear()` a secas deja abierta la carrera de la request en vuelo. La combinación
+  `cancelQueries()` + `clear()` es la que realmente garantiza que no quede nada del
+  usuario anterior, y el chequeo 4 lo demuestra: la `queryFn` **sí** resolvió después
+  del logout y aun así la cache quedó vacía.
+- `lib/queryClient.ts` es ahora el lugar natural para los defaults de React Query:
+  T19 (ajustar `staleTime` por dominio) va a modificar este mismo archivo.
+- T13 (namespacear los `queryKey` por `userId`) sigue siendo necesaria: esta tarea
+  cierra la fuga entre sesiones sucesivas, pero no protege el caso de dos usuarios
+  compartiendo el mismo cliente sin pasar por login/logout.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

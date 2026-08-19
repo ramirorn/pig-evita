@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { authApi, type LoginPayload } from '@/api/auth.api';
 import { getAccessToken, clearTokens } from '@/api/client';
+import { resetQueryCache } from '@/lib/queryClient';
 import { type UserRole } from '@/types';
 
 // ============ TYPES ============
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Token invalid, clear session
         clearTokens();
         localStorage.removeItem(USER_STORAGE_KEY);
+        await resetQueryCache();
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -86,6 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (payload: LoginPayload) => {
     const response = await authApi.login(payload);
+
+    // Cubre el caso en que la sesión anterior terminó sin pasar por logout
+    // (token vencido, refresh fallido): la cache podría tener datos del usuario
+    // anterior y este login los heredaría.
+    await resetQueryCache();
+
     const authUser: AuthUser = {
       id: response.user.id,
       email: response.user.email,
@@ -101,6 +109,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
     } finally {
+      // Vaciar la cache ANTES de soltar el usuario: si el usuario B loguea en el
+      // mismo navegador, no debe ver nada de A (hallazgo F3). Va en el `finally`
+      // para que también se limpie si la request de logout falla.
+      await resetQueryCache();
       setUser(null);
       localStorage.removeItem(USER_STORAGE_KEY);
     }
