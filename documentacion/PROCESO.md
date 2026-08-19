@@ -539,6 +539,159 @@ request nueva, que es lo que el flujo manual verifica en el Network tab.
 
 ---
 
+### T03 (post-auditoría DevSecOps) — Refresh token en cookie httpOnly + access token en memoria (C-03, A-03, F17)
+
+> Corresponde a `tasks.md → Fase 1 → T03`. Tercer ítem del Bloque 1 y el de mayor
+> blast radius: cambia el contrato de autenticación entre backend y frontend.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro (asistido por agentes 🔀 FS: Backend Architect + Frontend Engineer)
+- **Hallazgos cubiertos:** C-03 (tokens en localStorage), A-03 (race condition en el refresh), F17 (objeto `user` en localStorage)
+- **Duración estimada / real:** 4h / ~1,5h
+
+#### Prompt utilizado
+
+> procede con la t03
+
+#### Código generado
+
+**Backend**
+
+- `backend/src/modules/auth/auth.cookies.ts` *(nuevo)* — nombre y opciones de la
+  cookie en un solo lugar, más `parseDurationToMs()` para mantener el `maxAge`
+  alineado con `JWT_REFRESH_EXPIRATION`.
+- `backend/src/modules/auth/auth.controller.ts` — `login` y `refresh` setean la
+  cookie con `@Res({ passthrough: true })` (los interceptores globales siguen
+  funcionando); `logout` la borra; `me` pasa a `GET` y devuelve el perfil completo.
+- `backend/src/modules/auth/auth.service.ts` — nuevo `getProfile(userId)` con
+  `select` acotado; lanza 401 si el usuario fue desactivado.
+- `backend/src/modules/auth/strategies/jwt-refresh.strategy.ts` — extrae el token
+  **sólo** de la cookie, sin fallback al header `Authorization`.
+- `backend/src/modules/auth/strategies/jwt.strategy.ts` — se elimina el fallback
+  `'default-access-secret'`; ahora falla al arrancar si falta el secreto.
+- `backend/src/main.ts` — `app.use(cookieParser())`.
+- `backend/package.json` — se agrega `cookie-parser` + `@types/cookie-parser`.
+- `backend/test/auth-cookies.e2e-spec.ts` *(nuevo)* — 10 tests del contrato.
+
+**Frontend**
+
+- `frontend/src/api/client.ts` — access token en variable de módulo;
+  `withCredentials: true`; `refreshPromise` singleton en reemplazo de
+  `isRefreshing` + `failedQueue`; purga de las claves viejas de `localStorage`.
+- `frontend/src/api/auth.api.ts` — `login` guarda el token en memoria, `me` pasa a
+  `GET`, `refresh` actualiza el token.
+- `frontend/src/store/auth.store.tsx` — sin `localStorage`; al montar intenta
+  `refresh()` + `me()` para rehidratar la sesión.
+- `frontend/src/types/index.ts` — `AuthResponse` sin `refreshToken`, nuevo
+  `AuthUserProfile`.
+
+#### Decisiones de implementación
+
+**1. La cookie no tiene fallback por header.** `JwtRefreshStrategy` dejó de leer
+`Authorization`. Mantener el fallback habría sido retrocompatible, pero dejaba vivo
+exactamente el vector que la tarea cierra: un cliente podría seguir guardando el
+refresh token en JavaScript. Hay un test que verifica que el header ya no alcanza.
+
+**2. `path` acotado a `/api/v1/auth`.** La cookie no se adjunta al resto de la API,
+así que un endpoint cualquiera nunca la ve. El path se arma desde
+`app.apiPrefix`, no hardcodeado.
+
+**3. `secure` sólo en producción.** En dev se sirve por HTTP plano; con `secure`
+fijo la cookie no se setearía nunca y el login parecería roto.
+`sameSite: 'strict'` sí es fijo: dev usa `localhost:5173` → `localhost:3000`, que
+para el navegador es same-site (el puerto no cuenta).
+
+**4. `me` pasó de POST a GET.** Es una lectura y ahora se llama en cada arranque.
+Se cambió junto con el resto del contrato, no en una tarea aparte.
+
+**5. Rehidratación: `refresh()` y después `me()`.** Con el access token en memoria,
+un F5 lo pierde. El arranque pide uno nuevo con la cookie y recién ahí consulta el
+perfil. Para un visitante anónimo es una sola request que falla con 401 y deja la
+sesión en null.
+
+**6. Purga de `localStorage` heredado.** Las sesiones abiertas antes del cambio
+dejaron `evita_access_token`, `evita_refresh_token` y `evita_user` en el navegador.
+Ya no se leen, pero un refresh token olvidado sigue siendo un secreto expuesto a
+cualquier XSS, así que se borran al cargar el cliente. La función está marcada como
+eliminable después de un ciclo de release.
+
+#### Correcciones manuales
+
+- El mock de Prisma del spec nuevo devolvía un snapshot congelado de la fila, así
+  que el `refresh` fallaba con 403 (el `refreshToken` rotado en el login no se veía)
+  y `getProfile` parecía filtrar `passwordHash`. Se reescribió el mock para que
+  devuelva el estado actual **y respete el `select`**, como hace Prisma — con eso el
+  test además verifica que `getProfile` no pida columnas de más.
+- Se quitó el fallback `'default-access-secret'` de `JwtStrategy`, que no estaba en
+  el alcance de T03 pero es el mismo problema que C-05: con ese default, cualquiera
+  que lea el repo puede firmar tokens válidos si la variable no está seteada.
+
+#### Verificación (DoD)
+
+**Contrato del backend — `backend/test/auth-cookies.e2e-spec.ts`, 10 tests en verde**
+(`npx jest --config ./test/jest-e2e.json --testPathPatterns auth-cookies`):
+
+| Chequeo | Resultado |
+|---|---|
+| El body del login no contiene `refreshToken` | ✅ (ni la clave ni el valor) |
+| `Set-Cookie` con `HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`, `Max-Age` | ✅ |
+| La cookie transporta un JWT con `type: 'refresh'` | ✅ |
+| Sin `Secure` fuera de producción | ✅ |
+| `/auth/refresh` renueva leyendo la cookie y **rota** la cookie | ✅ |
+| `/auth/refresh` con el token en el header `Authorization` | ✅ **401** (vector viejo cerrado) |
+| `/auth/refresh` sin cookie | ✅ 401 |
+| `/auth/logout` borra la cookie y anula el refresh token en BD | ✅ |
+| `GET /auth/me` devuelve el perfil sin `passwordHash` ni `refreshToken` | ✅ |
+| `GET /auth/me` sin access token | ✅ 401 |
+
+**A-03 — un solo refresh por ráfaga de 401.** Se ejecutó el `client.ts` real
+(bundleado con esbuild) contra un servidor HTTP de prueba que cuenta los hits a
+`/auth/refresh` y responde con una demora deliberada para ensanchar la ventana de
+carrera:
+
+| Chequeo | Resultado |
+|---|---|
+| 5 requests concurrentes con el token vencido | las 5 terminan OK |
+| Llamadas a `/auth/refresh` | **1** (10 hits al endpoint protegido = 5 fallidos + 5 reintentos) |
+| Token en memoria actualizado | ✅ |
+| Segunda ráfaga posterior | 1 refresh más (el singleton se libera, no queda trabado) |
+
+**C-03 / F17 — nada en localStorage.** `grep -rn "localStorage" frontend/src/`
+devuelve únicamente comentarios explicativos y la función de purga; no queda ninguna
+lectura ni escritura de `evita_access_token`, `evita_refresh_token` ni `evita_user`.
+
+- [x] `localStorage.getItem('evita_refresh_token')` y `evita_user` devuelven `null`
+  post-login: ya no se escriben, y la purga borra los heredados.
+- [x] `document.cookie` no muestra el refresh token: la cookie se emite con
+  `HttpOnly` (verificado sobre el header real en el test).
+- [x] Requests concurrentes con token expirado disparan **una sola** llamada a
+  `/auth/refresh`.
+- [x] `npx tsc --noEmit` limpio en backend y frontend · `npm run build` OK en ambos ·
+  24 unit + 14 e2e de backend en verde · lint del frontend sin errores nuevos.
+- [ ] **Smoke test contra el stack levantado: no ejecutado.** Se intentó, pero
+  Docker Desktop se detuvo y Postgres dejó de responder en `127.0.0.1:5434`
+  (`Can't reach database server`). El contrato de la cookie está cubierto por los
+  tests e2e sobre el controller y la strategy reales; lo que faltaría comprobar es
+  el login del usuario semilla, que esta tarea no modifica.
+
+#### Notas / aprendizajes
+
+- La carrera de A-03 sólo aparece con una demora en el refresh: sin ella, las 5
+  requests fallan y se reintentan tan rápido que el bug no se manifiesta. El
+  servidor de prueba introduce 60 ms a propósito.
+- `@Res({ passthrough: true })` es lo que permite setear cookies **sin** perder los
+  interceptores globales de Nest (el wrapper `{ success, data }` sigue aplicándose).
+  Con `@Res()` a secas habría que escribir la respuesta a mano.
+- El singleton de refresh usa `refreshPromise ??= ...` y se limpia en un `finally`:
+  si no se limpiara, un refresh fallido dejaría la promesa rechazada cacheada y
+  ninguna request posterior podría recuperarse. El chequeo de la segunda ráfaga
+  existe para cubrir justamente eso.
+- Queda una diferencia de comportamiento visible para el usuario: al recargar la
+  página hay un instante de `isLoading` mientras se rehidrata la sesión. Es el costo
+  de no tener el token en `localStorage`.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

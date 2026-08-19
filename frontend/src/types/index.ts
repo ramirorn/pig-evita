@@ -379,17 +379,24 @@ export interface PaginatedResponse<T> {
   };
 }
 
-/** Auth login response */
+/** Perfil del usuario autenticado, tal como lo devuelve `GET /auth/me`. */
+export interface AuthUserProfile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+}
+
+/**
+ * Respuesta del login.
+ *
+ * No incluye `refreshToken` a propósito: viaja en una cookie httpOnly que el
+ * navegador administra y JavaScript no puede leer (hallazgo C-03).
+ */
 export interface AuthResponse {
   accessToken: string;
-  refreshToken: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: UserRole;
-  };
+  user: AuthUserProfile;
 }
 
 /** Auth refresh response */

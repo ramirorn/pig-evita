@@ -4,7 +4,9 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -14,18 +16,29 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto, AuthResponseDto, RefreshResponseDto } from './dto';
 import { JwtAuthGuard, JwtRefreshGuard } from './guards';
+import {
+  REFRESH_TOKEN_COOKIE,
+  buildRefreshCookieOptions,
+  buildClearCookieOptions,
+} from './auth.cookies';
 import { Public, CurrentUser } from '../../common/decorators';
 import type { JwtPayload } from './interfaces';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Post('login')
   @Public()
@@ -34,7 +47,9 @@ export class AuthController {
   @ApiOperation({
     summary: 'Iniciar sesión',
     description:
-      'Autenticación con email y contraseña. Retorna access token y refresh token.',
+      'Autenticación con email y contraseña. El access token se devuelve en el ' +
+      'body (el cliente lo mantiene en memoria) y el refresh token se setea como ' +
+      'cookie httpOnly: nunca es accesible desde JavaScript.',
   })
   @ApiResponse({
     status: 200,
@@ -44,8 +59,16 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
   @ApiResponse({ status: 403, description: 'Usuario desactivado' })
   @ApiResponse({ status: 429, description: 'Demasiados intentos de login' })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<AuthResponseDto> {
+    const { refreshToken, ...authResponse } =
+      await this.authService.login(loginDto);
+
+    this.setRefreshCookie(response, refreshToken);
+
+    return authResponse;
   }
 
   @Post('refresh')
@@ -54,17 +77,30 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Renovar token',
-    description: 'Genera un nuevo access token usando el refresh token.',
+    description:
+      'Genera un nuevo access token a partir del refresh token de la cookie ' +
+      '`evita_refresh_token`. Rota el refresh token y actualiza la cookie.',
   })
   @ApiResponse({
     status: 200,
     description: 'Token renovado',
     type: RefreshResponseDto,
   })
-  @ApiResponse({ status: 403, description: 'Refresh token inválido' })
-  @ApiBearerAuth('access-token')
-  async refresh(@CurrentUser() user: JwtPayload & { refreshToken: string }) {
-    return this.authService.refreshTokens(user.sub, user.refreshToken);
+  @ApiResponse({ status: 401, description: 'Refresh token ausente o inválido' })
+  @ApiResponse({ status: 403, description: 'Refresh token revocado' })
+  @ApiCookieAuth(REFRESH_TOKEN_COOKIE)
+  async refresh(
+    @CurrentUser() user: JwtPayload & { refreshToken: string },
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<RefreshResponseDto> {
+    const tokens = await this.authService.refreshTokens(
+      user.sub,
+      user.refreshToken,
+    );
+
+    this.setRefreshCookie(response, tokens.refreshToken);
+
+    return { accessToken: tokens.accessToken };
   }
 
   @Post('logout')
@@ -72,28 +108,45 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Cerrar sesión',
-    description: 'Invalida el refresh token del usuario.',
+    description:
+      'Invalida el refresh token del usuario y borra la cookie del navegador.',
   })
   @ApiResponse({ status: 200, description: 'Sesión cerrada' })
   @ApiBearerAuth('access-token')
-  async logout(@CurrentUser('sub') userId: string) {
+  async logout(
+    @CurrentUser('sub') userId: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     await this.authService.logout(userId);
+
+    response.clearCookie(
+      REFRESH_TOKEN_COOKIE,
+      buildClearCookieOptions(this.configService),
+    );
+
     return { message: 'Sesión cerrada exitosamente' };
   }
 
-  @Post('me')
+  @Get('me')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Obtener usuario actual',
-    description: 'Retorna los datos del usuario autenticado.',
+    description:
+      'Retorna el perfil del usuario autenticado. El cliente lo usa para ' +
+      'rehidratar la sesión al arrancar, en lugar de leerlo de localStorage.',
   })
   @ApiBearerAuth('access-token')
-  async me(@CurrentUser() user: JwtPayload) {
-    return {
-      id: user.sub,
-      email: user.email,
-      role: user.role,
-    };
+  async me(@CurrentUser('sub') userId: string) {
+    return this.authService.getProfile(userId);
+  }
+
+  /** Setea la cookie httpOnly con el refresh token recién emitido. */
+  private setRefreshCookie(response: Response, refreshToken: string): void {
+    response.cookie(
+      REFRESH_TOKEN_COOKIE,
+      refreshToken,
+      buildRefreshCookieOptions(this.configService),
+    );
   }
 }

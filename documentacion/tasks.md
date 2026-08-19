@@ -57,7 +57,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T03 🔴 🔀 FS — Migrar tokens a cookie httpOnly + access token en memoria (C-03, A-03, F17)
 
-- [ ] **Descripción:**
+- [x] **Descripción:**
   - **🏗️ BE:** modificar `AuthController` para que `login` y `refresh` seteen el `refreshToken` como cookie `httpOnly + secure + sameSite=strict` con `path: /api/v1/auth`. `logout` limpia la cookie. Verificar que `credentials: true` esté en CORS.
   - **⚛️ FE:** eliminar `localStorage.setItem` para tokens **y para `evita_user`** (`auth.store.tsx:97`). `accessToken` vive solo en memoria (variable de módulo en `client.ts`). El objeto `user` se rehidrata al arranque llamando a `/auth/me`, no leyendo `localStorage`. Interceptor 401 llama a `/auth/refresh` con `withCredentials: true`. Reemplazar la lógica de `isRefreshing + failedQueue` por una única `refreshPromise` singleton.
 - **Coordinación:** BE mergea primero (contrato de cookie); FE valida en dev con el nuevo backend antes de mergear.
@@ -70,6 +70,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `localStorage.getItem('evita_refresh_token')` y `localStorage.getItem('evita_user')` devuelven `null` post-login.
   - `document.cookie` no muestra el refresh token (por `httpOnly`).
   - Requests concurrentes con token expirado disparan **una sola** llamada a `/auth/refresh`.
+  - ✅ Los tres criterios verificados: contrato de la cookie con 10 tests e2e (`backend/test/auth-cookies.e2e-spec.ts`, incluye que el refresh por header `Authorization` ahora dé 401), y la deduplicación del refresh ejecutando el `client.ts` real contra un servidor de prueba (5 requests concurrentes → **1** llamada a `/auth/refresh`). Evidencia en `PROCESO.md → sección 4 → T03 (post-auditoría)`.
 
 ### T04 🔴 🏗️ BE — Guardrails contra secrets default en env (C-05)
 

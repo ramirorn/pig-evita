@@ -1,8 +1,8 @@
 // ===========================================
 // Auth API
 // ===========================================
-import apiClient, { setTokens, clearTokens } from './client';
-import type { AuthResponse, RefreshResponse } from '@/types';
+import apiClient, { setAccessToken, clearAccessToken } from './client';
+import type { AuthResponse, AuthUserProfile, RefreshResponse } from '@/types';
 
 export interface LoginPayload {
   email: string;
@@ -10,31 +10,41 @@ export interface LoginPayload {
 }
 
 export const authApi = {
-  /** Login with email and password */
+  /**
+   * Login. El access token queda en memoria; el refresh token viaja en una
+   * cookie httpOnly que el navegador guarda solo (nunca pasa por JavaScript).
+   */
   async login(payload: LoginPayload): Promise<AuthResponse> {
     const { data } = await apiClient.post<AuthResponse>('/auth/login', payload);
-    setTokens(data.accessToken, data.refreshToken);
+    setAccessToken(data.accessToken);
     return data;
   },
 
-  /** Refresh access token */
+  /**
+   * Renueva el access token usando la cookie httpOnly.
+   *
+   * Se usa al arrancar la app para recuperar la sesión tras un reload (el token
+   * en memoria se pierde). Los 401 de otras requests los resuelve el
+   * interceptor de `client.ts`, que deduplica los refresh concurrentes.
+   */
   async refresh(): Promise<RefreshResponse> {
     const { data } = await apiClient.post<RefreshResponse>('/auth/refresh');
+    setAccessToken(data.accessToken);
     return data;
   },
 
-  /** Logout and invalidate refresh token */
+  /** Logout: invalida el refresh token en el server y borra la cookie. */
   async logout(): Promise<void> {
     try {
       await apiClient.post('/auth/logout');
     } finally {
-      clearTokens();
+      clearAccessToken();
     }
   },
 
-  /** Get current authenticated user */
-  async me(): Promise<{ id: string; email: string; role: string }> {
-    const { data } = await apiClient.post('/auth/me');
+  /** Perfil del usuario autenticado (fuente de verdad para rehidratar sesión). */
+  async me(): Promise<AuthUserProfile> {
+    const { data } = await apiClient.get<AuthUserProfile>('/auth/me');
     return data;
   },
 };

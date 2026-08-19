@@ -150,6 +150,34 @@ export class AuthService {
   }
 
   /**
+   * Perfil del usuario autenticado.
+   *
+   * El cliente ya no guarda el objeto `user` en `localStorage` (hallazgo F17):
+   * lo rehidrata llamando a este endpoint en cada arranque, de modo que el
+   * servidor es la única fuente de verdad sobre nombre, email y rol.
+   */
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Sesión inválida');
+    }
+
+    const { isActive: _isActive, ...profile } = user;
+    return profile;
+  }
+
+  /**
    * Logout: invalida el refresh token del usuario.
    */
   async logout(userId: string): Promise<void> {

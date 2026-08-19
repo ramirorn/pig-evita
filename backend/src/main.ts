@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -27,10 +28,14 @@ async function bootstrap() {
   // Security: Helmet
   app.use(helmet());
 
+  // Cookies: el refresh token viaja en una cookie httpOnly (ver auth.cookies.ts)
+  app.use(cookieParser());
+
   // CORS
   app.enableCors({
     origin: corsOrigins,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    // Imprescindible para que el navegador mande la cookie del refresh token.
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
