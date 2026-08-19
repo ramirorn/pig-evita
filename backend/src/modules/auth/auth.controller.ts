@@ -7,6 +7,8 @@ import {
   Get,
   Body,
   Res,
+  Ip,
+  Headers,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -62,9 +64,16 @@ export class AuthController {
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) response: Response,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent?: string,
   ): Promise<AuthResponseDto> {
-    const { refreshToken, ...authResponse } =
-      await this.authService.login(loginDto);
+    // El origen se toma acá y no en el service: el service no conoce la request.
+    // `@Ip()` devuelve `request.ip`, que respeta X-Forwarded-For gracias al
+    // `trust proxy` de main.ts (A-06).
+    const { refreshToken, ...authResponse } = await this.authService.login(
+      loginDto,
+      { ipAddress: ip, userAgent },
+    );
 
     this.setRefreshCookie(response, refreshToken);
 
@@ -116,8 +125,10 @@ export class AuthController {
   async logout(
     @CurrentUser('sub') userId: string,
     @Res({ passthrough: true }) response: Response,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent?: string,
   ) {
-    await this.authService.logout(userId);
+    await this.authService.logout(userId, { ipAddress: ip, userAgent });
 
     response.clearCookie(
       REFRESH_TOKEN_COOKIE,

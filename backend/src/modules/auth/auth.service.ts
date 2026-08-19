@@ -15,6 +15,19 @@ import { PrismaService } from '../../database/prisma.service';
 import { JwtPayload } from './interfaces';
 import { LoginDto, AuthResponseDto } from './dto';
 
+/**
+ * Origen de la request, para enriquecer los eventos de auditoría de auth
+ * (A-06). El interceptor global no cubre `/auth/*` — esas rutas se auditan a
+ * mano acá —, así que la IP y el User-Agent tienen que viajar desde el
+ * controller. Son justo los eventos donde el dato más importa: sin IP no se
+ * distingue un credential stuffing de un usuario que se olvidó la contraseña.
+ * TODO(T25): unificar este contrato con el de `AuditService.log()`.
+ */
+export interface AuthRequestContext {
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -31,6 +44,7 @@ export class AuthService {
    */
   async login(
     loginDto: LoginDto,
+    context: AuthRequestContext = {},
   ): Promise<AuthResponseDto & { refreshToken: string }> {
     const { email, password } = loginDto;
 
@@ -41,15 +55,27 @@ export class AuthService {
 
     if (!user) {
       // Log de intento fallido
-      await this.logAuditAction(null, 'LOGIN_FAILED', 'User', null, { email });
+      await this.logAuditAction(
+        null,
+        'LOGIN_FAILED',
+        'User',
+        null,
+        { email },
+        context,
+      );
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     // Verificar que esté activo
     if (!user.isActive) {
-      await this.logAuditAction(user.id, 'LOGIN_FAILED', 'User', user.id, {
-        reason: 'inactive',
-      });
+      await this.logAuditAction(
+        user.id,
+        'LOGIN_FAILED',
+        'User',
+        user.id,
+        { reason: 'inactive' },
+        context,
+      );
       throw new ForbiddenException(
         'Usuario desactivado. Contacte al administrador.',
       );
@@ -59,9 +85,14 @@ export class AuthService {
     const passwordValid = await argon2.verify(user.passwordHash, password);
 
     if (!passwordValid) {
-      await this.logAuditAction(user.id, 'LOGIN_FAILED', 'User', user.id, {
-        email,
-      });
+      await this.logAuditAction(
+        user.id,
+        'LOGIN_FAILED',
+        'User',
+        user.id,
+        { email },
+        context,
+      );
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -83,7 +114,7 @@ export class AuthService {
     });
 
     // Log de login exitoso
-    await this.logAuditAction(user.id, 'LOGIN', 'User', user.id, null);
+    await this.logAuditAction(user.id, 'LOGIN', 'User', user.id, null, context);
 
     this.logger.log(`User logged in: ${user.email}`);
 
@@ -180,13 +211,16 @@ export class AuthService {
   /**
    * Logout: invalida el refresh token del usuario.
    */
-  async logout(userId: string): Promise<void> {
+  async logout(
+    userId: string,
+    context: AuthRequestContext = {},
+  ): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
       data: { refreshToken: null },
     });
 
-    await this.logAuditAction(userId, 'LOGOUT', 'User', userId, null);
+    await this.logAuditAction(userId, 'LOGOUT', 'User', userId, null, context);
     this.logger.log(`User logged out: ${userId}`);
   }
 
@@ -230,6 +264,7 @@ export class AuthService {
     entity: string,
     entityId: string | null,
     changes: Record<string, unknown> | null,
+    context: AuthRequestContext = {},
   ): Promise<void> {
     try {
       await this.prisma.auditLog.create({
@@ -239,6 +274,8 @@ export class AuthService {
           entity,
           entityId,
           changes: changes ? (changes as Prisma.InputJsonValue) : undefined,
+          ipAddress: context.ipAddress ?? null,
+          userAgent: context.userAgent ?? null,
         },
       });
     } catch (error) {

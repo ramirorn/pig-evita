@@ -3,6 +3,7 @@
 // ===========================================
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { Logger as PinoLogger } from 'nestjs-pino';
 import helmet from 'helmet';
@@ -12,9 +13,21 @@ import { AppModule } from './app.module';
 import { setupSwagger, SWAGGER_PATH } from './swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
   });
+
+  // La app corre detrás del reverse proxy de nginx (ver docker/nginx/nginx.conf),
+  // así que sin esto Express ve siempre la IP del proxy. Con un único salto de
+  // confianza, Express toma la última entrada de X-Forwarded-For y `request.ip`
+  // pasa a ser la IP real del cliente. Importa por dos motivos:
+  //   1) la auditoría (A-06) guardaría la IP del contenedor de nginx y no la del
+  //      usuario, volviendo inútil el dato para investigar un incidente;
+  //   2) el ThrottlerGuard cuenta requests por IP: sin esto todos los visitantes
+  //      comparten un mismo contador y el rate limiting deja de proteger nada.
+  // Se usa 1 (y no `true`) a propósito: confiar en toda la cadena permitiría a
+  // un cliente falsificar su IP mandando su propio header X-Forwarded-For.
+  app.set('trust proxy', 1);
 
   // Use Pino as the logger
   app.useLogger(app.get(PinoLogger));

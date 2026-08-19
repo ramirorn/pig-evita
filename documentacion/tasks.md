@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13, T14, T05 y T06 completadas**; siguen T07 → T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13, T14, T05, T06 y T07 completadas**; siguen T08 → T09.
 
 ---
 
@@ -100,11 +100,11 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T07 🟡 🏗️ BE — Enriquecer `AuditInterceptor` con IP y User-Agent (A-06)
 
-- [ ] **Descripción:** El interceptor debe leer `request.ip` y `request.headers['user-agent']` y pasarlos al `auditService.log()`. Habilitar `app.set('trust proxy', 1)` en `main.ts` para respetar `X-Forwarded-For` detrás del reverse proxy.
+- [x] **Descripción:** El interceptor debe leer `request.ip` y `request.headers['user-agent']` y pasarlos al `auditService.log()`. Habilitar `app.set('trust proxy', 1)` en `main.ts` para respetar `X-Forwarded-For` detrás del reverse proxy.
 - **Archivos:**
-  - `backend/src/common/interceptors/audit.interceptor.ts`
+  - `backend/src/modules/audit/audit.interceptor.ts` *(la ruta original de esta lista, `common/interceptors/`, estaba desactualizada)*
   - `backend/src/main.ts`
-- **DoD:** un registro en `AuditLog` posterior al cambio muestra ambos campos poblados.
+- **DoD:** un registro en `AuditLog` posterior al cambio muestra ambos campos poblados. ✅ Verificado con 6 tests e2e (`backend/test/audit-request-context.e2e-spec.ts`). El interceptor y el modelo **ya registraban ambos campos**; lo que faltaba era `trust proxy` (sin él, detrás de nginx se guardaba la IP del proxy) y los eventos `LOGIN`/`LOGIN_FAILED`/`LOGOUT`, que se auditan a mano en `AuthService` y no llevaban origen. Se usa `trust proxy 1` y no `true` para que un cliente no pueda falsificar su IP; verificado que `docker/nginx/nginx.conf:50` anexa `X-Forwarded-For`. **Con esto queda destrabada T05.** Evidencia en `PROCESO.md → sección 4 → T07 (post-auditoría)`.
 
 ### T08 🟡 ⚛️ FE — Silenciar `console.error` en producción del frontend (A-04, F14)
 
@@ -448,7 +448,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 14 de 28 tareas completadas.**
+**Progreso: 15 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -459,7 +459,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T04** | 🔴 | 🏗️ BE | Guardrails contra secrets default en env | ✅ Completada |
 | **T05** | 🟡 | 🏗️ BE | Rate limiting en endpoints públicos scrapeables | ✅ Completada |
 | **T06** | 🟡 | 🏗️ BE | Ocultar Swagger en producción | ✅ Completada |
-| **T07** | 🟡 | 🏗️ BE | Enriquecer `AuditInterceptor` con IP y User-Agent | ⬜ Pendiente |
+| **T07** | 🟡 | 🏗️ BE | Enriquecer `AuditInterceptor` con IP y User-Agent | ✅ Completada |
 | **T08** | 🟡 | ⚛️ FE | Silenciar `console.error` en producción del frontend | ⬜ Pendiente |
 | **T09** | 🟠 | 🏗️ BE | Endurecer CORS y CSP | ⬜ Pendiente |
 | **T10** | 🟠 | ⚛️ FE + 🎨 UI | Descomponer componentes React monolíticos | ⬜ Pendiente |
@@ -487,7 +487,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | Severidad | Completadas | Total |
 |---|---|---|
 | 🔴 Crítico | 6 | 6 |
-| 🟡 Alto | 4 | 6 |
+| 🟡 Alto | 5 | 6 |
 | 🟠 Medio | 0 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 0 | 4 |

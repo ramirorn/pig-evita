@@ -1557,6 +1557,142 @@ Reejecutado por fuera del agente: `npx tsc --noEmit` OK · `npm run build` OK ·
 
 ---
 
+### T07 (post-auditoría DevSecOps) — IP y User-Agent en la auditoría + `trust proxy` (A-06)
+
+> Corresponde a `tasks.md → Fase 2 → T07`. Implementada por el agente
+> 🏗️ **Backend Architect**. Destraba a T05.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente 🏗️ **Backend Architect**
+- **Hallazgo cubierto:** A-06 (auditoría sin IP ni User-Agent)
+- **Duración estimada / real:** 0,5h / ~0,5h
+
+#### Diagnóstico previo (antes de delegar)
+
+Se revisó el estado real y **buena parte de lo que pedía la tarea ya estaba hecho**:
+
+| Pieza | Estado encontrado |
+|---|---|
+| `AuditInterceptor` lee `ip` y `User-Agent` y los pasa a `auditService.log()` | ✅ ya estaba |
+| `AuditService.log()` persiste `ipAddress` / `userAgent` | ✅ ya estaba |
+| Columnas `ip_address` / `user_agent` en el modelo `AuditLog` | ✅ ya existían (sin migración pendiente) |
+| `app.set('trust proxy', 1)` en `main.ts` | ❌ **faltaba** |
+| Eventos `LOGIN` / `LOGIN_FAILED` / `LOGOUT` con IP y User-Agent | ❌ **faltaba** |
+
+Ese diagnóstico se le pasó al agente para que no reimplementara lo existente y
+atacara lo que faltaba. La ruta del interceptor que indica `tasks.md`
+(`src/common/interceptors/audit.interceptor.ts`) está desactualizada: el archivo
+real es `src/modules/audit/audit.interceptor.ts`.
+
+#### Prompt utilizado
+
+Prompt enviado al agente (resumen de lo sustantivo):
+
+> Te toca **T07**. Texto de `tasks.md`: el interceptor debe leer `request.ip` y el
+> User-Agent y pasarlos al `auditService.log()`; habilitar `app.set('trust proxy', 1)`.
+> DoD: un registro de `AuditLog` muestra ambos campos poblados.
+>
+> **Diagnóstico previo (partí de acá, no lo repitas):** el interceptor, el service y
+> las columnas del modelo ya están. No hace falta migración y no la podrías correr
+> (Docker apagado). Lo que falta de verdad es: **(a)** `trust proxy` —sin él,
+> detrás de nginx `request.ip` es la IP del proxy, lo que además rompe el rate
+> limiting de T05, que cuenta por IP—; y **(b)** los eventos de auth
+> (`LOGIN`, `LOGIN_FAILED`, `LOGOUT`) que se auditan a mano en `AuthService` sin IP
+> ni User-Agent, justo donde el dato más importa.
+>
+> Restricción: T25 va a consolidar el contrato entre el interceptor y las llamadas
+> manuales; **no reestructures eso ahora**.
+>
+> El DoD literal pide mirar la tabla y no hay DB: la evidencia equivalente es un
+> test que dispare una operación real por HTTP y verifique que `prisma.auditLog.create`
+> recibió ambos campos, más un test con `X-Forwarded-For`.
+
+#### Código generado
+
+- `backend/src/main.ts` — la app se tipa como `NestExpressApplication` y se agrega
+  `app.set('trust proxy', 1)`.
+- `backend/src/modules/auth/auth.controller.ts` — `@Ip()` y
+  `@Headers('user-agent')` en `login` y `logout`.
+- `backend/src/modules/auth/auth.service.ts` — nueva interfaz
+  `AuthRequestContext`, parámetro `context` en `login`, `logout` y
+  `logAuditAction`, y persistencia de ambos campos.
+- `backend/test/audit-request-context.e2e-spec.ts` *(nuevo)* — 6 tests.
+
+#### Decisiones del agente (y por qué)
+
+**1. `NestExpressApplication` en vez de `getHttpAdapter().getInstance()`.** El
+segundo devuelve `any`, así que el `.set()` no se chequea en compilación. El
+genérico deja la app tipada; el import es `import type`, o sea que no agrega nada
+en runtime.
+
+**2. `1` y no `true`.** `true` confía en toda la cadena de `X-Forwarded-For`, con
+lo cual **cualquier cliente podría falsificar su IP** mandando su propio header —
+y evadir el rate limiting de T05 con un header distinto por request. Con `1`
+Express confía en un solo salto y toma la última entrada, que es la que anexa
+nginx y el cliente no controla. Hay un test dedicado a esto.
+
+**3. Un objeto `AuthRequestContext` en lugar de dos parámetros posicionales.** La
+firma queda retrocompatible, es extensible sin cambiar aridad y coincide de forma
+nombrada con el shape de `AuditService.log()`, lo que le deja el terreno servido a
+T25. El agente dejó un `TODO(T25)` explícito.
+
+#### Correcciones manuales
+
+- **Ninguna sobre el código entregado.** Se revisó el diff y se reejecutó toda la
+  verificación de forma independiente.
+- **Sí se verificó por fuera el supuesto que el agente marcó como pendiente:**
+  `trust proxy 1` sólo es correcto si nginx anexa la IP real. Se revisó
+  `docker/nginx/nginx.conf` y en la línea 50 está
+  `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`. Confirmado: la
+  última entrada del header es la IP real del cliente, que es exactamente la que
+  toma Express con `trust proxy 1`. **Sin ese `proxy_set_header`, la configuración
+  habría sido peor que no hacer nada**, porque haría confiar en un header
+  controlado por el cliente.
+
+#### Verificación (DoD)
+
+**6 tests e2e** (`npx jest --config ./test/jest-e2e.json --testPathPatterns audit-request-context`):
+
+| # | Chequeo | Resultado |
+|---|---|---|
+| 1 | `POST /disciplines` real → `prisma.auditLog.create` | recibe `ipAddress` y `userAgent` poblados |
+| 2 | `LOGIN` | ambos campos ✅ |
+| 3 | `LOGIN_FAILED` (sirve para detectar credential stuffing) | ambos campos ✅ |
+| 4 | `LOGOUT` | ambos campos ✅ |
+| 5 | Con `trust proxy` y `X-Forwarded-For: 198.51.100.13, 203.0.113.77` | registra **203.0.113.77** (la que anexa nginx) e ignora la falsificada |
+| 6 | **Regresión inversa:** sin `trust proxy`, la misma request | registra `::ffff:127.0.0.1`, la IP del proxy para todos por igual |
+
+Reejecutado por fuera del agente: `tsc` OK · `build` OK · `npx jest` **44/44** ·
+e2e **41/41** (35 previos + 6 nuevos).
+
+- [x] Un registro de `AuditLog` posterior al cambio muestra ambos campos poblados.
+
+#### Notas / aprendizajes
+
+- El test 6 es el que le da valor al 5: sin el contraste, "se registra la IP
+  correcta" no distingue entre que funcione el `trust proxy` y que el test corra
+  sin proxy de por medio. Además falla si alguien saca la línea de `main.ts`.
+- El interceptor llama a `auditService.log()` **sin `await`** (correcto: la
+  auditoría no debe demorar la respuesta), así que el spec necesita un
+  `flushAuditoria()` con `setImmediate` antes de mirar el mock.
+- **Con esto queda destrabada T05:** el rate limiting ya cuenta por IP real.
+
+#### Hallazgos fuera de alcance reportados por el agente
+
+1. **`AuditInterceptor.sanitizeBody` es superficial**: borra `password`,
+   `passwordHash` y `refreshToken` sólo en el primer nivel del body. Un DTO
+   anidado —o campos como `token`, `secret`, `dni`— se guardan tal cual en
+   `changes`. Es riesgo de PII y credenciales en la tabla de auditoría. **Encaja en
+   T25 y conviene tratarlo ahí.**
+2. **`refreshTokens` no audita el reuso de un refresh token**, que es la señal más
+   fuerte de robo de sesión: hoy lo invalida en silencio y devuelve 403, sin dejar
+   rastro. Es un hallazgo nuevo, no parte de A-06.
+3. `AuthService.logAuditAction` y `AuditService.log` son código duplicado con
+   contratos casi idénticos: es exactamente lo que T25 va a consolidar.
+4. La ruta del interceptor en `tasks.md` está desactualizada (ver arriba).
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.
