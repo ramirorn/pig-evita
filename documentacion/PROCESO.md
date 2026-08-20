@@ -2643,6 +2643,154 @@ un `WHERE action = 'REFRESH_TOKEN_REUSE'` no se llene de ruido benigno.
 
 ---
 
+### T15 (post-auditoría DevSecOps) — Fortalecer los schemas Zod (F10, F11, F12)
+
+> Corresponde a `tasks.md → Fase 4 → T15`. Abre el Bloque 4. Implementada por el
+> agente ⚛️ **Frontend Engineer**.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente ⚛️ **Frontend Engineer**
+- **Hallazgos cubiertos:** F10, F11, F12 (validaciones cliente débiles)
+- **Duración estimada / real:** 1h / ~1h
+
+#### Prompt utilizado
+
+Resumen de lo sustantivo:
+
+> Te toca **T15**: `dni` con refine anti-dígitos-repetidos, `phone` con min/max y
+> regex, `birthDate` con año entre 1920 y hoy−5, y auditar los **11 schemas** del
+> archivo con el mismo criterio.
+>
+> **Coherencia con el backend:** en T24 se centralizó el DNI en `@IsDni()`, que
+> **no** rechaza dígitos repetidos. Tu refine deja al frontend más estricto, y está
+> bien —la validación cliente es UX, la autoridad es el backend— pero **decilo**.
+> Lo que **no** puede pasar es lo contrario: que el frontend acepte algo que el
+> backend rechace, porque eso genera un 400 confuso.
+>
+> **Criterio para la auditoría:** no agregues límites arbitrarios. Para cada campo
+> mirá qué lo restringe de verdad —la columna de Prisma, el DTO del backend, el
+> sentido del dominio—. **Si no hay un límite justificable, dejalo y decilo**: es
+> mejor que inventar un `.max(255)` porque sí.
+>
+> **Cuidado con no romper la UI:** un refine mal puesto vuelve un formulario
+> imposible de enviar. Revisá los consumidores y mirá cómo llega `birthDate` desde
+> `<input type="date">`.
+
+#### Código generado
+
+- `frontend/src/schemas/index.ts` — único archivo tocado. Los 11 schemas revisados.
+
+#### Decisiones del agente (y por qué)
+
+**Un dato transversal que condicionó todo:** ninguna columna de texto de Prisma
+declara largo (`String` en Postgres es `text`) y **ningún DTO del backend usa
+`@MaxLength`**. Así que los máximos no salen del esquema ni del backend: salen del
+dominio, y quedaron documentados uno por uno.
+
+**Lo que pedía la tarea:**
+
+| Campo | Regla | Origen |
+|---|---|---|
+| `dni` | regex + refine anti-dígitos-repetidos | regex idéntico al `DNI_REGEX` del backend; el refine es nuevo |
+| `birthDate` | formato `YYYY-MM-DD`, fecha real de calendario, año ≥ 1920, ≤ hoy−5 años | formato = lo que entrega `<input type="date">` |
+| `phone` | opcional; 8–20 chars + `^[\d+\s()-]+$` | el piso de 8 = código de área + número de Formosa |
+
+**Lo que apareció al auditar el resto** (selección):
+
+- `venue.latitude` / `.longitude` sin ninguna validación → acotadas a los rangos
+  **reales** de una coordenada (−90/90, −180/180). No es criterio de dominio.
+- `discipline.maxPlayers >= minPlayers` y `competition.endDate >= startDate`:
+  lógica que faltaba. Antes `'2026-04-31'` pasaba como fecha válida.
+- `calendarEvent`: `startTime`/`endTime` con regex `HH:MM`, y un refine para que
+  tildar "tiene fecha de fin" **exija** la fecha — antes se mandaba `endDate: null`
+  en silencio.
+- `discipline.sortOrder` aceptaba negativos siendo un orden de visualización.
+
+**Campos que decidió NO tocar, y por qué** (esto era parte del pedido): los UUID
+—`.uuid()` ya es la restricción real—, los `nativeEnum` —el enum es el límite—,
+`news.imageKey` —la genera el backend, un máximo inventado sólo agregaría un modo
+de falla— y `rules`/`description`/`content`, que son `@db.Text` sin límite de
+dominio justificable.
+
+#### Divergencias frontend/backend detectadas
+
+**Frontend más estricto (aceptable, es UX):** el refine de DNI y todos los máximos
+de largo. **`00000000` sigue siendo aceptable vía API directa**: `@IsDni()` sólo
+aplica `/^\d{7,8}$/`. Cerrarlo es una línea en el backend.
+
+**Frontend más laxo que el backend — eran 400s reales, corregidos acá:**
+
+1. `loginSchema.password` estaba en `min(6)` contra el `@MinLength(8)` del backend.
+2. **`participant.email = ''`**: `@IsOptional()` de class-validator **sólo saltea
+   `null`/`undefined`**, así que un string vacío llegaba a `@IsEmail()` y devolvía
+   400 "Debe ser un email válido" con el campo visualmente vacío. Ahora todos los
+   opcionales de texto normalizan `''` → `undefined`.
+3. `venue.capacity` aceptaba decimales y negativos contra `@IsInt() @Min(0)`.
+
+#### Correcciones manuales
+
+- **Ninguna sobre el código entregado.** Se revisó el diff y se reejecutó la
+  verificación.
+- **Se verificó por fuera el hallazgo más grave que reportó el agente** (equipos,
+  ver abajo): se leyeron `CreateTeamDto`, `teams.api.ts` y `teams.service.create`.
+  Confirmado.
+
+#### Verificación (DoD)
+
+Script temporal que importaba los **11 schemas reales** (bundleados con esbuild) y
+corría **78 aserciones**: `78 OK / 0 fallas`. Cubre los casos del enunciado
+(`00000000`, nacimiento futuro, teléfono con letras, nombre de 5.000 caracteres) y
+los refinamientos nuevos (fin antes del inicio, 31 de abril, hora `25:00`,
+latitud 200, capacidad decimal).
+
+- [x] Todos los schemas tienen constraints mínimas + máximas + refinamientos
+  lógicos donde aplica, **o una razón escrita de por qué no**.
+- [x] `tsc` limpio · `build` OK · `lint` sin hallazgos en `schemas`.
+
+#### Bug latente arreglado de paso
+
+Prisma devuelve **`null`** (no `undefined`) para columnas `String?`, y los
+formularios hacen `form.reset({...initialData})`. Un participante **sin teléfono
+cargado** hacía fallar la validación al editarlo con un `expected string, received
+null`, **imposible de corregir desde la pantalla**. Los helpers de opcionales
+ahora normalizan `null` → `''` → `undefined`. Entraba en alcance porque el riesgo
+explícito de la tarea era no romper los formularios.
+
+#### 🔴 Hallazgo grave fuera de alcance: el alta de equipos está rota
+
+`teamSchema` y `CreateTeamPayload` (`src/api/teams.api.ts:19`) envían
+**`disciplineId`**, pero `CreateTeamDto` **no lo declara** — el service lo deriva
+de la categoría (`category.discipline`). Con `forbidNonWhitelisted: true` en
+`main.ts:63`, **todo `POST /teams` y `PATCH /teams/:id` devuelve 400 "property
+disciplineId should not exist"**.
+
+Verificado leyendo los tres archivos: el DTO (líneas 14-42: `name`, `categoryId`,
+`institution?`, `locality`, `department` — sin `disciplineId`), el payload del
+frontend, y `teams.service.create`, que efectivamente infiere la disciplina.
+
+Es **anterior a estas tareas** y no se tocó porque el arreglo va en `teams.api.ts`
+(sacar el campo del payload) o en el DTO del backend, no en `schemas/index.ts`.
+`disciplineId` se necesita **en el formulario** para filtrar categorías, así que no
+alcanza con borrarlo del schema. **Requiere tarea propia y verificación con la app
+levantada.**
+
+#### Otros hallazgos fuera de alcance
+
+1. **El wizard de inscripción pública no usa Zod.**
+   `src/pages/public/inscription/StepPersonalData.tsx` valida con `required` de
+   HTML y un `replace(/\D/g,'')`; nunca importa `participantSchema`. **Ninguna
+   mejora de T15 aplica al flujo público**, que es el de mayor volumen y el que más
+   400s genera. Migrarlo es un refactor de la página.
+2. **`loginSchema` está muerto**: `LoginPage` usa `useState` y un
+   `if (!email || !password)`. Se alineó igual a 8 caracteres para no dejar una
+   trampa a quien lo conecte.
+3. `categorySchema` no cubre `maxParticipants` ni `teamSize`, que sí existen en
+   `CreateCategoryDto` pero no en el formulario.
+4. Deprecaciones de Zod 4 en el archivo (`z.nativeEnum()`, `z.string().uuid()`):
+   funcionan, migrarlas sería ruido de diff.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Queda el Bloque 4: T15 → T16 → T17, T26/T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15 completada**; siguen T16 → T17, T26/T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -190,14 +190,14 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T15 🟠 ⚛️ FE — Fortalecer schemas Zod (F10, F11, F12)
 
-- [ ] **Descripción:** Endurecer las validaciones cliente para reducir 400s y mejorar UX:
+- [x] **Descripción:** Endurecer las validaciones cliente para reducir 400s y mejorar UX:
   - `dni`: agregar refine que rechace `00000000`, `11111111`, etc. (dígitos repetidos).
   - `phone`: si viene, exigir `.min(8).max(20)` y regex `^[\d+\s\-()]+$`.
   - `birthDate`: exigir año entre 1920 y hoy - 5 años (ningún participante nace en el futuro ni tiene 100 años).
   - Auditar el resto de `schemas/index.ts` con el mismo criterio.
 - **⚠️ Alineación con el backend (dejada por T24):** la regla de DNI vive ahora en `backend/src/common/validators/dni.validator.ts` (`DNI_REGEX` + `@IsDni()`), y hay un test que documenta el hueco a propósito (`'todavía acepta dígitos repetidos (pendiente de T15)'`) para que **la regla se endurezca en los dos lados a la vez**. Ojo: ese decorador lo comparte el endpoint público de inscripción por QR. El teléfono hoy **no tiene validación en el servidor**.
 - **Archivos:** `frontend/src/schemas/index.ts:47-58`
-- **DoD:** todos los schemas tienen constraints mínimas + máximas + refinamientos lógicos donde aplica.
+- **DoD:** todos los schemas tienen constraints mínimas + máximas + refinamientos lógicos donde aplica. ✅ Los 11 schemas revisados, verificados con **78 aserciones** sobre los schemas reales (78 OK / 0 fallas). Se corrigieron además tres casos donde el frontend era **más laxo** que el backend y generaban 400s reales: `password` en `min(6)` contra `@MinLength(8)`, `capacity` aceptando decimales y negativos, y sobre todo `email: ''` — `@IsOptional()` sólo saltea `null`/`undefined`, así que un string vacío llegaba a `@IsEmail()` y devolvía 400 con el campo visualmente vacío. Los campos sin límite justificable quedaron sin tocar y documentados. ⚠️ Al auditar apareció un **bug grave preexistente**: el alta de equipos manda `disciplineId`, que `CreateTeamDto` no declara, así que con `forbidNonWhitelisted` devuelve 400 (ver `PROCESO.md`). Evidencia en `PROCESO.md → sección 4 → T15 (post-auditoría)`.
 
 ### T16 🟠 ⚛️ FE — Sanitizar mensajes de error del backend antes de mostrarlos al usuario (F13)
 
@@ -449,7 +449,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 21 de 28 tareas completadas.**
+**Progreso: 22 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -468,7 +468,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T12** | 🔴 | ⚛️ FE | Limpiar cache de React Query en logout | ✅ Completada |
 | **T13** | 🟡 | ⚛️ FE | Namespace de queryKeys por userId | ✅ Completada |
 | **T14** | 🟡 | ⚛️ FE | `ProtectedRoute`: exigir `allowedRoles` explícito por ruta admin | ✅ Completada |
-| **T15** | 🟠 | ⚛️ FE | Fortalecer schemas Zod | ⬜ Pendiente |
+| **T15** | 🟠 | ⚛️ FE | Fortalecer schemas Zod | ✅ Completada |
 | **T16** | 🟠 | ⚛️ FE | Sanitizar mensajes de error del backend antes de mostrarlos al usuario | ⬜ Pendiente |
 | **T17** | 🟠 | ⚛️ FE | Validar schema de URLs dinámicas en `href` | ⬜ Pendiente |
 | **T18** | 🚀 | 🏗️ BE | Quick wins backend: `compression` + `Cache-Control` en endpoints públicos | ✅ Completada |
@@ -489,7 +489,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 |---|---|---|
 | 🔴 Crítico | 6 | 6 |
 | 🟡 Alto | 6 | 6 |
-| 🟠 Medio | 1 | 5 |
+| 🟠 Medio | 2 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 4 | 4 |
 | ✨ Polish | 0 | 3 |
