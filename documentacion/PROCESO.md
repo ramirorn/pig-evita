@@ -2791,6 +2791,143 @@ levantada.**
 
 ---
 
+### T16 (post-auditoría DevSecOps) — Sanitizar los mensajes de error del backend (F13)
+
+> Corresponde a `tasks.md → Fase 4 → T16`. Implementada por el agente
+> ⚛️ **Frontend Engineer**.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente ⚛️ **Frontend Engineer**
+- **Hallazgo cubierto:** F13 (mensajes crudos del backend en los toasts)
+- **Duración estimada / real:** 1h / ~0,75h
+
+#### Prompt utilizado
+
+Resumen de lo sustantivo:
+
+> Te toca **T16**: helper `getFriendlyError(error, fallback)` en `lib/utils.ts`,
+> con whitelist de status, truncado a 200 chars y bloqueo de patrones de leak.
+>
+> **Detalles que importan para no romper la UX:**
+> 1. **Los 400 de validación son útiles y hay que conservarlos** — el backend usa
+>    class-validator con mensajes en español para el usuario final. Si tu helper
+>    termina reemplazando todo por el fallback, arruinaste la UX en vez de mejorarla.
+> 2. **`message` puede ser un array**; ojo con el truncado, que puede cortar la
+>    lista a la mitad.
+> 3. **Cuidado con el 401**: ya lo maneja el interceptor de `client.ts`.
+> 4. **`403` y `404` no están en la whitelist del enunciado.** Pensá qué
+>    corresponde y justificá — no copies la lista si te parece incompleta.
+> 5. **Patrones de leak:** el criterio es que ante la duda va el fallback — perder
+>    un mensaje útil es barato, filtrar estructura interna no.
+
+#### Código generado
+
+- `frontend/src/lib/utils.ts` — `getFriendlyError(error: unknown, fallback: string)`
+  + helpers privados (`looksLikeLeak`, `extractRawMessage`, `extractStatus`,
+  `joinMessages`) y dos constantes documentadas. Reusa el `truncate` que ya existía.
+- `frontend/src/hooks/useCalendar.ts` (3), `useCompetitions.ts` (2),
+  `useInscriptions.ts` (1) — los 6 `onError` que mostraban el crudo.
+
+**Efecto colateral bienvenido:** los 6 pasaron de `(error: any)` a
+`(error: unknown)`. `grep -rn ": any" src/hooks/` ya no devuelve nada — eran los
+últimos `any` de los hooks, anotados como pendientes en T08.
+
+#### Decisiones del agente (y por qué)
+
+**Whitelist `400, 403, 404, 409, 422`.** Agregó **403 y 404** al enunciado: un 403
+*"No tenés permisos para aprobar inscripciones"* y un 404 *"La competencia no
+existe"* dicen **qué** no se puede hacer sin revelar estructura interna, y
+esconderlos deja al usuario sin saber si el problema es de permisos o de datos.
+Quedan fuera a propósito: **401** (lo maneja el interceptor; un toast
+"Unauthorized" encima sólo confunde), **429** (el mensaje viene del rate limiter,
+no del dominio) y todo **5xx**, que es el caso del hallazgo.
+
+**El truncado no parte mensajes.** Cortar el string concatenado dejaba
+*"La contraseña debe tener al me…"*, que es peor que no mostrarlo: el usuario no
+sabe qué le falta. `joinMessages()` agrega mensajes **enteros** mientras entren en
+200 caracteres y avisa cuántos quedaron afuera con `(y N más)`. Es válido porque
+el ciclo se repite: el usuario corrige lo que ve, reintenta, y el backend le
+devuelve los que faltaban. Sólo trunca con elipsis cuando hay **un único** mensaje
+larguísimo, porque ahí no hay nada completo para mostrar.
+
+**Si cualquier item del array dispara un patrón de leak, se descarta el lote
+completo** — no vale la pena adivinar cuál era el inocente.
+
+**Patrones bloqueados, con criterio asimétrico explícito:** ORM/DB (`prisma`,
+códigos `P\d{4}`, `sql`, verbos SQL, `constraint|violates|duplicate key`,
+`column|table|relation` — en español serían "columna"/"tabla", así que no hay
+falso positivo), excepciones y stacks (`Error:`, `*Exception`, frames `at …`),
+infraestructura (`ECONNREFUSED` y familia, `localhost`, IPv4) y rutas del servidor
+(`C:\`, `/src/`, `/node_modules/`, referencias `archivo.ts:42`). Sin `response`
+—error de red, timeout, abort— va directo al fallback, porque "Network Error" de
+Axios no le dice nada a nadie.
+
+#### El barrido completo
+
+De los **34 `onError`** en 12 archivos de `src/hooks/`, sólo **6** mostraban el
+mensaje del backend. Los otros **28 quedaron con su texto fijo**: nunca leen
+`error.response`, así que no hay nada que sanear y meterles el helper sólo
+agregaría ruido. También verificó fuera de hooks: `LoginPage` ya mapea por status
+a textos propios, y los `catch` de las páginas usan literales.
+
+#### Correcciones manuales
+
+- **Ninguna sobre el código entregado.**
+- **Se verificó por fuera el punto que el agente dejó sin confirmar** (su hallazgo
+  5.4): si el backend envolviera los errores como `{ success:false, data:{ message }}`,
+  el helper caería siempre al fallback y perdería todos los mensajes de validación.
+  Se leyó `backend/src/common/filters/global-exception.filter.ts:64-73`: la
+  respuesta de error es **plana** (`{ success, statusCode, message, errors?,
+  timestamp, path }`), así que `response.data.message` es correcto. **No aplica.**
+
+#### Verificación (DoD)
+
+Script temporal con **37 casos** sobre el helper real: `TODOS LOS CASOS OK`.
+
+| Caso | Resultado |
+|---|---|
+| **500 con `PrismaClientKnownRequestError`** | → `"No se pudo completar la acción"` ✅ **(el DoD)** |
+| 502 Bad Gateway | → fallback |
+| 400 de class-validator | → **"El DNI debe tener 7 u 8 dígitos"** (pasa intacto) |
+| 409 / 403 / 404 con mensaje de dominio | pasan intactos |
+| Array de 9 mensajes | 5 completos + `(y 4 más)`, 170 chars, **ninguno partido** |
+| Array de 6 | los 6 completos, exactamente 200 chars |
+| Array con un item que filtra | → fallback (lote completo) |
+| Mensaje de 3.000 chars | 200 chars con elipsis |
+| Error de red / sin `response` / 401 / 429 | → fallback |
+| 13 patrones de leak con status 400 "seguro" | los 13 → fallback |
+
+- [x] Simular 500 con `{ message: "PrismaClientKnownRequestError: ..." }` → el
+  toast muestra el fallback.
+- [x] `tsc` OK · `build` OK · `lint` cero errores.
+
+#### Notas / aprendizajes
+
+- **Este helper es la segunda capa, no la única.** Al verificar el formato de
+  error se vio que `GlobalExceptionFilter` **ya** reemplaza el mensaje de las
+  excepciones no controladas por *"Error interno del servidor"* cuando
+  `NODE_ENV=production`. T16 cubre lo que esa capa no: el entorno de desarrollo, y
+  las `HttpException` que un service arme con detalle interno y salgan con status
+  "seguro".
+- La instrucción que más cambió el resultado fue la advertencia de que **los 400 de
+  validación son útiles**. Sin eso, la lectura literal del enunciado —whitelist +
+  patrones— tiende a un helper que esconde todo y deja al usuario sin saber qué
+  corregir.
+
+#### Hallazgos fuera de alcance reportados por el agente
+
+1. **`InscriptionPage` y `DelegateInscriptionPage` duplican la validación del
+   formulario** (el mismo bloque de ~7 `toast.error` literales, DNI incluido).
+   Candidato a hook compartido o a Zod — engancha con lo que quedó anotado en T15
+   sobre el wizard público.
+2. **`NewsPage.tsx:95`**: un `useMemo` que depende de un array recreado en cada
+   render, o sea que no memoriza nada. Es el único warning de hooks vivo.
+3. **`useGenerateFixture`** ignora el error real y siempre dice "Verifique que
+   existan suficientes equipos". Ahora que hay helper, un 409 del backend podría dar
+   un motivo concreto, pero cambiar ese texto es decisión de producto.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

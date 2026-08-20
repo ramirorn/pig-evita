@@ -10,6 +10,7 @@ import {
   type RejectInscriptionPayload
 } from '@/api/inscriptions.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { getFriendlyError } from '@/lib/utils';
 import { useQueryScope } from './useQueryScope';
 import { toast } from 'sonner';
 
@@ -80,9 +81,8 @@ export function useCreateInscription() {
       // but it's good practice just in case admin is logged in.
       queryClient.invalidateQueries({ queryKey: INSCRIPTION_KEYS.lists(scope) });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Error al registrar la inscripción';
-      toast.error(typeof message === 'string' ? message : 'Error en los datos ingresados');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al registrar la inscripción'));
     },
   });
 }

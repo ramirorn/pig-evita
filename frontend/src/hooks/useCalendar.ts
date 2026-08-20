@@ -9,6 +9,7 @@ import {
   type UpdateCalendarEventPayload
 } from '@/api/calendar.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export const CALENDAR_KEYS = {
@@ -45,9 +46,8 @@ export function useCreateCalendarEvent() {
       toast.success('Evento creado exitosamente');
       queryClient.invalidateQueries({ queryKey: CALENDAR_KEYS.lists() });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Error al crear el evento';
-      toast.error(Array.isArray(message) ? message.join(', ') : message);
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al crear el evento'));
     },
   });
 }
@@ -63,9 +63,8 @@ export function useUpdateCalendarEvent() {
       queryClient.invalidateQueries({ queryKey: CALENDAR_KEYS.lists() });
       queryClient.invalidateQueries({ queryKey: CALENDAR_KEYS.detail(variables.id) });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Error al actualizar el evento';
-      toast.error(Array.isArray(message) ? message.join(', ') : message);
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al actualizar el evento'));
     },
   });
 }
@@ -79,9 +78,8 @@ export function useDeleteCalendarEvent() {
       toast.success('Evento eliminado exitosamente');
       queryClient.invalidateQueries({ queryKey: CALENDAR_KEYS.lists() });
     },
-    onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Error al eliminar el evento';
-      toast.error(Array.isArray(message) ? message.join(', ') : message);
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al eliminar el evento'));
     },
   });
 }
