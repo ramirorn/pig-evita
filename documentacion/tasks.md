@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13, T14, T05, T06, T07 y T08 completadas**; queda T09 para cerrarlo.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. Siguen los bloques 3 y 4: T22 → T23 → T24/T25, luego T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -126,9 +126,9 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T09 🟠 🏗️ BE — Endurecer CORS y CSP (M-02, M-03)
 
-- [ ] **Descripción:** En `main.ts` (a) fallar si `CORS_ORIGINS` no está seteado en producción; (b) configurar `helmet` con CSP explícito, HSTS y `crossOriginResourcePolicy: same-site`.
+- [x] **Descripción:** En `main.ts` (a) fallar si `CORS_ORIGINS` no está seteado en producción; (b) configurar `helmet` con CSP explícito, HSTS y `crossOriginResourcePolicy: same-site`.
 - **Archivos:** `backend/src/main.ts:23-36` (CORS) y `:28` (helmet)
-- **DoD:** curl con `Origin: https://evil.com` recibe respuesta sin `Access-Control-Allow-Origin`. Headers de respuesta incluyen `Content-Security-Policy` y `Strict-Transport-Security`.
+- **DoD:** curl con `Origin: https://evil.com` recibe respuesta sin `Access-Control-Allow-Origin`. Headers de respuesta incluyen `Content-Security-Policy` y `Strict-Transport-Security`. ✅ Verificado con 23 tests e2e (`backend/test/security-headers.e2e-spec.ts`). El punto (a) **ya lo cubría T04**, pero al verificarlo aparecieron dos agujeros reales que sí se arreglaron: `CORS_ORIGINS=` vacía pasaba la validación y dejaba la app arriba con CORS roto **sin ningún mensaje**, y el `split(',')` sin trim descartaba en silencio todo origen escrito después de un espacio. CSP de la API: `default-src 'none'` (una respuesta JSON no renderiza nada), con excepción **por ruta** para la UI de Swagger que ni se construye en producción. HSTS de 1 año **sin `preload`**, por ser una decisión irreversible del dominio y no de la API. Evidencia en `PROCESO.md → sección 4 → T09 (post-auditoría)`.
 
 ### T10 🟠 ⚛️ FE + 🎨 UI — Descomponer componentes React monolíticos (M-01)
 
@@ -448,7 +448,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 16 de 28 tareas completadas.**
+**Progreso: 17 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -461,7 +461,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T06** | 🟡 | 🏗️ BE | Ocultar Swagger en producción | ✅ Completada |
 | **T07** | 🟡 | 🏗️ BE | Enriquecer `AuditInterceptor` con IP y User-Agent | ✅ Completada |
 | **T08** | 🟡 | ⚛️ FE | Silenciar `console.error` en producción del frontend | ✅ Completada |
-| **T09** | 🟠 | 🏗️ BE | Endurecer CORS y CSP | ⬜ Pendiente |
+| **T09** | 🟠 | 🏗️ BE | Endurecer CORS y CSP | ✅ Completada |
 | **T10** | 🟠 | ⚛️ FE + 🎨 UI | Descomponer componentes React monolíticos | ⬜ Pendiente |
 | **T11** | 🔴 | ⚛️ FE | Sanitizar HTML del backend antes de renderizar con `dangerouslySetInnerHTML` | ✅ Completada |
 | **T12** | 🔴 | ⚛️ FE | Limpiar cache de React Query en logout | ✅ Completada |
@@ -488,7 +488,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 |---|---|---|
 | 🔴 Crítico | 6 | 6 |
 | 🟡 Alto | 6 | 6 |
-| 🟠 Medio | 0 | 5 |
+| 🟠 Medio | 1 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 0 | 4 |
 | ✨ Polish | 0 | 3 |

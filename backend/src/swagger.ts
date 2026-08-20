@@ -8,6 +8,18 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 export const SWAGGER_PATH = 'api/docs';
 
 /**
+ * ¿Se monta la documentación en este entorno?
+ *
+ * Se exporta aparte porque las cabeceras de seguridad (`security.ts`) necesitan
+ * saberlo *antes* de que Swagger se monte, para decidir si hace falta la
+ * excepción de CSP de `/api/docs`. Una sola fuente de verdad evita que un día
+ * queden desincronizadas.
+ */
+export function swaggerHabilitado(nodeEnv: string | undefined): boolean {
+  return nodeEnv !== 'production';
+}
+
+/**
  * Monta Swagger salvo en producción.
  *
  * La documentación expone el mapa completo de endpoints, DTOs y reglas de
@@ -25,7 +37,7 @@ export function setupSwagger(
   app: INestApplication,
   nodeEnv: string | undefined,
 ): boolean {
-  if (nodeEnv === 'production') {
+  if (!swaggerHabilitado(nodeEnv)) {
     return false;
   }
 

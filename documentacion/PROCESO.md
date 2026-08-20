@@ -1828,6 +1828,152 @@ Esa única aparición vive dentro de `if (import.meta.env.DEV)`.
 
 ---
 
+### T09 (post-auditoría DevSecOps) — Endurecer CORS y CSP (M-02, M-03)
+
+> Corresponde a `tasks.md → Fase 3 → T09`. **Cierra el Bloque 2.** Implementada
+> por el agente 🏗️ **Backend Architect**.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente 🏗️ **Backend Architect**
+- **Hallazgos cubiertos:** M-02 (CORS con default permisivo), M-03 (helmet sin CSP explícito)
+- **Duración estimada / real:** 1h / ~0,75h
+
+#### Relevamiento previo (antes de delegar)
+
+- La parte (a) del enunciado —*"fallar si `CORS_ORIGINS` no está seteado en
+  producción"*— **ya la cubría T04**: el schema le pone
+  `default('http://localhost:5173')` y el `superRefine` rechaza `localhost` en
+  producción, así que no setear la variable ya hacía fallar el arranque. Se le
+  pidió al agente que lo verificara en vez de duplicarlo.
+- `helmet()` estaba con la configuración por defecto.
+- **Hay un segundo emisor de cabeceras:** `docker/nginx/nginx.conf` ya agrega CSP,
+  HSTS y compañía, pensados para la SPA. Se le marcó al agente que decidiera el
+  reparto de responsabilidades, sin tocar el nginx.
+
+#### Prompt utilizado
+
+Resumen de lo sustantivo del prompt enviado al agente:
+
+> Te toca **T09**. (a) fallar si `CORS_ORIGINS` no está seteado en producción;
+> (b) helmet con CSP explícito, HSTS y `crossOriginResourcePolicy: same-site`.
+>
+> **Relevamiento previo:** (a) ya lo cubre T04 [razonamiento completo].
+> Verificalo y no lo dupliques; si encontrás un agujero real en ese razonamiento,
+> arreglalo.
+>
+> **Puntos de criterio que quiero que resuelvas:** el CSP de una SPA no sirve para
+> una API JSON — pensá qué directivas corresponden. **Cuidado con Swagger**: en
+> desarrollo la UI de `/api/docs` necesita scripts y estilos inline, y un
+> `default-src 'none'` global la rompería. Definí `maxAge`, `includeSubDomains` y
+> evaluá `preload` para HSTS. Verificá qué recibe hoy un `Origin` no permitido y
+> revisá si a `allowedHeaders` le falta algo **real** (no agregues por las dudas).
+>
+> `docker/nginx/nginx.conf` ya emite CSP para la SPA: decidí el reparto entre capas
+> y explicá el criterio; si concluís que hay que tocarlo, decímelo pero no lo toques.
+
+#### Código generado
+
+- `backend/src/security.ts` *(nuevo)* — helmet (CSP por ruta, HSTS, CORP) y CORS
+  en funciones puras + `setupSecurity(app, …)`.
+- `backend/src/main.ts` — reemplaza `helmet()` y el bloque `enableCors` por una
+  sola llamada a `setupSecurity`.
+- `backend/src/swagger.ts` — se extrae `swaggerHabilitado(nodeEnv)` como única
+  fuente de verdad sobre si hay docs.
+- `backend/test/security-headers.e2e-spec.ts` *(nuevo)* — 23 tests.
+
+#### Decisiones del agente (y por qué)
+
+**1. Confirmó (a) y además encontró dos agujeros reales.**
+- `CORS_ORIGINS=` **definida pero vacía** pasaba la validación (no contiene
+  "localhost") y llegaba a `enableCors` como `['']`: la app quedaba arriba con
+  CORS roto para todo el frontend y **sin ningún mensaje**. Ahora falla el
+  arranque. *Fail-fast, no fail-silent.*
+- El `split(',')` de `config/index.ts` no recorta espacios, así que
+  `CORS_ORIGINS=https://a.gob.ar, https://b.gob.ar` producía el origen
+  `" https://b.gob.ar"`, que **nunca matchea**: el segundo dominio quedaba afuera
+  en silencio. `parseCorsOrigins` recorta y filtra vacíos.
+
+**2. CSP de la API: `default-src 'none'`.** Una respuesta JSON no se renderiza
+como documento, así que el `'self'` de la SPA sería permiso regalado. Se cierran
+además `frame-ancestors 'none'` (clickjacking), `base-uri 'none'` y
+`form-action 'none'`. `upgrade-insecure-requests` **sólo en producción**: en
+desarrollo se sirve por HTTP plano.
+
+**3. La excepción de Swagger, resuelta por ruta.** Un solo `app.use` que despacha:
+helmet estricto para la API y uno relajado que aplica **sólo** a `/api/docs`,
+`/api/docs/*` y `/api/docs-json`. Se prefirió esto a dos montajes de Express
+porque helmet pisa cabeceras y el último registrado ganaría, anulando la
+excepción o comiéndose el CSP estricto. El relajado **ni se construye** si
+`swaggerHabilitado(nodeEnv)` es falso: en producción la excepción no existe como
+código ejecutable.
+
+**4. HSTS `max-age=31536000; includeSubDomains`, sin `preload`.** La lista de
+precarga es prácticamente irreversible y aplica al dominio raíz **y todos sus
+subdominios**: podría tumbar intranets o sistemas viejos de la provincia que
+todavía andan por HTTP. Es una decisión de quien administra el dominio, no de
+esta API. Se emite también en desarrollo porque el header sólo tiene efecto sobre
+HTTPS y así dev y prod no divergen.
+
+**5. `allowedHeaders`: no faltaba nada.** Revisó `frontend/src/api/*`: el cliente
+sólo manda `Authorization` y `Content-Type`. No agregó nada "por las dudas".
+
+**6. Reparto con nginx:** *nginx es dueño de las cabeceras del documento HTML de
+la SPA; la app es dueña de las de sus propias respuestas JSON.*
+
+#### Correcciones manuales
+
+- **Ninguna sobre el código entregado.** Se revisó el diff y se reejecutó la
+  verificación completa de forma independiente.
+
+#### Verificación (DoD)
+
+**23 tests e2e** (`npx jest --config ./test/jest-e2e.json --testPathPatterns security-headers`):
+
+| Chequeo | Resultado |
+|---|---|
+| `Origin: https://evil.com` en GET | **sin** `Access-Control-Allow-Origin` |
+| `Origin: https://evil.com` en preflight | sin el header |
+| Origen permitido | con `credentials`, y **nunca** `*` |
+| Toda respuesta | trae `Content-Security-Policy` y `Strict-Transport-Security` |
+| Respuestas 404 | también los traen |
+| La excepción de Swagger | no se filtra a la API |
+
+Reejecutado por fuera del agente: `tsc` OK · `build` OK · `npx jest` **44/44** ·
+e2e **64/64** (41 previos + 23 nuevos).
+
+- [x] curl con `Origin: https://evil.com` recibe respuesta sin `Access-Control-Allow-Origin`.
+- [x] Los headers incluyen `Content-Security-Policy` y `Strict-Transport-Security`.
+
+#### Notas / aprendizajes
+
+- El DoD de CORS **ya se cumplía** antes del cambio (el paquete `cors` con `origin`
+  como array simplemente no emite el header para un origen no permitido). Lo que
+  faltaba era evidencia ejecutable — y el valor real de la tarea terminó estando en
+  los dos agujeros de parsing que aparecieron al escribirla.
+- Pedirle al agente que **verificara** el punto (a) en vez de implementarlo evitó
+  duplicar el guardrail de T04 y, de paso, destapó el caso `CORS_ORIGINS=` vacía.
+
+#### Hallazgos fuera de alcance reportados por el agente
+
+1. **⚠️ El nginx estampa el CSP de la SPA también sobre `/api/`.** Los `add_header`
+   están en el bloque `http` y ningún `location` define los suyos, así que se
+   heredan en el proxy de la API. Y `add_header` **no pisa** la cabecera del
+   backend: la **agrega**. Las respuestas de la API van a salir con **dos**
+   `Content-Security-Policy`. Por spec el navegador aplica la intersección, así que
+   el resultado es más restrictivo y no inseguro, pero vuelve confuso el debug.
+   **Recomendación (no aplicada):** mover los `add_header` del bloque `http` al
+   `location /` del frontend y dejar `location /api/` sin cabeceras propias.
+2. `config/index.ts:11` sigue haciendo el `split(',')` sin trim. Se normaliza en el
+   borde de consumo, pero si mañana otro módulo lee `app.corsOrigins`, vuelve el bug.
+3. **`CORS_ORIGINS` acepta orígenes `http://` en producción.** El guardrail de Zod
+   sólo mira `localhost`; un `http://juegosevita.formosa.gob.ar` pasaría y anularía
+   buena parte del beneficio de HSTS. Son dos líneas en `config.validation.ts`, pero
+   es territorio de T04.
+4. `X-XSS-Protection: 1; mode=block` en nginx está deprecado y tiene vectores
+   conocidos; helmet 8 ya lo emite como `0` del lado de la app.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

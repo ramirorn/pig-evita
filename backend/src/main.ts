@@ -6,11 +6,11 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { Logger as PinoLogger } from 'nestjs-pino';
-import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { AppModule } from './app.module';
 import { setupSwagger, SWAGGER_PATH } from './swagger';
+import { setupSecurity } from './security';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -40,8 +40,11 @@ async function bootstrap() {
     'http://localhost:5173',
   ]);
 
-  // Security: Helmet
-  app.use(helmet());
+  // Cabeceras de seguridad (helmet con CSP/HSTS explícitos) + CORS.
+  // Va antes que todo lo demás para que los headers salgan también en las
+  // respuestas de error. La configuración vive en `security.ts` para poder
+  // testearla sin levantar el AppModule entero (ver T09).
+  setupSecurity(app, { nodeEnv, corsOrigins });
 
   // Cookies: el refresh token viaja en una cookie httpOnly (ver auth.cookies.ts)
   app.use(cookieParser());
@@ -49,15 +52,6 @@ async function bootstrap() {
   // Compresión gzip/deflate de las respuestas. Los JSON de listados son texto
   // muy repetitivo: comprime ~60-70%.
   app.use(compression());
-
-  // CORS
-  app.enableCors({
-    origin: corsOrigins,
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    // Imprescindible para que el navegador mande la cookie del refresh token.
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
 
   // API Prefix
   app.setGlobalPrefix(apiPrefix);
