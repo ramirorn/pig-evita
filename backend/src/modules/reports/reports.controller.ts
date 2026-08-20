@@ -9,15 +9,63 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { ReportsService } from './reports.service';
+import { ReportsService, EspecificacionReporte } from './reports.service';
 import { Roles } from '../../common/decorators';
 import { Role, ADMIN_ROLES } from '../../common/constants';
+
+const MIME_XLSX =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 @ApiTags('Reports')
 @Controller('reports')
 @ApiBearerAuth('access-token')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
+
+  /**
+   * Prepara los headers y arranca el streaming (T23).
+   *
+   * El contrato HTTP es idéntico al de la versión que mandaba un Buffer: mismo
+   * `Content-Type`, mismo `Content-Disposition`, mismo BOM en el CSV. Lo único
+   * que cambia es que la respuesta sale `chunked` en lugar de con
+   * `Content-Length`, porque el tamaño no se conoce hasta terminar de generarla.
+   *
+   * `Cache-Control: no-store` porque son datos personales de menores de edad y
+   * no queremos copias en discos intermedios. El `no-transform` es funcional:
+   * `compression()` (T18) lo respeta y no intenta gzipear el .xlsx —que ya es un
+   * zip, así que comprimirlo de nuevo sólo quema CPU—. El CSV sí se comprime:
+   * es texto muy repetitivo y `compression` streamea sin bufferizar todo.
+   */
+  private enviar(
+    res: Response,
+    espec: EspecificacionReporte,
+    esExcel: boolean,
+    nombreBase: string,
+  ): Promise<void> {
+    res.status(200);
+
+    if (esExcel) {
+      res.setHeader('Content-Type', MIME_XLSX);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${nombreBase}.xlsx"`,
+      );
+      res.setHeader('Cache-Control', 'no-store, no-transform');
+      return this.reportsService.escribirExcel(res, espec);
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${nombreBase}.csv"`,
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    return this.reportsService.escribirCsv(res, espec);
+  }
+
+  private esExcel(format?: string): boolean {
+    return format === 'xlsx' || format === 'excel';
+  }
 
   @Get('participants')
   @Roles(...ADMIN_ROLES, Role.DELEGADO)
@@ -35,30 +83,18 @@ export class ReportsController {
     @Query('format') format: string,
     @Res() res: Response,
   ) {
-    const isExcel = format === 'xlsx' || format === 'excel';
-    const filters = { disciplineId, categoryId, locality, department };
-
-    if (isExcel) {
-      const buffer =
-        await this.reportsService.generateParticipantsExcel(filters);
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="padron_participantes.xlsx"',
-      );
-      return res.status(200).send(buffer);
-    }
-
-    const csv = await this.reportsService.generateParticipantsCsv(filters);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename="padron_participantes.csv"',
+    const espec = this.reportsService.especificacionParticipants({
+      disciplineId,
+      categoryId,
+      locality,
+      department,
+    });
+    return this.enviar(
+      res,
+      espec,
+      this.esExcel(format),
+      'padron_participantes',
     );
-    return res.status(200).send('\uFEFF' + csv);
   }
 
   @Get('inscriptions')
@@ -75,36 +111,12 @@ export class ReportsController {
     @Query('format') format: string,
     @Res() res: Response,
   ) {
-    const isExcel = format === 'xlsx' || format === 'excel';
-
-    if (isExcel) {
-      const buffer = await this.reportsService.generateInscriptionsExcel(
-        disciplineId,
-        categoryId,
-        status,
-      );
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="inscripciones.xlsx"',
-      );
-      return res.status(200).send(buffer);
-    }
-
-    const csv = await this.reportsService.generateInscriptionsCsv(
+    const espec = this.reportsService.especificacionInscriptions(
       disciplineId,
       categoryId,
       status,
     );
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename="inscripciones.csv"',
-    );
-    return res.status(200).send('\uFEFF' + csv);
+    return this.enviar(res, espec, this.esExcel(format), 'inscripciones');
   }
 
   @Get('teams')
@@ -123,26 +135,13 @@ export class ReportsController {
     @Query('format') format: string,
     @Res() res: Response,
   ) {
-    const isExcel = format === 'xlsx' || format === 'excel';
-    const filters = { disciplineId, categoryId, locality, department };
-
-    if (isExcel) {
-      const buffer = await this.reportsService.generateTeamsExcel(filters);
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="equipos.xlsx"',
-      );
-      return res.status(200).send(buffer);
-    }
-
-    const csv = await this.reportsService.generateTeamsCsv(filters);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="equipos.csv"');
-    return res.status(200).send('\uFEFF' + csv);
+    const espec = this.reportsService.especificacionTeams({
+      disciplineId,
+      categoryId,
+      locality,
+      department,
+    });
+    return this.enviar(res, espec, this.esExcel(format), 'equipos');
   }
 
   @Get('results')
@@ -155,28 +154,7 @@ export class ReportsController {
     @Query('format') format: string,
     @Res() res: Response,
   ) {
-    const isExcel = format === 'xlsx' || format === 'excel';
-
-    if (isExcel) {
-      const buffer =
-        await this.reportsService.generateResultsExcel(competitionId);
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="resultados.xlsx"',
-      );
-      return res.status(200).send(buffer);
-    }
-
-    const csv = await this.reportsService.generateResultsCsv(competitionId);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename="resultados.csv"',
-    );
-    return res.status(200).send('\uFEFF' + csv);
+    const espec = this.reportsService.especificacionResults(competitionId);
+    return this.enviar(res, espec, this.esExcel(format), 'resultados');
   }
 }

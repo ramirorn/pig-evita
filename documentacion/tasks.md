@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. Bloque 3 en curso: **T22 completada**; siguen T23 → T24/T25. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. Bloque 3 en curso: **T22 y T23 completadas**; siguen T24 → T25. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -295,11 +295,11 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T23 📈 🏗️ BE — Streaming + paginación en reports Excel/CSV (Q5, Q23)
 
-- [ ] **Descripción:** `reports.service.ts` construye todo el workbook en memoria antes de enviar. Con 10K+ filas, riesgo de OOM. Refactor:
+- [x] **Descripción:** `reports.service.ts` construye todo el workbook en memoria antes de enviar. Con 10K+ filas, riesgo de OOM. Refactor:
   - Cambiar `writeBuffer()` por `workbook.xlsx.write(res)` stream directo al response.
   - Para queries grandes, iterar con cursor Prisma (`prisma.$queryRaw` con `LIMIT/OFFSET` o `cursor`-based pagination) y escribir filas al workbook de a lotes de 1000.
 - **Archivos:** `backend/src/modules/reports/reports.service.ts:26-97` y demás métodos `getXxxData`.
-- **DoD:** generar un reporte de 20K filas mantiene RSS del proceso <300MB (medir con `process.memoryUsage()`).
+- **DoD:** generar un reporte de 20K filas mantiene RSS del proceso <300MB (medir con `process.memoryUsage()`). ✅ **162 MB** contra los **595 MB** de la implementación anterior, que no cumplía el DoD (medido con `node backend/test/reports-memoria-manual.js 20000`, un proceso por caso y la versión vieja como testigo). El Δheap se aplana al escalar (44 → 52 → 55 MB para 20k/50k/100k filas): lo vivo a la vez lo fija el lote de 1000, no el total. 18 tests e2e deterministas, verificados en 10 corridas seguidas. Evidencia en `PROCESO.md → sección 4 → T23 (post-auditoría)`.
 
 ### T24 📈 🏗️ BE — DRY backend: validators, DTOs con `PartialType`, includes reusables (Q13, Q15)
 
@@ -448,7 +448,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 18 de 28 tareas completadas.**
+**Progreso: 19 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -475,7 +475,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T20** | 🚀 | ⚛️ FE | Code splitting: lazy loading de rutas admin | ✅ Completada |
 | **T21** | 🚀 | 🏗️ BE | Reemplazar `include: X: true` por `select` en services | ✅ Completada |
 | **T22** | 📈 | 🔀 FS | Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas | ✅ Completada |
-| **T23** | 📈 | 🏗️ BE | Streaming + paginación en reports Excel/CSV | ⬜ Pendiente |
+| **T23** | 📈 | 🏗️ BE | Streaming + paginación en reports Excel/CSV | ✅ Completada |
 | **T24** | 📈 | 🏗️ BE | DRY backend: validators, DTOs con `PartialType`, includes reusables | ⬜ Pendiente |
 | **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ⬜ Pendiente |
 | **T26** | ✨ | ⚛️ FE | Memoización de valores derivados en páginas admin | ⬜ Pendiente |
@@ -490,5 +490,5 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | 🟡 Alto | 6 | 6 |
 | 🟠 Medio | 1 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
-| 📈 Optimización media | 1 | 4 |
+| 📈 Optimización media | 2 | 4 |
 | ✨ Polish | 0 | 3 |

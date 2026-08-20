@@ -2137,6 +2137,188 @@ sobre 4 dominios a 1.
 
 ---
 
+### T23 (post-auditoría DevSecOps) — Streaming y paginación en los reportes Excel/CSV (Q5, Q23)
+
+> Corresponde a `tasks.md → Fase 5 → T23`. Implementada por el agente
+> 🏗️ **Backend Architect**, con **una ronda de devolución** por un test flaky.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente 🏗️ **Backend Architect**
+- **Hallazgos cubiertos:** Q5, Q23 (workbook completo en memoria, riesgo de OOM)
+- **Duración estimada / real:** 2h / ~1,5h (incluye la ronda de corrección)
+
+#### Prompt utilizado
+
+Resumen de lo sustantivo del prompt inicial:
+
+> Te toca **T23**. `reports.service.ts` construye todo el workbook en memoria.
+> DoD: 20K filas manteniendo RSS <300MB.
+>
+> **Decisiones que te toca tomar:** cursor vs OFFSET (justificá); si conviene
+> `stream.xlsx.WorkbookWriter` en vez de `workbook.xlsx.write(res)`, considerando
+> que hay estilos que quizás no sobrevivan; el CSV hoy arma un string completo;
+> **qué pasa si la base falla en el lote 15**, cuando ya mandaste headers y no
+> podés devolver un 500; y verificá que el `compression()` global de T18 no rompa
+> el streaming.
+>
+> **El DoD se puede verificar sin base real:** mockeá 20.000 filas en lotes, generá
+> contra un `Writable` que descarte, y medí. Lo que importa es demostrar que la
+> memoria **no crece proporcionalmente al total de filas**.
+>
+> **El contrato HTTP no cambia**: mismos endpoints, headers y BOM.
+
+#### Código generado
+
+- `src/modules/reports/reports.service.ts` — reescrito: paginación por lotes +
+  escritura en streaming. La API interna pasa de `generateXxxCsv/Excel()` a
+  `especificacionXxx()` (hoja, headers, generador de lotes) +
+  `escribirCsv(destino, espec)` / `escribirExcel(destino, espec)`.
+- `src/modules/reports/reports.controller.ts` — un helper `enviar()` que fija
+  headers y delega el streaming.
+- `backend/test/reports-streaming.e2e-spec.ts` *(nuevo)* — 18 tests.
+- `backend/test/reports-memoria-manual.js` *(nuevo)* — medición de RSS fuera de
+  Jest, un proceso por caso, con la implementación vieja como testigo.
+
+#### Decisiones del agente (y por qué)
+
+**1. Cursor, con una excepción justificada.** `OFFSET n` obliga a Postgres a
+generar y descartar n filas por página: recorrer 20K en lotes de 1000 descarta
+~200.000 filas de más. Se usa cursor en participants, inscriptions y teams. Todos
+los `orderBy` terminan en `{ id: 'asc' }` para que el orden sea **total**: sin ese
+desempate, dos participantes con mismo apellido y nombre pueden **duplicarse en un
+lote y faltar en otro**. `results` queda con OFFSET porque ordena por
+`competition.name` —una columna de otra tabla— y Prisma no soporta cursor con
+`orderBy` sobre relaciones; es además el caso donde no duele, porque `Match` tiene
+órdenes de magnitud menos filas.
+
+**2. `stream.xlsx.WorkbookWriter`, no `workbook.xlsx.write(res)`.** Lo que pedía la
+tarea elimina sólo una copia —el Buffer serializado— pero el `Workbook` común
+mantiene vivo todo el árbol de celdas hasta el final, que es la parte cara. El
+trade-off real: el auto-ajuste de ancho de columna miraba todas las filas; se
+resolvió calculando los anchos con el primer lote y seteándolos **antes** de la
+primera fila, porque ExcelJS emite el bloque `<cols>` recién ahí.
+`useSharedStrings: false` a propósito: la tabla de strings compartidas achica el
+archivo pero obliga a acumular todos los textos distintos.
+
+**3. Error a mitad del stream, con regla explícita.** Si falla **antes del primer
+byte** se relanza y Nest devuelve un 500 con JSON normal —para eso, tanto el CSV
+como el Excel piden el primer lote **antes** de escribir el encabezado—. Si falla
+con la respuesta ya iniciada, se loguea y se **destruye el socket**: cerrar
+prolijamente dejaría un padrón truncado que abre bien y no avisa nada, que es peor
+que ningún padrón.
+
+**4. Un bug real de convivencia con `compression` (T18).** `compression` parchea
+`res.write` y `res.on` pero **no** `res.removeListener`. La primera versión
+manejaba el *drain* a mano y dejaba un listener colgado por lote: a los 10 saltaba
+`MaxListenersExceededWarning`, con fuga proporcional a los lotes. Se resolvió con
+`Readable.from(generador)` + `pipeline`, que registra un único `on('drain')`.
+Beneficio extra: si el cliente corta la descarga, `pipeline` destruye el Readable y
+**la paginación se frena sola** en vez de seguir consultando la base.
+
+#### Correcciones manuales — la ronda de devolución
+
+**Se le devolvió la tarea por un test flaky.** Al reejecutar la verificación, el
+test *"multiplicar por 10 las filas no multiplica la memoria"* falló **1 de cada 8
+corridas**. Diagnóstico: `deltaHeap` medido dentro de Jest osciló entre **11,7 MB
+y 64 MB** para el mismo caso, porque `global.gc?.()` es un no-op salvo que Jest
+corra con `--expose-gc`. Medía *cuándo corrió el GC*, no cuánta memoria vive a la
+vez.
+
+La devolución fue explícita en un punto: **no subir el umbral hasta que deje de
+fallar**, porque eso deja el test verde pero sin poder de detección — con un
+umbral suficientemente alto también pasaría una implementación que bufferiza todo.
+
+El agente sacó la medición de heap de Jest y la reemplazó por **invariantes
+estructurales deterministas**, que cuentan bytes entregados en vez de páginas de
+memoria:
+
+| Invariante | Medición |
+|---|---|
+| Al pedir la última página ya se entregó casi todo el archivo | **100,0%** (3222KB de 3222KB) |
+| El envío arranca antes de la segunda página, y crece monotónicamente | ✅ |
+| El workbook no acumula filas (`_rows.length` en cada consulta) | máximo **0** filas sin commitear |
+| La paginación no se adelanta al envío (con backpressure real) | máximo **1** lote |
+
+Y —sin que se lo pidieran— **verificó que los tests detecten, no sólo que pasen**,
+corriendo tres mutantes sobre el service:
+
+| Mutante | ¿Detectado? |
+|---|---|
+| Sacar `row.commit()` del bucle xlsx | **sí** (20.000 filas sin commitear) |
+| Juntar todas las páginas antes de escribir (= la implementación pre-T23) | **sí**, 3 de 4 tests |
+| `Readable.from` sin acotar (objectMode) | **no** — ver abajo |
+
+**Corrigió además dos afirmaciones propias**, que es lo que más valor tiene de la
+ronda:
+1. Su primer test decía que "el zip se va emitiendo durante la paginación".
+   Sondeó los números: durante las 21 consultas salen **49 bytes**; el resto viaja
+   en `workbook.commit()`. No invalida el DoD, pero cambia la explicación: lo que
+   se ahorra al streamear el xlsx **no son los bytes comprimidos** (0,9 MB es
+   calderilla) sino el **árbol de celdas**. Reemplazó el test por el de `_rows`.
+2. Cambió `Readable.from` a `{ objectMode: false, highWaterMark: 64KB }` creyendo
+   que evitaba bufferear 16 lotes; comprobó que `pipeline` usa `.pipe()`, que pausa
+   la fuente apenas el destino devuelve `false`, así que **no era observable**.
+   Mantuvo el cambio por semántica correcta, pero **corrigió el comentario para que
+   diga lo que verificó y no lo que suponía**.
+
+#### Verificación (DoD)
+
+**Medición reejecutada de forma independiente** (`node test/reports-memoria-manual.js 20000`),
+un proceso por caso, con la implementación anterior como testigo:
+
+| Caso | Salida | RSS pico | ΔRSS |
+|---|---|---|---|
+| **NUEVA xlsx (streaming)** | 0.9 MB | **162 MB** | 86 MB |
+| VIEJA xlsx (en memoria) | 0.8 MB | **595 MB** | 519 MB |
+| NUEVA csv (streaming) | 3.1 MB | 97 MB | 20 MB |
+| VIEJA csv (en memoria) | 3.1 MB | 140 MB | 63 MB |
+
+Escalando (medición del agente): el Δheap de la nueva **se aplana** —44 → 52 → 55 MB
+para 20k/50k/100k filas— mientras la vieja crece lineal (397 → 999 MB → no termina).
+Lo que demuestra el DoD no es el número puntual sino que **lo vivo a la vez lo fija
+el lote de 1000, no el total**.
+
+- [x] Un reporte de 20K filas mantiene el RSS <300MB: **162 MB**, contra los
+  **595 MB** de la implementación anterior, que **no** cumplía el DoD.
+- [x] **10 corridas seguidas** de la suite de reportes, reejecutadas por fuera del
+  agente: **18/18 en las 10**, con el número medido byte a byte idéntico.
+- [x] Suite completa: `npx jest` 44/44 · e2e **98 tests en 10 suites**, todas verdes.
+  (La única suite roja es `app.e2e-spec.ts`, el boilerplate de Nest previo a estas
+  tareas.)
+- [x] El contrato HTTP no cambió: mismos endpoints, `Content-Type`,
+  `Content-Disposition` y BOM. Hay un test que compara el CSV **carácter por
+  carácter**.
+
+#### Notas / aprendizajes
+
+- **Un test que falla al azar es peor que no tener el test**: rompe CI de forma
+  intermitente y erosiona la confianza en toda la suite. Vale la ronda extra.
+- La instrucción que hizo la diferencia en la devolución fue prohibir explícitamente
+  la salida fácil (subir el umbral). El resultado no sólo dejó de ser flaky: pasó a
+  medir el mecanismo real —bytes entregados, filas sin commitear— en vez de un
+  proxy ruidoso.
+- **Verificar que un test detecte su regresión** (correr mutantes) es la diferencia
+  entre un test verde y un test útil. El propio agente descubrió así que uno de sus
+  tests no detectaba nada.
+
+#### Hallazgos fuera de alcance reportados por el agente
+
+1. **Los cuatro reportes usan `include` en vez de `select`**: traen todas las
+   columnas de participant/team/category, incluidas las que no van al archivo.
+   Reducirlo bajaría el peso de cada lote; es criterio de T21.
+2. **`getInscriptionsData` arma el `where` con `any`** y `status` entra como string
+   sin validar contra el enum.
+3. **No hay límite de filas ni timeout en los reportes.** Un `DELEGADO` puede pedir
+   el padrón entero sin filtros: ahora no tumba el proceso, pero ocupa una conexión
+   de Postgres y CPU por varios segundos. Un `@Throttle` específico sería razonable.
+4. **`Match` no tiene índice que cubra `[competitionId, matchNumber]`** (sí
+   `[competitionId, round]`); con el OFFSET del reporte de resultados, si esa tabla
+   crece convendría revisarlo.
+5. El .xlsx nuevo pesa ~12% más (0,9 vs 0,8 MB) por `useSharedStrings: false`: es el
+   precio consciente de no acumular la tabla de strings.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.
