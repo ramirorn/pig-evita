@@ -27,6 +27,7 @@ import { useDisciplines } from '@/hooks/useDisciplines';
 import { useCategories } from '@/hooks/useCategories';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { logError } from '@/lib/logger';
 
 interface ReportCardConfig {
   id: 'participantes' | 'inscripciones' | 'equipos' | 'resultados';
@@ -176,7 +177,7 @@ export function ReportsPage() {
         { id: toastId }
       );
     } catch (error) {
-      console.error(error);
+      logError('ReportsPage.handleExport', error);
       toast.error(`Error al generar el reporte de ${label}`, { id: toastId });
     } finally {
       setLoadingAction(null);

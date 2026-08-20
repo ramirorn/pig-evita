@@ -25,6 +25,7 @@ import {
 import type { TeamMember } from '@/types';
 import { ROUTES } from '@/lib/constants';
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
+import { logError } from '@/lib/logger';
 
 function AddMemberModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   return (
@@ -60,7 +61,7 @@ export function TeamDetailPage() {
       await removeMemberMutation.mutateAsync({ teamId: team.id, participantId: memberToRemove.participantId });
       setMemberToRemove(null);
     } catch (e) {
-      console.error(e);
+      logError('TeamDetailPage.handleRemove', e);
     }
   };
 

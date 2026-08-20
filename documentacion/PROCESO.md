@@ -1693,6 +1693,141 @@ e2e **41/41** (35 previos + 6 nuevos).
 
 ---
 
+### T08 (post-auditoría DevSecOps) — Silenciar `console.error` en producción (A-04, F14)
+
+> Corresponde a `tasks.md → Fase 2 → T08`. Implementada por el agente
+> ⚛️ **Frontend Engineer**.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente ⚛️ **Frontend Engineer**
+- **Hallazgos cubiertos:** A-04, F14 (errores crudos en la consola de producción)
+- **Duración estimada / real:** 1h / ~0,6h
+
+#### Relevamiento previo (antes de delegar)
+
+- **22 ocurrencias en 21 archivos**, todas `console.error`. No había ningún
+  `console.log/debug/info/warn` en `src/`.
+- Ninguna estaba condicionada.
+- `NewsDetailPage` tenía la variante `.catch(console.error)` (el error va como
+  callback); `InscriptionDetailPage` concentraba 3.
+
+#### Prompt utilizado
+
+Prompt enviado al agente (resumen de lo sustantivo):
+
+> Te toca **T08**. `tasks.md` pide reemplazar los `console.error` por
+> `toast.error(...)` + `if (import.meta.env.DEV) console.error(err)`. DoD: el grep
+> de `console.*` fuera de bloques DEV no arroja resultados.
+>
+> **Relevamiento previo (partí de acá):** 22 ocurrencias en 21 archivos, todas
+> `console.error`, ninguna condicionada. [lista completa]
+>
+> **1. Un helper, no 22 condicionales repetidos.** Creá `src/lib/logger.ts` que
+> envuelva el `console.error` dentro del guard. Queda una sola aparición en todo el
+> código y el DoD se cumple igual.
+>
+> **2. Cuidado con los toasts duplicados — esto es lo importante.** La tarea dice
+> "reemplazar por `toast.error(...)`", pero **revisá caso por caso**: muchos de esos
+> `catch` están en componentes cuyas mutaciones ya muestran un toast desde el
+> `onError` de los hooks. Si el hook ya notifica, sólo reemplazá el `console.error`;
+> si el error se traga en silencio, agregá el toast. Contame cuáles caían en cada caso.
+>
+> **3. No adelantes T16** (sanitizar los mensajes del backend).
+
+#### Código generado
+
+- `frontend/src/lib/logger.ts` *(nuevo)* — `logError(context, error)`, **única
+  aparición de `console.error` en todo `src/`**, dentro del guard
+  `import.meta.env.DEV`.
+- **20 archivos** con el cambio mecánico: import del helper y
+  `console.error(x)` → `logError('Componente.handler', x)`.
+- `frontend/src/pages/public/NewsDetailPage.tsx` — tratamiento especial (abajo).
+
+#### Decisión de criterio: el DoD literal habría empeorado la UX
+
+`tasks.md` pedía "reemplazar **todos** por `toast.error(...)` + condicional". El
+agente verificó hook por hook (`useCategories`, `useDisciplines`, `useNews`,
+`useTeams`, `useVenues`, `useCompetitions`, `useInscriptions`, `useParticipants`,
+`useUsers`) y encontró que **todas** las mutaciones ya tienen `onError` con
+`toast.error(...)`.
+
+| Situación | Sitios | Qué se hizo |
+|---|---|---|
+| El usuario **ya recibe** notificación (el `catch` envuelve un `mutateAsync` cuyo hook toastea) | **21 de 22** | Sólo se reemplazó el `console.error` por el helper |
+| El error se **tragaba en silencio** | **1** (`NewsDetailPage.handleShare`) | Se agregó `toast.error(...)` |
+
+Cumplir la letra habría mostrado **dos mensajes por el mismo error en 21 lugares**.
+`ReportsPage.handleExport` es el caso más evidente: ya tenía su propio
+`toast.error(...)` en la línea siguiente al `console.error`.
+
+**El caso especial vale la pena:** `navigator.share` rechaza con `AbortError`
+cuando la persona cierra la hoja de compartir, que es el caso dominante. Un toast
+de error por una cancelación deliberada es ruido, no información. Quedó:
+
+```ts
+.catch((error: unknown) => {
+  if (error instanceof DOMException && error.name === 'AbortError') return;
+  logError('NewsDetailPage.handleShare', error);
+  toast.error('No pudimos abrir el menú de compartir. Copiá el enlace desde la barra del navegador.');
+});
+```
+
+El mensaje es accionable: la otra rama del mismo handler ya copia el enlace al
+portapapeles.
+
+#### Correcciones manuales
+
+- **Ninguna sobre el código entregado.** Se revisó el diff y se reejecutó la
+  verificación de forma independiente, incluido un contraste puntual: se confirmó
+  en `useCategories.ts:43-45` que el `onError` del hook efectivamente toastea, que
+  es el supuesto sobre el que descansa la decisión de no duplicar.
+- **Beneficio lateral no pedido:** el helper recibe un `context`
+  (`'CategoriesAdminPage.handleDeleteConfirm'`). Antes casi todos los sitios
+  loggeaban el error pelado, sin decir de dónde venía.
+
+#### Verificación (DoD)
+
+```
+$ grep -rn "console\.(error|log|debug|info|warn)" frontend/src/   # sólo código
+src/lib/logger.ts:31:    console.error(`[${context}]`, error);
+```
+
+Esa única aparición vive dentro de `if (import.meta.env.DEV)`.
+
+- [x] El grep de `console.*` fuera de bloques `import.meta.env.DEV` no arroja
+  resultados.
+- [x] `npx tsc --noEmit -p tsconfig.app.json` sin errores.
+- [x] `npm run build` OK · `npm run lint` **0 errores** (siguen sólo los warnings
+  preexistentes de `react(only-export-components)`).
+
+#### Notas / aprendizajes
+
+- La instrucción que evitó un resultado peor fue pedir explícitamente que
+  **revisara caso por caso antes de agregar toasts**. Con la letra de `tasks.md`
+  sola, el resultado "correcto" según el DoD habría sido 21 notificaciones
+  duplicadas.
+- Centralizar el guard en un helper es mejor que repetir el condicional: el DoD se
+  cumple por construcción y no depende de que cada `catch` futuro se acuerde de
+  envolver la llamada.
+
+#### Hallazgos fuera de alcance reportados por el agente
+
+1. **Mensajes crudos del backend en toasts (es T16):**
+   - `hooks/useInscriptions.ts:83-85` — muestra `error.response.data.message` crudo.
+     **Es el más sensible: lo ve el usuario público anónimo** en el alta de
+     inscripción, no un admin.
+   - `hooks/useCompetitions.ts:49-54` y `:70-75` — mismo patrón en crear y actualizar.
+   - Son además los únicos tres `onError: (error: any)` que quedan; al implementar
+     `getFriendlyError` conviene tiparlos de paso.
+2. **`any` en los formularios:** los ocho comparten `form.handleSubmit(onSubmit as any)`
+   y `ParticipantForm` tiene `form.reset({...} as any)`. Es un problema de tipado del
+   resolver de Zod/RHF, ajeno a T08.
+3. **`TeamDetailPage`** tiene un modal con el placeholder literal
+   *"(Formulario de búsqueda de participantes pendiente)"*: funcionalidad incompleta,
+   no un problema de consola.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

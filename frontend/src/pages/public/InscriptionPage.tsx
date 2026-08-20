@@ -17,6 +17,7 @@ import { StepSportSelection } from './inscription/StepSportSelection';
 import { StepReview } from './inscription/StepReview';
 import { StepSuccess } from './inscription/StepSuccess';
 import { TrackInscription } from './inscription/TrackInscription';
+import { logError } from '@/lib/logger';
 
 type TabMode = 'register' | 'track';
 type WizardStep = 1 | 2 | 3 | 4; // 1: Personal, 2: Sport, 3: Review, 4: Success
@@ -164,7 +165,7 @@ export function InscriptionPage() {
       setStep(4);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      console.error(err);
+      logError('InscriptionPage.handleSubmitInscription', err);
     }
   };
 

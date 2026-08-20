@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
+import { logError } from '@/lib/logger';
+import { toast } from 'sonner';
 
 export function NewsDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -40,7 +42,16 @@ export function NewsDetailPage() {
           text: news.excerpt || undefined,
           url: window.location.href,
         })
-        .catch(console.error);
+        .catch((error: unknown) => {
+          // `navigator.share` rechaza con AbortError cuando el usuario cierra
+          // la hoja de compartir. Eso no es una falla: mostrar un toast ahí
+          // sería ruido por una acción deliberada del usuario.
+          if (error instanceof DOMException && error.name === 'AbortError') return;
+          logError('NewsDetailPage.handleShare', error);
+          // Este catch se tragaba el error en silencio: si compartir falla de
+          // verdad, le ofrecemos al usuario la alternativa que sí funciona.
+          toast.error('No pudimos abrir el menú de compartir. Copiá el enlace desde la barra del navegador.');
+        });
     } else {
       navigator.clipboard.writeText(window.location.href);
       setCopied(true);

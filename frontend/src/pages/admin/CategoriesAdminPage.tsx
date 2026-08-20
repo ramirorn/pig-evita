@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { logError } from '@/lib/logger';
 
 export function CategoriesAdminPage() {
   const [disciplineId, setDisciplineId] = useState<string>('all');
@@ -76,7 +77,7 @@ export function CategoriesAdminPage() {
       await deleteMutation.mutateAsync(deletingCategory.id);
       setDeletingCategory(null);
     } catch (error) {
-      console.error(error);
+      logError('CategoriesAdminPage.handleDeleteConfirm', error);
     }
   };
 

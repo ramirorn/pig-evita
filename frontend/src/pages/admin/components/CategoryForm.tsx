@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { logError } from '@/lib/logger';
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
@@ -79,7 +80,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
       }
       onSuccess?.();
     } catch (error) {
-      console.error(error);
+      logError('CategoryForm.onSubmit', error);
     }
   };
 

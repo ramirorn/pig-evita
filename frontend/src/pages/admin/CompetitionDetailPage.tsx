@@ -11,6 +11,7 @@ import { CompetitionFormat } from '@/types';
 import { FORMAT_LABELS, STAGE_LABELS, ROUTES } from '@/lib/constants';
 import { toast } from 'sonner';
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
+import { logError } from '@/lib/logger';
 
 export function CompetitionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -60,7 +61,7 @@ export function CompetitionDetailPage() {
         payload: { teamIds } 
       });
     } catch (e) {
-      console.error(e);
+      logError('CompetitionDetailPage.handleGenerateFixture', e);
     }
   };
 

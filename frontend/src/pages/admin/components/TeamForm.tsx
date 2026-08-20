@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { logError } from '@/lib/logger';
 
 type TeamFormValues = z.infer<typeof teamSchema>;
 
@@ -91,7 +92,7 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
       }
       onSuccess?.();
     } catch (error) {
-      console.error(error);
+      logError('TeamForm.onSubmit', error);
     }
   };
 

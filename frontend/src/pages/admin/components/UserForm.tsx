@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { logError } from '@/lib/logger';
 
 const FORMOSA_DEPARTMENTS = [
   'Formosa',
@@ -127,7 +128,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
       }
       onSuccess?.();
     } catch (error) {
-      console.error('Error submitting user form:', error);
+      logError('UserForm.onSubmit', error);
     }
   };
 

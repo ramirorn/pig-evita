@@ -46,6 +46,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Link } from 'react-router';
+import { logError } from '@/lib/logger';
 
 export function TeamsAdminPage() {
   const [department, setDepartment] = useState('');
@@ -95,7 +96,7 @@ export function TeamsAdminPage() {
       await deleteMutation.mutateAsync(deletingTeam.id);
       setDeletingTeam(null);
     } catch (error) {
-      console.error(error);
+      logError('TeamsAdminPage.handleDeleteConfirm', error);
     }
   };
 

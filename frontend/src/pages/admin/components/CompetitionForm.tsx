@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { logError } from '@/lib/logger';
 
 type CompetitionFormValues = z.infer<typeof competitionSchema>;
 
@@ -121,7 +122,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
       }
       onSuccess?.();
     } catch (error) {
-      console.error('Error submitting competition:', error);
+      logError('CompetitionForm.onSubmit', error);
     }
   };
 

@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { logError } from '@/lib/logger';
 
 interface VenueFormProps {
   initialData?: Venue;
@@ -101,7 +102,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
       }
       onSuccess?.();
     } catch (error) {
-      console.error(error);
+      logError('VenueForm.onSubmit', error);
     }
   };
 

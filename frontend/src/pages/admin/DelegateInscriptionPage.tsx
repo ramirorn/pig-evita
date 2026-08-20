@@ -16,6 +16,7 @@ import { StepPersonalData, type InscriptionFormData } from '../public/inscriptio
 import { StepSportSelection } from '../public/inscription/StepSportSelection';
 import { StepReview } from '../public/inscription/StepReview';
 import { StepSuccess } from '../public/inscription/StepSuccess';
+import { logError } from '@/lib/logger';
 
 type WizardStep = 1 | 2 | 3 | 4;
 
@@ -157,7 +158,7 @@ export function DelegateInscriptionPage() {
       setStep(4);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
-      console.error(err);
+      logError('DelegateInscriptionPage.handleSubmitInscription', err);
     }
   };
 

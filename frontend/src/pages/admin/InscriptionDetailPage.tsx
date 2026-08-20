@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { ROUTES } from '@/lib/constants';
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
+import { logError } from '@/lib/logger';
 
 export function InscriptionDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -52,7 +53,7 @@ export function InscriptionDetailPage() {
     try {
       await reviewMutation.mutateAsync({ id: inscription.id, payload: { notes } });
     } catch (e) {
-      console.error(e);
+      logError('InscriptionDetailPage.handleReview', e);
     }
   };
 
@@ -60,7 +61,7 @@ export function InscriptionDetailPage() {
     try {
       await approveMutation.mutateAsync(inscription.id);
     } catch (e) {
-      console.error(e);
+      logError('InscriptionDetailPage.handleApprove', e);
     }
   };
 
@@ -73,7 +74,7 @@ export function InscriptionDetailPage() {
       await rejectMutation.mutateAsync({ id: inscription.id, payload: { rejectionNote } });
       setIsRejecting(false);
     } catch (e) {
-      console.error(e);
+      logError('InscriptionDetailPage.handleReject', e);
     }
   };
 

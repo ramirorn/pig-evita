@@ -34,6 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { logError } from '@/lib/logger';
 
 export function NewsAdminPage() {
   const [search, setSearch] = useState('');
@@ -70,7 +71,7 @@ export function NewsAdminPage() {
       await deleteMutation.mutateAsync(deletingNews.id);
       setDeletingNews(null);
     } catch (error) {
-      console.error(error);
+      logError('NewsAdminPage.handleDeleteConfirm', error);
     }
   };
 

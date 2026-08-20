@@ -52,6 +52,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { SkeletonTable } from '@/components/shared/SkeletonTable';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
+import { logError } from '@/lib/logger';
 
 const FORMOSA_DEPARTMENTS = [
   'Formosa',
@@ -105,7 +106,7 @@ export function VenuesAdminPage() {
       await deleteMutation.mutateAsync(deletingVenue.id);
       setDeletingVenue(null);
     } catch (error) {
-      console.error(error);
+      logError('VenuesAdminPage.handleConfirmDelete', error);
     }
   };
 

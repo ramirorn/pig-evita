@@ -36,6 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { logError } from '@/lib/logger';
 
 export function DisciplinesAdminPage() {
   const [search, setSearch] = useState('');
@@ -73,7 +74,7 @@ export function DisciplinesAdminPage() {
       await deleteMutation.mutateAsync(deletingDiscipline.id);
       setDeletingDiscipline(null);
     } catch (error) {
-      console.error(error);
+      logError('DisciplinesAdminPage.handleDeleteConfirm', error);
     }
   };
 

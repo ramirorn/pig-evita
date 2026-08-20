@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { logError } from '@/lib/logger';
 
 type ParticipantFormValues = z.infer<typeof participantSchema>;
 
@@ -83,7 +84,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
       }
       onSuccess?.();
     } catch (error) {
-      console.error(error);
+      logError('ParticipantForm.onSubmit', error);
     }
   };
 

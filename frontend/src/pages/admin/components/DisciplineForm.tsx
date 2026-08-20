@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { logError } from '@/lib/logger';
 
 type DisciplineFormValues = z.infer<typeof disciplineSchema>;
 
@@ -81,7 +82,7 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
       }
       onSuccess?.();
     } catch (error) {
-      console.error(error);
+      logError('DisciplineForm.onSubmit', error);
     }
   };
 

@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13, T14, T05, T06 y T07 completadas**; siguen T08 → T09.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. Bloque 2 en curso: **T18, T19, T20, T21, T13, T14, T05, T06, T07 y T08 completadas**; queda T09 para cerrarlo.
 
 ---
 
@@ -108,7 +108,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T08 🟡 ⚛️ FE — Silenciar `console.error` en producción del frontend (A-04, F14)
 
-- [ ] **Descripción:** La segunda pasada detectó **20+ ubicaciones** con `console.error` sin condicional. Reemplazar todos por `toast.error(...)` + `if (import.meta.env.DEV) console.error(err)`. Incluir también los `.catch(console.error)` (ej. `NewsDetailPage.tsx:42`).
+- [x] **Descripción:** La segunda pasada detectó **20+ ubicaciones** con `console.error` sin condicional. Reemplazar todos por `toast.error(...)` + `if (import.meta.env.DEV) console.error(err)`. Incluir también los `.catch(console.error)` (ej. `NewsDetailPage.tsx:42`).
 - **Archivos afectados (parciales):**
   - `frontend/src/pages/public/InscriptionPage.tsx:167`
   - `frontend/src/pages/public/NewsDetailPage.tsx:42`
@@ -118,7 +118,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `frontend/src/pages/admin/ReportsPage.tsx:179`
   - `frontend/src/pages/admin/VenuesAdminPage.tsx:108`
   - Resto: grep exhaustivo al ejecutar la tarea.
-- **DoD:** grep `console\.(error|log|debug|info)` en `frontend/src/` fuera de bloques `if (import.meta.env.DEV)` no arroja resultados.
+- **DoD:** grep `console\.(error|log|debug|info)` en `frontend/src/` fuera de bloques `if (import.meta.env.DEV)` no arroja resultados. ✅ Cumplido: queda **una sola** aparición de `console.error` en todo `src/`, dentro del guard, en el nuevo `src/lib/logger.ts`. **Desvío deliberado del enunciado:** no se agregó `toast.error(...)` en los 22 sitios — se verificó hook por hook que **21 de 22** ya notifican vía el `onError` de las mutaciones, así que hacerlo habría mostrado **dos mensajes por el mismo error**. Sólo se agregó toast en el único sitio que se tragaba el error en silencio (`NewsDetailPage.handleShare`, con `AbortError` exceptuado para no avisar cuando la persona cancela deliberadamente). Evidencia en `PROCESO.md → sección 4 → T08 (post-auditoría)`.
 
 ---
 
@@ -448,7 +448,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 15 de 28 tareas completadas.**
+**Progreso: 16 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -460,7 +460,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T05** | 🟡 | 🏗️ BE | Rate limiting en endpoints públicos scrapeables | ✅ Completada |
 | **T06** | 🟡 | 🏗️ BE | Ocultar Swagger en producción | ✅ Completada |
 | **T07** | 🟡 | 🏗️ BE | Enriquecer `AuditInterceptor` con IP y User-Agent | ✅ Completada |
-| **T08** | 🟡 | ⚛️ FE | Silenciar `console.error` en producción del frontend | ⬜ Pendiente |
+| **T08** | 🟡 | ⚛️ FE | Silenciar `console.error` en producción del frontend | ✅ Completada |
 | **T09** | 🟠 | 🏗️ BE | Endurecer CORS y CSP | ⬜ Pendiente |
 | **T10** | 🟠 | ⚛️ FE + 🎨 UI | Descomponer componentes React monolíticos | ⬜ Pendiente |
 | **T11** | 🔴 | ⚛️ FE | Sanitizar HTML del backend antes de renderizar con `dangerouslySetInnerHTML` | ✅ Completada |
@@ -487,7 +487,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | Severidad | Completadas | Total |
 |---|---|---|
 | 🔴 Crítico | 6 | 6 |
-| 🟡 Alto | 5 | 6 |
+| 🟡 Alto | 6 | 6 |
 | 🟠 Medio | 0 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 0 | 4 |

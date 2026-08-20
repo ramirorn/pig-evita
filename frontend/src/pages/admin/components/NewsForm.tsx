@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { logError } from '@/lib/logger';
 
 interface NewsFormProps {
   initialData?: News;
@@ -74,7 +75,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
       }
       onSuccess?.();
     } catch (error) {
-      console.error(error);
+      logError('NewsForm.onSubmit', error);
     }
   };
 
