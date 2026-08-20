@@ -10,9 +10,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  Matches,
 } from 'class-validator';
 import { InscriptionStatus, Sex } from '@prisma/client';
+import { IsDni } from '../../../common/validators';
 import { PaginationQueryDto } from '../../../common/dto';
 
 /**
@@ -22,9 +22,7 @@ import { PaginationQueryDto } from '../../../common/dto';
 export class CreateInscriptionDto {
   // --- Datos del participante ---
   @ApiProperty({ description: 'DNI', example: '12345678' })
-  @IsString()
-  @IsNotEmpty({ message: 'El DNI es obligatorio' })
-  @Matches(/^\d{7,8}$/, { message: 'El DNI debe tener 7 u 8 dígitos' })
+  @IsDni()
   dni: string;
 
   @ApiProperty({ description: 'Nombre', example: 'Juan' })

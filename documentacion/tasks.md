@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. Bloque 3 en curso: **T22 y T23 completadas**; siguen T24 → T25. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. Bloque 3 en curso: **T22, T23 y T24 completadas**; queda T25 para cerrarlo. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -195,6 +195,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `phone`: si viene, exigir `.min(8).max(20)` y regex `^[\d+\s\-()]+$`.
   - `birthDate`: exigir año entre 1920 y hoy - 5 años (ningún participante nace en el futuro ni tiene 100 años).
   - Auditar el resto de `schemas/index.ts` con el mismo criterio.
+- **⚠️ Alineación con el backend (dejada por T24):** la regla de DNI vive ahora en `backend/src/common/validators/dni.validator.ts` (`DNI_REGEX` + `@IsDni()`), y hay un test que documenta el hueco a propósito (`'todavía acepta dígitos repetidos (pendiente de T15)'`) para que **la regla se endurezca en los dos lados a la vez**. Ojo: ese decorador lo comparte el endpoint público de inscripción por QR. El teléfono hoy **no tiene validación en el servidor**.
 - **Archivos:** `frontend/src/schemas/index.ts:47-58`
 - **DoD:** todos los schemas tienen constraints mínimas + máximas + refinamientos lógicos donde aplica.
 
@@ -303,7 +304,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T24 📈 🏗️ BE — DRY backend: validators, DTOs con `PartialType`, includes reusables (Q13, Q15)
 
-- [ ] **Descripción:**
+- [x] **Descripción:**
   - Extraer validadores repetidos (DNI regex, phone regex, email) a `backend/src/common/validators/` y crear decorators `@IsDni()`, `@IsPhone()` que envuelvan `@Matches` + `@IsString`.
   - Verificar que todos los `UpdateXxxDto` usen `PartialType(CreateXxxDto)` en lugar de duplicar campos.
   - Consolidar objetos `include`/`select` repetidos en `common/prisma-selects.ts` (ya cubierto por T21).
@@ -311,7 +312,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `backend/src/common/validators/dni.validator.ts` (nuevo)
   - `backend/src/common/validators/phone.validator.ts` (nuevo)
   - `backend/src/modules/*/dto/*.dto.ts` (aplicar)
-- **DoD:** grep `Matches\(\/\^\\d\{7,8\}\$` en `backend/src/modules/` retorna 0 resultados (todo usa `@IsDni()`).
+- **DoD:** grep `Matches\(\/\^\\d\{7,8\}\$` en `backend/src/modules/` retorna 0 resultados (todo usa `@IsDni()`). ✅ 0 resultados; de hecho no queda ningún `@Matches` en `src/modules/`. **Se hizo sólo `@IsDni()`:** el agente declinó `@IsPhone()` y el de email con argumento — hoy no hay ninguna regla de teléfono que centralizar (los dos usos son `@IsOptional() @IsString()`), así que el decorador sería una trampa para el próximo que le meta un regex adentro y endurezca en silencio el endpoint público. `UpdateResultDto` se deja sin `PartialType` porque **no existe `CreateResultDto` y no debería**: los `Result` los crea el motor de competencia, no la API. 34 tests, incluida una clase de control que compara mensaje por mensaje contra los decoradores inline previos. Evidencia en `PROCESO.md → sección 4 → T24 (post-auditoría)`.
 
 ### T25 📈 🏗️ BE — Consolidar auditoría: interceptor vs llamadas manuales (Q10)
 
@@ -448,7 +449,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 19 de 28 tareas completadas.**
+**Progreso: 20 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -476,7 +477,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T21** | 🚀 | 🏗️ BE | Reemplazar `include: X: true` por `select` en services | ✅ Completada |
 | **T22** | 📈 | 🔀 FS | Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas | ✅ Completada |
 | **T23** | 📈 | 🏗️ BE | Streaming + paginación en reports Excel/CSV | ✅ Completada |
-| **T24** | 📈 | 🏗️ BE | DRY backend: validators, DTOs con `PartialType`, includes reusables | ⬜ Pendiente |
+| **T24** | 📈 | 🏗️ BE | DRY backend: validators, DTOs con `PartialType`, includes reusables | ✅ Completada |
 | **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ⬜ Pendiente |
 | **T26** | ✨ | ⚛️ FE | Memoización de valores derivados en páginas admin | ⬜ Pendiente |
 | **T27** | ✨ | 🎨 UI + ⚛️ FE | DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables | ⬜ Pendiente |
@@ -490,5 +491,5 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | 🟡 Alto | 6 | 6 |
 | 🟠 Medio | 1 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
-| 📈 Optimización media | 2 | 4 |
+| 📈 Optimización media | 3 | 4 |
 | ✨ Polish | 0 | 3 |

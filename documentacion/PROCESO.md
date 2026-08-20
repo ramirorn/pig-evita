@@ -2319,6 +2319,164 @@ el lote de 1000, no el total**.
 
 ---
 
+### T24 (post-auditoría DevSecOps) — DRY backend: validadores y DTOs (Q13, Q15)
+
+> Corresponde a `tasks.md → Fase 5 → T24`. Implementada por el agente
+> 🏗️ **Backend Architect**, que **declinó dos de las tres abstracciones** que
+> pedía el enunciado, con argumento.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente 🏗️ **Backend Architect**
+- **Hallazgos cubiertos:** Q13, Q15 (validadores y DTOs duplicados)
+- **Duración estimada / real:** 1h / ~0,5h
+
+#### Relevamiento previo (antes de delegar)
+
+La tarea resultó **más chica de lo que sugiere el enunciado**:
+
+| Viñeta | Estado encontrado |
+|---|---|
+| Regex de DNI duplicado | Exactamente **2 lugares** (inscriptions y participants), los dos únicos `@Matches` de todo `src/modules/` |
+| `UpdateXxxDto` con `PartialType` | **9 de 10 ya lo usaban**; el único que no es `UpdateResultDto` |
+| Consolidar `include`/`select` | **Ya hecho en T21** y ampliado en T22 |
+
+#### Prompt utilizado
+
+Resumen de lo sustantivo:
+
+> Te toca **T24**. [Relevamiento completo de arriba.]
+>
+> **Lo que quiero que resuelvas con criterio:** no inventes abstracción donde no
+> hay repetición. La tarea nombra `@IsDni()` y `@IsPhone()`, pero con 2 usos de DNI
+> decidí vos si se justifican. **Mi criterio:** el valor de `@IsDni()` no está sólo
+> en evitar repetir un regex, está en que la regla de qué es un DNI válido **viva
+> en un solo lugar** y no derive entre módulos. Si pensás distinto para `@IsPhone()`,
+> argumentalo.
+>
+> **Mirá bien `UpdateResultDto` antes de tocarlo.** Si convertirlo a `PartialType`
+> no es correcto, **no lo fuerces**: la tarea dice "verificar que usen `PartialType`",
+> no "convertir todo a la fuerza".
+>
+> **Cuidado con T15** (pendiente, frontend): endurece los schemas Zod incluyendo
+> rechazar DNIs de dígitos repetidos. Si el decorador puede alojar esa regla, es el
+> lugar correcto —el cliente valida por UX, el servidor por seguridad— pero **no la
+> implementes ahora**: dejá el decorador preparado y anotámelo.
+>
+> **Los mensajes de error son visibles para el usuario final.** No los cambies salvo
+> que mejores la claridad, porque el frontend podría mostrarlos.
+
+#### Código generado
+
+- `src/common/validators/dni.validator.ts` *(nuevo)* — `@IsDni()` y `DNI_REGEX`.
+- `src/common/validators/dni.validator.spec.ts` *(nuevo)* — 34 tests.
+- `src/common/validators/index.ts` *(nuevo)* + export desde `src/common/index.ts`.
+- `src/modules/inscriptions/dto/inscriptions.dto.ts` y
+  `src/modules/participants/dto/participants.dto.ts` — usan `@IsDni()`.
+
+Neto: **−8/+5 líneas** en los DTOs.
+
+#### Decisiones del agente (y por qué)
+
+**1. `@IsDni()` envuelve tres constraints, no dos.** La tarea pedía `@Matches` +
+`@IsString`; el agente sumó `@IsNotEmpty`. Razón: si el `@IsNotEmpty` quedaba en el
+call site, un `dni: ''` pasaría de devolver **dos** mensajes de error a devolver
+**uno**, y como el frontend puede estar mostrando cualquiera de los dos, eso es un
+cambio observable. Envolver las tres preserva el conjunto exacto de constraints, y
+de paso deja de duplicarse también el string `'El DNI es obligatorio'`.
+
+Verificó además que no rompe los `UpdateXxxDto`: `PartialType()` inyecta
+`@IsOptional()` sobre cada propiedad heredada, así que un update sin `dni` sigue
+siendo válido. Hay dos tests que lo fijan.
+
+**2. `@IsPhone()` — NO lo hizo, y el argumento es correcto.** *"Hoy no hay ninguna
+regla de teléfono"*: los dos usos son `@IsOptional() @IsString()`, sin regex. No
+hay nada que centralizar, así que el decorador sería un alias de vocabulario con
+cero contenido. Y peor: **sería una trampa**, porque el próximo que lo vea va a
+asumir que valida algo y le va a meter un regex adentro, endureciendo en silencio
+dos endpoints —incluido el público de inscripción por QR— y rechazando teléfonos
+que hoy entran. Cuando T15 defina *cuál* es la regla, ahí el decorador tiene
+contenido y se crea con un cambio de comportamiento consciente y testeado.
+
+**3. Email — tampoco.** Los 4 usos son `@IsEmail(...)`: la regla ya vive en un solo
+lugar (class-validator); lo único repetido es el **string del mensaje**. Envolver
+un decorador built-in para deduplicar un mensaje es desproporcionado; si molesta la
+deriva, la solución del tamaño correcto es una constante de mensaje.
+
+**4. `UpdateResultDto` se queda como está, y por la razón correcta.** **No existe
+`CreateResultDto` y no debería existir**: los `Result` no los crea nadie por API,
+los crea el motor de competencia en `engine.factory.ts:91` con un `createMany()` al
+generar el fixture. Convertirlo exigiría **inventar** un `CreateResultDto` que
+ningún endpoint consume, sólo para que el update tenga de quién heredar — y que
+además mentiría en Swagger sugiriendo una operación de creación que la API no
+expone. Verificado: **9 de 10 usan `PartialType` correctamente, y el décimo no lo
+usa por el motivo correcto.**
+
+#### Correcciones manuales
+
+- **Ninguna.** Se revisó el diff y se reejecutó la verificación de forma
+  independiente.
+
+#### Verificación (DoD)
+
+```
+grep -rn 'Matches(/^\d{7,8}$' src/modules/   → 0 resultados ✔
+grep -rn '@Matches' src/modules/             → ninguno ✔
+```
+
+- [x] El grep del DoD retorna 0 resultados: todo usa `@IsDni()`.
+- [x] **El comportamiento de validación no cambió.** El spec incluye una clase de
+  control `LegacyInline` que replica los decoradores inline previos a T24, y un
+  bloque de equivalencia que compara **mensaje por mensaje** sobre 14 casos
+  (aceptados y rechazados). Si alguien endurece el decorador sin querer, ese test
+  falla. Los mensajes en español quedaron idénticos.
+- [x] Reejecutado por fuera del agente: `tsc` OK · `build` OK · `npx jest`
+  **78/78** (44 previos + 34 nuevos) · e2e **98/98**.
+
+#### Notas / aprendizajes
+
+- **El mejor resultado de esta tarea fue lo que no se hizo.** De las tres
+  abstracciones que nombraba el enunciado, sólo una tenía contenido real. Pedirle
+  al agente el criterio —"no inventes abstracción donde no hay repetición"— en
+  lugar de la implementación literal evitó dos indirecciones vacías, una de las
+  cuales era además una trampa a futuro.
+- La distinción que hace el agente es la correcta: **`@IsDni()` no vale por
+  deduplicar un regex, vale porque la definición de DNI válido deja de poder
+  divergir entre módulos.** `@IsPhone()` no tendría esa propiedad porque no hay
+  definición que proteger.
+
+#### Anotaciones para T15 (pedidas explícitamente)
+
+1. `DNI_REGEX` está exportado desde `dni.validator.ts` y es **el único lugar** donde
+   vive el formato. El JSDoc de `@IsDni()` tiene un `@remarks` que apunta a T15 y
+   explica el reparto: el cliente valida por UX, el servidor por seguridad.
+2. **Hay un test que documenta el hueco a propósito:**
+   `'todavía acepta dígitos repetidos (pendiente de T15)'`, que afirma que
+   `00000000` y `11111111` **pasan**. Está escrito para invertirse cuando T15
+   agregue la regla, así nadie endurece el backend sin notar que cambió el
+   contrato, ni endurece sólo el frontend dejando el backend permisivo.
+3. **Advertencia concreta:** el DTO público de inscripción por QR comparte este
+   decorador. Si T15 agrega la regla de dígitos repetidos, aplica también al
+   endpoint público —que es lo deseable— pero conviene chequear que no haya
+   inscripciones ya cargadas con DNIs de prueba tipo `12345678`, porque un update
+   posterior de ese participante empezaría a rebotar.
+4. El **teléfono queda sin validación en el servidor**. Si T15 valida sólo en Zod,
+   el backend va a seguir aceptando cualquier string: no es un agujero de seguridad
+   (campo opcional de contacto), pero es divergencia cliente/servidor consciente.
+
+#### Hallazgos fuera de alcance (viñeta 3, verificada)
+
+- No quedó ningún `select` inline duplicado *verbatim*. Lo único repetido son
+  agregados triviales (`_count: { select: { members: true } }`) donde una constante
+  sería peor que la repetición.
+- `results.service.ts:101` tiene inline **exactamente** `PARTICIPANT_NAME`: es el
+  único reemplazo 1-a-1 que queda, pero es criterio de T21.
+- Dos casi-duplicados que **no** conviene consolidar a ciegas:
+  `audit.service.ts:92` usa `USER_SUMMARY` **+ email**, y `documents.service.ts:124`
+  usa `PARTICIPANT_SUMMARY` **− id**. Reemplazar el segundo por la constante
+  **agregaría `id` al payload** — cambio de comportamiento, no cosmético.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.
