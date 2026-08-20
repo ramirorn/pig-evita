@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. Siguen los bloques 3 y 4: T22 → T23 → T24/T25, luego T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. Bloque 3 en curso: **T22 completada**; siguen T23 → T24/T25. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -282,7 +282,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T22 📈 🔀 FS — Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas (Q3)
 
-- [ ] **Descripción:** `DashboardPage` dispara 8 `useQuery` para contar inscripciones por estado, participantes, teams, competitions. Consolidar en un endpoint backend `GET /dashboard/stats` que ejecute todas las cuentas en una sola query Prisma con `count` + `groupBy`. Cachear el resultado en Redis con TTL 60s. Frontend consume con un solo `useDashboardStats()`.
+- [x] **Descripción:** `DashboardPage` dispara 8 `useQuery` para contar inscripciones por estado, participantes, teams, competitions. Consolidar en un endpoint backend `GET /dashboard/stats` que ejecute todas las cuentas en una sola query Prisma con `count` + `groupBy`. Cachear el resultado en Redis con TTL 60s. Frontend consume con un solo `useDashboardStats()`.
 - **Reparto:**
   - **🏗️ BE:** crea el endpoint + cache Redis.
   - **⚛️ FE:** crea el hook `useDashboardStats` y refactoriza `DashboardPage`.
@@ -291,7 +291,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `backend/src/modules/dashboard/dashboard.controller.ts`
   - `frontend/src/hooks/useDashboardStats.ts` (nuevo)
   - `frontend/src/pages/admin/DashboardPage.tsx:27-34` (reemplazar 8 hooks por 1)
-- **DoD:** Network tab: cargar el Dashboard genera **1 request** (contra 8+). Tiempo total <200ms.
+- **DoD:** Network tab: cargar el Dashboard genera **1 request** (contra 8+). Tiempo total <200ms. ✅ **1 request** verificado por la cadena mecánica: la página importa un solo hook de datos, el hook tiene un solo `useQuery` y la API hace una sola llamada. ⏳ El **<200ms no se midió** (requiere base de datos; Docker apagado). El endpoint **ya existía** con cache Redis, pero el frontend nunca lo consumía y al payload le faltaban las inscripciones por estado (4 de los 8 requests) y las recientes; TTL bajado de 300s a 60s. 16 tests e2e nuevos en `backend/test/dashboard-stats.e2e-spec.ts`. Evidencia en `PROCESO.md → sección 4 → T22 (post-auditoría)`.
 
 ### T23 📈 🏗️ BE — Streaming + paginación en reports Excel/CSV (Q5, Q23)
 
@@ -448,7 +448,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 17 de 28 tareas completadas.**
+**Progreso: 18 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -474,7 +474,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T19** | 🚀 | ⚛️ FE | Ajustar `staleTime` de React Query por dominio | ✅ Completada |
 | **T20** | 🚀 | ⚛️ FE | Code splitting: lazy loading de rutas admin | ✅ Completada |
 | **T21** | 🚀 | 🏗️ BE | Reemplazar `include: X: true` por `select` en services | ✅ Completada |
-| **T22** | 📈 | 🔀 FS | Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas | ⬜ Pendiente |
+| **T22** | 📈 | 🔀 FS | Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas | ✅ Completada |
 | **T23** | 📈 | 🏗️ BE | Streaming + paginación en reports Excel/CSV | ⬜ Pendiente |
 | **T24** | 📈 | 🏗️ BE | DRY backend: validators, DTOs con `PartialType`, includes reusables | ⬜ Pendiente |
 | **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ⬜ Pendiente |
@@ -490,5 +490,5 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | 🟡 Alto | 6 | 6 |
 | 🟠 Medio | 1 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
-| 📈 Optimización media | 0 | 4 |
+| 📈 Optimización media | 1 | 4 |
 | ✨ Polish | 0 | 3 |

@@ -24,6 +24,20 @@ export const USER_SUMMARY = {
 } satisfies Prisma.UserSelect;
 
 /**
+ * Participante reducido a su identidad visible: nombre y apellido.
+ *
+ * Es el mínimo para widgets donde el participante se muestra pero no se busca
+ * ni se identifica formalmente (por ejemplo el listado de "últimas
+ * inscripciones" del dashboard). Sin DNI: ese dato es identificatorio y no hay
+ * motivo para pasearlo por una tarjeta de resumen.
+ */
+export const PARTICIPANT_NAME = {
+  id: true,
+  firstName: true,
+  lastName: true,
+} satisfies Prisma.ParticipantSelect;
+
+/**
  * Participante en listados. Incluye DNI porque las tablas admin lo muestran y
  * es el dato por el que se busca.
  *
@@ -32,9 +46,7 @@ export const USER_SUMMARY = {
  * `PARTICIPANT_CONTACT`.
  */
 export const PARTICIPANT_SUMMARY = {
-  id: true,
-  firstName: true,
-  lastName: true,
+  ...PARTICIPANT_NAME,
   dni: true,
 } satisfies Prisma.ParticipantSelect;
 
@@ -56,6 +68,12 @@ export const DISCIPLINE_SUMMARY = {
   minPlayers: true,
   maxPlayers: true,
 } satisfies Prisma.DisciplineSelect;
+
+/** Categoría reducida a su etiqueta, para chips y listados de resumen. */
+export const CATEGORY_NAME = {
+  id: true,
+  name: true,
+} satisfies Prisma.CategorySelect;
 
 /** Categoría con su disciplina: el par que la UI muestra casi siempre junto. */
 export const CATEGORY_WITH_DISCIPLINE = {

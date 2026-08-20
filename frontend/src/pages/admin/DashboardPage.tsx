@@ -1,19 +1,18 @@
 // ===========================================
 // Admin Dashboard Page
 // ===========================================
+import { useMemo } from 'react';
 import { Link } from 'react-router';
 import {
   LayoutDashboard, Users, ClipboardList, UsersRound, Trophy,
-  Activity, Loader2, TrendingUp, ArrowRight,
+  Activity, Loader2, TrendingUp, ArrowRight, AlertTriangle,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { useParticipants } from '@/hooks/useParticipants';
-import { useInscriptions } from '@/hooks/useInscriptions';
-import { useTeams } from '@/hooks/useTeams';
-import { useCompetitions } from '@/hooks/useCompetitions';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { InscriptionStatus } from '@/types';
 import { ROUTES, INSCRIPTION_STATUS_LABELS } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { formatRelativeTime } from '@/lib/utils';
 
 const DONUT_COLORS = {
@@ -24,33 +23,37 @@ const DONUT_COLORS = {
 };
 
 export function DashboardPage() {
-  const { data: participantsData, isLoading: isLoadingP } = useParticipants({ limit: 1 });
-  const { data: inscriptionsData, isLoading: isLoadingI } = useInscriptions({ limit: 5 });
-  const { data: pendingInscriptions, isLoading: isLoadingPI } = useInscriptions({ status: InscriptionStatus.PENDIENTE, limit: 1 });
-  const { data: reviewedInscriptions } = useInscriptions({ status: InscriptionStatus.REVISADA, limit: 1 });
-  const { data: approvedInscriptions } = useInscriptions({ status: InscriptionStatus.APROBADA, limit: 1 });
-  const { data: rejectedInscriptions } = useInscriptions({ status: InscriptionStatus.RECHAZADA, limit: 1 });
-  const { data: teamsData, isLoading: isLoadingT } = useTeams({ limit: 1 });
-  const { data: competitionsData, isLoading: isLoadingC } = useCompetitions({ limit: 1 });
+  // Una sola request para todo el panel (hallazgo Q3): antes eran 8 `useQuery`
+  // que sólo se usaban para leer 8 contadores distintos.
+  const { data: stats, isLoading, isError } = useDashboardStats();
 
-  const isLoading = isLoadingP || isLoadingI || isLoadingPI || isLoadingT || isLoadingC;
-
-  const stats = [
-    { label: 'Participantes', value: participantsData?.meta.total || 0, icon: <Users className="w-6 h-6" />, color: 'from-primary-500 to-primary-700', link: ROUTES.PARTICIPANTS },
-    { label: 'Inscripciones', value: inscriptionsData?.meta.total || 0, icon: <ClipboardList className="w-6 h-6" />, color: 'from-celeste-500 to-celeste-700', link: ROUTES.INSCRIPTIONS },
-    { label: 'Equipos', value: teamsData?.meta.total || 0, icon: <UsersRound className="w-6 h-6" />, color: 'from-secondary-500 to-secondary-600', link: ROUTES.TEAMS },
-    { label: 'Competencias', value: competitionsData?.meta.total || 0, icon: <Trophy className="w-6 h-6" />, color: 'from-accent-500 to-accent-600', link: ROUTES.COMPETITIONS },
+  const cards = [
+    { label: 'Participantes', value: stats?.totalParticipants ?? 0, icon: <Users className="w-6 h-6" />, color: 'from-primary-500 to-primary-700', link: ROUTES.PARTICIPANTS },
+    { label: 'Inscripciones', value: stats?.totalInscriptions ?? 0, icon: <ClipboardList className="w-6 h-6" />, color: 'from-celeste-500 to-celeste-700', link: ROUTES.INSCRIPTIONS },
+    { label: 'Equipos', value: stats?.totalTeams ?? 0, icon: <UsersRound className="w-6 h-6" />, color: 'from-secondary-500 to-secondary-600', link: ROUTES.TEAMS },
+    { label: 'Competencias', value: stats?.totalCompetitions ?? 0, icon: <Trophy className="w-6 h-6" />, color: 'from-accent-500 to-accent-600', link: ROUTES.COMPETITIONS },
   ];
 
-  // Build donut data
-  const donutData = [
-    { name: INSCRIPTION_STATUS_LABELS[InscriptionStatus.PENDIENTE], value: pendingInscriptions?.meta.total || 0, key: InscriptionStatus.PENDIENTE },
-    { name: INSCRIPTION_STATUS_LABELS[InscriptionStatus.REVISADA], value: reviewedInscriptions?.meta.total || 0, key: InscriptionStatus.REVISADA },
-    { name: INSCRIPTION_STATUS_LABELS[InscriptionStatus.APROBADA], value: approvedInscriptions?.meta.total || 0, key: InscriptionStatus.APROBADA },
-    { name: INSCRIPTION_STATUS_LABELS[InscriptionStatus.RECHAZADA], value: rejectedInscriptions?.meta.total || 0, key: InscriptionStatus.RECHAZADA },
-  ].filter((d) => d.value > 0);
+  // El backend ya manda los 4 estados en orden y con `count: 0` si no hay
+  // filas, así que acá sólo se descartan los ceros: una porción de valor 0 no
+  // se ve en el donut pero sí ensucia la leyenda.
+  const donutData = useMemo(
+    () =>
+      (stats?.inscriptionsByStatus ?? [])
+        .filter((row) => row.count > 0)
+        .map((row) => ({
+          key: row.status,
+          name: INSCRIPTION_STATUS_LABELS[row.status],
+          value: row.count,
+        })),
+    [stats],
+  );
 
-  const recentInscriptions = inscriptionsData?.data.slice(0, 5) || [];
+  const pendingCount =
+    stats?.inscriptionsByStatus.find((row) => row.status === InscriptionStatus.PENDIENTE)?.count ?? 0;
+
+  // Ya vienen ordenadas de la más nueva a la más vieja y con tope de 5.
+  const recentInscriptions = stats?.recentInscriptions ?? [];
 
   return (
     <div className="space-y-6">
@@ -64,11 +67,19 @@ export function DashboardPage() {
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
         </div>
+      ) : isError || !stats ? (
+        <div className="card">
+          <EmptyState
+            icon={<AlertTriangle className="w-10 h-10" />}
+            title="No pudimos cargar el resumen"
+            description="Volvé a intentarlo en unos minutos. Si el problema sigue, avisale al equipo técnico."
+          />
+        </div>
       ) : (
         <>
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {stats.map((stat, idx) => (
+            {cards.map((stat, idx) => (
               <Link
                 key={stat.label}
                 to={stat.link}
@@ -114,7 +125,7 @@ export function DashboardPage() {
                           {donutData.map((entry) => (
                             <Cell
                               key={entry.key}
-                              fill={DONUT_COLORS[entry.key as InscriptionStatus]}
+                              fill={DONUT_COLORS[entry.key]}
                             />
                           ))}
                         </Pie>
@@ -135,7 +146,7 @@ export function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <span
                             className="w-3 h-3 rounded-full"
-                            style={{ background: DONUT_COLORS[d.key as InscriptionStatus] }}
+                            style={{ background: DONUT_COLORS[d.key] }}
                           />
                           <span className="text-primary-600">{d.name}</span>
                         </div>
@@ -161,7 +172,7 @@ export function DashboardPage() {
                 Hay inscripciones pendientes de revisión que requieren atención administrativa.
               </p>
               <div className="text-3xl font-black text-orange-600 mb-4">
-                {pendingInscriptions?.meta.total || 0}
+                {pendingCount}
                 <span className="text-sm font-medium text-primary-500 ml-2">Pendientes</span>
               </div>
 
@@ -206,14 +217,14 @@ export function DashboardPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-xs font-bold text-primary-600">
-                        {insc.participant?.firstName?.charAt(0)}{insc.participant?.lastName?.charAt(0)}
+                        {insc.participant.firstName.charAt(0)}{insc.participant.lastName.charAt(0)}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-primary-800">
-                          {insc.participant?.lastName}, {insc.participant?.firstName}
+                          {insc.participant.lastName}, {insc.participant.firstName}
                         </p>
                         <p className="text-xs text-primary-500">
-                          {insc.category?.name} · {insc.qrCode}
+                          {insc.category.name} · {insc.qrCode}
                         </p>
                       </div>
                     </div>

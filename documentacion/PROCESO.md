@@ -1974,6 +1974,169 @@ e2e **64/64** (41 previos + 23 nuevos).
 
 ---
 
+### T22 (post-auditoría DevSecOps) — Un solo `/dashboard/stats` en lugar de 8 queries (Q3)
+
+> Corresponde a `tasks.md → Fase 5 → T22`. **Primera tarea full-stack ejecutada con
+> los dos agentes coordinados**: 🏗️ Backend Architect definió el contrato y
+> ⚛️ Frontend Engineer lo consumió.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por 🏗️ **Backend Architect** + ⚛️ **Frontend Engineer**
+- **Hallazgo cubierto:** Q3 (el Dashboard dispara 8 requests para 8 números)
+- **Duración estimada / real:** 2h / ~1,25h
+
+#### Relevamiento previo (antes de delegar)
+
+Sorpresa útil: **el endpoint ya existía**. `src/modules/dashboard/` tenía
+`GET /dashboard/stats` con cache Redis y degradación elegante. Pero:
+
+1. **El frontend nunca lo consumía**: `DashboardPage` seguía con sus 8 `useQuery`.
+2. **El payload no alcanzaba** para reemplazarlos: faltaban las inscripciones por
+   estado (4 de los 8 requests, uno por estado, cada uno pidiendo `limit: 1` sólo
+   para leer `meta.total`) y las 5 inscripciones recientes.
+3. El TTL era de 300s; `tasks.md` pide 60s.
+
+Ese diagnóstico se le pasó al agente de backend para que extendiera lo existente
+en vez de crear un endpoint nuevo.
+
+#### Prompts utilizados
+
+**Al agente 🏗️ Backend Architect** (resumen):
+
+> Te toca la mitad backend de T22. **El módulo ya existe**; lo que falta es
+> `inscriptionsByStatus` (resolvelo con `groupBy(['status'])`, hoy son 4 queries) y
+> `recentInscriptions`. Bajá el TTL de 300 a 60s.
+>
+> Mantené el `Promise.all`. Usá los selects compartidos de T21. **Asegurate de que
+> los 4 estados aparezcan aunque tengan 0**: `groupBy` no devuelve filas para los
+> estados sin registros, y si el frontend tiene que adivinar cuáles faltan, le
+> trasladamos el problema. Confirmá que no haya filtrado por rol o delegación antes
+> de cachear a ciegas con una sola clave. Documentá el contrato en Swagger.
+
+**Al agente ⚛️ Frontend Engineer** (resumen), ya con el contrato cerrado:
+
+> Te toca la mitad frontend. El contrato ya está implementado y verificado: [JSON
+> completo + garantías]. **No lo cambies.**
+>
+> Convenciones que tenés que respetar: `staleTime` por dominio (T19), `queryKey`
+> namespaceado con `useQueryScope()` (T13), nada de `console.error` (T08).
+> **No rompas la UI**: 4 tarjetas, donut por estado, "Acción Requerida" y las 5
+> recientes con link al detalle. Sacá los imports muertos pero no borres los hooks,
+> que los usan otras pantallas.
+
+#### Código generado
+
+**Backend**
+- `src/modules/dashboard/dashboard.service.ts` — `inscriptionsByStatus` y
+  `recentInscriptions` dentro del mismo `Promise.all` (7 consultas en paralelo),
+  TTL 60s, cache extraída a `leerCache`/`escribirCache`.
+- `src/modules/dashboard/dto/dashboard-stats.dto.ts` *(nuevo)* + barrel.
+- `src/modules/dashboard/dashboard.controller.ts` — `@ApiOkResponse` con el DTO.
+- `src/common/prisma-selects.ts` — nuevos `PARTICIPANT_NAME` y `CATEGORY_NAME`.
+- `backend/test/dashboard-stats.e2e-spec.ts` *(nuevo)* — 16 tests.
+
+**Frontend**
+- `src/hooks/useDashboardStats.ts` *(nuevo)* — `DASHBOARD_KEYS` namespaceada +
+  el hook.
+- `src/types/index.ts` — `DashboardStats` al día, más `DashboardStatusCount` y
+  `DashboardRecentInscription`.
+- `src/pages/admin/DashboardPage.tsx` — de 8 `useQuery` a 1.
+
+#### Decisiones de los agentes (y por qué)
+
+**BE — `PARTICIPANT_NAME` en vez de reutilizar `PARTICIPANT_SUMMARY`.** El
+compartido incluye DNI por diseño (las tablas admin buscan por ahí), y un widget
+de resumen no tiene por qué pasearlo. Agregó `PARTICIPANT_NAME` al archivo
+compartido y redefinió `PARTICIPANT_SUMMARY` sobre él, así mantiene la disciplina
+de T21 —una sola definición por proyección— sin llevar el DNI al dashboard. Mismo
+criterio con `CATEGORY_NAME`, porque `CATEGORY_WITH_DISCIPLINE` arrastraría el
+reglamento de la disciplina.
+
+**BE — confirmó que la cache global es correcta.** Revisó `inscriptions.service` y
+`participants.service`: **ningún** service filtra por `department`/`zone`, aunque
+el modelo `User` tenga esos campos para roles zonales. Un `ADMIN_ZONAL` ve hoy los
+mismos números que un `SUPER_ADMIN`, así que una única clave no filtra nada entre
+usuarios. Dejó documentado que si algún día se implementa el recorte zonal, la
+clave tiene que incluir el scope o **el primero que abra el dashboard le deja su
+vista cacheada a todos**.
+
+**BE — test de paralelismo.** Traba las consultas detrás de una compuerta y
+verifica que todas arrancaron antes de que ninguna resuelva: si alguien convierte
+el `Promise.all` en `await` secuenciales, el test **falla** en vez de simplemente
+ponerse lento.
+
+**FE — `STALE_TIME.OPERATIONAL` (2 min).** El backend ya sirve desde Redis con
+hasta 60s de atraso: pedirlo más seguido no devuelve números más frescos, sólo más
+tráfico contra la misma entrada de cache.
+
+**FE — tipo propio `DashboardRecentInscription` en vez de reutilizar `Inscription`.**
+El endpoint expone una superficie mínima a propósito; tiparlo como `Inscription`
+sugeriría que el DNI y el contacto están disponibles cuando llegan `undefined`.
+Efecto colateral bienvenido: `participant` y `category` pasan a ser obligatorios y
+desaparecen los `?.` de la lista.
+
+**FE — el error se muestra como `EmptyState`, no como toast.** React Query v5
+sacó `onError` de `useQuery` (sólo existe en mutaciones), así que el fallo se
+renderiza en la misma rama donde antes vivía el spinner.
+
+#### Correcciones manuales
+
+- **Ninguna sobre el código entregado por ninguno de los dos agentes.** Se revisó
+  el diff y se reejecutó toda la verificación de forma independiente.
+- El agente de frontend notó que el working tree tenía los cambios del backend sin
+  commitear: es esperado, ambas mitades van en el mismo commit.
+
+#### Verificación (DoD)
+
+**Backend: 16 tests e2e** (`--testPathPatterns dashboard-stats`) — los 4 estados
+con `groupBy` incompleto, vacío y desordenado; **un solo `groupBy`** en lugar de 4
+`count` filtrados; segunda llamada servida del cache sin tocar la base;
+`setex('dashboard:stats', 60, …)`; funcionamiento con Redis caído y con fallas de
+lectura/escritura; y `recentInscriptions` sin DNI, email, teléfono, dirección,
+`notes` ni `rejectionNote` —chequeado por campo **y** buscando los valores en el
+JSON crudo—.
+
+**Frontend: cadena mecánica verificada por grep** — `DashboardPage` importa **un
+solo** hook de datos (`useDashboardStats`); ese hook tiene **un** `useQuery`; y
+`dashboard.api.ts` hace **una** llamada (`GET /dashboard/stats`). De 8 `useQuery`
+sobre 4 dominios a 1.
+
+- [x] Cargar el Dashboard genera **1 request** (contra 8+).
+- [ ] **Tiempo total <200ms: no medido.** Requiere base de datos y Docker está
+  apagado. Queda como verificación de aceptación.
+- [x] `tsc` y `build` limpios en ambos lados · `npx jest` **44/44** · e2e
+  **80/80** (64 previos + 16 nuevos) · lint del frontend sin errores nuevos.
+
+#### Notas / aprendizajes
+
+- El relevamiento previo cambió la tarea: sin él, el agente habría creado un
+  endpoint nuevo al lado de uno que ya existía y funcionaba.
+- La garantía de "los 4 estados siempre presentes" es el tipo de detalle que
+  decide quién carga con la complejidad. `groupBy` omite los estados sin filas; si
+  el backend no completa los ceros, cada consumidor tiene que acordarse de hacerlo.
+- Los dos agentes en secuencia funcionaron bien porque el contrato quedó cerrado y
+  verificado **antes** de arrancar el frontend. Pasarle el JSON de ejemplo con sus
+  garantías explícitas evitó ida y vuelta.
+
+#### Hallazgos fuera de alcance reportados por los agentes
+
+1. **`demographics` es código muerto end-to-end:** existe en el endpoint, en
+   `dashboard.api.ts` y en el tipo, pero ningún componente lo lee. Se mantuvo
+   —es una consulta barata y sacarlo sería un breaking change del tipo publicado—
+   pero es candidato a limpieza.
+2. **El cliente Redis se crea dentro de `DashboardService`.** Otros módulos
+   (reports, calendar) probablemente quieran cache; un `RedisModule` global con un
+   solo cliente sería lo correcto, pero excede T22.
+3. **El TTL está hardcodeado**, no leído del `ConfigService`.
+4. **El chunk `DashboardPage` pesa 322 KB (95 KB gzip)**, dominado por recharts: es
+   el chunk admin más grande por lejos. Candidato a `React.lazy()` sobre el donut.
+5. `DONUT_COLORS` duplica en hex tokens de Tailwind: si cambia la paleta, el donut
+   queda desincronizado en silencio.
+6. `lastUpdated` llega pero no se muestra; con hasta 60s de atraso, exhibirlo sería
+   razonable.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.
