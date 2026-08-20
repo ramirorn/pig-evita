@@ -10,8 +10,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../../common/constants';
 import { JwtPayload } from './interfaces';
 import { LoginDto, AuthResponseDto } from './dto';
 
@@ -21,7 +22,10 @@ import { LoginDto, AuthResponseDto } from './dto';
  * mano acá —, así que la IP y el User-Agent tienen que viajar desde el
  * controller. Son justo los eventos donde el dato más importa: sin IP no se
  * distingue un credential stuffing de un usuario que se olvidó la contraseña.
- * TODO(T25): unificar este contrato con el de `AuditService.log()`.
+ *
+ * T25: el helper privado que escribía en `auditLog` a mano desapareció; estos
+ * eventos ahora pasan por `AuditService.log()` como todos los demás, así el
+ * saneamiento de `changes` y el formato de la fila son uno solo.
  */
 export interface AuthRequestContext {
   ipAddress?: string | null;
@@ -36,6 +40,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -55,23 +60,14 @@ export class AuthService {
 
     if (!user) {
       // Log de intento fallido
-      await this.logAuditAction(
-        null,
-        'LOGIN_FAILED',
-        'User',
-        null,
-        { email },
-        context,
-      );
+      await this.audit(AuditAction.LOGIN_FAILED, null, { email }, context);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     // Verificar que esté activo
     if (!user.isActive) {
-      await this.logAuditAction(
-        user.id,
-        'LOGIN_FAILED',
-        'User',
+      await this.audit(
+        AuditAction.LOGIN_FAILED,
         user.id,
         { reason: 'inactive' },
         context,
@@ -85,14 +81,7 @@ export class AuthService {
     const passwordValid = await argon2.verify(user.passwordHash, password);
 
     if (!passwordValid) {
-      await this.logAuditAction(
-        user.id,
-        'LOGIN_FAILED',
-        'User',
-        user.id,
-        { email },
-        context,
-      );
+      await this.audit(AuditAction.LOGIN_FAILED, user.id, { email }, context);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -114,7 +103,7 @@ export class AuthService {
     });
 
     // Log de login exitoso
-    await this.logAuditAction(user.id, 'LOGIN', 'User', user.id, null, context);
+    await this.audit(AuditAction.LOGIN, user.id, null, context);
 
     this.logger.log(`User logged in: ${user.email}`);
 
@@ -133,16 +122,41 @@ export class AuthService {
 
   /**
    * Refresh: genera un nuevo access token usando el refresh token.
+   *
+   * Los refresh se rotan: cada uso invalida el token anterior. Que llegue un
+   * token que ya fue rotado significa que alguien tiene una copia vieja —el
+   * indicio más fuerte de robo de sesión que produce el sistema—. Hasta T25
+   * esa detección cortaba la sesión y devolvía 403 **sin dejar rastro**: el
+   * incidente ocurría y la tabla de auditoría no se enteraba, así que era
+   * imposible reconstruirlo después. Ahora queda registrado con IP y
+   * User-Agent, que es lo único que permite decir desde dónde vino la copia.
    */
   async refreshTokens(
     userId: string,
     refreshToken: string,
+    context: AuthRequestContext = {},
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!user || !user.refreshToken || !user.isActive) {
+      // Token bien firmado contra una sesión que ya no existe (o una cuenta
+      // desactivada). No prueba robo, pero en volumen delata el uso de tokens
+      // viejos, así que se registra con su propia acción para no confundirlo
+      // con el caso grave de abajo.
+      await this.audit(
+        AuditAction.REFRESH_TOKEN_DENIED,
+        user ? userId : null,
+        {
+          reason: !user
+            ? 'user_not_found'
+            : !user.isActive
+              ? 'user_inactive'
+              : 'no_active_session',
+        },
+        context,
+      );
       throw new ForbiddenException('Acceso denegado');
     }
 
@@ -158,6 +172,20 @@ export class AuthService {
         where: { id: userId },
         data: { refreshToken: null },
       });
+
+      // Se audita *después* de revocar, no antes: si la escritura de la fila
+      // fallara, la sesión igual queda cerrada. La seguridad no depende de que
+      // la auditoría funcione.
+      await this.audit(
+        AuditAction.REFRESH_TOKEN_REUSE,
+        userId,
+        { reason: 'token_mismatch', sessionsRevoked: true },
+        context,
+      );
+      this.logger.warn(
+        `Refresh token reuse detected for user ${userId} — sessions revoked`,
+      );
+
       throw new ForbiddenException(
         'Refresh token inválido. Sesión cerrada por seguridad.',
       );
@@ -220,7 +248,7 @@ export class AuthService {
       data: { refreshToken: null },
     });
 
-    await this.logAuditAction(userId, 'LOGOUT', 'User', userId, null, context);
+    await this.audit(AuditAction.LOGOUT, userId, null, context);
     this.logger.log(`User logged out: ${userId}`);
   }
 
@@ -256,30 +284,28 @@ export class AuthService {
   }
 
   /**
-   * Helper para registrar acciones de auditoría.
+   * Registra un evento no-CRUD de autenticación.
+   *
+   * Es un envoltorio fino sobre `AuditService.log()` —no una implementación
+   * paralela— que sólo fija lo que en auth es siempre igual: la entidad es
+   * `User` y el `entityId` es el usuario del evento. Todo lo demás (formato de
+   * la fila, saneamiento de `changes`, tolerancia a fallos) vive en un solo
+   * lugar.
    */
-  private async logAuditAction(
+  private async audit(
+    action: AuditAction,
     userId: string | null,
-    action: string,
-    entity: string,
-    entityId: string | null,
     changes: Record<string, unknown> | null,
     context: AuthRequestContext = {},
   ): Promise<void> {
-    try {
-      await this.prisma.auditLog.create({
-        data: {
-          userId,
-          action,
-          entity,
-          entityId,
-          changes: changes ? (changes as Prisma.InputJsonValue) : undefined,
-          ipAddress: context.ipAddress ?? null,
-          userAgent: context.userAgent ?? null,
-        },
-      });
-    } catch (error) {
-      this.logger.warn(`Failed to create audit log: ${error}`);
-    }
+    await this.auditService.log({
+      userId,
+      action,
+      entity: 'User',
+      entityId: userId,
+      changes,
+      ipAddress: context.ipAddress ?? null,
+      userAgent: context.userAgent ?? null,
+    });
   }
 }

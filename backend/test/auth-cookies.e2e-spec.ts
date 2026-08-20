@@ -19,6 +19,8 @@ import {
 } from '../src/modules/auth/strategies';
 import { REFRESH_TOKEN_COOKIE } from '../src/modules/auth/auth.cookies';
 import { PrismaService } from '../src/database/prisma.service';
+// T25: AuthService ya no escribe en `auditLog` a mano — delega en AuditService.
+import { AuditService } from '../src/modules/audit/audit.service';
 
 const API_PREFIX = 'api/v1';
 const PASSWORD = 'Un-Password-Valido-123';
@@ -49,9 +51,7 @@ function applySelect(
   select?: Record<string, boolean>,
 ): Record<string, unknown> {
   if (!select) return row;
-  return Object.fromEntries(
-    Object.entries(row).filter(([key]) => select[key]),
-  );
+  return Object.fromEntries(Object.entries(row).filter(([key]) => select[key]));
 }
 
 /** Devuelve el valor de la cookie de refresh a partir del header Set-Cookie. */
@@ -78,8 +78,9 @@ describe('Auth — cookie httpOnly del refresh token (e2e)', () => {
         // Devuelve el estado ACTUAL de USER (el login rota su refreshToken) y
         // respeta el `select`, igual que Prisma: así el test también verifica
         // que `getProfile` no pida columnas de más.
-        findUnique: jest.fn(({ select }: { select?: Record<string, boolean> }) =>
-          Promise.resolve(applySelect({ ...USER }, select)),
+        findUnique: jest.fn(
+          ({ select }: { select?: Record<string, boolean> }) =>
+            Promise.resolve(applySelect({ ...USER }, select)),
         ),
         update: jest.fn(({ data }: { data: Record<string, unknown> }) => {
           if (data.refreshToken !== undefined) {
@@ -99,6 +100,7 @@ describe('Auth — cookie httpOnly del refresh token (e2e)', () => {
       controllers: [AuthController],
       providers: [
         AuthService,
+        AuditService,
         JwtStrategy,
         JwtRefreshStrategy,
         { provide: PrismaService, useValue: prisma },

@@ -2477,6 +2477,172 @@ grep -rn '@Matches' src/modules/             → ninguno ✔
 
 ---
 
+### T25 (post-auditoría DevSecOps) — Consolidar el contrato de auditoría (Q10)
+
+> Corresponde a `tasks.md → Fase 5 → T25`. **Cierra el Bloque 3.** Implementada
+> por el agente 🏗️ **Backend Architect**, que **refutó la premisa del DoD** y
+> encontró que era imposible de cumplir como estaba escrito.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente 🏗️ **Backend Architect**
+- **Hallazgo cubierto:** Q10 (interceptor vs llamadas manuales)
+- **Duración estimada / real:** 1h / ~1,25h
+
+#### Relevamiento previo (antes de delegar)
+
+Se buscaron todas las llamadas a auditoría y **la premisa del hallazgo no se
+sostenía**: el interceptor excluía `/auth/` explícitamente y `AuthService` era el
+único que auditaba a mano, así que las dos vías eran **disjuntas por
+construcción**. No había doble registro. Eso se le pasó al agente pidiéndole que
+lo verificara y, si lo confirmaba, lo dijera con todas las letras en vez de
+cerrar un DoD trivial.
+
+#### Prompt utilizado
+
+Resumen de lo sustantivo:
+
+> Te toca **T25**. [Relevamiento completo.] **Verificalo vos primero.** Si
+> confirmás que no hay duplicación, decilo con todas las letras: cerrar el DoD
+> literal sería trivial y engañoso, y el valor está en otro lado.
+>
+> **Dónde está el valor real:** (1) la duplicación de *código* entre
+> `AuthService.logAuditAction` y `AuditService.log` —el `TODO(T25)` que pusiste vos
+> en T07—; (2) **`sanitizeBody` es superficial**, el hallazgo más serio: mete PII y
+> credenciales anidadas en una tabla de larga retención, y después de T01 y T21 es
+> incoherente que la auditoría sea la puerta de atrás por donde entra todo lo que
+> sacamos de las respuestas; (3) el **reuso de refresh token no se audita**, siendo
+> la señal más fuerte de robo de sesión; (4) el contrato en sí.
+>
+> **Riesgo de diseño que quiero que resuelvas:** el enunciado pide que el
+> interceptor cubra CRUD "vía decorador `@Audit(entity)`". Hoy audita todo
+> (opt-out). Pasar a **opt-in** significa que todo lo que no decores **deja de
+> auditarse en silencio**: una regresión de seguridad servida en bandeja. Elegí,
+> justificá y documentá.
+
+#### Código generado
+
+- `src/common/decorators/audit.decorator.ts` *(nuevo)* — el contrato en JSDoc +
+  `@Audit()` / `@NoAudit()`.
+- `src/modules/audit/audit-sanitizer.ts` *(nuevo)* — saneamiento profundo.
+- `src/modules/audit/audit.interceptor.ts` y `audit.service.ts` — refactorizados.
+- `src/modules/auth/auth.service.ts` y `auth.controller.ts` — `logAuditAction`
+  eliminado; eventos nuevos de refresh.
+- `src/modules/inscriptions/inscriptions.controller.ts` — `@Audit({ action })` en
+  review/approve/reject.
+- `backend/test/audit-contract.e2e-spec.ts` *(nuevo)* — 14 tests.
+
+#### Hallazgo principal: el DoD era imposible de cumplir
+
+El agente confirmó que **no hay ni hubo doble registro**, y encontró algo que
+nadie había visto: en un `POST` la URL todavía no tiene id, así que `parseUrl()`
+devolvía **`entityId: null` para todo CREATE**. El
+`SELECT COUNT(*) WHERE entityId = 'X'` del DoD no devolvía 2: **devolvía 0**. No
+se podía rastrear ninguna entidad recién creada por su id.
+
+Lo arregló tomando el `entityId` del `id` de la respuesta del controller — el
+interceptor corre por dentro del `TransformInterceptor`, así que ve el objeto
+crudo. El test del DoD quedó escrito y ejecutable, pero como **red contra
+regresiones**, no como prueba de un arreglo que no hacía falta.
+
+#### Decisiones del agente (y por qué)
+
+**1. Se quedó en opt-out; `@Audit()` sólo refina.** El razonamiento, que quedó en
+el JSDoc: los dos esquemas fallan igual de seguido —alguien se olvida del
+decorador— pero **fallan distinto**. Con *opt-in* el endpoint queda sin auditar
+**y en silencio**: nadie mira una tabla buscando filas que no están, y se descubre
+recién cuando hay un incidente y no hay rastro. Con *opt-out* queda auditado con
+una entidad quizás imprecisa: el defecto es **ruido, no ceguera**. Entre perder
+evidencia y guardarla mal etiquetada, esta base elige lo segundo.
+
+Sumó además una red: un test que reflexiona sobre `PATH_METADATA`/`METHOD_METADATA`
+de los controllers reales y **falla si alguna ruta de escritura derivara una
+entidad inservible o apareciera un `@NoAudit()` no discutido**.
+
+**2. Los eventos de negocio salen por la misma vía.** `PATCH /inscriptions/:id/approve`
+se registraba como `UPDATE` genérico; ahora lleva
+`@Audit({ action: AuditAction.APPROVE_INSCRIPTION })`. Es **lo contrario** de
+agregar un `auditService.log()` manual en el service, que habría creado justamente
+la duplicación que T25 previene. La regla quedó dura en el contrato: *un service
+nunca llama a `log()` para un CREATE/UPDATE/DELETE*.
+
+**3. El saneamiento se movió al `AuditService.log()`**, punto de entrada único de
+la tabla: las dos vías quedan saneadas **por construcción, no por disciplina**.
+Con dos tratamientos distintos a propósito:
+- **Secretos → `[REDACTED]`**, con match por fragmento (`password`, `token`,
+  `secret`, `apikey`, `authorization`, …). Deliberadamente agresivo: mejor redactar
+  un `tokenCount` inocente que dejar pasar un `csrfToken`.
+- **PII → enmascarada, no borrada.** `ana.gomez@dominio` → `a***@dominio`,
+  `40123456` → `******56`. Borrarla dejaba la auditoría inútil: **sin poder
+  distinguir un `LOGIN_FAILED` contra una cuenta de otro contra mil cuentas, la
+  tabla no sirve para detectar credential stuffing.** `address`, `birthDate` y
+  notas médicas sí se eliminan enteras: no aportan nada forense.
+
+**4. Refresh token.** `refreshTokens()` emite dos eventos nuevos:
+`REFRESH_TOKEN_REUSE` (el caso grave, auditado **después** de revocar la sesión
+para que un fallo escribiendo la fila no impida cerrarla) y
+`REFRESH_TOKEN_DENIED` con `reason` discriminado. Separados a propósito para que
+un `WHERE action = 'REFRESH_TOKEN_REUSE'` no se llene de ruido benigno.
+
+#### Cambios de forma declarados
+
+- **El `changes` de `LOGIN_FAILED` pasa de `{ email: "ana@x" }` a
+  `{ email: "a***@x" }`.** Ningún evento dejó de auditarse; cambió el contenido de
+  una columna. Para cruzar por identidad exacta está `userId`, que sigue entero.
+- **El refresh exitoso NO se audita.** Una fila cada 15 minutos por usuario inunda
+  una tabla de retención larga sin agregar información: el inicio de sesión ya
+  quedó en `LOGIN`. Hay un test que lo fija, así que revertirlo es cambiar una
+  línea. **Queda a revisión del equipo.**
+
+#### Correcciones manuales
+
+- **Ninguna sobre el código entregado.** Se revisó el diff y se reejecutó la
+  verificación de forma independiente.
+- El agente reportó que `eslint --fix` le tocó de rebote 10 archivos ajenos (sólo
+  formato) y que los revirtió con `git checkout --`. Verificado: el diff final son
+  sólo los archivos de T25.
+
+#### Verificación (DoD)
+
+- [x] Crear una inscripción produce **exactamente una** fila para esa entidad
+  (test ejecutable), y ahora además **con el `entityId` poblado**, que era el bug
+  real detrás del DoD.
+- [x] Ningún evento que se auditaba dejó de auditarse: `LOGIN`, `LOGIN_FAILED`,
+  `LOGOUT` siguen, más `REFRESH_TOKEN_REUSE` y `REFRESH_TOKEN_DENIED` nuevos.
+- [x] Reejecutado por fuera del agente: `tsc` OK · `build` OK · `npx jest`
+  **78/78** · e2e **112/112** en 11 suites (98 previos + 14 nuevos).
+
+#### Notas / aprendizajes
+
+- **Pedirle al agente que refutara la premisa fue lo que dio valor a la tarea.**
+  El hallazgo —`entityId: null` en todo CREATE— sólo aparece si alguien va a
+  verificar si el DoD se puede cumplir, en vez de asumir que describe la realidad.
+- El argumento opt-in/opt-out es transferible: **frente a dos formas de fallar,
+  preferir la que se ve.** Ruido mal etiquetado es recuperable; ceguera silenciosa
+  no.
+- Detalle del test de reuso: no dispara un refresh real para rotar, porque el JWT
+  se firma con `iat` en segundos y dentro del mismo segundo el token rotado sale
+  **idéntico**. Se simula el estado resultante. Es un artefacto del reloj de JWT,
+  no un bug.
+
+#### Hallazgos fuera de alcance reportados por el agente
+
+1. **Nombres de entidad inconsistentes:** el interceptor guarda el segmento de URL
+   (`inscriptions`, plural minúscula) y `AuthService` guarda `'User'`. Normalizarlo
+   cambiaría el significado de filas históricas y rompería los filtros del panel.
+2. **`AuditAction` no se usa en el interceptor**: sigue devolviendo strings
+   literales, así que el enum y el código pueden divergir.
+3. **`POST /teams/:id/members` y su DELETE** registran `entity: 'teams'` y, en el
+   DELETE, el `entityId` es el del **equipo**, no el del miembro. Es el caso exacto
+   para `@Audit({ entity: 'team_members' })`, pero decorarlo cambia datos que hoy
+   consume el panel.
+4. **`AuditLog` no tiene política de retención ni purga.** Con el saneamiento ya no
+   guarda credenciales, pero crece sin techo.
+5. **No hay métrica ni alerta sobre "la auditoría dejó de escribir":** `log()` traga
+   la excepción con un `logger.warn`. Correcto para no voltear la operación, pero es
+   el punto ciego que queda.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

@@ -5,6 +5,23 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { PaginationQueryDto, buildPaginatedResponse } from '../../common/dto';
+import { sanitizeAuditChanges } from './audit-sanitizer';
+
+/**
+ * Contrato de entrada de un evento de auditoría, común a las dos vías
+ * (interceptor y llamadas manuales). Reemplaza al tipo inline que tenía `log()`
+ * y al helper privado que `AuthService` mantenía en paralelo (T25).
+ */
+export interface AuditLogInput {
+  userId?: string | null;
+  action: string;
+  entity: string;
+  entityId?: string | null;
+  /** Payload crudo: `log()` lo sanea, quien llama no debe hacerlo. */
+  changes?: unknown;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+}
 
 @Injectable()
 export class AuditService {
@@ -14,16 +31,21 @@ export class AuditService {
 
   /**
    * Registrar una acción de auditoría.
+   *
+   * Punto de entrada **único** para escribir en `AuditLog`: lo usan tanto el
+   * `AuditInterceptor` (CRUD) como los eventos no-CRUD de `AuthService`. Que
+   * sea uno solo es lo que garantiza que el saneamiento de `changes` se
+   * aplique sí o sí — antes cada vía tenía su propia lógica y sólo una
+   * limpiaba algo. Ver el contrato en
+   * `common/decorators/audit.decorator.ts`.
+   *
+   * `changes` se recibe crudo a propósito: quien llama no tiene que acordarse
+   * de sanear. `sanitizeAuditChanges` recorre el árbol completo y redacta
+   * secretos y PII antes de que toquen la base.
    */
-  async log(data: {
-    userId?: string | null;
-    action: string;
-    entity: string;
-    entityId?: string | null;
-    changes?: Record<string, unknown> | null;
-    ipAddress?: string | null;
-    userAgent?: string | null;
-  }): Promise<void> {
+  async log(data: AuditLogInput): Promise<void> {
+    const changes = sanitizeAuditChanges(data.changes);
+
     try {
       await this.prisma.auditLog.create({
         data: {
@@ -31,14 +53,14 @@ export class AuditService {
           action: data.action,
           entity: data.entity,
           entityId: data.entityId ?? null,
-          changes: data.changes
-            ? (data.changes as Prisma.InputJsonValue)
-            : undefined,
+          changes: changes ? (changes as Prisma.InputJsonValue) : undefined,
           ipAddress: data.ipAddress ?? null,
           userAgent: data.userAgent ?? null,
         },
       });
     } catch (error) {
+      // La auditoría nunca debe voltear la operación que la originó: si la
+      // fila no entra, se avisa por log y la request sigue su curso.
       this.logger.warn(`Failed to create audit log: ${error}`);
     }
   }

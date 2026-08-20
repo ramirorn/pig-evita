@@ -63,7 +63,15 @@ export const IS_PUBLIC_KEY = 'isPublic';
 /** Clave de metadata para roles requeridos */
 export const ROLES_KEY = 'roles';
 
-/** Acciones de auditoría */
+/**
+ * Acciones de auditoría.
+ *
+ * Las tres primeras las emite el `AuditInterceptor` solo, a partir del verbo
+ * HTTP. El resto son eventos de negocio o de sesión: los de auth los emite
+ * `AuthService` a mano, y los de inscripciones el propio interceptor cuando el
+ * handler está marcado con `@Audit({ action })`. El contrato que decide qué va
+ * por cada vía está en `common/decorators/audit.decorator.ts`.
+ */
 export enum AuditAction {
   CREATE = 'CREATE',
   UPDATE = 'UPDATE',
@@ -71,8 +79,15 @@ export enum AuditAction {
   LOGIN = 'LOGIN',
   LOGOUT = 'LOGOUT',
   LOGIN_FAILED = 'LOGIN_FAILED',
+  /** Reuso de un refresh token ya rotado: señal fuerte de robo de sesión. */
+  REFRESH_TOKEN_REUSE = 'REFRESH_TOKEN_REUSE',
+  /** Refresh rechazado por sesión inexistente o cuenta desactivada. */
+  REFRESH_TOKEN_DENIED = 'REFRESH_TOKEN_DENIED',
   STATUS_CHANGE = 'STATUS_CHANGE',
   APPROVE = 'APPROVE',
   REJECT = 'REJECT',
+  REVIEW_INSCRIPTION = 'REVIEW_INSCRIPTION',
+  APPROVE_INSCRIPTION = 'APPROVE_INSCRIPTION',
+  REJECT_INSCRIPTION = 'REJECT_INSCRIPTION',
   UPLOAD = 'UPLOAD',
 }

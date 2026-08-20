@@ -101,10 +101,16 @@ export class AuthController {
   async refresh(
     @CurrentUser() user: JwtPayload & { refreshToken: string },
     @Res({ passthrough: true }) response: Response,
+    @Ip() ip: string,
+    @Headers('user-agent') userAgent?: string,
   ): Promise<RefreshResponseDto> {
+    // El origen viaja igual que en login/logout: si acá se detecta reuso de
+    // refresh token, la IP es el único dato que permite ubicar de dónde salió
+    // la copia robada.
     const tokens = await this.authService.refreshTokens(
       user.sub,
       user.refreshToken,
+      { ipAddress: ip, userAgent },
     );
 
     this.setRefreshCookie(response, tokens.refreshToken);

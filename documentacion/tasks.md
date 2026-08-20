@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. Bloque 3 en curso: **T22, T23 y T24 completadas**; queda T25 para cerrarlo. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Queda el Bloque 4: T15 → T16 → T17, T26/T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -316,14 +316,14 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T25 📈 🏗️ BE — Consolidar auditoría: interceptor vs llamadas manuales (Q10)
 
-- [ ] **Descripción:** El `AuditInterceptor` audita CRUD genérico, pero varios services también invocan `auditService.log()` manualmente → doble registro o registros huérfanos. Definir contrato:
+- [x] **Descripción:** El `AuditInterceptor` audita CRUD genérico, pero varios services también invocan `auditService.log()` manualmente → doble registro o registros huérfanos. Definir contrato:
   - Interceptor cubre CREATE / UPDATE / DELETE automáticamente vía decorador `@Audit(entity)`.
   - Services solo llaman manual para eventos no-CRUD (LOGIN, LOGOUT, REFRESH_TOKEN, APPROVE_INSCRIPTION, REJECT_INSCRIPTION).
 - Documentar el contrato en `common/decorators/audit.decorator.ts` con JSDoc.
 - **Archivos:**
   - `backend/src/modules/audit/audit.interceptor.ts`
   - Todos los services que llaman `auditService.log()` (revisar auth, users, inscriptions).
-- **DoD:** al crear una inscripción, `SELECT COUNT(*) FROM AuditLog WHERE entityId = 'X'` devuelve exactamente 1 registro (no 2).
+- **DoD:** al crear una inscripción, `SELECT COUNT(*) FROM AuditLog WHERE entityId = 'X'` devuelve exactamente 1 registro (no 2). ✅ Verificado con 14 tests e2e (`backend/test/audit-contract.e2e-spec.ts`). **La premisa del hallazgo no se sostenía:** nunca hubo doble registro, porque el interceptor excluía `/auth/` y las dos vías eran disjuntas por construcción. Y el DoD era **imposible de cumplir**: en un `POST` la URL no tiene id, así que `parseUrl()` devolvía `entityId: null` para **todo CREATE** — el `COUNT(*)` daba **0**, no 2. Corregido tomando el id de la respuesta. El valor real quedó en: saneamiento **profundo** de `changes` movido a `AuditService.log()` (punto de entrada único), con secretos redactados y PII **enmascarada y no borrada** para no perder la capacidad de detectar credential stuffing; `REFRESH_TOKEN_REUSE` y `REFRESH_TOKEN_DENIED` nuevos; y `AuthService.logAuditAction` eliminado. **Se mantiene opt-out**: con opt-in, un endpoint sin decorar deja de auditarse *en silencio* — ruido mal etiquetado es recuperable, ceguera no. Evidencia en `PROCESO.md → sección 4 → T25 (post-auditoría)`.
 
 ### T26 ✨ ⚛️ FE — Memoización de valores derivados en páginas admin (Q18, Q19, Q20)
 
@@ -449,7 +449,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 20 de 28 tareas completadas.**
+**Progreso: 21 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -478,7 +478,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T22** | 📈 | 🔀 FS | Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas | ✅ Completada |
 | **T23** | 📈 | 🏗️ BE | Streaming + paginación en reports Excel/CSV | ✅ Completada |
 | **T24** | 📈 | 🏗️ BE | DRY backend: validators, DTOs con `PartialType`, includes reusables | ✅ Completada |
-| **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ⬜ Pendiente |
+| **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ✅ Completada |
 | **T26** | ✨ | ⚛️ FE | Memoización de valores derivados en páginas admin | ⬜ Pendiente |
 | **T27** | ✨ | 🎨 UI + ⚛️ FE | DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables | ⬜ Pendiente |
 | **T28** | ✨ | 🔀 FS | Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO | ⬜ Pendiente |
@@ -491,5 +491,5 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | 🟡 Alto | 6 | 6 |
 | 🟠 Medio | 1 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
-| 📈 Optimización media | 3 | 4 |
+| 📈 Optimización media | 4 | 4 |
 | ✨ Polish | 0 | 3 |

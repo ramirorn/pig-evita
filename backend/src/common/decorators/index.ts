@@ -43,3 +43,6 @@ export {
   PublicReadThrottle,
   PUBLIC_READ_RATE_LIMIT,
 } from './throttle.decorator';
+
+export { Audit, NoAudit, AUDIT_KEY } from './audit.decorator';
+export type { AuditOptions } from './audit.decorator';

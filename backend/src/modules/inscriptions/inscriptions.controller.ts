@@ -32,11 +32,13 @@ import {
   Roles,
   CurrentUser,
   PublicReadThrottle,
+  Audit,
 } from '../../common/decorators';
 import {
   INSCRIPTION_CREATORS,
   INSCRIPTION_REVIEWERS,
   INSCRIPTION_APPROVERS,
+  AuditAction,
 } from '../../common/constants';
 
 @ApiTags('Inscriptions')
@@ -125,6 +127,12 @@ export class InscriptionsController {
   }
 
   @Patch(':id/review')
+  // Para HTTP esto es un PATCH y el interceptor lo registraría como UPDATE,
+  // que no distingue una revisión de cualquier otra edición. `@Audit` corrige
+  // el nombre de la acción sin agregar una segunda fila: el evento de negocio
+  // sigue saliendo por la misma vía. Ver el contrato en
+  // `common/decorators/audit.decorator.ts`.
+  @Audit({ action: AuditAction.REVIEW_INSCRIPTION })
   @Roles(...INSCRIPTION_REVIEWERS)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
@@ -143,6 +151,12 @@ export class InscriptionsController {
   }
 
   @Patch(':id/approve')
+  // Para HTTP esto es un PATCH y el interceptor lo registraría como UPDATE,
+  // que no distingue una aprobación de cualquier otra edición. `@Audit` corrige
+  // el nombre de la acción sin agregar una segunda fila: el evento de negocio
+  // sigue saliendo por la misma vía. Ver el contrato en
+  // `common/decorators/audit.decorator.ts`.
+  @Audit({ action: AuditAction.APPROVE_INSCRIPTION })
   @Roles(...INSCRIPTION_APPROVERS)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
@@ -160,6 +174,12 @@ export class InscriptionsController {
   }
 
   @Patch(':id/reject')
+  // Para HTTP esto es un PATCH y el interceptor lo registraría como UPDATE,
+  // que no distingue una rechazo de cualquier otra edición. `@Audit` corrige
+  // el nombre de la acción sin agregar una segunda fila: el evento de negocio
+  // sigue saliendo por la misma vía. Ver el contrato en
+  // `common/decorators/audit.decorator.ts`.
+  @Audit({ action: AuditAction.REJECT_INSCRIPTION })
   @Roles(...INSCRIPTION_REVIEWERS)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
