@@ -4,11 +4,28 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerProps,
+  ...props
+}: React.ComponentProps<"table"> & {
+  /**
+   * Props extra para el contenedor con `overflow-x-auto`.
+   *
+   * ¿Por qué? Cuando la tabla desborda, ese div es el único elemento que
+   * scrollea, pero sin `tabIndex`/`role`/`aria-label` no hay forma de llegar a
+   * él con el teclado (WCAG 2.1.1). El `<DataTable>` necesita poder marcarlo
+   * como región navegable sin reemplazar esta primitiva.
+   */
+  containerProps?: React.ComponentProps<"div">
+}) {
+  const { className: containerClassName, ...restContainer } = containerProps ?? {}
+
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn("relative w-full overflow-x-auto", containerClassName)}
+      {...restContainer}
     >
       <table
         data-slot="table"

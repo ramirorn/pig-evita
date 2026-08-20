@@ -10,22 +10,12 @@ import { useDisciplines } from '@/hooks/useDisciplines';
 import { useCategories } from '@/hooks/useCategories';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Pagination } from '@/components/shared/Pagination';
-import { SkeletonTable } from '@/components/shared/SkeletonTable';
-import { EmptyState } from '@/components/shared/EmptyState';
+import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -45,7 +35,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Link } from 'react-router';
 import { logError } from '@/lib/logger';
 
 export function TeamsAdminPage() {
@@ -55,17 +44,17 @@ export function TeamsAdminPage() {
   const [categoryId, setCategoryId] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | undefined>();
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
 
   const { data: disciplines } = useDisciplines();
-  const { data: categories } = useCategories({ 
-    disciplineId: disciplineId !== 'all' ? disciplineId : undefined 
+  const { data: categories } = useCategories({
+    disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
   });
-  
-  const { data: teamsData, isLoading } = useTeams({
+
+  const { data: teamsData, isLoading, isFetching, isError, refetch } = useTeams({
     department: department || undefined,
     locality: locality || undefined,
     disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
@@ -74,6 +63,23 @@ export function TeamsAdminPage() {
     limit,
   });
   const deleteMutation = useDeleteTeam();
+
+  // El filtrado lo resuelve el backend, así que "hay filtros activos" es lo
+  // único que el DataTable necesita saber para distinguir el vacío-por-filtro
+  // del vacío-sin-datos.
+  const hasActiveFilters =
+    department.trim() !== '' ||
+    locality.trim() !== '' ||
+    disciplineId !== 'all' ||
+    categoryId !== 'all';
+
+  const clearFilters = () => {
+    setDepartment('');
+    setLocality('');
+    setDisciplineId('all');
+    setCategoryId('all');
+    setPage(1);
+  };
 
   const handleCreate = () => {
     setEditingTeam(undefined);
@@ -100,6 +106,85 @@ export function TeamsAdminPage() {
     }
   };
 
+  const columns: DataTableColumn<Team>[] = [
+    {
+      id: 'name',
+      header: 'Nombre',
+      // Columna de identidad: se renderiza como `<th scope="row">` y es donde
+      // el DataTable ancla el link primario de la fila clickeable.
+      rowHeader: true,
+      headClassName: 'min-w-[200px]',
+      cell: (team) => team.name,
+    },
+    {
+      id: 'discipline',
+      header: 'Disciplina',
+      cell: (team) => team.discipline?.name || '—',
+    },
+    {
+      id: 'category',
+      header: 'Categoría',
+      cell: (team) => team.category?.name || '—',
+    },
+    {
+      id: 'location',
+      header: 'Ubicación',
+      cell: (team) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">{team.department}</span>
+          <span className="text-xs text-primary-500">{team.locality}</span>
+        </div>
+      ),
+    },
+    {
+      id: 'members',
+      header: 'Jugadores',
+      cell: (team) => (
+        // `variant="secondary"` no genera color (`bg-secondary` no existe en el
+        // `@theme`): se usan tokens explícitos de la paleta institucional.
+        <Badge variant="outline" className="bg-muted text-primary-700 border-primary-200">
+          {team._count?.members ?? team.members?.length ?? 0} /{' '}
+          {team.discipline?.maxPlayers || '-'} Jugadores
+        </Badge>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Acciones',
+      hideHeader: true,
+      // Celda con controles propios: se eleva sobre el overlay del link primario.
+      interactive: true,
+      headClassName: 'w-[80px]',
+      cell: (team) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Más acciones para ${team.name}`}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleEdit(team)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setDeletingTeam(team)}
+              // `red-*` está fuera de la paleta institucional; `destructive-*` sí existe.
+              className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Eliminar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -114,135 +199,100 @@ export function TeamsAdminPage() {
         }
       />
 
-      <div className="card">
-        <div className="p-4 border-b border-primary-100 flex flex-wrap gap-4">
-          <Select value={disciplineId} onValueChange={(v) => { setDisciplineId(v); setCategoryId('all'); setPage(1); }}>
-            <SelectTrigger className="w-full sm:w-[220px]">
-              <SelectValue placeholder="Disciplina" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las disciplinas</SelectItem>
-              {disciplines?.data.map(d => (
-                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setPage(1); }} disabled={disciplineId === 'all'}>
-            <SelectTrigger className="w-full sm:w-[220px]">
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las categorías</SelectItem>
-              {categories?.data.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Input 
-            placeholder="Buscar por departamento..." 
-            value={department}
-            onChange={(e) => { setDepartment(e.target.value); setPage(1); }}
-            className="w-full sm:w-[200px]"
-          />
-
-          <Input 
-            placeholder="Buscar por localidad..." 
-            value={locality}
-            onChange={(e) => { setLocality(e.target.value); setPage(1); }}
-            className="w-full sm:w-[200px]"
-          />
-        </div>
-
-        <div className="relative">
-          {isLoading ? (
-            <SkeletonTable rows={limit > 5 ? 8 : 5} columns={6} />
-          ) : !teamsData?.data.length ? (
-            <EmptyState
-              icon={<UsersRound className="w-10 h-10" />}
-              title="Sin equipos"
-              description="No se encontraron equipos con los filtros seleccionados."
-              action={
-                <Button onClick={handleCreate} className="gap-2">
-                  <Plus className="w-4 h-4" /> Crear Equipo
-                </Button>
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Disciplina</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead>Ubicación</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {teamsData.data.map((team) => (
-                  <TableRow key={team.id}>
-                    <TableCell>
-                      <Link to={`/admin/equipos/${team.id}`} className="font-medium text-primary-600 hover:underline">
-                        {team.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{team.discipline?.name || '—'}</TableCell>
-                    <TableCell>{team.category?.name || '—'}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{team.department}</span>
-                        <span className="text-xs text-primary-500">{team.locality}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {team._count?.members ?? team.members?.length ?? 0} / {team.discipline?.maxPlayers || '-'} Jugadores
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(team)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setDeletingTeam(team)}
-                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+      <DataTable
+        entityName="equipos"
+        columns={columns}
+        rows={teamsData?.data ?? []}
+        getRowId={(team) => team.id}
+        rowLink={(team) => ({ to: `/admin/equipos/${team.id}` })}
+        isLoading={isLoading}
+        isFetching={isFetching && !isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        meta={teamsData?.meta}
+        onPageChange={setPage}
+        onLimitChange={(newLimit) => {
+          setLimit(newLimit);
+          setPage(1);
+        }}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
+        emptyIcon={<UsersRound className="w-10 h-10" />}
+        emptyTitle="Todavía no hay equipos"
+        emptyDescription="Registrá el primer equipo para empezar a armar las listas de buena fe."
+        emptyAction={
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus className="w-4 h-4" /> Crear Equipo
+          </Button>
+        }
+        toolbar={
+          <>
+            <Select
+              value={disciplineId}
+              onValueChange={(v) => {
+                setDisciplineId(v);
+                setCategoryId('all');
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full md:w-[220px]" aria-label="Filtrar por disciplina">
+                <SelectValue placeholder="Disciplina" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las disciplinas</SelectItem>
+                {disciplines?.data.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
+              </SelectContent>
+            </Select>
 
-        {/* Pagination */}
-        {teamsData && teamsData.meta.totalPages > 1 && (
-          <Pagination
-            page={teamsData.meta.page}
-            totalPages={teamsData.meta.totalPages}
-            total={teamsData.meta.total}
-            limit={limit}
-            onPageChange={setPage}
-            onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
-          />
-        )}
-      </div>
+            <Select
+              value={categoryId}
+              onValueChange={(v) => {
+                setCategoryId(v);
+                setPage(1);
+              }}
+              disabled={disciplineId === 'all'}
+            >
+              <SelectTrigger className="w-full md:w-[220px]" aria-label="Filtrar por categoría">
+                <SelectValue placeholder="Categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                {categories?.data.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Input
+              placeholder="Buscar por departamento..."
+              aria-label="Filtrar por departamento"
+              value={department}
+              onChange={(e) => {
+                setDepartment(e.target.value);
+                setPage(1);
+              }}
+              className="w-full md:w-[200px]"
+            />
+
+            <Input
+              placeholder="Buscar por localidad..."
+              aria-label="Filtrar por localidad"
+              value={locality}
+              onChange={(e) => {
+                setLocality(e.target.value);
+                setPage(1);
+              }}
+              className="w-full md:w-[200px]"
+            />
+          </>
+        }
+      />
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[600px]">
@@ -251,10 +301,10 @@ export function TeamsAdminPage() {
               {editingTeam ? 'Editar Equipo' : 'Nuevo Equipo'}
             </DialogTitle>
           </DialogHeader>
-          <TeamForm 
-            initialData={editingTeam} 
-            onSuccess={closeModal} 
-            onCancel={closeModal} 
+          <TeamForm
+            initialData={editingTeam}
+            onSuccess={closeModal}
+            onCancel={closeModal}
           />
         </DialogContent>
       </Dialog>

@@ -3224,6 +3224,172 @@ tocados.
 
 ---
 
+### T27 (post-auditoría DevSecOps) — `<DataTable>` reusable (DRY frontend)
+
+> Corresponde a `tasks.md → Fase 5 → T27`. **Primera tarea con los dos agentes de
+> frontend coordinados**: 🎨 UI Designer entregó la especificación y ⚛️ Frontend
+> Engineer la implementó.
+>
+> ⚠️ **La mitad de LOC del DoD NO se cumple, y el resultado va en dirección
+> contraria.** Ver la sección de verificación: es el hallazgo principal de la tarea.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · 🎨 **UI Designer** + ⚛️ **Frontend Engineer**
+- **Duración estimada / real:** 3h / ~2h
+
+#### Relevamiento previo (antes de delegar)
+
+1. **De los tres componentes que nombra la tarea, dos ya existían y estaban
+   adoptados** por las 9 páginas admin: `ConfirmDeleteDialog` y `SkeletonTable`.
+   Lo que faltaba era `<DataTable>`.
+2. **El DoD es aritméticamente imposible.** Pide reducir ≥15% las **7238 LOC** de
+   `pages/admin/` —o sea **1086 líneas**— migrando 3 páginas; pero las tres páginas
+   de listado más grandes suman **940 líneas en total**. Ni borrándolas enteras se
+   llega. Se le pidió al agente que reportara **dos números sin maquillar**.
+3. **Bugs de tokens confirmados a mano:** `bg-primary`, `bg-secondary`,
+   `text-destructive`, `border-border`, `ring-ring` y `primary-950` **no existen**
+   en el `@theme` de `src/index.css`, pero `ui/badge.tsx` los usa.
+
+#### Prompts utilizados
+
+**🎨 UI Designer** (resumen): *"Necesito una especificación, no código. Cubrí
+anatomía y los 5 estados —incluido **vacío-por-filtro como estado distinto de
+vacío-sin-datos**—; **no inventes una paleta**, leé `index.css` y las páginas
+reales; accesibilidad con **números concretos de contraste** (si algo que ya se usa
+hoy no llega a AA, decilo: es un hallazgo); el patrón de filas clickeables sin
+anidar interactivos; y **qué NO debe hacer el componente**, porque si intenta
+cubrir todo termina siendo peor que copiar la tabla."*
+
+**⚛️ Frontend Engineer** (resumen): *"Leé la spec de UI y seguila; si algo te parece
+inviable, decilo y proponé alternativa, pero no te desvíes en silencio. **El DoD es
+aritméticamente imposible** [números]: migrá 3 páginas y reportá **dos números** —la
+reducción en las páginas migradas y la global—, sin maquillar. **Si el ahorro por
+página es flaco, decilo: significaría que el componente no captura lo que se
+repite.** No uses las variantes rotas de Badge. Elegí las 3 páginas con criterio
+propio: conviene que sean representativas para que el componente se pruebe de
+verdad y no se acomode a un solo caso."*
+
+#### Código generado
+
+- `frontend/src/components/shared/DataTable.tsx` *(nuevo, 405 líneas)*.
+- `frontend/src/components/ui/table.tsx` — `containerProps` aditivo en `Table`.
+- `VenuesAdminPage`, `TeamsAdminPage`, `UsersPage` migradas.
+- Especificación de diseño: `scratchpad/t27-spec-ui.md`.
+
+#### Decisiones de diseño (UI Designer)
+
+- **El componente es dueño del bloque completo**, no del `<table>`: lo que se
+  repite 8 veces no es la tabla sino el andamiaje
+  `isLoading ? Skeleton : vacío ? EmptyState : Table` + el `.card` + el
+  `Pagination` condicional.
+- **Vacío-por-filtro como estado propio.** El hallazgo de UX más caro: **7 de 8
+  páginas muestran el mismo texto** cuando no hay datos y cuando el filtro no
+  matchea. Sólo `VenuesAdminPage` distinguía. La acción ofrecida es *"Limpiar
+  filtros"*, **no** el CTA de creación: crear un registro no resuelve el problema
+  del que filtró mal.
+- **Filas clickeables con link primario + overlay `a::after{inset:0}`**, con el
+  anillo de foco en el `<tr>` vía `:has(a:focus-visible)`. Nada de `<tr onClick>`
+  (no focuseable) ni un `<a>` por celda (multiplica tab stops).
+
+#### Verificación (DoD)
+
+**Mitad de accesibilidad — ✅ cumplida.** 55 chequeos, 0 fallos, renderizando el
+componente real en sus 5 estados: semántica (`<caption class="sr-only">`,
+`th scope="col"/"row"`, viewport con `role="region"` + `tabindex`), 1 solo `<a>`
+por fila, `role="status"`/`aria-busy` en carga, `role="alert"` en error, y **el
+chequeo de que vacío-por-filtro ≠ vacío-sin-datos**. Contrastes calculados por el
+UI Designer: todo lo propuesto pasa AA.
+
+**Mitad de LOC — ❌ NO cumplida. El total subió.** Verificado a mano:
+
+| | antes | después | Δ |
+|---|---|---|---|
+| Páginas migradas (Venues+Teams+Users) | 845 | **934** | **+89 (+10,5%)** |
+| Global `pages/admin/` | 7238 | **7327** | **+89 (+1,2%)** |
+
+Más 405 líneas nuevas en `components/shared/`. Contando sólo código —sin blancos ni
+comentarios— da lo mismo (762 → 844), así que **no es un artefacto de los
+comentarios en español**.
+
+**Por qué, según el agente, y comparto la lectura:**
+1. **~55 de esas 89 líneas son funcionalidad que antes no existía**: estado de
+   error + `refetch` (**ninguna de las 8 páginas lo tenía — un backend caído se veía
+   como "sin datos"**), la distinción vacío-por-filtro, y `aria-label` en cada botón
+   de ícono. Eso es DoD de la spec, no relleno.
+2. **La API de columnas cuesta boilerplate**: cada columna paga ~3 líneas contra las
+   ~2 de un `<TableCell>` inline; con 5-6 columnas se come el ahorro del andamiaje.
+
+**El número que sí mide si el componente sirve** — líneas de andamiaje repetido:
+
+| página | antes | después |
+|---|---|---|
+| VenuesAdminPage | 35 | **0** |
+| TeamsAdminPage | 42 | **2** |
+| UsersPage | 35 | **0** |
+
+Y en las **5 páginas sin migrar** ese andamiaje sigue: Participants 41, Categories
+38, Disciplines 37, News 32, Inscriptions 44 — **192 líneas que el componente ya
+puede absorber sin escribir nada nuevo**.
+
+**Conclusión honesta:** el DoD medía la métrica equivocada. El punto de equilibrio
+en LOC llegaría recién alrededor de la 6ª u 8ª página migrada, y aun así el margen
+sería flaco. **El retorno real de este componente no es LOC: es que la corrección de
+estados y la accesibilidad pasan a existir en un solo lugar**, en vez de ocho
+versiones divergentes del mismo ternario. Si el criterio de aceptación es
+estrictamente LOC, **este componente lo falla**, y así queda registrado.
+
+- [x] Los componentes cumplen WCAG AA (contraste + navegación por teclado).
+- [ ] **LOC de `pages/admin/` ≥15% menos: NO cumplido** (subió 1,2%). Criterio
+  inalcanzable por construcción; queda a decisión del equipo migrar las 5 páginas
+  restantes o dar por buena la métrica de andamiaje.
+
+Reejecutado por fuera: `tsc` OK · `build` OK (chunks lazy intactos) · `lint` sin
+hallazgos nuevos.
+
+#### Desvíos de la spec declarados por el agente
+
+1. **`containerProps` en la primitiva `Table`**: el div con `overflow-x-auto` es el
+   único que scrollea, y sin `tabIndex`/`role` no se alcanza con el teclado
+   (WCAG 2.1.1). Envolverlo en otro div habría puesto el `tabIndex` en un elemento
+   que no scrollea.
+2. **Ordenamiento no implementado**: es opt-in y ninguna página lo usa;
+   implementarlo sería código muerto no ejercitado. El tipo deja lugar.
+3. **Hit area de 44px no forzada**: el botón lo renderiza la página en su `cell`, no
+   el componente. Propone `size="icon-touch"` en `ui/button.tsx`.
+
+Además intentó neutralizar el `hover:text-primary-950` roto de `Button` pisándolo
+con `cn`, **descubrió que no funciona** —`tailwind-merge` no reconoce `950` como
+valor de la escala, así que no deduplica— y **lo revirtió en vez de dejar un fix que
+no arregla nada**.
+
+#### Notas / aprendizajes
+
+- **Pedir dos números y avisar que el ahorro flaco también es un resultado válido**
+  fue lo que evitó una métrica maquillada. El agente pudo haber contado sólo el
+  andamiaje y declarar éxito.
+- El patrón se repite en esta refactorización: **varios DoD describen una realidad
+  que no era** (T25 con el doble registro, T17 con el XSS, T27 con el LOC). Verificar
+  la premisa antes de implementar dejó más valor que cumplirla al pie de la letra.
+
+#### Hallazgos fuera de alcance
+
+1. **Tokens shadcn faltantes en `@theme`** (`--color-primary`, `--color-secondary`,
+   `--color-border`, `--color-ring`, `--color-destructive` y sus `-foreground`):
+   rompen `ui/badge.tsx`. Las 3 páginas migradas quedaron corregidas de paso, pero
+   el bug sigue vivo para cualquier consumidor futuro.
+2. **`primary-950` no existe** (la escala llega a 900) y lo usan **13 archivos**,
+   incluido `ui/button.tsx`. Es clase muerta y **no se puede pisar localmente**.
+3. **`InscriptionStatusBadge`: 3 de 4 estados fallan AA** (3,15 / 3,35 / 4,41 contra
+   4,5). Viene de T26; bloquea el DoD si ese badge se usa dentro de un `DataTable`.
+4. **`index.css` sin `prefers-reduced-motion`** pese a 9 animaciones.
+5. **`ConfirmDeleteDialog` tiene API dual** (`open`/`onOpenChange` vs
+   `isOpen`/`onCancel`); cada página usa una mitad.
+6. **`InscriptionsPage`: `<Button>` dentro de `<Link>`** — HTML inválido.
+7. **5 páginas de listado sin migrar**, con 192 líneas de andamiaje duplicado y sin
+   estado de error.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

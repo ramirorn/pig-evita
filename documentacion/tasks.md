@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. **T26 completada**; quedan T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. **T26 completada** y **T27 en revisión** (implementada, pero con la mitad de LOC del DoD sin cumplir). Quedan T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -336,7 +336,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T27 ✨ 🎨 UI + ⚛️ FE — DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables
 
-- [ ] **Descripción:** Todas las páginas admin de listado (`ParticipantsPage`, `VenuesPage`, `NewsPage`, `UsersPage`, `InscriptionsPage`) reimplementan la misma tabla con paginación, skeleton, empty state y confirmación de borrado. Extraer a:
+- [~] **Descripción:** Todas las páginas admin de listado (`ParticipantsPage`, `VenuesPage`, `NewsPage`, `UsersPage`, `InscriptionsPage`) reimplementan la misma tabla con paginación, skeleton, empty state y confirmación de borrado. Extraer a:
   - `components/shared/DataTable.tsx` — recibe `columns`, `data`, `pagination`, `isLoading`.
   - `components/shared/ConfirmDialog.tsx` — dialog genérico para "¿Confirmás borrar X?".
   - `components/shared/TableSkeleton.tsx` — skeleton estándar.
@@ -345,7 +345,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - **⚛️ FE** implementa la API tipada, integra con TanStack Query, migra una página de prueba.
 - Migrar 1 página a modo de prueba (recomiendo `VenuesAdminPage` porque también beneficia a T10).
 - **Archivos:** `frontend/src/components/shared/*` (nuevos), 1 página migrada.
-- **DoD:** LOC total del frontend en `pages/admin/` disminuye ≥15% tras migrar 3 páginas. Componentes cumplen WCAG AA (contraste + navegación por teclado).
+- **DoD:** LOC total del frontend en `pages/admin/` disminuye ≥15% tras migrar 3 páginas. Componentes cumplen WCAG AA (contraste + navegación por teclado). ⚠️ **DoD cumplido a medias — se registra el fallo.** ✅ **WCAG AA verificado** con 55 chequeos sobre el componente real (semántica, foco, `role="status"`/`alert`, y que vacío-por-filtro ≠ vacío-sin-datos). ❌ **La métrica de LOC NO se cumple y va en dirección contraria: 7238 → 7327 (+89 líneas)**, más 405 nuevas en `shared/DataTable.tsx`. Era además **aritméticamente imposible**: 15% de 7238 son 1086 líneas, y las 3 páginas de listado más grandes suman 940. De esas +89, ~55 son **funcionalidad que antes no existía** (estado de error con `refetch` —ninguna de las 8 páginas lo tenía, un backend caído se veía como «sin datos»—, la distinción vacío-por-filtro y los `aria-label`). La métrica que sí mide el valor: el **andamiaje repetido** de las 3 páginas migradas pasó de 35/42/35 líneas a **0/2/0**, y quedan **192 líneas** absorbibles en las 5 páginas sin migrar. **Queda a decisión del equipo:** migrar las 5 restantes (el equilibrio en LOC llegaría cerca de la 6ª-8ª página) o dar por buena la métrica de andamiaje. Evidencia en `PROCESO.md → sección 4 → T27 (post-auditoría)`.
 
 ### T28 ✨ 🔀 FS — Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO (Q24, Q26, Q27)
 
@@ -449,7 +449,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 25 de 28 tareas completadas.**
+**Progreso: 25 de 28 completadas** · 1 con DoD parcial (ver la fila ⚠️).
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -480,7 +480,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T24** | 📈 | 🏗️ BE | DRY backend: validators, DTOs con `PartialType`, includes reusables | ✅ Completada |
 | **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ✅ Completada |
 | **T26** | ✨ | ⚛️ FE | Memoización de valores derivados en páginas admin | ✅ Completada |
-| **T27** | ✨ | 🎨 UI + ⚛️ FE | DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables | ⬜ Pendiente |
+| **T27** | ✨ | 🎨 UI + ⚛️ FE | DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables | ⚠️ DoD parcial |
 | **T28** | ✨ | 🔀 FS | Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO | ⬜ Pendiente |
 
 ### Resumen por severidad

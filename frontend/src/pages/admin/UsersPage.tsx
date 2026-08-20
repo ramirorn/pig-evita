@@ -1,20 +1,12 @@
 // ===========================================
 // Users Admin Page
 // ===========================================
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { UserCog, Search, Plus, Pencil } from 'lucide-react';
 import { useUsers } from '@/hooks/useUsers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -22,8 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { SkeletonTable } from '@/components/shared/SkeletonTable';
-import { EmptyState } from '@/components/shared/EmptyState';
+import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { UserForm } from './components/UserForm';
 import { ROLE_LABELS } from '@/lib/constants';
 import type { User } from '@/types';
@@ -33,13 +24,17 @@ export function UsersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>();
 
-  const { data: usersData, isLoading } = useUsers();
+  const { data: usersData, isLoading, isFetching, isError, refetch } = useUsers();
 
-  const filtered = (usersData?.data || []).filter((user) =>
-    user.email.toLowerCase().includes(search.toLowerCase()) ||
-    user.firstName.toLowerCase().includes(search.toLowerCase()) ||
-    user.lastName.toLowerCase().includes(search.toLowerCase()) ||
-    (user.department && user.department.toLowerCase().includes(search.toLowerCase())),
+  const filtered = useMemo(
+    () =>
+      (usersData?.data ?? []).filter((user) =>
+        [user.email, user.firstName, user.lastName, user.department ?? '']
+          .join(' ')
+          .toLowerCase()
+          .includes(search.toLowerCase()),
+      ),
+    [usersData, search],
   );
 
   const handleCreate = () => {
@@ -57,6 +52,87 @@ export function UsersPage() {
     setEditingUser(undefined);
   };
 
+  // Las columnas se declaran fuera del JSX para que el bloque de la tabla no
+  // vuelva a mezclar estructura, estados y contenido como antes de T27.
+  const columns: DataTableColumn<User>[] = [
+    {
+      id: 'user',
+      header: 'Usuario',
+      rowHeader: true,
+      cell: (user) => (
+        <div>
+          <p className="font-semibold text-primary-900">
+            {user.firstName} {user.lastName}
+          </p>
+          <p className="text-xs text-primary-500">{user.email}</p>
+        </div>
+      ),
+    },
+    {
+      id: 'role',
+      header: 'Rol',
+      cell: (user) => (
+        <Badge variant="outline" className="bg-primary-50 text-primary-700 border-primary-200">
+          {ROLE_LABELS[user.role] || user.role}
+        </Badge>
+      ),
+    },
+    {
+      id: 'scope',
+      header: 'Departamento / Zona',
+      className: 'text-sm text-primary-700',
+      cell: (user) =>
+        user.department ? (
+          <span>
+            {user.department} {user.zone ? `(${user.zone})` : ''}
+          </span>
+        ) : (
+          // `primary-400` daba 3.75:1 contra blanco (falla AA); `primary-500`
+          // llega a 6.52:1 y la itálica conserva el matiz de "no informado".
+          <span className="text-primary-500 italic">Provincial / General</span>
+        ),
+    },
+    {
+      id: 'status',
+      header: 'Estado',
+      cell: (user) =>
+        user.isActive ? (
+          <Badge
+            variant="outline"
+            className="bg-secondary-50 text-secondary-700 border-secondary-200"
+          >
+            Activo
+          </Badge>
+        ) : (
+          // `variant="secondary"` no renderiza color: `bg-secondary` no existe
+          // en el `@theme`. Se usan tokens explícitos que sí resuelven.
+          <Badge variant="outline" className="bg-muted text-primary-700 border-primary-200">
+            Inactivo
+          </Badge>
+        ),
+    },
+    {
+      id: 'actions',
+      header: 'Acciones',
+      hideHeader: true,
+      interactive: true,
+      headClassName: 'w-[100px] text-right',
+      className: 'text-right',
+      cell: (user) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-primary-600 hover:text-primary-900 hover:bg-primary-50"
+          onClick={() => handleEdit(user)}
+          // `title` no es un nombre accesible confiable: el nombre va en `aria-label`.
+          aria-label={`Editar a ${user.firstName} ${user.lastName}`}
+        >
+          <Pencil className="w-4 h-4" />
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -71,92 +147,42 @@ export function UsersPage() {
         }
       />
 
-      <div className="card">
-        <div className="p-4 border-b border-primary-100 flex items-center gap-4">
+      <DataTable
+        entityName="usuarios"
+        columns={columns}
+        rows={filtered}
+        getRowId={(user) => user.id}
+        isLoading={isLoading}
+        isFetching={isFetching && !isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        isRowInactive={(user) => !user.isActive}
+        hasActiveFilters={search.trim().length > 0}
+        onClearFilters={() => setSearch('')}
+        emptyIcon={<UserCog className="w-10 h-10" />}
+        emptyTitle="Todavía no hay usuarios"
+        emptyDescription="Registrá el primer usuario para empezar a operar el sistema."
+        emptyAction={
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus className="w-4 h-4" /> Crear Usuario
+          </Button>
+        }
+        toolbar={
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-            <Input 
-              placeholder="Buscar por nombre, email o depto..." 
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400"
+              aria-hidden="true"
+            />
+            <Input
+              placeholder="Buscar por nombre, email o depto..."
+              aria-label="Buscar usuarios"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
-        </div>
-
-        <div className="relative">
-          {isLoading ? (
-            <SkeletonTable rows={5} columns={4} />
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              icon={<UserCog className="w-10 h-10" />}
-              title="Sin usuarios"
-              description="No se encontraron usuarios registrados con los criterios ingresados."
-              action={
-                <Button onClick={handleCreate} className="gap-2">
-                  <Plus className="w-4 h-4" /> Crear Usuario
-                </Button>
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Usuario</TableHead>
-                  <TableHead>Rol</TableHead>
-                  <TableHead>Departamento / Zona</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="w-[100px] text-right">Acción</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium text-primary-900">
-                      <div>
-                        <p className="font-semibold">{user.firstName} {user.lastName}</p>
-                        <p className="text-xs text-primary-500">{user.email}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-primary-50 text-primary-700 border-primary-200">
-                        {ROLE_LABELS[user.role] || user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-primary-700">
-                      {user.department ? (
-                        <span>{user.department} {user.zone ? `(${user.zone})` : ''}</span>
-                      ) : (
-                        <span className="text-primary-400">Provincial / General</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {user.isActive ? (
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
-                          Activo
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">Inactivo</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-primary-600 hover:text-primary-900 hover:bg-primary-50"
-                        onClick={() => handleEdit(user)}
-                        title="Editar usuario"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[560px]">
