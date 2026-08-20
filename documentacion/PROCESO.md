@@ -3080,6 +3080,150 @@ end-to-end de "el link no se renderiza" es la de la página pública.
 
 ---
 
+### T26 (post-auditoría DevSecOps) — Memoizar valores derivados en páginas admin (Q18, Q19, Q20, Q28)
+
+> Corresponde a `tasks.md → Fase 5 → T26`. Implementada por el agente
+> ⚛️ **Frontend Engineer**.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente ⚛️ **Frontend Engineer**
+- **Hallazgos cubiertos:** Q18, Q19, Q20, Q28
+- **Duración estimada / real:** 0,5h / ~0,75h
+
+#### Relevamiento previo (antes de delegar)
+
+**`DashboardPage` ya no es el de la auditoría**: T22 lo reescribió y le agregó
+`useMemo` para `donutData`. Se le pidió al agente que revisara qué quedó realmente
+inline y que **no tocara por tocar** si ya estaba resuelto.
+
+#### Prompt utilizado
+
+Resumen de lo sustantivo:
+
+> Te toca **T26**. [Los tres sitios + el aviso de que DashboardPage cambió.]
+>
+> **No memoices por reflejo.** `useMemo` tiene costo y sólo paga cuando el valor es
+> caro de calcular **o** cuando su identidad alimenta a un hijo memoizado o a un
+> array de deps. **Para cada cambio, decime cuál de los dos motivos aplica.** Si en
+> algún sitio la conclusión es "no vale la pena", esa también es una respuesta
+> válida y la prefiero antes que ruido.
+>
+> **`<InscriptionStatusBadge>` tiene que estar realmente memoizado:** `React.memo`
+> sólo sirve si las props son referencialmente estables. Pensá qué props recibe.
+>
+> **Ojo con memoizar lo que ya viene estable:** `stats?.recentInscriptions ?? []`
+> sólo aloca cuando `stats` es undefined.
+>
+> **Sobre el DoD:** pide React DevTools Profiler, que **no puedo correr acá**. **No
+> inventes que lo corriste.** La evidencia equivalente es demostrar el mecanismo que
+> el Profiler observaría.
+
+#### Código generado
+
+- `frontend/src/components/shared/InscriptionStatusBadge.tsx` *(nuevo)*.
+- `frontend/src/pages/admin/InscriptionsPage.tsx` y `InscriptionDetailPage.tsx` —
+  consumen el badge.
+- `frontend/src/pages/admin/CompetitionDetailPage.tsx` — `matchesByRound`.
+- `frontend/src/pages/admin/CalendarAdminPage.tsx` — `disciplinesMap`/`venuesMap`.
+- `frontend/src/pages/admin/DashboardPage.tsx` — sólo un comentario explicando por
+  qué **no** se memoiza.
+
+#### Decisiones del agente, con el motivo de cada una
+
+**Memoizado por identidad referencial (hijo memoizado):**
+
+- **`<InscriptionStatusBadge>`** recibe **sólo props primitivas** (`status` es un
+  string enum, `className` un literal), así que la comparación superficial de
+  `memo` da `true` y React saltea el re-render de las N filas cuando la página se
+  re-renderiza por el buscador o el filtro. El `Record` de clases vive **a nivel de
+  módulo**, no dentro del componente. Es **el único sitio del repo donde aplica
+  este motivo**: hoy no hay ningún otro `React.memo` en `src/`.
+
+**Memoizado por cálculo O(n) cuyas deps no son lo que dispara el re-render:**
+
+- **`CalendarAdminPage`** (`disciplinesMap`/`venuesMap`): dos `new Map(...)`
+  reconstruidos **en cada tecleo del buscador**, cuando sus entradas vienen del
+  cache de React Query y son estables. El caso más claro que apareció al barrer el
+  resto de `pages/admin/`.
+- **`CompetitionDetailPage`** (`matchesByRound`): agrupación O(n) sobre todo el
+  fixture, rehecha en renders que no tocan `competition.matches` (refetch de
+  `useTeams`, cada flip de `isPending`). El agente marcó que **es el motivo más
+  flojo de los tres** porque los fixtures son chicos.
+
+**NO memoizado, a propósito** — la parte más valiosa del reporte:
+
+- **`DashboardPage.cards` (Q18):** lo único que cambia entre renders de esa página
+  es `stats`, que sería además la única dependencia del memo. **El memo nunca
+  acertaría**: recalcularía igual, más el costo de comparar deps. Y las tarjetas se
+  pintan como `<Link>` planos, sin hijo memoizado abajo. Quedó documentado en el
+  archivo.
+- **Los `filtered = (...).filter(...)`** de 7 páginas admin: dependen de `search`,
+  que es *exactamente* lo que dispara el re-render. El memo fallaría en cada
+  tecleo: **costo puro**.
+- `recentInscriptions`, `pendingCount`, `availableTeams`: `x ?? []` sólo aloca
+  cuando el dato no llegó, y ahí ni se renderiza la lista.
+
+#### Cambios de forma declarados
+
+- **`InscriptionDetailPage` mostraba el enum crudo** (`PENDIENTE`); ahora muestra la
+  etiqueta en castellano igual que la tabla. Es un cambio de texto **visible** y
+  deliberado (parte de Q28).
+- El `useMemo` de `matchesByRound` va **antes de los early returns**, porque un hook
+  no puede quedar detrás de un `return` condicional. Y devuelve
+  `Array<{round, matches}>` ordenado en vez de `Record<number, Match[]>`, para no
+  depender del orden numérico implícito de las claves de objeto.
+
+#### Verificación (DoD)
+
+**El DoD pide React DevTools Profiler, que no se pudo correr** (no hay navegador ni
+runner con DOM, y no se instalaron dependencias sólo para esto). Lo verificado es
+**el mecanismo que el Profiler observaría**, con 12 chequeos en verde:
+
+| Chequeo | Resultado |
+|---|---|
+| `InscriptionStatusBadge.$$typeof === Symbol.for('react.memo')`, `compare === null` | ✅ comparación shallow por defecto |
+| Todas las props recibidas son primitivas | ✅ |
+| `shallowEqual(props render N, render N+1)` | **`true`** → el bailout de `memo` ocurre |
+| Con `status` distinto | `false` → re-renderiza cuando debe |
+| Contraejemplo con una prop objeto inline | `false` → por eso las props son primitivas |
+| `renderToStaticMarkup` de los 4 estados | conservan sus clases de color exactas |
+| Refactor de agrupación: vieja vs nueva sobre fixture desordenado (`3,1,1,10,2,10`) | **misma salida**, orden `1,2,3,10` |
+
+**Lo que el agente declaró que NO verificó** (y se acepta como tal): no corrió el
+Profiler, así que no hay un conteo real de commits; no probó los tres `useMemo` en
+un render loop real —`useMemo` garantiza la identidad por semántica, y la parte
+discutible (que las deps sean estables y distintas del disparador) es argumento de
+lectura de código—; y el cambio de texto de `InscriptionDetailPage` está verificado
+por markup, no visualmente.
+
+Reejecutado por fuera: `tsc` OK · `build` OK · `lint` sin hallazgos en los archivos
+tocados.
+
+#### Notas / aprendizajes
+
+- **La instrucción "si no vale la pena, esa también es una respuesta válida"
+  cambió el resultado.** El agente memoizó 3 sitios y **descartó 10** con argumento
+  escrito. Una lectura literal del enunciado habría agregado `useMemo` al array
+  `stats` del dashboard, donde el memo **nunca acierta**.
+- El criterio para descartar es transferible: si la dependencia del memo es
+  *exactamente* lo que dispara el re-render (`search`), el memo es costo puro.
+
+#### Hallazgos fuera de alcance reportados por el agente
+
+1. **`INSCRIPTION_STATUS_COLORS` (`lib/constants.ts:89`) está muerto**: nadie lo
+   importa y su paleta ya divergía de la que usan las páginas. Se replicó la paleta
+   viva para no cambiar el aspecto; unificarlo es decisión de diseño.
+2. **`AuditPage` y `DocumentsPage` filtran sobre datos mock hardcodeados**:
+   memoizar ahí no tiene sentido, el problema es que no están conectadas al backend.
+3. **`pages/public/NewsPage.tsx:99`**: un `useMemo` que depende de un array
+   recreado en cada render, o sea **el antipatrón de esta misma tarea**, pero en
+   `pages/public/`, fuera del alcance.
+4. `CompetitionDetailPage` e `InscriptionDetailPage` tienen badges de estado de
+   competencia y de partido con el mismo patrón Q28: candidatos a
+   `<CompetitionStatusBadge>` / `<MatchStatusBadge>`.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

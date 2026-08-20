@@ -1,13 +1,14 @@
 // ===========================================
 // Competition Detail Page
 // ===========================================
+import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Trophy, ArrowLeft, Loader2, Calendar, LayoutGrid, Users, Swords, CheckCircle2 } from 'lucide-react';
 import { useCompetition, useGenerateFixture } from '@/hooks/useCompetitions';
 import { useTeams } from '@/hooks/useTeams';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CompetitionFormat } from '@/types';
+import { CompetitionFormat, type Match } from '@/types';
 import { FORMAT_LABELS, STAGE_LABELS, ROUTES } from '@/lib/constants';
 import { toast } from 'sonner';
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
@@ -26,6 +27,29 @@ export function CompetitionDetailPage() {
     categoryId: competition?.categoryId,
     limit: 100,
   });
+
+  // Agrupación de partidos por fecha (hallazgo Q20). Es un recorrido O(n) sobre
+  // todos los partidos del fixture que antes se rehacía en *cada* render, y la
+  // página se re-renderiza por cosas que no tocan el fixture: el refetch de
+  // `useTeams` y cada cambio de `isPending` de la mutación. Con `useMemo` sólo
+  // se recalcula cuando cambia el array de partidos que devuelve React Query.
+  //
+  // Va antes de los early returns de abajo a propósito: un hook no puede
+  // quedar detrás de un `return` condicional (reglas de hooks).
+  const matchesByRound = useMemo(() => {
+    const grouped = new Map<number, Match[]>();
+    for (const match of competition?.matches ?? []) {
+      const bucket = grouped.get(match.round);
+      if (bucket) bucket.push(match);
+      else grouped.set(match.round, [match]);
+    }
+    // Se ordena por número de fecha para no depender del orden en que vengan
+    // del backend (antes lo garantizaba, sin quererlo, el orden numérico de las
+    // claves de un objeto).
+    return [...grouped.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([round, matches]) => ({ round, matches }));
+  }, [competition?.matches]);
 
   if (isLoading) {
     return (
@@ -64,15 +88,6 @@ export function CompetitionDetailPage() {
       logError('CompetitionDetailPage.handleGenerateFixture', e);
     }
   };
-
-  // Group matches by round
-  const matchesByRound: Record<number, typeof matches> = {};
-  if (hasMatches) {
-    for (const match of matches) {
-      if (!matchesByRound[match.round]) matchesByRound[match.round] = [];
-      matchesByRound[match.round].push(match);
-    }
-  }
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
@@ -142,7 +157,7 @@ export function CompetitionDetailPage() {
 
         {hasMatches ? (
           <div className="space-y-6">
-            {Object.entries(matchesByRound).map(([round, matches]) => (
+            {matchesByRound.map(({ round, matches }) => (
               <div key={round}>
                 <h4 className="text-sm font-bold text-primary-600 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <span className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-xs font-black">
@@ -201,7 +216,7 @@ export function CompetitionDetailPage() {
             <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 rounded-lg p-3 border border-green-200">
               <CheckCircle2 className="w-5 h-5" />
               <span className="font-medium">
-                Fixture generado: {matches.length} partidos en {Object.keys(matchesByRound).length} fechas
+                Fixture generado: {matches.length} partidos en {matchesByRound.length} fechas
               </span>
             </div>
           </div>

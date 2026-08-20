@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { ClipboardCheck, Search, Filter, ClipboardList } from 'lucide-react';
 import { useInscriptions } from '@/hooks/useInscriptions';
 import { InscriptionStatus } from '@/types';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,6 +27,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Pagination } from '@/components/shared/Pagination';
 import { SkeletonTable } from '@/components/shared/SkeletonTable';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { InscriptionStatusBadge } from '@/components/shared/InscriptionStatusBadge';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 
 export function InscriptionsPage() {
@@ -41,19 +41,6 @@ export function InscriptionsPage() {
     page,
     limit,
   });
-
-  const getStatusBadge = (status: InscriptionStatus) => {
-    switch (status) {
-      case InscriptionStatus.PENDIENTE:
-        return <Badge variant="outline" className="text-orange-600 bg-orange-50 border-orange-200">Pendiente</Badge>;
-      case InscriptionStatus.REVISADA:
-        return <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200">Revisada</Badge>;
-      case InscriptionStatus.APROBADA:
-        return <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">Aprobada</Badge>;
-      case InscriptionStatus.RECHAZADA:
-        return <Badge variant="outline" className="text-red-600 bg-red-50 border-red-200">Rechazada</Badge>;
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -135,7 +122,7 @@ export function InscriptionsPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {getStatusBadge(inscription.status)}
+                      <InscriptionStatusBadge status={inscription.status} />
                     </TableCell>
                     <TableCell className="text-right">
                       <Link to={`/admin/inscripciones/${inscription.id}`}>

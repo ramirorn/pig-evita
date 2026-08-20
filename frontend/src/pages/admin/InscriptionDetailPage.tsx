@@ -11,12 +11,12 @@ import {
 } from '@/hooks/useInscriptions';
 import { InscriptionStatus } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ROUTES } from '@/lib/constants';
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
+import { InscriptionStatusBadge } from '@/components/shared/InscriptionStatusBadge';
 import { logError } from '@/lib/logger';
 
 export function InscriptionDetailPage() {
@@ -96,14 +96,7 @@ export function InscriptionDetailPage() {
             <h1 className="text-xl font-bold text-primary-800">
               Inscripción #{inscription.qrCode}
             </h1>
-            <Badge variant="outline" className={
-              inscription.status === InscriptionStatus.APROBADA ? 'text-green-600 bg-green-50 border-green-200' :
-              inscription.status === InscriptionStatus.RECHAZADA ? 'text-red-600 bg-red-50 border-red-200' :
-              inscription.status === InscriptionStatus.REVISADA ? 'text-blue-600 bg-blue-50 border-blue-200' :
-              'text-orange-600 bg-orange-50 border-orange-200'
-            }>
-              {inscription.status}
-            </Badge>
+            <InscriptionStatusBadge status={inscription.status} />
           </div>
           <p className="text-sm text-primary-500 mt-1">
             Enviada el {new Date(inscription.createdAt).toLocaleString()}

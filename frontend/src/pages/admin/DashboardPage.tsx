@@ -27,6 +27,12 @@ export function DashboardPage() {
   // que sólo se usaban para leer 8 contadores distintos.
   const { data: stats, isLoading, isError } = useDashboardStats();
 
+  // A propósito SIN `useMemo` (hallazgo Q18): la única cosa que cambia entre
+  // renders de esta página es `stats`, que además sería la única dependencia del
+  // memo. O sea que el memo nunca acertaría: recalcularía igual en cada render y
+  // encima sumaría la comparación de deps. Además estas 4 tarjetas se pintan
+  // como `<Link>` planos, no hay ningún hijo memoizado que se beneficie de una
+  // identidad referencial estable.
   const cards = [
     { label: 'Participantes', value: stats?.totalParticipants ?? 0, icon: <Users className="w-6 h-6" />, color: 'from-primary-500 to-primary-700', link: ROUTES.PARTICIPANTS },
     { label: 'Inscripciones', value: stats?.totalInscriptions ?? 0, icon: <ClipboardList className="w-6 h-6" />, color: 'from-celeste-500 to-celeste-700', link: ROUTES.INSCRIPTIONS },

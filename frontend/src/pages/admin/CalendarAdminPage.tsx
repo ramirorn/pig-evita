@@ -1,7 +1,7 @@
 // ===========================================
 // Calendar Admin Page
 // ===========================================
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CalendarDays,
   Search,
@@ -59,9 +59,21 @@ export function CalendarAdminPage() {
   const { data: venuesData } = useVenues();
   const deleteMutation = useDeleteCalendarEvent();
 
-  // Helper maps for fast lookup
-  const disciplinesMap = new Map((disciplinesData?.data || []).map((d) => [d.id, d.name]));
-  const venuesMap = new Map((venuesData?.data || []).map((v) => [v.id, `${v.name} (${v.locality})`]));
+  // Índices para resolver nombres de disciplina/sede por id.
+  //
+  // Se memoizan porque lo que dispara los re-renders de esta página NO es lo que
+  // alimenta a estos mapas: `search` cambia en cada tecleo y el estado de los
+  // diálogos en cada apertura, mientras que `disciplinesData`/`venuesData`
+  // vienen del cache de React Query y son referencialmente estables. Sin
+  // `useMemo` se reconstruían dos `Map` completos por cada letra tipeada.
+  const disciplinesMap = useMemo(
+    () => new Map((disciplinesData?.data ?? []).map((d) => [d.id, d.name])),
+    [disciplinesData],
+  );
+  const venuesMap = useMemo(
+    () => new Map((venuesData?.data ?? []).map((v) => [v.id, `${v.name} (${v.locality})`])),
+    [venuesData],
+  );
 
   const filtered = (calendarData?.data || []).filter((item) =>
     !search ||

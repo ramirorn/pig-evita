@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. Quedan T26, T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. **T26 completada**; quedan T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -327,12 +327,12 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T26 ✨ ⚛️ FE — Memoización de valores derivados en páginas admin (Q18, Q19, Q20)
 
-- [ ] **Descripción:** Varios páginas construyen arrays/objetos inline en cada render (causan re-renders de hijos memoizados):
+- [x] **Descripción:** Varios páginas construyen arrays/objetos inline en cada render (causan re-renders de hijos memoizados):
   - `DashboardPage.tsx:38-43` — array `stats` → `useMemo`.
   - `InscriptionsPage.tsx:45-56` — función `getStatusBadge` inline → extraer a componente memoizado `<InscriptionStatusBadge>` (cubre también Q28).
   - `CompetitionDetailPage.tsx:67-74` — `matchesByRound` inline → `useMemo`.
 - **Archivos:** los tres mencionados.
-- **DoD:** React DevTools Profiler muestra reducción medible de re-renders al cambiar filtros en `InscriptionsPage`.
+- **DoD:** React DevTools Profiler muestra reducción medible de re-renders al cambiar filtros en `InscriptionsPage`. ⚠️ **El Profiler no se pudo correr** (no hay navegador ni runner con DOM). Se verificó **el mecanismo que el Profiler observaría**, con 12 chequeos: `InscriptionStatusBadge` es un `memo` real con comparación shallow, todas sus props son primitivas y `shallowEqual` entre renders da **`true`** (el bailout ocurre) y `false` cuando cambia el estado. Se memoizaron **3** sitios y se **descartaron 10** con argumento escrito: los `filtered` de 7 páginas dependen de `search`, que es *exactamente* lo que dispara el re-render, así que el memo sería costo puro; y el array `stats` del dashboard tendría como única dep lo único que cambia, o sea que **nunca acertaría**. Cambio visible: `InscriptionDetailPage` mostraba el enum crudo (`PENDIENTE`) y ahora usa la etiqueta en castellano, igual que la tabla (Q28). Evidencia en `PROCESO.md → sección 4 → T26 (post-auditoría)`.
 
 ### T27 ✨ 🎨 UI + ⚛️ FE — DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables
 
@@ -449,7 +449,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 24 de 28 tareas completadas.**
+**Progreso: 25 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -479,7 +479,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T23** | 📈 | 🏗️ BE | Streaming + paginación en reports Excel/CSV | ✅ Completada |
 | **T24** | 📈 | 🏗️ BE | DRY backend: validators, DTOs con `PartialType`, includes reusables | ✅ Completada |
 | **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ✅ Completada |
-| **T26** | ✨ | ⚛️ FE | Memoización de valores derivados en páginas admin | ⬜ Pendiente |
+| **T26** | ✨ | ⚛️ FE | Memoización de valores derivados en páginas admin | ✅ Completada |
 | **T27** | ✨ | 🎨 UI + ⚛️ FE | DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables | ⬜ Pendiente |
 | **T28** | ✨ | 🔀 FS | Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO | ⬜ Pendiente |
 
@@ -492,4 +492,4 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | 🟠 Medio | 4 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 4 | 4 |
-| ✨ Polish | 0 | 3 |
+| ✨ Polish | 1 | 3 |
