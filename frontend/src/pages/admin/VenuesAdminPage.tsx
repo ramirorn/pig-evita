@@ -16,6 +16,10 @@ import {
 import { useVenues, useDeleteVenue } from '@/hooks/useVenues';
 import type { Venue } from '@/types';
 import { VenueForm } from './components/VenueForm';
+import { safeExternalUrl } from '@/lib/utils';
+
+/** Base fija de Google Maps: nunca se arma con datos del backend. */
+const MAPS_SEARCH_BASE = 'https://www.google.com/maps/search/';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -205,8 +209,12 @@ export function VenuesAdminPage() {
               </TableHeader>
               <TableBody>
                 {filtered.map((venue) => {
-                  const mapQuery = encodeURIComponent(`${venue.name} ${venue.address} ${venue.locality} Formosa`);
-                  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
+                  // `address` y `locality` son texto libre del backend: si el helper
+                  // no puede armar una URL https limpia, el item del menú no se muestra.
+                  const mapsUrl = safeExternalUrl(MAPS_SEARCH_BASE, {
+                    api: '1',
+                    query: `${venue.name} ${venue.address ?? ''} ${venue.locality ?? ''} Formosa`,
+                  });
 
                   return (
                     <TableRow key={venue.id} className="hover:bg-primary-50/50 transition-colors">
@@ -293,17 +301,19 @@ export function VenuesAdminPage() {
                                 Editar Sede
                               </DropdownMenuItem>
 
-                              <DropdownMenuItem asChild className="gap-2 cursor-pointer text-primary-800">
-                                <a
-                                  href={mapsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2"
-                                >
-                                  <ExternalLink className="w-4 h-4 text-primary-600" />
-                                  Ver en Google Maps
-                                </a>
-                              </DropdownMenuItem>
+                              {mapsUrl && (
+                                <DropdownMenuItem asChild className="gap-2 cursor-pointer text-primary-800">
+                                  <a
+                                    href={mapsUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2"
+                                  >
+                                    <ExternalLink className="w-4 h-4 text-primary-600" />
+                                    Ver en Google Maps
+                                  </a>
+                                </DropdownMenuItem>
+                              )}
 
                               <DropdownMenuItem
                                 onClick={() => handleDeleteClick(venue)}

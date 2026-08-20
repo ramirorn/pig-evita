@@ -2928,6 +2928,158 @@ Script temporal con **37 casos** sobre el helper real: `TODOS LOS CASOS OK`.
 
 ---
 
+### T17 (post-auditoría DevSecOps) — Validar el schema de las URLs dinámicas (F15)
+
+> Corresponde a `tasks.md → Fase 4 → T17`. Implementada por el agente
+> ⚛️ **Frontend Engineer**, que **refutó la premisa** y encontró el riesgo real en
+> otro lado.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente ⚛️ **Frontend Engineer**
+- **Hallazgo cubierto:** F15 (URLs dinámicas sin validación de schema)
+- **Duración estimada / real:** 0,5h / ~1h
+
+#### Relevamiento previo (antes de delegar)
+
+Los dos sitios que nombra la tarea **ya usaban `encodeURIComponent()` sobre una
+base `https://` hardcodeada**, así que un `javascript:` en `address` termina
+codificado dentro del query string y el `href` no puede apuntar a otro schema. Se
+le pidió al agente que **verificara si el DoD ya se cumplía** antes de tocar nada,
+y que buscara dónde sí hay riesgo real: no en "dato del backend como parámetro
+codificado" sino en **"dato del backend usado como la URL entera"**.
+
+#### Prompt utilizado
+
+Resumen de lo sustantivo:
+
+> Te toca **T17**. [Relevamiento con el código de los dos sitios.]
+>
+> **Primera tarea: verificá si el DoD ya se cumple hoy, antes del cambio.** Si es
+> así, decilo con todas las letras. La tarea sigue teniendo valor —el helper es una
+> red para usos futuros— pero **no quiero que el commit diga que cerramos una
+> vulnerabilidad activa si no era tal**.
+>
+> **Segunda tarea, probablemente la más valiosa: buscá dónde SÍ hay riesgo real.**
+> Barré `href` sin base fija, `src` con datos del backend (`news.imageKey` es texto
+> libre), `window.open`, `location.href`.
+>
+> El helper: parseá con `URL`/`URLSearchParams` y exigí `protocol === 'https:'`,
+> que es más robusto que un `startsWith`. **Ojo con los falsos positivos**: una
+> dirección legítima puede contener "data" ("Barrio Los Datos"). Bloqueá
+> **schemas**, no substrings.
+
+#### Veredicto del agente sobre la premisa
+
+Corrió el harness **antes** de tocar los componentes, renderizando `VenuesPage`
+con `react-dom/server` y una sede con `address = "javascript:alert(1)"`:
+
+```
+https://maps.google.com/?q=javascript%3Aalert(1)%20Formosa%20Formosa
+OK  ningún href arranca con javascript:
+```
+
+**No era una vulnerabilidad activa.** Lo que no se cumplía era la *letra* del DoD
+("el link no se renderiza"): el link se renderizaba, inofensivo. Eso sí cambió.
+
+#### El riesgo real, que estaba en otro lado
+
+**`news.imageKey`** es `String?` en Prisma con sólo `@IsString()` en el DTO, y el
+formulario admin lo pide literalmente como *"URL o clave"*. Es **dato del backend
+usado como la URL entera** — el patrón peligroso — y llegaba crudo a tres lugares:
+`HomePage.tsx:230`, `NewsDetailPage.tsx:123` y `NewsPage.tsx:71`.
+
+Evidencia del "antes", con tres noticias envenenadas:
+
+```
+src renderizados:
+  javascript:throw new Error('React has blocked a javascript: URL…')
+  data:text/html,<script>alert(1)</script>
+  https://cdn.formosa.gob.ar/noticias/foto.jpg
+```
+
+Dos lecturas que el propio agente marcó, y que conviene no inflar:
+- El `javascript:` lo frenó **React 19**, no nuestro código: red ajena, y sólo para
+  ese schema.
+- El `data:` **sí llegaba entero al DOM**. En un `<img src>` un SVG no ejecuta
+  script y un `data:text/html` ni carga, así que el riesgo concreto es bajo. Pero
+  **es el único punto del front donde texto libre del backend define el destino
+  completo de una request**, y no dependía de ninguna validación propia.
+
+#### Código generado
+
+- `frontend/src/lib/utils.ts` — `safeExternalUrl(base, params)` y
+  `safeImageSrc(value)`, junto al `getFriendlyError` de T16.
+- `frontend/src/pages/public/VenuesPage.tsx` — si el helper da `null`, en lugar del
+  link va "Sin mapa disponible"; **la dirección sigue visible como texto**.
+- `frontend/src/pages/admin/VenuesAdminPage.tsx` — se omite el ítem de Google Maps.
+- `frontend/src/pages/public/{NewsPage,HomePage,NewsDetailPage}.tsx` — `imageKey`
+  pasa por `safeImageSrc`; si no valida, cae al placeholder que ya existía.
+
+#### Decisiones del agente (y por qué)
+
+**Parseo, no substring.** Construye con `new URL()` + `URLSearchParams` y exige
+`url.protocol === 'https:'`. Beneficio concreto: `HTTPS://maps.google.com/` se
+acepta (el parser normaliza) y un `startsWith('https://')` lo habría rechazado.
+
+**Falsos positivos resueltos por borde de schema, no por substring.** La regex
+exige las dos condiciones de un schema RFC 3986 —que haya `:` y que el carácter
+previo no sea `[a-z0-9+.-]`—, así *"Barrio Los Datos 123"* y *"Avenida Nodata: 500"*
+pasan. Ambos verificados.
+
+**Schema partido:** el test corre dos veces, sobre el texto crudo y sobre el texto
+sin espacios ni zero-width, porque `java\nscript:` es válido para el navegador. Las
+dos pasadas son necesarias: limpiar el ruido pega palabras separadas
+(*"Los Datos: 5"* → *"LosDatos:5"*) y ahí el borde desaparecería.
+
+#### Cambio de comportamiento declarado
+
+`safeImageSrc` acepta rutas relativas y `https://`, pero **rechaza `http://`
+absolutas** (mixed content) y protocol-relative `//host`. Si alguna noticia
+cargada tiene hoy una imagen por HTTP, **pasa a mostrar el placeholder**. Es
+deliberado, pero es visible para el usuario.
+
+#### Verificación (DoD)
+
+Script con `react-dom/server` sobre las páginas reales + el helper: **`TODO OK`**.
+
+| Grupo | Resultado |
+|---|---|
+| **DoD:** `address = javascript:alert(1)` en Sedes | la sede envenenada **no tiene link**; la legítima **sí**; la dirección sigue **visible como texto** y **no** quedó dentro de ningún `href` |
+| **DoD ampliado:** `imageKey` hostil en Noticias | ningún `<img src>` con `javascript:` ni `data:`; la imagen legítima se renderiza |
+| Schemas | `javascript:`, `data:`, `vbscript:`, partidos con newline/tab/zero-width, `JaVaScRiPt:`, espacio antes de los dos puntos → todos `null` |
+| **Falsos positivos** | "Barrio Los Datos 123", "Av. Data 500", "Avenida Nodata: 500", "Escuela de Javascripts 42", "Ñandú 1234", "Av. 9 de Julio S/N — esq. Belgrano #12" → **todos aceptados** |
+| Base | rechaza `http://`, relativa, `javascript:` y malformada; acepta `HTTPS://` |
+
+- [x] Inyectar `javascript:alert(1)` en `address` → el link no se renderiza.
+- [x] `tsc` OK · `build` OK · `lint` sin hallazgos nuevos.
+
+**Limitación declarada por el agente:** el link de `VenuesAdminPage` vive dentro de
+un `DropdownMenuContent` de Radix, que no renderiza en SSR. Su cobertura ejecutable
+es a nivel helper con la construcción exacta de params de esa página; la evidencia
+end-to-end de "el link no se renderiza" es la de la página pública.
+
+#### Notas / aprendizajes
+
+- **Pedir que verifique la premisa antes de implementar cambió la tarea de lugar.**
+  El DoD literal se cerraba en dos líneas sobre un agujero que no existía; el valor
+  terminó estando en los tres `<img src>` que nadie había mirado.
+- El encuadre importa para el registro: el commit dice *"endurecer la construcción
+  de URLs dinámicas"*, no *"cerrar un XSS"*.
+
+#### Hallazgos fuera de alcance reportados por el agente
+
+1. **`imageKey` no se valida en el backend** (`news.dto.ts:27` y `:39`, sólo
+   `@IsString()`). Lo correcto sería `@IsUrl({ protocols: ['https'] })` o un
+   `@Matches` para claves. **El fix de T17 es defensa del lado del cliente sobre
+   datos ya persistidos: el origen sigue abierto.** Sugiere tarea aparte.
+2. **`safeImageSrc` acepta cualquier host https**, no una allowlist: una URL hostil
+   sigue sirviendo como pixel de tracking hacia un tercero. Fijar la allowlist
+   requiere saber qué dominio sirve MinIO en producción — decisión de infra.
+3. `NewsForm.tsx:157` tiene un `control={form.control as any}`.
+4. `NewsPage.tsx:99`: warning preexistente de `exhaustive-deps`.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

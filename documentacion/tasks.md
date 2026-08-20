@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15 y T16 completadas**; siguen T17, T26/T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. Quedan T26, T27, T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -215,12 +215,12 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T17 🟠 ⚛️ FE — Validar schema de URLs dinámicas en `href` (F15)
 
-- [ ] **Descripción:** Los `href` construidos con datos del backend (`venue.address`, `venue.locality`) van a Google Maps. Aunque `encodeURIComponent()` mitiga la mayoría, no valida schema. Fix: crear helper `safeExternalUrl(base: string, params: Record<string,string>): string | null` que retorna `null` si el resultado no empieza con `https://` o si algún parámetro contiene `javascript:`, `data:`, `vbscript:`. El componente muestra el link solo si el helper devuelve string.
+- [x] **Descripción:** Los `href` construidos con datos del backend (`venue.address`, `venue.locality`) van a Google Maps. Aunque `encodeURIComponent()` mitiga la mayoría, no valida schema. Fix: crear helper `safeExternalUrl(base: string, params: Record<string,string>): string | null` que retorna `null` si el resultado no empieza con `https://` o si algún parámetro contiene `javascript:`, `data:`, `vbscript:`. El componente muestra el link solo si el helper devuelve string.
 - **Archivos:**
   - `frontend/src/lib/utils.ts` (nuevo helper)
   - `frontend/src/pages/admin/VenuesAdminPage.tsx:207-208`
   - `frontend/src/pages/public/VenuesPage.tsx:66`
-- **DoD:** inyectar `javascript:alert(1)` en el campo `address` de una sede → el link "Ver en Google Maps" no se renderiza (o se renderiza deshabilitado).
+- **DoD:** inyectar `javascript:alert(1)` en el campo `address` de una sede → el link "Ver en Google Maps" no se renderiza (o se renderiza deshabilitado). ✅ Verificado renderizando las páginas reales con `react-dom/server`. **La premisa no era una vulnerabilidad activa:** los dos `href` ya usaban `encodeURIComponent()` sobre una base `https://` hardcodeada, así que el payload quedaba codificado en el query string (verificado *antes* de tocar el código). **El riesgo real estaba en otro lado:** `news.imageKey` es texto libre del backend usado como la URL **entera** en tres `<img src>` (`HomePage`, `NewsPage`, `NewsDetailPage`) — un `data:` URI llegaba entero al DOM; el `javascript:` sólo lo frenaba React, no código propio. Se agregó `safeImageSrc` además de `safeExternalUrl`. Los falsos positivos se resuelven por **borde de schema RFC 3986**, no por substring: «Barrio Los Datos 123» y «Avenida Nodata: 500» pasan. ⚠️ Cambio visible: `safeImageSrc` rechaza `http://` absolutas, así que una noticia con imagen por HTTP pasa a mostrar el placeholder. Evidencia en `PROCESO.md → sección 4 → T17 (post-auditoría)`.
 
 ---
 
@@ -449,7 +449,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
 > en `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 23 de 28 tareas completadas.**
+**Progreso: 24 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -470,7 +470,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T14** | 🟡 | ⚛️ FE | `ProtectedRoute`: exigir `allowedRoles` explícito por ruta admin | ✅ Completada |
 | **T15** | 🟠 | ⚛️ FE | Fortalecer schemas Zod | ✅ Completada |
 | **T16** | 🟠 | ⚛️ FE | Sanitizar mensajes de error del backend antes de mostrarlos al usuario | ✅ Completada |
-| **T17** | 🟠 | ⚛️ FE | Validar schema de URLs dinámicas en `href` | ⬜ Pendiente |
+| **T17** | 🟠 | ⚛️ FE | Validar schema de URLs dinámicas en `href` | ✅ Completada |
 | **T18** | 🚀 | 🏗️ BE | Quick wins backend: `compression` + `Cache-Control` en endpoints públicos | ✅ Completada |
 | **T19** | 🚀 | ⚛️ FE | Ajustar `staleTime` de React Query por dominio | ✅ Completada |
 | **T20** | 🚀 | ⚛️ FE | Code splitting: lazy loading de rutas admin | ✅ Completada |
@@ -489,7 +489,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 |---|---|---|
 | 🔴 Crítico | 6 | 6 |
 | 🟡 Alto | 6 | 6 |
-| 🟠 Medio | 3 | 5 |
+| 🟠 Medio | 4 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 4 | 4 |
 | ✨ Polish | 0 | 3 |

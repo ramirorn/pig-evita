@@ -17,7 +17,7 @@ import { Link } from "react-router";
 import { PageHero } from "@/components/shared/PageHero";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Input } from "@/components/ui/input";
-import { formatDate } from "@/lib/utils";
+import { formatDate, safeImageSrc } from "@/lib/utils";
 
 // Fallback visual elegante cuando no hay imagen o falla la carga
 function NewsImagePlaceholder({
@@ -62,13 +62,17 @@ function SafeNewsImage({
 }) {
   const [hasError, setHasError] = useState(false);
 
-  if (!src || hasError) {
+  // `imageKey` es texto libre del backend y acá es la URL entera, no un
+  // parámetro dentro de una base fija: hay que validar el schema antes de usarla.
+  const safeSrc = safeImageSrc(src);
+
+  if (!safeSrc || hasError) {
     return <NewsImagePlaceholder title={alt} isLarge={isLarge} />;
   }
 
   return (
     <img
-      src={src}
+      src={safeSrc}
       alt={alt}
       onError={() => setHasError(true)}
       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

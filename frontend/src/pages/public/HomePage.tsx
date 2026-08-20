@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
 import { useNewsList } from '@/hooks/useNews';
-import { formatDate } from '@/lib/utils';
+import { formatDate, safeImageSrc } from '@/lib/utils';
 
 const QUICK_LINKS = [
   {
@@ -218,16 +218,21 @@ export function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {latestNews.map((news, idx) => (
+            {latestNews.map((news, idx) => {
+              // `imageKey` es texto libre del backend: sin schema válido se cae
+              // al placeholder en vez de meter la URL cruda en el `<img>`.
+              const imageSrc = safeImageSrc(news.imageKey);
+
+              return (
               <Link
                 key={news.id}
                 to={`/noticias/${news.slug}`}
                 className={`card group overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all animate-fade-in stagger-${idx + 1}`}
               >
                 <div className="h-44 bg-primary-100 flex items-center justify-center overflow-hidden">
-                  {news.imageKey ? (
+                  {imageSrc ? (
                     <img
-                      src={news.imageKey}
+                      src={imageSrc}
                       alt={news.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -254,7 +259,8 @@ export function HomePage() {
                   </p>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
 
           <div className="mt-6 text-center sm:hidden">

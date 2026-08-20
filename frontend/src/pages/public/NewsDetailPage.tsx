@@ -4,7 +4,7 @@ import { Newspaper, ArrowLeft, Loader2, Calendar, Share2, Clock, Check } from 'l
 import { useNewsBySlug } from '@/hooks/useNews';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { formatDate } from '@/lib/utils';
+import { formatDate, safeImageSrc } from '@/lib/utils';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
 import { logError } from '@/lib/logger';
 import { toast } from 'sonner';
@@ -58,6 +58,8 @@ export function NewsDetailPage() {
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  const coverSrc = safeImageSrc(news.imageKey);
 
   return (
     <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-fade-in">
@@ -116,11 +118,12 @@ export function NewsDetailPage() {
         </div>
       </div>
 
-      {/* Imagen Principal de Portada */}
-      {news.imageKey && !imgError ? (
+      {/* Imagen Principal de Portada — `imageKey` es texto libre del backend y
+          es la URL entera, así que se valida el schema antes de usarla. */}
+      {coverSrc && !imgError ? (
         <div className="w-full h-[360px] md:h-[480px] rounded-3xl overflow-hidden mb-10 shadow-lg border border-primary-100 bg-primary-900">
           <img
-            src={news.imageKey}
+            src={coverSrc}
             alt={news.title}
             onError={() => setImgError(true)}
             className="w-full h-full object-cover"
