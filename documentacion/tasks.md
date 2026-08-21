@@ -72,7 +72,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `localStorage.getItem('evita_refresh_token')` y `localStorage.getItem('evita_user')` devuelven `null` post-login.
   - `document.cookie` no muestra el refresh token (por `httpOnly`).
   - Requests concurrentes con token expirado disparan **una sola** llamada a `/auth/refresh`.
-  - ✅ Los tres criterios verificados: contrato de la cookie con 10 tests e2e (`backend/test/auth-cookies.e2e-spec.ts`, incluye que el refresh por header `Authorization` ahora dé 401), y la deduplicación del refresh ejecutando el `client.ts` real contra un servidor de prueba (5 requests concurrentes → **1** llamada a `/auth/refresh`). Evidencia en `PROCESO.md → sección 4 → T03 (post-auditoría)`.
+  - ✅ Los tres criterios verificados: contrato de la cookie con 10 tests e2e (`backend/test/auth-cookies.e2e-spec.ts`, incluye que el refresh por header `Authorization` ahora dé 401), y la deduplicación del refresh ejecutando el `client.ts` real contra un servidor de prueba (5 requests concurrentes → **1** llamada a `/auth/refresh`). **Smoke test contra el stack real ejecutado el 2026-08-19**: login del usuario semilla devuelve 200 con `Set-Cookie ... Path=/api/v1/auth; HttpOnly; SameSite=Strict` y un body con sólo `accessToken` y `user`. Evidencia en `PROCESO.md → sección 4 → T03 (post-auditoría)`.
 
 ### T04 🔴 🏗️ BE — Guardrails contra secrets default en env (C-05)
 
@@ -168,7 +168,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `frontend/src/store/auth.store.tsx:100-107`
   - `frontend/src/App.tsx:7-15` (extraer `queryClient` a módulo compartido)
   - `frontend/src/lib/queryClient.ts` (nuevo, singleton)
-- **DoD:** flujo manual: login como A → visitar `/admin/inscripciones` → logout → login como B → visitar `/admin/inscripciones` → el Network tab muestra request nuevo (no cache hit); React Query DevTools muestra 0 queries en el momento del logout. ✅ Invariante verificado de forma automatizada sobre el módulo real (`lib/queryClient.ts`): tras el cambio de sesión quedan **0 queries** en cache y una request en vuelo que resuelve *después* del logout ya no la repuebla. El flujo manual en navegador queda como verificación de aceptación. Evidencia en `PROCESO.md → sección 4 → T12 (post-auditoría)`.
+- **DoD:** flujo manual: login como A → visitar `/admin/inscripciones` → logout → login como B → visitar `/admin/inscripciones` → el Network tab muestra request nuevo (no cache hit); React Query DevTools muestra 0 queries en el momento del logout. ✅ Invariante verificado de forma automatizada sobre el módulo real (`lib/queryClient.ts`): tras el cambio de sesión quedan **0 queries** en cache y una request en vuelo que resuelve *después* del logout ya no la repuebla. **Reverificado el 2026-08-19 contra el backend real**, contando las requests que salen: tras el logout la cache queda en 0 y la visita del usuario B dispara 3 requests nuevas. Evidencia en `PROCESO.md → sección 4 → T12 (post-auditoría)`.
 
 ### T13 🟡 ⚛️ FE — Namespace de queryKeys por userId (F4, F5, F6, F7)
 
@@ -253,7 +253,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `frontend/src/App.tsx:7-15` (defaults globales)
   - `frontend/src/hooks/useDisciplines.ts`, `useCategories.ts`, `useVenues.ts`, `useNews.ts` (overrides)
   - `frontend/src/router.tsx` (loaders con prefetch)
-- **DoD:** Network tab de DevTools: al navegar entre pantallas admin en 2-3 min, `disciplines` y `categories` no se re-fetchean. ✅ Verificado ejecutando el `queryClient` y las key factories reales: 6 navegaciones admin seguidas generan **1** request de `disciplines` y **1** de `categories` (contra **6** con el `staleTime: 0` anterior), los datos volátiles siguen revalidando a los 30 s, y ningún hook quedó sin declarar frescura. Evidencia en `PROCESO.md → sección 4 → T19 (post-auditoría)`.
+- **DoD:** Network tab de DevTools: al navegar entre pantallas admin en 2-3 min, `disciplines` y `categories` no se re-fetchean. ✅ Verificado ejecutando el `queryClient` y las key factories reales: 6 navegaciones admin seguidas generan **1** request de `disciplines` y **1** de `categories` (contra **6** con el `staleTime: 0` anterior), los datos volátiles siguen revalidando a los 30 s, y ningún hook quedó sin declarar frescura. **Reverificado el 2026-08-19 contra el backend real**: 6 navegaciones admin seguidas generan **3 requests en total** (sin el `staleTime` serían 18). Evidencia en `PROCESO.md → sección 4 → T19 (post-auditoría)`.
 
 ### T20 🚀 ⚛️ FE — Code splitting: lazy loading de rutas admin (Q6)
 
@@ -292,7 +292,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `backend/src/modules/dashboard/dashboard.controller.ts`
   - `frontend/src/hooks/useDashboardStats.ts` (nuevo)
   - `frontend/src/pages/admin/DashboardPage.tsx:27-34` (reemplazar 8 hooks por 1)
-- **DoD:** Network tab: cargar el Dashboard genera **1 request** (contra 8+). Tiempo total <200ms. ✅ **1 request** verificado por la cadena mecánica: la página importa un solo hook de datos, el hook tiene un solo `useQuery` y la API hace una sola llamada. ⏳ El **<200ms no se midió** (requiere base de datos; Docker apagado). El endpoint **ya existía** con cache Redis, pero el frontend nunca lo consumía y al payload le faltaban las inscripciones por estado (4 de los 8 requests) y las recientes; TTL bajado de 300s a 60s. 16 tests e2e nuevos en `backend/test/dashboard-stats.e2e-spec.ts`. Evidencia en `PROCESO.md → sección 4 → T22 (post-auditoría)`.
+- **DoD:** Network tab: cargar el Dashboard genera **1 request** (contra 8+). Tiempo total <200ms. ✅ **1 request** verificado por la cadena mecánica: la página importa un solo hook de datos, el hook tiene un solo `useQuery` y la API hace una sola llamada. ✅ **<200 ms medido contra el stack real: 80 ms en frío y 5-8 ms con cache de Redis.** El endpoint **ya existía** con cache Redis, pero el frontend nunca lo consumía y al payload le faltaban las inscripciones por estado (4 de los 8 requests) y las recientes; TTL bajado de 300s a 60s. 16 tests e2e nuevos en `backend/test/dashboard-stats.e2e-spec.ts`. Evidencia en `PROCESO.md → sección 4 → T22 (post-auditoría)`.
 
 ### T23 📈 🏗️ BE — Streaming + paginación en reports Excel/CSV (Q5, Q23)
 

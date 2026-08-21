@@ -520,8 +520,13 @@ request nueva, que es lo que el flujo manual verifica en el Network tab.
 - [x] React Query DevTools mostraría 0 queries en el momento del logout —
   equivalente al chequeo 2.
 - [x] El usuario B no lee datos de A — chequeo 3.
-- [ ] Flujo manual en navegador con dos usuarios reales: **no ejecutado**. El
-  invariante está probado arriba; queda como verificación de aceptación.
+- [x] **Verificado contra el backend real (2026-08-19, con Docker levantado).** Se
+  ejecutó el `queryClient` y los módulos de API reales contra la API corriendo,
+  contando las requests HTTP que efectivamente salen (el equivalente al Network
+  tab): con datos de A en cache, `resetQueryCache()` la deja en **0 entradas**, los
+  datos de A pasan a ser ilegibles, y la visita de B **dispara 3 requests nuevas**
+  en vez de reusar la cache. No se ejecutó con dos sesiones de navegador distintas,
+  pero sí con el código real contra la API real.
 - [x] `npx tsc --noEmit -p tsconfig.app.json` sin errores · `npm run build` OK ·
   `npm run lint` sin errores nuevos.
 
@@ -668,11 +673,14 @@ lectura ni escritura de `evita_access_token`, `evita_refresh_token` ni `evita_us
   `/auth/refresh`.
 - [x] `npx tsc --noEmit` limpio en backend y frontend · `npm run build` OK en ambos ·
   24 unit + 14 e2e de backend en verde · lint del frontend sin errores nuevos.
-- [ ] **Smoke test contra el stack levantado: no ejecutado.** Se intentó, pero
-  Docker Desktop se detuvo y Postgres dejó de responder en `127.0.0.1:5434`
-  (`Can't reach database server`). El contrato de la cookie está cubierto por los
-  tests e2e sobre el controller y la strategy reales; lo que faltaría comprobar es
-  el login del usuario semilla, que esta tarea no modifica.
+- [x] **Smoke test ejecutado (2026-08-19, con Docker levantado).** Login real del
+  usuario semilla contra la API corriendo:
+  - `HTTP/1.1 200 OK`
+  - `Set-Cookie: evita_refresh_token=<TOKEN>; Max-Age=604800; Path=/api/v1/auth; HttpOnly; SameSite=Strict`
+  - Body con **sólo** `['accessToken', 'user']` — **sin `refreshToken`**.
+  De paso quedaron confirmados en vivo los headers de T09 (`Content-Security-Policy:
+  default-src 'none'`, `Strict-Transport-Security`) y que un `Origin: https://evil.com`
+  no recibe `Access-Control-Allow-Origin`.
 
 #### Notas / aprendizajes
 
@@ -977,8 +985,11 @@ Se ejecutó el `queryClient` real y las *key factories* reales de los hooks
 - [x] Los datos volátiles siguen revalidándose (chequeo 4): la optimización no
   congela resultados ni fixtures.
 - [x] `npx tsc --noEmit` limpio · `npm run build` OK · `npm run lint` sin errores nuevos.
-- [ ] Comprobación manual en el Network tab del navegador: **no ejecutada**. El
-  invariante que observa está probado arriba.
+- [x] **Verificado contra el backend real (2026-08-19, con Docker levantado).** Se
+  ejecutaron el `queryClient`, las key factories y los módulos de API reales contra
+  la API corriendo, contando las requests que efectivamente salen: **6 navegaciones
+  admin seguidas generaron 3 requests en total** (1 de `disciplines`, 1 de
+  `categories`, 1 del listado operativo). Sin el `staleTime` serían 18.
 
 #### Notas / aprendizajes
 
@@ -2102,8 +2113,13 @@ solo** hook de datos (`useDashboardStats`); ese hook tiene **un** `useQuery`; y
 sobre 4 dominios a 1.
 
 - [x] Cargar el Dashboard genera **1 request** (contra 8+).
-- [ ] **Tiempo total <200ms: no medido.** Requiere base de datos y Docker está
-  apagado. Queda como verificación de aceptación.
+- [x] **Medido contra el stack real (2026-08-19).** `GET /dashboard/stats` con la
+  base sembrada (110 participantes, 108 inscripciones, 8 equipos):
+  **80 ms en frío** (cache miss, va a la base) y **5-8 ms** en las 4 llamadas
+  siguientes (cache hit de Redis). Muy por debajo de los 200 ms.
+  La respuesta confirmó además en vivo dos decisiones de diseño: `REVISADA` llega
+  con `count: 0` (el relleno de estados funciona) y el participante de
+  `recentInscriptions` trae **sólo** `['firstName', 'id', 'lastName']`, sin DNI.
 - [x] `tsc` y `build` limpios en ambos lados · `npx jest` **44/44** · e2e
   **80/80** (64 previos + 16 nuevos) · lint del frontend sin errores nuevos.
 
