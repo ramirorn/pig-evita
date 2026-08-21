@@ -16,6 +16,16 @@ export interface TeamFilters {
 
 export interface CreateTeamPayload {
   name: string;
+  /**
+   * Sólo se usa en el formulario para filtrar las categorías de esa disciplina.
+   *
+   * **No viaja al backend:** `CreateTeamDto` no lo declara y el `ValidationPipe`
+   * corre con `forbidNonWhitelisted`, así que mandarlo devolvía
+   * `400 property disciplineId should not exist` y el alta de equipos estaba
+   * rota. El backend deduce la disciplina de la categoría
+   * (`teams.service.create` → `category.discipline`), de modo que el dato es
+   * redundante además de rechazado.
+   */
   disciplineId: string;
   categoryId: string;
   locality: string;
@@ -23,6 +33,14 @@ export interface CreateTeamPayload {
 }
 
 export type UpdateTeamPayload = Partial<CreateTeamPayload>;
+
+/** Saca `disciplineId` antes de mandar el payload (ver el comentario de arriba). */
+function sinDisciplineId<T extends { disciplineId?: string }>(
+  payload: T,
+): Omit<T, 'disciplineId'> {
+  const { disciplineId: _disciplineId, ...resto } = payload;
+  return resto;
+}
 
 export interface AddTeamMemberPayload {
   participantId: string;
@@ -43,12 +61,15 @@ export const teamsApi = {
   },
 
   async create(payload: CreateTeamPayload): Promise<Team> {
-    const { data } = await apiClient.post<Team>('/teams', payload);
+    const { data } = await apiClient.post<Team>('/teams', sinDisciplineId(payload));
     return data;
   },
 
   async update(id: string, payload: UpdateTeamPayload): Promise<Team> {
-    const { data } = await apiClient.patch<Team>(`/teams/${id}`, payload);
+    const { data } = await apiClient.patch<Team>(
+      `/teams/${id}`,
+      sinDisciplineId(payload),
+    );
     return data;
   },
 
