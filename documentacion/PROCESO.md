@@ -3555,6 +3555,161 @@ props que reciben los cuatro `Step*` no cambiaron ni en nombre ni en tipo.
 
 ---
 
+### T28 (post-auditoría DevSecOps) — Polish final: `noUncheckedIndexedAccess`, tope de paginación, retry en MinIO (Q24, Q26, Q27)
+
+> Corresponde a `tasks.md → Fase 5 → T28`. **Última tarea de la refactorización.**
+> Implementada por 🏗️ **Backend Architect** + ⚛️ **Frontend Engineer**.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · 🏗️ **Backend Architect** + ⚛️ **Frontend Engineer**
+- **Hallazgos cubiertos:** Q24, Q26, Q27
+- **Duración estimada / real:** 1,5h / ~1h
+
+#### Relevamiento previo (antes de delegar)
+
+1. **La paginación ya tenía tope**, y más estricto que el pedido: `@Min(1) @Max(100)`
+   sobre un campo que se llama **`limit`**, no `pageSize`.
+2. **MinIO no tenía retry**; `p-retry` no estaba instalado.
+3. **La flag del frontend daba sólo 4 errores** (medido antes de delegar), así que el
+   trabajo real era arreglarlos **bien**, no que compilara.
+
+#### Prompts utilizados
+
+**🏗️ Backend Architect** (resumen): *"La parte de paginación probablemente ya está
+hecha, y mejor. Verificá qué devuelve `?limit=99999` y qué devuelve `?pageSize=99999`
+—que no existe como campo, así que daría 400 por `forbidNonWhitelisted`, **por otro
+motivo**—. ¿Subir el tope de 100 a 200 tiene sentido? Yo diría que no: bajar un
+límite endurece, subirlo afloja. **No lo subas sólo porque la tarea dice 200.**
+Para el retry: reintentá **sólo lo que tiene sentido reintentar**; `getPresignedUrl`
+no hace I/O de red (firma local) y `ensureBucketIsPrivate` corre en el bootstrap y
+hoy no tumba la app a propósito. `p-retry` v6+ es ESM puro y este repo ya pagó ese
+peaje con `uuid`: evaluá el costo antes de agregarlo."*
+
+**⚛️ Frontend Engineer** (resumen): *"Ya medí: son exactamente 4 errores. Cada uno es
+una pregunta: **¿este índice puede no existir?** Si puede faltar, manejalo y decí
+que encontraste un bug latente; si no puede, dejá claro por qué. **Lo que no quiero
+es un `!` puesto para que compile, sin argumento** — es exactamente el ruido que la
+flag viene a eliminar."*
+
+#### Código generado
+
+**Backend**
+- `src/common/resilience/retry.ts` *(nuevo)* — `retryAsync` genérico + `computeBackoffDelay`.
+- `src/modules/documents/minio.service.ts` — `isTransientMinioError` + `withRetry`.
+- `src/modules/documents/minio.service.spec.ts` — 22 → **34 tests**.
+- `src/common/dto/pagination.dto.ts` — **sólo un comentario**, cero cambio de comportamiento.
+- `test/pagination-limits.e2e-spec.ts` *(nuevo)* — 5 tests que documentan el comportamiento real.
+
+**Frontend**
+- `tsconfig.app.json` — la flag.
+- `components/ui/clock-time-picker.tsx`, `calendar-event/EventScheduleFields.tsx`,
+  `calendar-event/useCalendarEventForm.ts`.
+
+#### Decisiones de los agentes
+
+**BE — no subió el tope de 100 a 200.** *"Bajar un límite endurece, subirlo afloja:
+`@Max(200)` duplicaría la superficie del peor caso a cambio de nada, porque ningún
+consumidor lo está pidiendo — el frontend pagina de a 10/20. **Aplicar el 200
+literalmente sería una regresión de seguridad disfrazada de cumplimiento.**"* Dejó
+el porqué escrito en el DTO **para que el próximo que lea T28 no lo "arregle"**.
+
+Y confirmó que son **dos defensas distintas**: `?limit=99999` da 400 por rango (el
+mensaje nombra `limit`); `?pageSize=99999` da 400 por `forbidNonWhitelisted` (el
+mensaje nombra `pageSize` como propiedad no permitida). El DoD nombraba el segundo,
+que no es la defensa que la tarea quería.
+
+**BE — allowlist de errores transitorios, no denylist.** Ante un error desconocido
+**no** se reintenta. `ENOTFOUND` queda afuera a propósito: *"un host que no resuelve
+casi siempre es un `MINIO_ENDPOINT` mal escrito, y reintentarlo esconde el error
+real."* Nunca se reintentan 403, 404, `NoSuchBucket`, `InvalidAccessKeyId` ni
+`SignatureDoesNotMatch`.
+
+**BE — qué envolvió y qué no:**
+- **`putObject`**: el caso caro (si falla, el usuario tiene que volver a elegir el
+  archivo). Reintentable porque multer usa `memoryStorage`. **Dejó comentado que si
+  el upload pasa a stream, este retry hay que sacarlo**: un stream consumido
+  reintentado sube un archivo vacío, peor que fallar. Se reintenta sobre la *misma*
+  clave, así no quedan huérfanos.
+- **`removeObject`**: idempotente por definición en S3.
+- **`ensureBucketIsPrivate`**: acá **discrepó con mi inclinación**, y el argumento es
+  bueno: en el arranque en frío de docker-compose la API levanta unos cientos de ms
+  antes que MinIO, el primer `bucketExists` come un `ECONNREFUSED`, y hoy eso deja
+  **la garantía de bucket privado sin verificar hasta el próximo redeploy**, en
+  silencio. *"Es el único lugar donde una falla transitoria degrada una propiedad de
+  seguridad en vez de un request."* Con tope de espera propio más chico (500 ms) y
+  manteniendo intacta la decisión de T02 de no tumbar la app.
+- **`getPresignedUrl`: sin retry**, porque firmar es HMAC local, no I/O.
+
+**BE — implementación propia en vez de `p-retry`:** ESM puro (el repo ya tiene
+`test/mocks/uuid.cjs` por ese motivo), y *"el valor de `p-retry` está en el
+mecanismo, que es la parte trivial; la parte difícil y específica es qué es
+transitorio en MinIO, y eso hay que escribirlo igual."* Con jitter de hasta +25%,
+que no es cosmético: sin él, varias instancias que pierden MinIO reintentan en el
+mismo instante y lo vuelven a tirar apenas se recupera.
+
+**FE — los 4 errores, y un bug latente real.** El más interesante es
+`shiftEndByHours()` (los atajos +1h/+2h/+3h): el código protegía los minutos con
+`(m || 0)` **pero no las horas**, así que con un `startTime` mal formado escribía
+literalmente **`"NaN:00"`** en `endTime`. La flag no marcó ese acceso (índice 0
+siempre existe) pero **mirarlo destapó el bug**.
+
+Los otros tres: dos en `parse24to12()` donde el índice **sí puede faltar** (un
+`"09"` sin dos puntos), cubiertos por accidente por un `|| 0` que ahora es
+explícito; y uno donde la invariante era real (`toISOString().split('T')[0]`)
+resuelto **eliminando el acceso indexado** con `.slice(0, 10)` en vez de afirmar la
+invariante — *"así no hay nada que asegurar ni comentario defensivo que envejezca."*
+
+**Cero `!`, cero `as`, cero `any`.** Verificado a mano sobre el diff.
+
+#### Correcciones manuales
+
+- **Ninguna sobre el código entregado.**
+- **El agente de frontend corrigió una suposición equivocada de mi brief:** le
+  advertí sobre los mapas indexados por enum, y me señaló que
+  `noUncheckedIndexedAccess` **sólo afecta *index signatures* y accesos numéricos a
+  arrays**; un `Record<Sex, string>` con claves de unión literal tiene propiedades
+  declaradas, así que compila limpio. **No había ningún `??` que centralizar.**
+
+#### Verificación (DoD)
+
+| Criterio | Resultado |
+|---|---|
+| El frontend compila con la flag | ✅ `tsc` limpio, `build` OK, `lint` 0 errores |
+| `GET /participants?pageSize=99999` → 400 | ✅ (por `forbidNonWhitelisted`) **y** `?limit=99999` → 400 por rango |
+| Test de MinIO con fallo transitorio que pasa tras retries | ✅ 12 tests nuevos (22 → 34) |
+
+Reejecutado por fuera: backend **90 unit + 117 e2e**; frontend `tsc`/`build`/`lint`
+en verde con la flag activa y **0 `!`/`as any`** agregados en el diff.
+
+#### Notas / aprendizajes
+
+- **Decirle al agente "no lo subas sólo porque la tarea dice 200" fue lo que evitó
+  una regresión.** El enunciado escribió 200 suponiendo un campo sin tope; aplicarlo
+  literalmente habría aflojado un límite que ya estaba bien.
+- **Pedir el argumento en vez del arreglo** hizo que la flag rindiera más que su DoD:
+  4 errores de compilación destaparon un bug de runtime (`"NaN:00"`) que la flag
+  **no** marcaba.
+- Que el agente corrigiera mi premisa sobre los enums es el mismo patrón que se
+  repitió toda la refactorización, ahora en la otra dirección: **el que verifica
+  encuentra, incluso cuando el que dirige se equivoca.**
+
+#### Hallazgos fuera de alcance
+
+1. **`page` no tiene `@Max`.** Un `?page=999999999&limit=100` llega a Prisma con
+   `skip: 99999999900`: deep pagination, escaneo caro en Postgres, sin devolver una
+   fila. **Es el mismo hueco de DoS barato que T28 tapó en `limit`, por el otro
+   eje.** No se tocó porque acotar `page` sí cambia comportamiento observable.
+   **Recomendado como tarea propia.**
+2. **El cliente de MinIO no tiene `requestTimeout`**: el retry acota los reintentos
+   pero no cuánto puede colgarse un intento individual.
+3. **Los casts para indexar mapas por enum** (`CompetitionDetailPage`,
+   `RankingsPage`, `ParticipantForm`): si el backend manda un valor fuera del enum,
+   el cast lo deja pasar y el mapa devuelve `undefined` sin que TS lo marque.
+4. 7 errores de prettier preexistentes en `minio.service.spec.ts`.
+5. La flag no se propagó a `tsconfig.node.json` (config de Vite).
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.

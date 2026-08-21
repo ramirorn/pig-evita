@@ -41,7 +41,10 @@ function buildDefaultValues(initialData?: CalendarEvent): CalendarEventFormValue
   return {
     title: initialData?.title || '',
     description: initialData?.description || '',
-    startDate: start.date || new Date().toISOString().split('T')[0],
+    // `toISOString()` siempre tiene la forma "YYYY-MM-DDTHH:mm:ss.sssZ", así que
+    // los primeros 10 caracteres son la fecha: `slice` evita el acceso indexado
+    // (y su `| undefined`) sin necesidad de afirmar nada.
+    startDate: start.date || new Date().toISOString().slice(0, 10),
     startTime: start.time || '09:00',
     hasEndDate: Boolean(initialData?.endDate),
     endDate: end.date || '',

@@ -2,8 +2,11 @@
 // MinioService — hardening (C-02 bucket público / C-04 path traversal)
 // ===========================================
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException } from '@nestjs/common';
-import { MinioService } from './minio.service';
+import {
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { MinioService, isTransientMinioError } from './minio.service';
 
 const mockMinioClient = {
   bucketExists: jest.fn(),
@@ -290,6 +293,181 @@ describe('MinioService', () => {
         BadRequestException,
       );
       expect(mockMinioClient.removeObject).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------
+  // T28 — retry con backoff acotado sobre fallas transitorias
+  // -------------------------------------------------
+  describe('clasificación de errores transitorios', () => {
+    it('considera transitorios los cortes de conexión', () => {
+      expect(isTransientMinioError({ code: 'ECONNREFUSED' })).toBe(true);
+      expect(isTransientMinioError({ code: 'ECONNRESET' })).toBe(true);
+      expect(isTransientMinioError({ code: 'ETIMEDOUT' })).toBe(true);
+    });
+
+    it('considera transitorios los 5xx y el 429 de MinIO', () => {
+      expect(isTransientMinioError({ statusCode: 503 })).toBe(true);
+      expect(isTransientMinioError({ statusCode: 500 })).toBe(true);
+      expect(isTransientMinioError({ statusCode: 429 })).toBe(true);
+      expect(isTransientMinioError({ code: 'SlowDown' })).toBe(true);
+    });
+
+    it('NO considera transitorios los errores permanentes', () => {
+      // Credenciales mal puestas, objeto/bucket inexistente: reintentar no los
+      // arregla, sólo agrega latencia a una falla segura.
+      expect(
+        isTransientMinioError({ statusCode: 403, code: 'AccessDenied' }),
+      ).toBe(false);
+      expect(
+        isTransientMinioError({ statusCode: 404, code: 'NoSuchKey' }),
+      ).toBe(false);
+      expect(isTransientMinioError({ code: 'NoSuchBucket' })).toBe(false);
+      expect(isTransientMinioError({ code: 'InvalidAccessKeyId' })).toBe(false);
+      expect(isTransientMinioError({ code: 'SignatureDoesNotMatch' })).toBe(
+        false,
+      );
+      expect(isTransientMinioError(new Error('boom'))).toBe(false);
+      expect(isTransientMinioError(undefined)).toBe(false);
+    });
+  });
+
+  describe('retry en uploadFile', () => {
+    const file = {
+      buffer: Buffer.from('contenido'),
+      size: 9,
+      mimetype: 'application/pdf',
+      originalname: 'dni.pdf',
+    } as Express.Multer.File;
+
+    /** Error con la forma de los que tira el cliente de minio. */
+    function errorConCodigo(code: string, statusCode?: number) {
+      return Object.assign(new Error(code), { code, statusCode });
+    }
+
+    it('se recupera de un fallo transitorio y termina subiendo', async () => {
+      mockMinioClient.putObject
+        .mockRejectedValueOnce(errorConCodigo('ECONNREFUSED'))
+        .mockResolvedValueOnce(undefined);
+
+      const objectName = await service.uploadFile(
+        file,
+        'participants',
+        file.originalname,
+      );
+
+      expect(objectName).toMatch(/^participants\//);
+      expect(mockMinioClient.putObject).toHaveBeenCalledTimes(2);
+    });
+
+    it('reintenta sobre la MISMA clave y el mismo buffer', async () => {
+      // Si cada intento generara una clave nueva, un retry que "falló" pero el
+      // servidor sí escribió dejaría objetos huérfanos en el bucket.
+      mockMinioClient.putObject
+        .mockRejectedValueOnce(errorConCodigo('ECONNRESET'))
+        .mockResolvedValueOnce(undefined);
+
+      await service.uploadFile(file, 'participants', file.originalname);
+
+      const [primero, segundo] = mockMinioClient.putObject.mock.calls;
+      expect(segundo[1]).toBe(primero[1]);
+      expect(segundo[2]).toBe(file.buffer);
+      expect(segundo[3]).toBe(file.size);
+    });
+
+    it('agota como máximo 3 intentos si la falla transitoria persiste', async () => {
+      mockMinioClient.putObject.mockRejectedValue(
+        errorConCodigo('ECONNREFUSED'),
+      );
+
+      await expect(
+        service.uploadFile(file, 'participants', file.originalname),
+      ).rejects.toBeInstanceOf(InternalServerErrorException);
+
+      expect(mockMinioClient.putObject).toHaveBeenCalledTimes(3);
+    });
+
+    it('NO reintenta un error permanente: falla en el primer intento', async () => {
+      mockMinioClient.putObject.mockRejectedValue(
+        errorConCodigo('AccessDenied', 403),
+      );
+
+      await expect(
+        service.uploadFile(file, 'participants', file.originalname),
+      ).rejects.toBeInstanceOf(InternalServerErrorException);
+
+      expect(mockMinioClient.putObject).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('retry en deleteFile', () => {
+    function errorConStatus(statusCode: number, code?: string) {
+      return Object.assign(new Error(String(statusCode)), { statusCode, code });
+    }
+
+    it('se recupera de un 503 transitorio', async () => {
+      mockMinioClient.removeObject
+        .mockRejectedValueOnce(errorConStatus(503, 'ServiceUnavailable'))
+        .mockResolvedValueOnce(undefined);
+
+      await expect(
+        service.deleteFile('participants/abc/file.pdf'),
+      ).resolves.toBeUndefined();
+
+      expect(mockMinioClient.removeObject).toHaveBeenCalledTimes(2);
+    });
+
+    it('NO reintenta un 404 de objeto inexistente', async () => {
+      mockMinioClient.removeObject.mockRejectedValue(
+        errorConStatus(404, 'NoSuchKey'),
+      );
+
+      await expect(
+        service.deleteFile('participants/abc/file.pdf'),
+      ).rejects.toBeInstanceOf(InternalServerErrorException);
+
+      expect(mockMinioClient.removeObject).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getPresignedUrl no se reintenta', () => {
+    it('falla al primer intento: firmar es un cálculo local, no I/O', async () => {
+      mockMinioClient.presignedGetObject.mockRejectedValue(
+        Object.assign(new Error('ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+      );
+
+      await expect(
+        service.getPresignedUrl('participants/abc/file.pdf'),
+      ).rejects.toBeInstanceOf(InternalServerErrorException);
+
+      expect(mockMinioClient.presignedGetObject).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('retry en el bootstrap del bucket', () => {
+    it('reintenta el chequeo cuando MinIO todavía no levantó', async () => {
+      // Caso típico de docker-compose: la API arranca antes que MinIO.
+      mockMinioClient.bucketExists
+        .mockRejectedValueOnce(
+          Object.assign(new Error('ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+        )
+        .mockResolvedValueOnce(true);
+      mockMinioClient.getBucketPolicy.mockRejectedValue(
+        new Error('NoSuchBucketPolicy'),
+      );
+
+      await service.onModuleInit();
+
+      expect(mockMinioClient.bucketExists).toHaveBeenCalledTimes(2);
+    });
+
+    it('sigue sin tumbar la app si MinIO nunca responde (T02)', async () => {
+      mockMinioClient.bucketExists.mockRejectedValue(
+        Object.assign(new Error('ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+      );
+
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
+      expect(mockMinioClient.bucketExists).toHaveBeenCalledTimes(3);
     });
   });
 });

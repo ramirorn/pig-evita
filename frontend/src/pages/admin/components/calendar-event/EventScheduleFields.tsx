@@ -63,9 +63,14 @@ function formatHumanReadableRange(
  */
 function shiftEndByHours(form: CalendarEventFormApi, hours: number) {
   const start = form.getValues('startTime') || '09:00';
-  const [h, m] = start.split(':').map(Number);
+  // `split(':')` siempre devuelve al menos un elemento, pero el tipo no lo sabe.
+  // Además, convertir acá con `|| 0` evita que una hora guardada mal formada
+  // propague un NaN hasta el `endTime` que escribimos en el form.
+  const [hRaw, mRaw] = start.split(':');
+  const h = Number(hRaw) || 0;
+  const m = Number(mRaw) || 0;
   const endH = Math.min(23, (h + hours) % 24).toString().padStart(2, '0');
-  form.setValue('endTime', `${endH}:${(m || 0).toString().padStart(2, '0')}`);
+  form.setValue('endTime', `${endH}:${m.toString().padStart(2, '0')}`);
   form.setValue('endDate', form.getValues('startDate'));
 }
 

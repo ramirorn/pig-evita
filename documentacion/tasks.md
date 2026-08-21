@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. **T26 completada** y **T27 en revisión** (implementada, pero con la mitad de LOC del DoD sin cumplir). **T10 en revisión** (los 3 archivos del alcance, pero el DoD abarca 15 más). Queda **T28**. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. **T26 completada** y **T27 en revisión** (implementada, pero con la mitad de LOC del DoD sin cumplir). **T10 en revisión** (los 3 archivos del alcance, pero el DoD abarca 15 más). **T28 completada.** Recorrido de tareas terminado. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -349,7 +349,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T28 ✨ 🔀 FS — Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO (Q24, Q26, Q27)
 
-- [ ] **Descripción:**
+- [x] **Descripción:**
   - **⚛️ FE:** `tsconfig.app.json` agregar `"noUncheckedIndexedAccess": true` y arreglar los TS errors que aparezcan (usualmente `arr[0]` pasa a `arr[0] | undefined`).
   - **🏗️ BE:** `PaginationQueryDto` agregar `@Min(1) @Max(200)` a `pageSize` (evita `?pageSize=99999`).
   - **🏗️ BE:** `MinioService` envolver operaciones críticas con retry (max 3, exponential backoff) usando `p-retry` o implementación propia.
@@ -357,7 +357,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `frontend/tsconfig.app.json`
   - `backend/src/common/dto/pagination.dto.ts`
   - `backend/src/modules/documents/minio.service.ts`
-- **DoD:** frontend compila con la flag nueva. `GET /participants?pageSize=99999` devuelve 400. Test unit de MinIO que forza fallo transitorio pasa tras retries.
+- **DoD:** frontend compila con la flag nueva. `GET /participants?pageSize=99999` devuelve 400. Test unit de MinIO que forza fallo transitorio pasa tras retries. ✅ Los tres criterios. La flag dio **4 errores** y arreglarlos destapó un **bug de runtime que la flag no marcaba**: los atajos de duración del formulario de eventos protegían los minutos pero no las horas, así que con un `startTime` mal formado escribían literalmente `"NaN:00"`. Cero `!`, `as` o `any` agregados. **El tope de paginación NO se subió de 100 a 200:** ya existía sobre `limit` (el campo `pageSize` del enunciado no existe), y subirlo habría sido *aflojar* un límite — «una regresión de seguridad disfrazada de cumplimiento». `?limit=99999` da 400 por rango y `?pageSize=99999` da 400 por `forbidNonWhitelisted`: dos defensas distintas. Retry de MinIO con **allowlist** de errores transitorios (ante error desconocido **no** se reintenta), sin `p-retry` para no repetir el peaje de ESM que ya pagó `uuid`, y con jitter para que varias instancias no vuelvan a tirar MinIO al recuperarse. 12 tests nuevos (22 → 34). Evidencia en `PROCESO.md → sección 4 → T28 (post-auditoría)`.
 
 ---
 
@@ -449,7 +449,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea tiene su bloque de evidencia en
 > `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 25 completadas · 2 con DoD parcial · 1 pendientes** (de 28).
+**Progreso: 26 completadas · 2 con DoD parcial · 0 pendientes** (de 28).
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -481,7 +481,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ✅ Completada |
 | **T26** | ✨ | ⚛️ FE | Memoización de valores derivados en páginas admin | ✅ Completada |
 | **T27** | ✨ | 🎨 UI + ⚛️ FE | DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables | ⚠️ DoD parcial |
-| **T28** | ✨ | 🔀 FS | Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO | ⬜ Pendiente |
+| **T28** | ✨ | 🔀 FS | Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO | ✅ Completada |
 
 ### Resumen por severidad
 
@@ -492,11 +492,17 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | 🟠 Medio | 4 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 4 | 4 |
-| ✨ Polish | 1 | 3 |
+| ✨ Polish | 2 | 3 |
 
 ### Sobre las tareas con DoD parcial
 
 - **T10** y **T27** tienen un criterio de aceptación que **no se cumple**, y en
-  ambos casos el criterio era inalcanzable o medía lo equivocado. Está documentado
-  en detalle en `PROCESO.md`; la decisión de ampliar el alcance o dar por buena la
-  métrica alternativa queda para el equipo.
+  ambos casos el criterio era inalcanzable o medía lo equivocado:
+  - **T27** pedía bajar ≥15% las LOC de `pages/admin/` migrando 3 páginas, o sea
+    1086 líneas, cuando las 3 páginas de listado más grandes suman 940. El total
+    **subió** 89 líneas, de las cuales ~55 son funcionalidad que antes no existía.
+  - **T10** pedía que **ningún** archivo de `pages/` superara 250 líneas, pero la
+    descripción sólo nombraba 3 archivos y había 18 por encima. Los 3 del alcance
+    bajaron muy por debajo del objetivo; quedan 15.
+- La decisión de ampliar el alcance o dar por buena la métrica alternativa queda
+  para el equipo. El detalle está en `PROCESO.md`.

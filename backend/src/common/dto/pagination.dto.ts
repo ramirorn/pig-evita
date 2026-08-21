@@ -31,6 +31,11 @@ export class PaginationQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  // Tope duro: sin él, un `?limit=99999` obliga a Prisma a materializar el
+  // listado entero y a serializarlo en un solo JSON — es un DoS de un request.
+  // T28 proponía 200; se mantiene en 100 porque subir un límite que ya está
+  // vigente y que ningún consumidor está pidiendo aflojar es regalar superficie
+  // de ataque a cambio de nada (el frontend pagina de a 10/20).
   @Max(100)
   limit?: number = 20;
 

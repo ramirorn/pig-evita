@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import * as Minio from 'minio';
 import { assertStrongSecret } from '../../common/security/forbidden-secrets';
+import { retryAsync } from '../../common/resilience/retry';
 
 /** Largos mínimos de las credenciales de MinIO. */
 const MIN_ACCESS_KEY_LENGTH = 8;
@@ -28,6 +29,108 @@ const MAX_STEM_LENGTH = 60;
 const DEFAULT_PRESIGNED_EXPIRY = 300;
 const MIN_PRESIGNED_EXPIRY = 60;
 const MAX_PRESIGNED_EXPIRY = 3600;
+
+// -------------------------------------------------
+// Política de reintentos (T28)
+// -------------------------------------------------
+
+/**
+ * Intentos TOTALES por operación: 1 intento + 2 reintentos.
+ *
+ * Se cuenta el primero adentro del presupuesto a propósito: lo que hay que
+ * acotar es el peor caso de latencia que ve el usuario, no la cantidad de veces
+ * que insistimos.
+ */
+const MINIO_MAX_ATTEMPTS = 3;
+
+/** Espera antes del primer reintento. Se duplica en cada vuelta. */
+const MINIO_RETRY_BASE_DELAY_MS = 100;
+
+/**
+ * Tope de la espera entre intentos. Con base 100 ms y este tope, el peor caso
+ * agrega ~300 ms + jitter a un request que igual va a fallar: barato al lado de
+ * un blip de red, e imperceptible al lado del timeout del cliente HTTP.
+ */
+const MINIO_RETRY_MAX_DELAY_MS = 2_000;
+
+/**
+ * En el bootstrap el reintento sirve para el arranque en frío de docker-compose
+ * (la API levanta antes que MinIO), pero no puede demorar el `listen()`, así que
+ * usa un tope de espera más chico que el de las operaciones de request.
+ */
+const MINIO_BOOTSTRAP_MAX_DELAY_MS = 500;
+
+/**
+ * Códigos de error de red que sí conviene reintentar: son cortes puntuales de
+ * conexión o de resolución, no configuración mal puesta.
+ *
+ * Queda afuera `ENOTFOUND` a propósito: un host que no resuelve casi siempre es
+ * un `MINIO_ENDPOINT` mal escrito, y reintentarlo sólo esconde el error real.
+ */
+const TRANSIENT_NETWORK_CODES = new Set([
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EPIPE',
+  'ETIMEDOUT',
+  'ESOCKETTIMEDOUT',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENETDOWN',
+]);
+
+/**
+ * Códigos S3 que MinIO devuelve cuando está saturado o reiniciando. Son los
+ * únicos que el propio protocolo marca como "volvé a intentar".
+ */
+const TRANSIENT_S3_CODES = new Set([
+  'SlowDown',
+  'RequestTimeout',
+  'RequestTimeTooSkewed',
+  'InternalError',
+  'ServiceUnavailable',
+  'OperationAborted',
+]);
+
+/**
+ * Decide si un error de MinIO amerita otro intento.
+ *
+ * La regla es: reintentar sólo lo que puede resolverse solo. Un `ECONNREFUSED`
+ * mientras MinIO reinicia, o un 503 por saturación, se arreglan esperando. Un
+ * 403 por credenciales mal puestas, un 404 de objeto inexistente o un
+ * `NoSuchBucket` NO: reintentarlos agrega latencia a un error seguro y encima
+ * multiplica el ruido en los logs. Por eso la lista es allowlist y no denylist:
+ * ante un error desconocido, no reintentamos.
+ */
+export function isTransientMinioError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const candidato = error as {
+    code?: unknown;
+    statusCode?: unknown;
+    errno?: unknown;
+  };
+
+  const code = typeof candidato.code === 'string' ? candidato.code : undefined;
+  if (code && TRANSIENT_NETWORK_CODES.has(code)) {
+    return true;
+  }
+  if (code && TRANSIENT_S3_CODES.has(code)) {
+    return true;
+  }
+
+  // 5xx = el servidor falló, no el request. 429 = rate limit del propio MinIO.
+  // Cualquier otro 4xx es culpa nuestra y no cambia por reintentar.
+  const statusCode =
+    typeof candidato.statusCode === 'number' ? candidato.statusCode : undefined;
+  if (statusCode === 429 || (statusCode !== undefined && statusCode >= 500)) {
+    return true;
+  }
+
+  return false;
+}
 
 @Injectable()
 export class MinioService implements OnModuleInit {
@@ -62,6 +165,37 @@ export class MinioService implements OnModuleInit {
   }
 
   // -------------------------------------------------
+  // Reintentos
+  // -------------------------------------------------
+
+  /**
+   * Corre una operación de MinIO reintentando sólo fallas transitorias.
+   *
+   * `operacion` tiene que ser segura de repetir. Todas las que se envuelven acá
+   * lo son: `putObject` escribe sobre una clave con UUID que nadie más usa (dos
+   * intentos escriben el mismo byte a byte) y `removeObject` es idempotente por
+   * definición (borrar algo ya borrado es un no-op en S3).
+   */
+  private withRetry<T>(
+    nombre: string,
+    operacion: () => Promise<T>,
+    maxDelayMs = MINIO_RETRY_MAX_DELAY_MS,
+  ): Promise<T> {
+    return retryAsync(() => operacion(), {
+      maxAttempts: MINIO_MAX_ATTEMPTS,
+      baseDelayMs: MINIO_RETRY_BASE_DELAY_MS,
+      maxDelayMs,
+      shouldRetry: isTransientMinioError,
+      onRetry: (error, attempt, delayMs) => {
+        this.logger.warn(
+          `MinIO ${nombre}: falla transitoria (intento ${attempt}/${MINIO_MAX_ATTEMPTS}), ` +
+            `reintentando en ${delayMs}ms: ${(error as Error).message}`,
+        );
+      },
+    });
+  }
+
+  // -------------------------------------------------
   // Bootstrap / configuración del bucket
   // -------------------------------------------------
 
@@ -75,13 +209,25 @@ export class MinioService implements OnModuleInit {
    */
   private async ensureBucketIsPrivate(): Promise<void> {
     try {
-      const exists = await this.minioClient.bucketExists(this.bucketName);
-      if (!exists) {
-        await this.minioClient.makeBucket(this.bucketName, 'us-east-1');
-        this.logger.log(`Bucket "${this.bucketName}" created in MinIO`);
-      }
+      // Se reintenta todo el chequeo como una unidad, con un tope de espera más
+      // chico que el de las operaciones de request: el caso que importa es el
+      // arranque en frío de docker-compose, donde la API levanta unos cientos de
+      // ms antes que MinIO y el primer `bucketExists` se come un ECONNREFUSED.
+      // Sin reintento eso dejaba la garantía de bucket privado sin verificar
+      // hasta el próximo redeploy (ver T02).
+      await this.withRetry(
+        'ensureBucketIsPrivate',
+        async () => {
+          const exists = await this.minioClient.bucketExists(this.bucketName);
+          if (!exists) {
+            await this.minioClient.makeBucket(this.bucketName, 'us-east-1');
+            this.logger.log(`Bucket "${this.bucketName}" created in MinIO`);
+          }
 
-      await this.removeBucketPolicy();
+          await this.removeBucketPolicy();
+        },
+        MINIO_BOOTSTRAP_MAX_DELAY_MS,
+      );
     } catch (error) {
       // MinIO caído no debe tumbar toda la API, pero sí quedar registrado:
       // hasta que este chequeo corra OK no hay garantía de bucket privado.
@@ -191,17 +337,23 @@ export class MinioService implements OnModuleInit {
   ): Promise<string> {
     const objectName = this.buildObjectName(folder, filename);
 
+    // El reintento es posible porque `file.buffer` es un Buffer en memoria
+    // (multer default = memoryStorage): se puede volver a mandar entero. Si
+    // algún día el upload pasa a stream, este retry hay que sacarlo — un stream
+    // ya consumido reintentado sube un archivo vacío, que es peor que fallar.
     try {
-      await this.minioClient.putObject(
-        this.bucketName,
-        objectName,
-        file.buffer,
-        file.size,
-        {
-          'Content-Type': file.mimetype,
-          // Evita que el navegador renderice inline un archivo malicioso.
-          'Content-Disposition': 'attachment',
-        },
+      await this.withRetry('putObject', () =>
+        this.minioClient.putObject(
+          this.bucketName,
+          objectName,
+          file.buffer,
+          file.size,
+          {
+            'Content-Type': file.mimetype,
+            // Evita que el navegador renderice inline un archivo malicioso.
+            'Content-Disposition': 'attachment',
+          },
+        ),
       );
 
       return objectName;
@@ -215,6 +367,13 @@ export class MinioService implements OnModuleInit {
 
   /**
    * Obtiene una URL pre-firmada temporal. Única vía de acceso a los objetos.
+   *
+   * A propósito NO va envuelta en retry: firmar es un cálculo local (HMAC sobre
+   * la URL) y no toca la red, así que un fallo acá es determinístico —
+   * credenciales mal o clave inválida— y reintentarlo sólo suma latencia.
+   * La única salvedad es el lookup de región de la primera llamada del proceso,
+   * que sí sale a la red; el cliente lo cachea, y si falla el usuario reintenta
+   * a mano con un costo mucho menor que el de un upload perdido.
    */
   async getPresignedUrl(
     objectName: string,
@@ -249,7 +408,10 @@ export class MinioService implements OnModuleInit {
     const cleanObjectName = this.normalizeObjectName(objectName);
 
     try {
-      await this.minioClient.removeObject(this.bucketName, cleanObjectName);
+      // Borrar es idempotente en S3: repetirlo no puede romper nada.
+      await this.withRetry('removeObject', () =>
+        this.minioClient.removeObject(this.bucketName, cleanObjectName),
+      );
     } catch (error) {
       this.logger.error(
         `Failed to delete file from MinIO: ${(error as Error).message}`,

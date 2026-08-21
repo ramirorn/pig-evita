@@ -20,7 +20,10 @@ interface ClockTimePickerProps {
 
 // Helpers
 function parse24to12(time24 = '09:00'): { hour12: number; minute: number; period: 'AM' | 'PM' } {
-  const [hStr, mStr] = time24.split(':');
+  // Desestructurar un `split` da `string | undefined` en cada posición: si llega
+  // un valor mal formado (por ejemplo "9", sin los minutos) `mStr` no existe.
+  // Los defaults dejan que el `|| 0` de abajo siga siendo la red de contención.
+  const [hStr = '', mStr = ''] = time24.split(':');
   const h = parseInt(hStr, 10) || 0;
   const m = parseInt(mStr, 10) || 0;
   const period: 'AM' | 'PM' = h >= 12 ? 'PM' : 'AM';
