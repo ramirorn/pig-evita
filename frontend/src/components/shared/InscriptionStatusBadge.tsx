@@ -13,10 +13,15 @@ import { InscriptionStatus } from '@/types';
  * en cada render de cada fila de la tabla.
  */
 const STATUS_CLASSES: Record<InscriptionStatus, string> = {
-  [InscriptionStatus.PENDIENTE]: 'text-orange-600 bg-orange-50 border-orange-200',
-  [InscriptionStatus.REVISADA]: 'text-blue-600 bg-blue-50 border-blue-200',
-  [InscriptionStatus.APROBADA]: 'text-green-600 bg-green-50 border-green-200',
-  [InscriptionStatus.RECHAZADA]: 'text-red-600 bg-red-50 border-red-200',
+  // Remapeo a la paleta institucional. Los `orange/blue/green/red` de Tailwind
+  // no sólo estaban fuera de marca: tres de los cuatro fallaban AA como texto
+  // (3.35:1, 3.15:1 y 4.41:1 contra el umbral de 4.5). Los tokens de acá dan
+  // 6.35:1, 8.29:1, 9.87:1 y 5.75:1 respectivamente.
+  [InscriptionStatus.PENDIENTE]: 'text-accent-800 bg-accent-50 border-accent-300',
+  [InscriptionStatus.REVISADA]: 'text-primary-600 bg-primary-50 border-primary-200',
+  [InscriptionStatus.APROBADA]: 'text-secondary-700 bg-secondary-50 border-secondary-200',
+  [InscriptionStatus.RECHAZADA]:
+    'text-destructive-700 bg-destructive-50 border-destructive-500/30',
 };
 
 interface InscriptionStatusBadgeProps {

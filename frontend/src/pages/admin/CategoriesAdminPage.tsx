@@ -9,20 +9,11 @@ import { SEX_LABELS } from '@/lib/constants';
 import { CategoryForm } from './components/CategoryForm';
 import { useDisciplines } from '@/hooks/useDisciplines';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { SkeletonTable } from '@/components/shared/SkeletonTable';
-import { EmptyState } from '@/components/shared/EmptyState';
+import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -51,7 +42,7 @@ export function CategoriesAdminPage() {
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
 
   const { data: disciplines } = useDisciplines();
-  const { data: categoriesData, isLoading } = useCategories({
+  const { data: categoriesData, isLoading, isFetching, isError, refetch } = useCategories({
     disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
   });
   const deleteMutation = useDeleteCategory();
@@ -81,6 +72,89 @@ export function CategoriesAdminPage() {
     }
   };
 
+  const columns: DataTableColumn<Category>[] = [
+    {
+      id: 'discipline',
+      header: 'Disciplina',
+      className: 'text-primary-600 font-medium',
+      cell: (category) => category.discipline?.name || '—',
+    },
+    {
+      id: 'name',
+      header: 'Nombre / Categoría',
+      // Es el identificador de la fila, aunque no haya detalle al que navegar:
+      // `<th scope="row">` hace que el lector lo repita como contexto de cada celda.
+      rowHeader: true,
+      className: 'font-bold text-primary-900',
+      headClassName: 'min-w-[180px]',
+      cell: (category) => category.name,
+    },
+    {
+      id: 'ages',
+      header: 'Edades',
+      cell: (category) => `${category.minAge} a ${category.maxAge} años`,
+    },
+    {
+      id: 'sex',
+      header: 'Sexo',
+      cell: (category) => (
+        // `variant="secondary"` no renderiza color: `bg-secondary` no existe en
+        // el `@theme`. Se usan tokens explícitos que sí resuelven.
+        <Badge variant="outline" className="bg-muted text-primary-700 border-primary-200">
+          {SEX_LABELS[category.sex]}
+        </Badge>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Estado',
+      cell: (category) =>
+        category.isActive ? (
+          // `green-*` y `red-*` están fuera de la paleta institucional.
+          <Badge
+            variant="outline"
+            className="bg-secondary-50 text-secondary-700 border-secondary-200"
+          >
+            Activo
+          </Badge>
+        ) : (
+          // Inactivo no es un error: el estado neutro lo comunica mejor que el rojo.
+          <Badge variant="outline" className="bg-muted text-primary-700 border-primary-200">
+            Inactivo
+          </Badge>
+        ),
+    },
+    {
+      id: 'actions',
+      header: 'Acciones',
+      hideHeader: true,
+      interactive: true,
+      headClassName: 'w-[80px]',
+      cell: (category) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={`Más acciones para ${category.name}`}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleEdit(category)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setDeletingCategory(category)}
+              className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Eliminar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -95,106 +169,44 @@ export function CategoriesAdminPage() {
         }
       />
 
-      <div className="card">
-        <div className="p-4 border-b border-primary-100 flex items-center gap-4">
-          <div className="w-full max-w-sm">
+      <DataTable
+        entityName="categorías"
+        columns={columns}
+        rows={categoriesData?.data ?? []}
+        getRowId={(category) => category.id}
+        isLoading={isLoading}
+        isFetching={isFetching && !isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        isRowInactive={(category) => !category.isActive}
+        hasActiveFilters={disciplineId !== 'all'}
+        onClearFilters={() => setDisciplineId('all')}
+        emptyIcon={<Tag className="w-10 h-10" />}
+        emptyTitle="Todavía no hay categorías"
+        emptyDescription="Registrá la primera categoría para empezar a clasificar a los participantes por edad y sexo."
+        emptyAction={
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus className="w-4 h-4" /> Crear Categoría
+          </Button>
+        }
+        toolbar={
+          <div className="w-full md:max-w-sm">
             <Select value={disciplineId} onValueChange={setDisciplineId}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Filtrar por disciplina">
                 <SelectValue placeholder="Filtrar por disciplina" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las disciplinas</SelectItem>
-                {disciplines?.data.map(d => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                {disciplines?.data.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <div className="relative">
-          {isLoading ? (
-            <SkeletonTable rows={5} columns={6} />
-          ) : !categoriesData?.data.length ? (
-            <EmptyState
-              icon={<Tag className="w-10 h-10" />}
-              title="Sin categorías"
-              description="No se encontraron categorías registradas con el filtro seleccionado."
-              action={
-                <Button onClick={handleCreate} className="gap-2">
-                  <Plus className="w-4 h-4" /> Crear Categoría
-                </Button>
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Disciplina</TableHead>
-                  <TableHead>Nombre / Categoría</TableHead>
-                  <TableHead>Edades</TableHead>
-                  <TableHead>Sexo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {categoriesData.data.map((category) => (
-                  <TableRow key={category.id}>
-                    <TableCell className="text-primary-600 font-medium">
-                      {category.discipline?.name || '—'}
-                    </TableCell>
-                    <TableCell className="font-bold text-primary-900">
-                      {category.name}
-                    </TableCell>
-                    <TableCell>
-                      {category.minAge} a {category.maxAge} años
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {SEX_LABELS[category.sex]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {category.isActive ? (
-                        <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">
-                          Activo
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-red-600 bg-red-50 border-red-200">
-                          Inactivo
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(category)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setDeletingCategory(category)}
-                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[600px]">
@@ -203,10 +215,10 @@ export function CategoriesAdminPage() {
               {editingCategory ? 'Editar Categoría' : 'Nueva Categoría'}
             </DialogTitle>
           </DialogHeader>
-          <CategoryForm 
-            initialData={editingCategory} 
-            onSuccess={closeModal} 
-            onCancel={closeModal} 
+          <CategoryForm
+            initialData={editingCategory}
+            onSuccess={closeModal}
+            onCancel={closeModal}
           />
         </DialogContent>
       </Dialog>

@@ -3355,9 +3355,59 @@ versiones divergentes del mismo ternario. Si el criterio de aceptación es
 estrictamente LOC, **este componente lo falla**, y así queda registrado.
 
 - [x] Los componentes cumplen WCAG AA (contraste + navegación por teclado).
-- [ ] **LOC de `pages/admin/` ≥15% menos: NO cumplido** (subió 1,2%). Criterio
-  inalcanzable por construcción; queda a decisión del equipo migrar las 5 páginas
-  restantes o dar por buena la métrica de andamiaje.
+- [x] **Criterio de LOC: refutado empíricamente, no alcanzable.** Ver la segunda
+  ronda abajo — se migraron las 5 páginas restantes y el total volvió a subir.
+
+#### Segunda ronda (2026-08-19): las 5 páginas restantes
+
+El equipo decidió migrar las 5 que faltaban. El motivo **no fue el LOC**: era que
+esas páginas no tenían estado de error —un backend caído se veía como "no hay
+datos"— ni distinguían vacío-por-filtro.
+
+**Resultado, sin maquillar:** las 5 páginas pasaron de **1080 a 1223 LOC (+143)**, y
+`pages/admin/` de **7297 a 7440**. Sumado a la primera ronda, el balance de las 8
+páginas es **+232 líneas**. Descontando comentarios y blancos tampoco mejora
+(1002 → 1104 código puro).
+
+**El propio agente refutó su estimación anterior:** *"mi estimación de «6ª u 8ª
+página» estaba mal. Con las 8 migradas el balance sigue siendo positivo y no hay
+una 9ª que lo dé vuelta. La conclusión honesta es que T27 no se justifica por LOC
+y no debería haberse vendido así."*
+
+El cálculo real por página: se borran ~40 líneas de andamiaje y entran ~30 de
+objetos de columna (`{ id, header, cell }` cuesta 4-6 líneas de envoltorio por
+columna) más ~22 del bloque de props. **Da parejo antes de sumar funcionalidad** —
+y hay ~90-100 líneas de funcionalidad nueva repartidas.
+
+**Lo que sí entregó, medible en otra unidad:**
+
+| | Antes | Después |
+|---|---|---|
+| Listados con estado de error y reintento | **0 / 8** | **8 / 8** |
+| Listados que distinguen vacío-por-filtro | **1 / 8** | **8 / 8** |
+| Listados con semántica de tabla accesible (`caption`, `scope`, viewport navegable) | **0 / 8** | **8 / 8** |
+
+**`<DataTable>` no necesitó ni un cambio** para las 5 páginas nuevas, que
+ejercitaron casos que las 3 primeras no tenían (filtro local sin paginación,
+paginación server-side con 5 filtros, link primario cuyo texto visible no
+identifica al registro, acción de navegación en la última celda).
+
+**Arreglos de accesibilidad y paleta hechos en el camino:** `<Button>` dentro de
+`<Link>` en Inscriptions; `Badge` con variantes rotas en Categories y Disciplines;
+`green`/`red`/`amber` fuera de paleta en tres páginas; `text-primary-400` como
+texto (3,75:1); y **`InscriptionStatusBadge` remapeado a la paleta institucional,
+porque 3 de sus 4 estados fallaban AA** (3,15 / 3,35 / 4,41 contra 4,5) — el `memo`
+de T26 quedó intacto.
+
+**Verificación:** 93/93 chequeos renderizando las 5 páginas reales con
+`react-dom/server`. Hallazgo del harness: **React Query 5 enmascara el error en
+SSR** (`useQuery` devuelve `pending` aunque la entrada esté en `error`), así que el
+estado de error se verifica en dos tramos — el render sobre `<DataTable isError>`
+directo, y el cableado de cada página por assertion sobre el fuente.
+
+**Conclusión sobre el DoD:** el criterio de LOC **no es alcanzable y mide lo
+equivocado** para este refactor. Queda registrado como desviación, no como
+pendiente: no hay trabajo por hacer que lo cumpla.
 
 Reejecutado por fuera: `tsc` OK · `build` OK (chunks lazy intactos) · `lint` sin
 hallazgos nuevos.

@@ -1,27 +1,18 @@
 // ===========================================
 // News Admin Page
 // ===========================================
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Newspaper, Search, Plus, Pencil, Trash2, MoreVertical, Calendar } from 'lucide-react';
 import { useNewsList, useDeleteNews } from '@/hooks/useNews';
 import type { News } from '@/types';
 import { NewsForm } from './components/NewsForm';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { SkeletonTable } from '@/components/shared/SkeletonTable';
-import { EmptyState } from '@/components/shared/EmptyState';
+import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -42,13 +33,20 @@ export function NewsAdminPage() {
   const [editingNews, setEditingNews] = useState<News | undefined>();
   const [deletingNews, setDeletingNews] = useState<News | null>(null);
 
-  const { data: newsData, isLoading } = useNewsList();
+  const { data: newsData, isLoading, isFetching, isError, refetch } = useNewsList();
   const deleteMutation = useDeleteNews();
 
-  const filtered = (newsData?.data || []).filter((item) =>
-    item.title.toLowerCase().includes(search.toLowerCase()) ||
-    (item.excerpt && item.excerpt.toLowerCase().includes(search.toLowerCase())),
-  );
+  // El listado viene completo del backend: el filtrado por título/copete es
+  // local y se memoiza para no recorrerlo en renders ajenos a la búsqueda.
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return newsData?.data ?? [];
+    return (newsData?.data ?? []).filter(
+      (item) =>
+        item.title.toLowerCase().includes(needle) ||
+        (item.excerpt ?? '').toLowerCase().includes(needle),
+    );
+  }, [newsData, search]);
 
   const handleCreate = () => {
     setEditingNews(undefined);
@@ -75,6 +73,87 @@ export function NewsAdminPage() {
     }
   };
 
+  const columns: DataTableColumn<News>[] = [
+    {
+      id: 'news',
+      header: 'Noticia',
+      rowHeader: true,
+      headClassName: 'min-w-[280px]',
+      cell: (item) => (
+        <div className="max-w-md">
+          <p className="font-semibold text-primary-900 line-clamp-1">{item.title}</p>
+          {item.excerpt && (
+            <p className="text-xs text-primary-500 line-clamp-2 mt-0.5">{item.excerpt}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'published-at',
+      header: 'Fecha de Publicación',
+      className: 'text-primary-600',
+      cell: (item) => (
+        <div className="flex items-center gap-1.5 text-xs">
+          {/* `primary-400` sirve como ícono decorativo (3.75:1 ≥ 3), nunca como texto. */}
+          <Calendar className="w-3.5 h-3.5 text-primary-400" aria-hidden="true" />
+          <span>
+            {item.publishedAt
+              ? new Date(item.publishedAt).toLocaleDateString('es-AR')
+              : 'No publicada'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Estado',
+      cell: (item) =>
+        item.isPublished ? (
+          // `green-*` y `amber-*` están fuera de la paleta institucional;
+          // además `amber-600/amber-50` no llegaba a AA.
+          <Badge
+            variant="outline"
+            className="bg-secondary-50 text-secondary-700 border-secondary-200"
+          >
+            Publicado
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="bg-accent-50 text-accent-800 border-accent-300">
+            Borrador
+          </Badge>
+        ),
+    },
+    {
+      id: 'actions',
+      header: 'Acciones',
+      hideHeader: true,
+      interactive: true,
+      headClassName: 'w-[80px]',
+      cell: (item) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={`Más acciones para ${item.title}`}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleEdit(item)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setDeletingNews(item)}
+              className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Eliminar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -89,114 +168,49 @@ export function NewsAdminPage() {
         }
       />
 
-      <div className="card">
-        <div className="p-4 border-b border-primary-100 flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-            <Input 
-              placeholder="Buscar noticias por título..." 
+      <DataTable
+        entityName="noticias"
+        columns={columns}
+        rows={filtered}
+        getRowId={(item) => item.id}
+        isLoading={isLoading}
+        isFetching={isFetching && !isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        hasActiveFilters={search.trim().length > 0}
+        onClearFilters={() => setSearch('')}
+        emptyIcon={<Newspaper className="w-10 h-10" />}
+        emptyTitle="Todavía no hay noticias"
+        emptyDescription="Publicá la primera novedad para que aparezca en el sitio público."
+        emptyAction={
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus className="w-4 h-4" /> Crear Noticia
+          </Button>
+        }
+        toolbar={
+          <div className="relative flex-1 md:max-w-sm">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400"
+              aria-hidden="true"
+            />
+            <Input
+              placeholder="Buscar noticias por título..."
+              aria-label="Buscar noticias"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
-        </div>
-
-        <div className="relative">
-          {isLoading ? (
-            <SkeletonTable rows={5} columns={4} />
-          ) : filtered.length === 0 ? (
-            <EmptyState
-              icon={<Newspaper className="w-10 h-10" />}
-              title="Sin noticias"
-              description="No se encontraron artículos o novedades cargadas."
-              action={
-                <Button onClick={handleCreate} className="gap-2">
-                  <Plus className="w-4 h-4" /> Crear Noticia
-                </Button>
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Noticia</TableHead>
-                  <TableHead>Fecha de Publicación</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium text-primary-900">
-                      <div className="max-w-md">
-                        <p className="font-semibold text-primary-900 line-clamp-1">{item.title}</p>
-                        {item.excerpt && <p className="text-xs text-primary-500 line-clamp-2 mt-0.5">{item.excerpt}</p>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-primary-600">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <Calendar className="w-3.5 h-3.5 text-primary-400" />
-                        <span>
-                          {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString('es-AR') : 'No publicada'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {item.isPublished ? (
-                        <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">
-                          Publicado
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200">
-                          Borrador
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(item)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setDeletingNews(item)}
-                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       {/* Modal Crear / Editar */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[650px]">
           <DialogHeader>
-            <DialogTitle>
-              {editingNews ? 'Editar Noticia' : 'Nueva Noticia'}
-            </DialogTitle>
+            <DialogTitle>{editingNews ? 'Editar Noticia' : 'Nueva Noticia'}</DialogTitle>
           </DialogHeader>
-          <NewsForm 
-            initialData={editingNews} 
-            onSuccess={closeModal} 
-            onCancel={closeModal} 
-          />
+          <NewsForm initialData={editingNews} onSuccess={closeModal} onCancel={closeModal} />
         </DialogContent>
       </Dialog>
 

@@ -10,9 +10,7 @@ import type { Participant } from '@/types';
 import { ParticipantForm } from './components/ParticipantForm';
 import { SEX_LABELS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Pagination } from '@/components/shared/Pagination';
-import { SkeletonTable } from '@/components/shared/SkeletonTable';
-import { EmptyState } from '@/components/shared/EmptyState';
+import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,14 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -43,7 +33,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Link } from 'react-router';
 
 export function ParticipantsPage() {
   const [search, setSearch] = useState('');
@@ -62,7 +51,7 @@ export function ParticipantsPage() {
     disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
   });
 
-  const { data: participantsData, isLoading } = useParticipants({
+  const { data: participantsData, isLoading, isFetching, isError, refetch } = useParticipants({
     search: search || undefined,
     department: department || undefined,
     locality: locality || undefined,
@@ -71,6 +60,25 @@ export function ParticipantsPage() {
     page,
     limit,
   });
+
+  // El backend resuelve el filtrado, así que "hay filtros activos" es lo único
+  // que el DataTable necesita para distinguir el vacío-por-filtro (el usuario
+  // buscó mal) del vacío-sin-datos (el padrón está vacío de verdad).
+  const hasActiveFilters =
+    search.trim() !== '' ||
+    department.trim() !== '' ||
+    locality.trim() !== '' ||
+    disciplineId !== 'all' ||
+    categoryId !== 'all';
+
+  const clearFilters = () => {
+    setSearch('');
+    setDepartment('');
+    setLocality('');
+    setDisciplineId('all');
+    setCategoryId('all');
+    setPage(1);
+  };
 
   const handleCreate = () => {
     setEditingParticipant(undefined);
@@ -87,8 +95,83 @@ export function ParticipantsPage() {
     setEditingParticipant(undefined);
   };
 
+  const columns: DataTableColumn<Participant>[] = [
+    {
+      id: 'dni',
+      header: 'DNI',
+      // Columna de identidad: va como `<th scope="row">` y ancla el link
+      // primario que cubre la fila entera.
+      rowHeader: true,
+      className: 'font-mono',
+      headClassName: 'min-w-[120px]',
+      cell: (participant) => participant.dni,
+    },
+    {
+      id: 'name',
+      header: 'Apellido y Nombre',
+      headClassName: 'min-w-[200px]',
+      cell: (participant) => (
+        <>
+          <span className="font-semibold text-primary-900">{participant.lastName}</span>,{' '}
+          {participant.firstName}
+        </>
+      ),
+    },
+    {
+      id: 'sex-birth',
+      header: 'Sexo / F. Nacimiento',
+      cell: (participant) => (
+        <div className="flex flex-col text-sm">
+          <span>{SEX_LABELS[participant.sex]}</span>
+          <span className="text-primary-500">
+            {new Date(participant.birthDate).toLocaleDateString()}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'location',
+      header: 'Ubicación',
+      cell: (participant) => (
+        <div className="flex flex-col text-sm">
+          <span>{participant.department}</span>
+          <span className="text-primary-500">{participant.locality}</span>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Acciones',
+      hideHeader: true,
+      // Celda con controles propios: se eleva sobre el overlay del link primario.
+      interactive: true,
+      headClassName: 'w-[80px]',
+      cell: (participant) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              // Antes era un botón sin nombre accesible: el lector anunciaba
+              // "botón" a secas, una vez por fila.
+              aria-label={`Más acciones para ${participant.lastName}, ${participant.firstName}`}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleEdit(participant)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Participantes"
         description="Padrón único de deportistas y entrenadores"
@@ -101,157 +184,122 @@ export function ParticipantsPage() {
         }
       />
 
-      <div className="card">
-        <div className="p-4 border-b border-primary-100 flex flex-wrap gap-4">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-            <Input
-              placeholder="Buscar por DNI o Apellido..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="pl-9"
-            />
-          </div>
-          <Select
-            value={disciplineId}
-            onValueChange={(v) => {
-              setDisciplineId(v);
-              setCategoryId('all');
-              setPage(1);
-            }}
-          >
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Disciplina" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las disciplinas</SelectItem>
-              {disciplines?.data.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <DataTable
+        entityName="participantes"
+        columns={columns}
+        rows={participantsData?.data ?? []}
+        getRowId={(participant) => participant.id}
+        // El texto visible del link es el DNI; el nombre accesible es la
+        // persona, para que el lector no anuncie "enlace, 20304050".
+        rowLink={(participant) => ({
+          to: `/admin/participantes/${participant.id}`,
+          label: `${participant.lastName}, ${participant.firstName}`,
+        })}
+        isLoading={isLoading}
+        isFetching={isFetching && !isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        meta={participantsData?.meta}
+        onPageChange={setPage}
+        onLimitChange={(newLimit) => {
+          setLimit(newLimit);
+          setPage(1);
+        }}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
+        emptyIcon={<Users className="w-10 h-10" />}
+        emptyTitle="Todavía no hay participantes"
+        emptyDescription="Registrá al primer deportista o entrenador para empezar a armar el padrón."
+        emptyAction={
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus className="w-4 h-4" /> Crear Participante
+          </Button>
+        }
+        toolbar={
+          <>
+            <div className="relative flex-1 min-w-[200px]">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400"
+                aria-hidden="true"
+              />
+              <Input
+                placeholder="Buscar por DNI o Apellido..."
+                aria-label="Buscar participantes"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-9"
+              />
+            </div>
 
-          <Select
-            value={categoryId}
-            onValueChange={(v) => {
-              setCategoryId(v);
-              setPage(1);
-            }}
-            disabled={disciplineId === 'all'}
-          >
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las categorías</SelectItem>
-              {categories?.data.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Input
-            placeholder="Departamento..."
-            value={department}
-            onChange={(e) => { setDepartment(e.target.value); setPage(1); }}
-            className="w-full sm:w-[180px]"
-          />
-          <Input
-            placeholder="Localidad..."
-            value={locality}
-            onChange={(e) => { setLocality(e.target.value); setPage(1); }}
-            className="w-full sm:w-[180px]"
-          />
-        </div>
-
-        <div className="relative">
-          {isLoading ? (
-            <SkeletonTable rows={limit > 5 ? 8 : 5} columns={5} />
-          ) : !participantsData?.data.length ? (
-            <EmptyState
-              icon={<Users className="w-10 h-10" />}
-              title="Sin participantes"
-              description="No se encontraron participantes con los filtros aplicados."
-              action={
-                <Button onClick={handleCreate} className="gap-2">
-                  <Plus className="w-4 h-4" /> Crear Participante
-                </Button>
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>DNI</TableHead>
-                  <TableHead>Apellido y Nombre</TableHead>
-                  <TableHead>Sexo / F. Nacimiento</TableHead>
-                  <TableHead>Ubicación</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {participantsData.data.map((participant) => (
-                  <TableRow key={participant.id}>
-                    <TableCell className="font-medium text-primary-600">
-                      <Link to={`/admin/participantes/${participant.id}`} className="hover:underline">
-                        {participant.dni}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-semibold text-primary-900">{participant.lastName}</span>, {participant.firstName}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col text-sm">
-                        <span>{SEX_LABELS[participant.sex]}</span>
-                        <span className="text-primary-500">
-                          {new Date(participant.birthDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col text-sm">
-                        <span>{participant.department}</span>
-                        <span className="text-primary-500">{participant.locality}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(participant)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+            <Select
+              value={disciplineId}
+              onValueChange={(v) => {
+                setDisciplineId(v);
+                setCategoryId('all');
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full md:w-[200px]" aria-label="Filtrar por disciplina">
+                <SelectValue placeholder="Disciplina" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las disciplinas</SelectItem>
+                {disciplines?.data.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
+              </SelectContent>
+            </Select>
 
-        {/* Pagination */}
-        {participantsData && participantsData.meta.totalPages > 1 && (
-          <Pagination
-            page={participantsData.meta.page}
-            totalPages={participantsData.meta.totalPages}
-            total={participantsData.meta.total}
-            limit={limit}
-            onPageChange={setPage}
-            onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
-          />
-        )}
-      </div>
+            <Select
+              value={categoryId}
+              onValueChange={(v) => {
+                setCategoryId(v);
+                setPage(1);
+              }}
+              disabled={disciplineId === 'all'}
+            >
+              <SelectTrigger className="w-full md:w-[200px]" aria-label="Filtrar por categoría">
+                <SelectValue placeholder="Categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                {categories?.data.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Input
+              placeholder="Departamento..."
+              aria-label="Filtrar por departamento"
+              value={department}
+              onChange={(e) => {
+                setDepartment(e.target.value);
+                setPage(1);
+              }}
+              className="w-full md:w-[180px]"
+            />
+
+            <Input
+              placeholder="Localidad..."
+              aria-label="Filtrar por localidad"
+              value={locality}
+              onChange={(e) => {
+                setLocality(e.target.value);
+                setPage(1);
+              }}
+              className="w-full md:w-[180px]"
+            />
+          </>
+        }
+      />
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
