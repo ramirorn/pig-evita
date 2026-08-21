@@ -1,26 +1,18 @@
 // ===========================================
 // Admin Dashboard Page
 // ===========================================
-import { useMemo } from 'react';
 import { Link } from 'react-router';
 import {
   LayoutDashboard, Users, ClipboardList, UsersRound, Trophy,
   Activity, Loader2, TrendingUp, ArrowRight, AlertTriangle,
 } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { InscriptionStatus } from '@/types';
-import { ROUTES, INSCRIPTION_STATUS_LABELS } from '@/lib/constants';
+import { ROUTES } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { formatRelativeTime } from '@/lib/utils';
-
-const DONUT_COLORS = {
-  [InscriptionStatus.PENDIENTE]: '#E8AA34',    // accent-500
-  [InscriptionStatus.REVISADA]: '#1b5ea9',     // primary-500
-  [InscriptionStatus.APROBADA]: '#2D723B',     // secondary-500
-  [InscriptionStatus.RECHAZADA]: '#d32f2f',    // destructive-500
-};
+import { InscriptionsStatusCard } from './dashboard/InscriptionsStatusCard';
 
 export function DashboardPage() {
   // Una sola request para todo el panel (hallazgo Q3): antes eran 8 `useQuery`
@@ -39,21 +31,6 @@ export function DashboardPage() {
     { label: 'Equipos', value: stats?.totalTeams ?? 0, icon: <UsersRound className="w-6 h-6" />, color: 'from-secondary-500 to-secondary-600', link: ROUTES.TEAMS },
     { label: 'Competencias', value: stats?.totalCompetitions ?? 0, icon: <Trophy className="w-6 h-6" />, color: 'from-accent-500 to-accent-600', link: ROUTES.COMPETITIONS },
   ];
-
-  // El backend ya manda los 4 estados en orden y con `count: 0` si no hay
-  // filas, así que acá sólo se descartan los ceros: una porción de valor 0 no
-  // se ve en el donut pero sí ensucia la leyenda.
-  const donutData = useMemo(
-    () =>
-      (stats?.inscriptionsByStatus ?? [])
-        .filter((row) => row.count > 0)
-        .map((row) => ({
-          key: row.status,
-          name: INSCRIPTION_STATUS_LABELS[row.status],
-          value: row.count,
-        })),
-    [stats],
-  );
 
   const pendingCount =
     stats?.inscriptionsByStatus.find((row) => row.status === InscriptionStatus.PENDIENTE)?.count ?? 0;
@@ -107,66 +84,7 @@ export function DashboardPage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Donut chart — Inscriptions by status */}
-            <div className="card p-6">
-              <h3 className="font-bold text-primary-900 mb-4 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary-500" />
-                Inscripciones por Estado
-              </h3>
-              {donutData.length > 0 ? (
-                <div className="flex items-center gap-6">
-                  <div className="w-40 h-40 flex-shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={donutData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={70}
-                          paddingAngle={3}
-                          dataKey="value"
-                          stroke="none"
-                        >
-                          {donutData.map((entry) => (
-                            <Cell
-                              key={entry.key}
-                              fill={DONUT_COLORS[entry.key]}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value, name) => [`${value}`, `${name}`]}
-                          contentStyle={{
-                            borderRadius: '8px',
-                            border: '1px solid #e5e7eb',
-                            fontSize: '13px',
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex-1 space-y-2">
-                    {donutData.map((d) => (
-                      <div key={d.key} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full"
-                            style={{ background: DONUT_COLORS[d.key] }}
-                          />
-                          <span className="text-primary-600">{d.name}</span>
-                        </div>
-                        <span className="font-bold text-primary-800">{d.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-center py-8 text-primary-500 text-sm">
-                  No hay inscripciones todavía.
-                </p>
-              )}
-            </div>
+            <InscriptionsStatusCard data={stats.inscriptionsByStatus} />
 
             {/* Quick actions */}
             <div className="card p-6">

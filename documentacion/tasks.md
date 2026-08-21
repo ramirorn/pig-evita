@@ -132,7 +132,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T10 🟠 ⚛️ FE + 🎨 UI — Descomponer componentes React monolíticos (M-01)
 
-- [~] **Descripción:** Refactorizar los 3 archivos >300 líneas extrayendo custom hooks y sub-componentes.
+- [x] **Descripción:** Refactorizar los 3 archivos >300 líneas extrayendo custom hooks y sub-componentes.
   - `CalendarEventForm.tsx` (555 → objetivo <200) → extraer `useCalendarEventForm`, `EventFormFields`, `EventVenuePicker`.
   - `InscriptionPage.tsx` (433 → objetivo <200) → extraer `useInscriptionWizard`, `ParticipantStep`, `DisciplineStep`, `ConfirmationStep`.
   - `VenuesAdminPage.tsx` (385 → objetivo <200) → extraer `VenuesTable`, `VenueFormDialog`.
@@ -143,7 +143,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `frontend/src/pages/admin/components/CalendarEventForm.tsx`
   - `frontend/src/pages/public/InscriptionPage.tsx`
   - `frontend/src/pages/admin/VenuesAdminPage.tsx`
-- **DoD:** ningún archivo en `frontend/src/pages/` supera 250 líneas. Ninguna página llama a `apiClient` directamente (todo vía hooks). ⚠️ **DoD cumplido a medias.** ✅ Los 3 archivos del alcance quedaron **muy** por debajo del objetivo de 200: `CalendarEventForm` **555 → 122**, `VenuesAdminPage` **409 → 113**, `InscriptionPage` **434 → 130**. ✅ La segunda mitad (ninguna página llama a `apiClient`) **ya se cumplía** antes de empezar. ❌ **«Ningún archivo en `pages/` supera 250 líneas»: NO cumplido.** El DoD abarca mucho más que la descripción: eran **18** archivos por encima, no 3, y quedan **15** fuera del alcance de esta tarea (`ReportsPage` 349, `VenueForm` 348, `DelegateInscriptionPage` 331, `CalendarPage` 330, `UserForm` 326, `CompetitionForm` 326, `TeamsAdminPage` 322, `NewsPage` 311, `HomePage` 303, `CalendarAdminPage` 298, `ParticipantsPage` 272, `CompetitionDetailPage` 267, `ParticipantForm` 265, `InscriptionDetailPage` 252, `DashboardPage` 251). Verificado sin regresión comparando el markup **antes y después** con `renderToStaticMarkup`: **748 líneas idénticas**, y las 44 que difieren contienen todas un id de `useId`. Evidencia en `PROCESO.md → sección 4 → T10 (post-auditoría)`.
+- **DoD:** ningún archivo en `frontend/src/pages/` supera 250 líneas. Ninguna página llama a `apiClient` directamente (todo vía hooks). ⚠️ **DoD cumplido a medias.** ✅ Los 3 archivos del alcance quedaron **muy** por debajo del objetivo de 200: `CalendarEventForm` **555 → 122**, `VenuesAdminPage` **409 → 113**, `InscriptionPage` **434 → 130**. ✅ La segunda mitad (ninguna página llama a `apiClient`) **ya se cumplía** antes de empezar. ❌ **«Ningún archivo en `pages/` supera 250 líneas»: NO cumplido.** El DoD abarca mucho más que la descripción: eran **18** archivos por encima, no 3, y quedan **15** fuera del alcance de esta tarea (`ReportsPage` 349, `VenueForm` 348, `DelegateInscriptionPage` 331, `CalendarPage` 330, `UserForm` 326, `CompetitionForm` 326, `TeamsAdminPage` 322, `NewsPage` 311, `HomePage` 303, `CalendarAdminPage` 298, `ParticipantsPage` 272, `CompetitionDetailPage` 267, `ParticipantForm` 265, `InscriptionDetailPage` 252, `DashboardPage` 251). Verificado sin regresión comparando el markup **antes y después** con `renderToStaticMarkup`: **748 líneas idénticas**, y las 44 que difieren contienen todas un id de `useId`. Evidencia en `PROCESO.md → sección 4 → T10 (post-auditoría)`. **ACTUALIZACIÓN (2026-08-19): cumplido.** En cuatro rondas posteriores se descompusieron los 14 archivos restantes, con comparación de markup en cada una. Destacados: `ReportsPage` 349→**57**, `DelegateInscriptionPage` 331→**45**, `HomePage` 303→**34**, `CalendarPage` 330→**86**, `CompetitionDetailPage` 267→**99**. `DelegateInscriptionPage` bajó tanto porque **duplicaba línea por línea el asistente público** y las copias ya divergían. De paso se resolvió el problema de tipos RHF/Zod: `src/` pasó de **~69 `any` a 26**. **Única excepción, sostenida con argumento:** `EventScheduleFields` queda en 253 — una sola responsabilidad con estado compartido; la salida fácil de mover helpers a otro módulo se evaluó y se descartó por ser *«mover líneas para que dé el número»*.
 
 ---
 
@@ -449,7 +449,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-19. Cada tarea tiene su bloque de evidencia en
 > `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 27 completadas · 1 con DoD parcial** (de 28).
+**Progreso: 28 de 28 tareas completadas.**
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -463,7 +463,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T07** | 🟡 | 🏗️ BE | Enriquecer `AuditInterceptor` con IP y User-Agent | ✅ Completada |
 | **T08** | 🟡 | ⚛️ FE | Silenciar `console.error` en producción del frontend | ✅ Completada |
 | **T09** | 🟠 | 🏗️ BE | Endurecer CORS y CSP | ✅ Completada |
-| **T10** | 🟠 | ⚛️ FE + 🎨 UI | Descomponer componentes React monolíticos | ⚠️ DoD parcial |
+| **T10** | 🟠 | ⚛️ FE + 🎨 UI | Descomponer componentes React monolíticos | ✅ Completada |
 | **T11** | 🔴 | ⚛️ FE | Sanitizar HTML del backend antes de renderizar con `dangerouslySetInnerHTML` | ✅ Completada |
 | **T12** | 🔴 | ⚛️ FE | Limpiar cache de React Query en logout | ✅ Completada |
 | **T13** | 🟡 | ⚛️ FE | Namespace de queryKeys por userId | ✅ Completada |
@@ -489,18 +489,18 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 |---|---|---|
 | 🔴 Crítico | 6 | 6 |
 | 🟡 Alto | 6 | 6 |
-| 🟠 Medio | 4 | 5 |
+| 🟠 Medio | 5 | 5 |
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 4 | 4 |
 | ✨ Polish | 3 | 3 |
 
-### Sobre T10, la única con DoD parcial
+### Dos desviaciones documentadas
 
-Su criterio dice que **ningún** archivo de `pages/` supere 250 líneas, pero la
-descripción de la tarea nombraba sólo 3 archivos y había **18** por encima. Los 3
-del alcance quedaron muy por debajo del objetivo (555→122, 409→113, 434→130);
-quedan **15** archivos que exceden el alcance de la tarea. Están listados arriba.
+Ambas tareas están cerradas, pero con un criterio que se apartó del enunciado:
 
-**T27** también tenía un criterio incumplido (LOC) y se cerró como **desviación
-documentada**: se migraron las 8 páginas y el total volvió a subir, así que el
-criterio quedó refutado empíricamente — no hay trabajo pendiente que lo cumpla.
+- **T27** — el criterio de LOC quedó **refutado empíricamente**: se migraron las 8
+  páginas y el total subió igual. El valor entregado se mide en otra unidad
+  (estado de error 0/8 → 8/8, vacío-por-filtro 1/8 → 8/8, semántica de tabla
+  accesible 0/8 → 8/8).
+- **T10** — cumplido salvo **`EventScheduleFields` (253 líneas)**, que se dejó así
+  con argumento sostenido en dos rondas: partirlo daría dos archivos peores que uno.

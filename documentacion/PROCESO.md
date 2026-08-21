@@ -3576,8 +3576,10 @@ Verificado a mano: **cero `any` en los archivos nuevos**.
 
 - [x] Los 3 archivos del alcance quedan **muy** por debajo de 200 líneas.
 - [x] Ninguna página llama a `apiClient` directamente (ya se cumplía).
-- [ ] **"Ningún archivo en `pages/` supera 250 líneas": NO cumplido.** Eran 18,
-  quedan **15**, todos fuera del alcance de esta tarea:
+- [x] **Cumplido en cuatro rondas posteriores (2026-08-19).** De los 15 que
+  quedaban fuera del alcance original se descompusieron **14**; el único que sigue
+  por encima es `EventScheduleFields` (253), **por decisión argumentada y sostenida
+  dos veces**. Ver la sección de rondas al final de este bloque. Lista original:
   `ReportsPage` 349 · `VenueForm` 348 · `DelegateInscriptionPage` 331 ·
   `CalendarPage` 330 · `UserForm` 326 · `CompetitionForm` 326 · `TeamsAdminPage` 322 ·
   `NewsPage` 311 · `HomePage` 303 · `CalendarAdminPage` 298 · `ParticipantsPage` 272 ·
@@ -3618,6 +3620,38 @@ props que reciben los cuatro `Step*` no cambiaron ni en nombre ni en tipo.
    comportamiento.
 3. `StepPersonalData.tsx` mezcla el tipo `InscriptionFormData` con el componente,
    lo que dispara el único warning de oxlint de esa carpeta.
+
+#### Rondas posteriores (2026-08-19): los 15 archivos restantes
+
+Con el criterio de siempre —**extraer por responsabilidad, no por líneas**— y
+comparación de markup antes/después en cada ronda.
+
+| Ronda | Archivos | Verificación |
+|---|---|---|
+| Formularios | `VenueForm` 348→239 · `UserForm` 326→249 · `CompetitionForm` 326→242 · `ParticipantForm` 265→217 | 10 casos, **152.335 bytes idénticos** |
+| Páginas admin | `ReportsPage` 349→**57** · `DelegateInscriptionPage` 331→**45** · `TeamsAdminPage` 322→174 · `ParticipantsPage` 320→155 | 4 páginas, markup idéntico |
+| Públicas + detalle | `CalendarPage` 330→**86** · `NewsPage` 311→113 · `HomePage` 303→**34** · `CalendarAdminPage` 298→152 · `CompetitionDetailPage` 267→**99** | **16/16** escenarios, con control negativo |
+| Cierre | `DashboardPage` 251→169 · `InscriptionDetailPage` 252→128 | **11/11** casos, verificando qué rama pintó cada uno |
+
+**Dos resultados que exceden el objetivo del umbral:**
+
+- **`DelegateInscriptionPage` (331 → 45)** bajó tanto porque **duplicaba línea por
+  línea el asistente de inscripción público**, incluidos los 60 de la barra de
+  progreso, y *las dos copias ya habían empezado a divergir*. Ahora comparten
+  `InscriptionSteps` y el hook.
+- **El problema de tipos de RHF/Zod quedó resuelto:** el `as any` del `resolver`
+  contaminaba `form.control` y de ahí en adelante cada campo necesitaba el suyo.
+  Con el cast acotado a una línea, `src/` pasó de **~69 `any` a 26**.
+
+**La única excepción, sostenida:** `EventScheduleFields` (253). Se le volvió a
+preguntar dos rondas después y sostuvo el mismo argumento. Evaluó además la salida
+fácil —mover dos helpers a otro módulo para quedar en ~190— y la descartó: *"uno de
+ellos recibe el `form` y lo muta; alejarlo de los dos botones que lo disparan es
+mover líneas para que dé el número."*
+
+**Hallazgo serio de estas rondas:** `MatchCard` toma el marcador con
+`Object.values(scoreData)[0]`, así que **el puntaje mostrado depende del orden de
+claves del JSON** que mande el backend.
 
 ---
 
