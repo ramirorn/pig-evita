@@ -2,19 +2,16 @@
 // RegisterWizard — cuerpo de la pestaña "Nueva Inscripción"
 // ===========================================
 import { InscriptionStepper } from './InscriptionStepper';
-import { StepPersonalData } from './StepPersonalData';
-import { StepSportSelection } from './StepSportSelection';
-import { StepReview } from './StepReview';
-import { StepSuccess } from './StepSuccess';
+import { InscriptionSteps } from './InscriptionSteps';
 import type { InscriptionWizard } from './useInscriptionWizard';
 
 /**
- * Decide qué paso se ve y reparte el estado del asistente entre los cuatro
- * componentes de paso. Recibe el `wizard` entero como un solo prop: la página lo
- * crea porque también necesita su `step` para el cambio de pestaña.
+ * El encabezado público de la inscripción más los pasos del asistente. Los
+ * pasos en sí viven en `InscriptionSteps` porque son los mismos que usa el
+ * panel de delegados; acá queda sólo lo que es propio de la cara pública.
  */
 export function RegisterWizard({ wizard }: { wizard: InscriptionWizard }) {
-  const { step, setStep } = wizard;
+  const { step } = wizard;
 
   return (
     <div>
@@ -31,61 +28,7 @@ export function RegisterWizard({ wizard }: { wizard: InscriptionWizard }) {
         </div>
       )}
 
-      {/* STEP 1: PERSONAL DATA */}
-      {step === 1 && (
-        <StepPersonalData
-          formData={wizard.formData}
-          setFormData={wizard.setFormData}
-          calculatedAge={wizard.calculatedAge}
-          onNext={wizard.handleNextToSport}
-        />
-      )}
-
-      {/* STEP 2: SPORTS & CATEGORY */}
-      {step === 2 && (
-        <StepSportSelection
-          formData={wizard.formData}
-          setFormData={wizard.setFormData}
-          disciplines={wizard.disciplines}
-          availableCategories={wizard.availableCategories}
-          selectedCategory={wizard.selectedCategory}
-          categoryCompatibility={wizard.categoryCompatibility}
-          calculatedAge={wizard.calculatedAge}
-          loadingDisciplines={wizard.loadingDisciplines}
-          loadingCategories={wizard.loadingCategories}
-          onBack={() => setStep(1)}
-          onNext={wizard.handleNextToReview}
-        />
-      )}
-
-      {/* STEP 3: REVIEW & CONFIRM */}
-      {step === 3 && (
-        <StepReview
-          formData={wizard.formData}
-          calculatedAge={wizard.calculatedAge}
-          selectedDiscipline={wizard.selectedDiscipline}
-          selectedCategory={wizard.selectedCategory}
-          termsAccepted={wizard.termsAccepted}
-          setTermsAccepted={wizard.setTermsAccepted}
-          isSubmitting={wizard.isSubmitting}
-          onBack={() => setStep(2)}
-          onSubmit={wizard.handleSubmitInscription}
-        />
-      )}
-
-      {/* STEP 4: SUCCESS CREDENTIAL */}
-      {step === 4 && wizard.createdInscription && (
-        <StepSuccess
-          createdInscription={wizard.createdInscription}
-          formData={wizard.formData}
-          selectedDiscipline={wizard.selectedDiscipline}
-          selectedCategory={wizard.selectedCategory}
-          onCopyCode={wizard.handleCopyCode}
-          onDownloadQr={wizard.handleDownloadQr}
-          onPrint={wizard.handlePrint}
-          onReset={wizard.handleResetForm}
-        />
-      )}
+      <InscriptionSteps wizard={wizard} />
     </div>
   );
 }

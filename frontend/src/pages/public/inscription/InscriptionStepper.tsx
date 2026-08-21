@@ -21,9 +21,22 @@ const PROGRESS_WIDTH: Record<WizardStep, string> = {
   4: '100%',
 };
 
-export function InscriptionStepper({ step }: { step: WizardStep }) {
+interface InscriptionStepperProps {
+  step: WizardStep;
+  /**
+   * Clases del contenedor. La inscripción pública lo cuelga de un encabezado y
+   * necesita el `mt-8`; el panel de delegados lo pega al `PageHeader`, que ya
+   * trae su propia separación.
+   */
+  className?: string;
+}
+
+export function InscriptionStepper({
+  step,
+  className = 'max-w-xl mx-auto mt-8',
+}: InscriptionStepperProps) {
   return (
-    <div className="max-w-xl mx-auto mt-8">
+    <div className={className}>
       <div className="flex items-center justify-between relative">
         <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary-100 w-full z-0" />
         <div

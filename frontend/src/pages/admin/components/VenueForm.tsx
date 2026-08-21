@@ -1,13 +1,9 @@
 // ===========================================
 // Venue Form Component
 // ===========================================
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, MapPin, Building2, Users, Navigation, CheckCircle2 } from 'lucide-react';
-import { venueSchema, type VenueFormValues } from '@/schemas';
-import { useCreateVenue, useUpdateVenue } from '@/hooks/useVenues';
 import type { Venue } from '@/types';
+import { useVenueForm } from './venue/useVenueForm';
+import { VenueCoordinateFields } from './venue/VenueCoordinateFields';
 
 import {
   Form,
@@ -27,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { logError } from '@/lib/logger';
+import { Loader2, MapPin, Building2, Users, CheckCircle2 } from 'lucide-react';
 
 interface VenueFormProps {
   initialData?: Venue;
@@ -47,71 +43,22 @@ const FORMOSA_DEPARTMENTS = [
   'Laishí',
 ];
 
+/**
+ * Formulario de alta/edición de sedes.
+ *
+ * Sólo arma el layout: la lógica vive en `useVenueForm` y el panel de
+ * coordenadas GPS es un componente aparte. Acá quedan los campos de
+ * identificación y ubicación.
+ */
 export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) {
-  const createMutation = useCreateVenue();
-  const updateMutation = useUpdateVenue();
-
-  const isPending = createMutation.isPending || updateMutation.isPending;
-
-  const form = useForm<VenueFormValues>({
-    resolver: zodResolver(venueSchema) as any,
-    defaultValues: {
-      name: initialData?.name || '',
-      address: initialData?.address || '',
-      department: initialData?.department || 'Formosa',
-      locality: initialData?.locality || '',
-      capacity: initialData?.capacity ?? undefined,
-      latitude: initialData?.latitude ?? undefined,
-      longitude: initialData?.longitude ?? undefined,
-      isActive: initialData?.isActive ?? true,
-    },
-  });
-
-  useEffect(() => {
-    if (initialData) {
-      form.reset({
-        name: initialData.name,
-        address: initialData.address,
-        department: initialData.department,
-        locality: initialData.locality,
-        capacity: initialData.capacity ?? undefined,
-        latitude: initialData.latitude ?? undefined,
-        longitude: initialData.longitude ?? undefined,
-        isActive: initialData.isActive ?? true,
-      });
-    }
-  }, [initialData, form]);
-
-  const onSubmit = async (values: VenueFormValues) => {
-    try {
-      const payload = {
-        name: values.name.trim(),
-        address: values.address.trim(),
-        department: values.department.trim(),
-        locality: values.locality.trim(),
-        capacity: values.capacity !== undefined && values.capacity !== null && !isNaN(values.capacity) ? Number(values.capacity) : undefined,
-        latitude: values.latitude !== undefined && values.latitude !== null && !isNaN(values.latitude) ? Number(values.latitude) : undefined,
-        longitude: values.longitude !== undefined && values.longitude !== null && !isNaN(values.longitude) ? Number(values.longitude) : undefined,
-        isActive: values.isActive,
-      };
-
-      if (initialData) {
-        await updateMutation.mutateAsync({ id: initialData.id, payload });
-      } else {
-        await createMutation.mutateAsync(payload);
-      }
-      onSuccess?.();
-    } catch (error) {
-      logError('VenueForm.onSubmit', error);
-    }
-  };
+  const { form, submit, isPending, isEditing } = useVenueForm({ initialData, onSuccess });
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4 pt-1">
+      <form onSubmit={form.handleSubmit(submit)} className="space-y-4 pt-1">
         {/* Nombre de la Sede */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
@@ -133,7 +80,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
 
         {/* Dirección */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="address"
           render={({ field }) => (
             <FormItem>
@@ -156,7 +103,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
         {/* Departamento y Localidad */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="department"
             render={({ field }) => (
               <FormItem>
@@ -186,7 +133,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="locality"
             render={({ field }) => (
               <FormItem>
@@ -208,7 +155,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
 
         {/* Capacidad */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="capacity"
           render={({ field }) => (
             <FormItem>
@@ -237,67 +184,11 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
           )}
         />
 
-        {/* Coordenadas GPS (Latitud y Longitud) */}
-        <div className="p-3 bg-primary-50/60 rounded-lg border border-primary-100 space-y-2.5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-800">
-            <Navigation className="w-3.5 h-3.5 text-primary-600" />
-            <span>Coordenadas Geográficas (Opcional)</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FormField
-              control={form.control as any}
-              name="latitude"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[11px] text-primary-700">Latitud</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="-26.185"
-                      className="bg-white h-9 text-xs"
-                      value={field.value ?? ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        field.onChange(val === '' ? undefined : parseFloat(val));
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control as any}
-              name="longitude"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[11px] text-primary-700">Longitud</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="-58.175"
-                      className="bg-white h-9 text-xs"
-                      value={field.value ?? ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        field.onChange(val === '' ? undefined : parseFloat(val));
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
+        <VenueCoordinateFields form={form} />
 
         {/* Estado Activo */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="isActive"
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary-200/80 p-3 bg-white">
@@ -339,7 +230,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
             className="gap-2 cursor-pointer min-w-[140px]"
           >
             {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            {initialData ? 'Guardar Cambios' : 'Registrar Sede'}
+            {isEditing ? 'Guardar Cambios' : 'Registrar Sede'}
           </Button>
         </div>
       </form>

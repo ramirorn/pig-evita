@@ -1,17 +1,9 @@
 // ===========================================
 // Competition Form Component
 // ===========================================
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { competitionSchema } from '@/schemas';
 import type { Competition } from '@/types';
 import { CompetitionStage, CompetitionFormat } from '@/types';
-import { useCreateCompetition, useUpdateCompetition } from '@/hooks/useCompetitions';
-import { useDisciplines } from '@/hooks/useDisciplines';
-import { useCategories } from '@/hooks/useCategories';
-import type { CreateCompetitionPayload, UpdateCompetitionPayload } from '@/api/competitions.api';
+import { useCompetitionForm } from './competition/useCompetitionForm';
 
 import {
   Form,
@@ -32,9 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import { logError } from '@/lib/logger';
-
-type CompetitionFormValues = z.infer<typeof competitionSchema>;
 
 interface CompetitionFormProps {
   initialData?: Competition;
@@ -42,96 +31,23 @@ interface CompetitionFormProps {
   onCancel?: () => void;
 }
 
-function formatDateForInput(dateValue?: string | Date | null): string {
-  if (!dateValue) return '';
-  const dateStr = typeof dateValue === 'string' ? dateValue : dateValue.toISOString();
-  return dateStr.slice(0, 10);
-}
-
+/**
+ * Formulario de alta/edición de competencias.
+ *
+ * Sólo arma el layout: los valores por defecto, los catálogos que llenan los
+ * selects y los dos payloads distintos (alta vs edición) viven en
+ * `useCompetitionForm`.
+ */
 export function CompetitionForm({ initialData, onSuccess, onCancel }: CompetitionFormProps) {
-  const createMutation = useCreateCompetition();
-  const updateMutation = useUpdateCompetition();
-  
-  const { data: disciplinesData } = useDisciplines({ isActive: true });
-  
-  const isPending = createMutation.isPending || updateMutation.isPending;
-  
-  const form = useForm<CompetitionFormValues>({
-    resolver: zodResolver(competitionSchema) as any,
-    defaultValues: {
-      name: initialData?.name || '',
-      disciplineId: initialData?.disciplineId || '',
-      categoryId: initialData?.categoryId || '',
-      stage: initialData?.stage || CompetitionStage.ZONAL,
-      format: initialData?.format || CompetitionFormat.ELIMINACION_DIRECTA,
-      startDate: formatDateForInput(initialData?.startDate),
-      endDate: formatDateForInput(initialData?.endDate),
-    },
-  });
-
-  const selectedDiscipline = form.watch('disciplineId');
-  const { data: categoriesData } = useCategories({ 
-    disciplineId: selectedDiscipline || undefined,
-    isActive: true 
-  });
-
-  useEffect(() => {
-    if (initialData) {
-      form.reset({
-        name: initialData.name || '',
-        disciplineId: initialData.disciplineId,
-        categoryId: initialData.categoryId,
-        stage: initialData.stage,
-        format: initialData.format,
-        startDate: formatDateForInput(initialData.startDate),
-        endDate: formatDateForInput(initialData.endDate),
-      });
-    }
-  }, [initialData, form]);
-
-  const onSubmit = async (values: CompetitionFormValues) => {
-    try {
-      const trimmedName = values.name?.trim();
-      const sanitizedStartDate = values.startDate && values.startDate.trim() !== ''
-        ? new Date(values.startDate).toISOString()
-        : undefined;
-      const sanitizedEndDate = values.endDate && values.endDate.trim() !== ''
-        ? new Date(values.endDate).toISOString()
-        : undefined;
-
-      if (initialData?.id) {
-        const payload: UpdateCompetitionPayload = {
-          name: trimmedName || undefined,
-          stage: values.stage,
-          format: values.format,
-          startDate: sanitizedStartDate,
-          endDate: sanitizedEndDate,
-        };
-        await updateMutation.mutateAsync({ id: initialData.id, payload });
-      } else {
-        const payload: CreateCompetitionPayload = {
-          disciplineId: values.disciplineId,
-          categoryId: values.categoryId,
-          stage: values.stage,
-          format: values.format,
-          name: trimmedName || undefined,
-          startDate: sanitizedStartDate,
-          endDate: sanitizedEndDate,
-        };
-        await createMutation.mutateAsync(payload);
-      }
-      onSuccess?.();
-    } catch (error) {
-      logError('CompetitionForm.onSubmit', error);
-    }
-  };
+  const { form, submit, isPending, isEditing, selectedDiscipline, disciplines, categories } =
+    useCompetitionForm({ initialData, onSuccess });
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
         {/* Nombre opcional */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
@@ -157,7 +73,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
         {/* Disciplina y Categoría */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="disciplineId"
             render={({ field }) => (
               <FormItem>
@@ -170,7 +86,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
                     form.setValue('categoryId', '');
                   }} 
                   value={field.value} 
-                  disabled={!!initialData}
+                  disabled={isEditing}
                 >
                   <FormControl>
                     <SelectTrigger className="bg-white h-10">
@@ -178,7 +94,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="max-h-56">
-                    {disciplinesData?.data.map((discipline) => (
+                    {disciplines?.map((discipline) => (
                       <SelectItem key={discipline.id} value={discipline.id}>
                         {discipline.name}
                       </SelectItem>
@@ -191,7 +107,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="categoryId"
             render={({ field }) => (
               <FormItem>
@@ -201,7 +117,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
                 <Select 
                   onValueChange={field.onChange} 
                   value={field.value} 
-                  disabled={!selectedDiscipline || !!initialData}
+                  disabled={!selectedDiscipline || isEditing}
                 >
                   <FormControl>
                     <SelectTrigger className="bg-white h-10">
@@ -209,7 +125,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="max-h-56">
-                    {categoriesData?.data.map((category) => (
+                    {categories?.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
                       </SelectItem>
@@ -225,14 +141,14 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
         {/* Etapa y Formato */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="stage"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs font-semibold text-primary-900">
                   Etapa *
                 </FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!!initialData}>
+                <Select onValueChange={field.onChange} value={field.value} disabled={isEditing}>
                   <FormControl>
                     <SelectTrigger className="bg-white h-10">
                       <SelectValue placeholder="Seleccionar etapa" />
@@ -250,14 +166,14 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="format"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs font-semibold text-primary-900">
                   Formato de Competencia *
                 </FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!!initialData}>
+                <Select onValueChange={field.onChange} value={field.value} disabled={isEditing}>
                   <FormControl>
                     <SelectTrigger className="bg-white h-10">
                       <SelectValue placeholder="Seleccionar formato" />
@@ -278,7 +194,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
         {/* Fechas de inicio y fin */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="startDate"
             render={({ field }) => (
               <FormItem>
@@ -294,7 +210,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="endDate"
             render={({ field }) => (
               <FormItem>
@@ -317,7 +233,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
           </Button>
           <Button type="submit" disabled={isPending} className="gap-2 cursor-pointer min-w-[140px]">
             {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-            {initialData ? 'Guardar Cambios' : 'Crear Competencia'}
+            {isEditing ? 'Guardar Cambios' : 'Crear Competencia'}
           </Button>
         </div>
       </form>

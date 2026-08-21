@@ -1,5 +1,5 @@
 // ===========================================
-// useInscriptionWizard — estado del asistente de inscripción pública
+// useInscriptionWizard — estado del asistente de inscripción (pública y delegados)
 // ===========================================
 import { useMemo, useState } from 'react';
 import type React from 'react';
@@ -29,16 +29,35 @@ const EMPTY_FORM: InscriptionFormData = {
   categoryId: '',
 };
 
+interface InscriptionWizardOptions {
+  /**
+   * Cómo se nombra al inscripto en los mensajes de error de compatibilidad.
+   * En la inscripción pública el que carga los datos es el propio participante
+   * ("Tu edad"); en el panel de delegados es un tercero ("La edad del
+   * participante").
+   */
+  ageSubject?: string;
+  /** Prefijo con el que se identifica el origen en los logs de error. */
+  logScope?: string;
+}
+
 /**
- * Toda la máquina de estados de la inscripción pública: los datos cargados, en
- * qué paso está, qué se deriva de esos datos (edad, categorías compatibles) y
- * las validaciones que habilitan cada avance.
+ * Toda la máquina de estados de la inscripción: los datos cargados, en qué paso
+ * está, qué se deriva de esos datos (edad, categorías compatibles) y las
+ * validaciones que habilitan cada avance.
  *
  * Vive fuera de la página porque no tiene nada de layout: la página sólo elige
  * qué paso mostrar. Devuelve un objeto único en lugar de una tupla para que los
  * subcomponentes de paso reciban exactamente lo que ya recibían por props.
+ *
+ * Lo usan las dos inscripciones —la pública y la del panel de delegados—, que
+ * eran el mismo asistente duplicado línea por línea y sólo se diferencian en
+ * cómo le hablan al que está cargando los datos.
  */
-export function useInscriptionWizard() {
+export function useInscriptionWizard({
+  ageSubject = 'Tu edad',
+  logScope = 'InscriptionPage',
+}: InscriptionWizardOptions = {}) {
   const [step, setStep] = useState<WizardStep>(1);
   const [formData, setFormData] = useState<InscriptionFormData>(EMPTY_FORM);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -85,7 +104,7 @@ export function useInscriptionWizard() {
     if (calculatedAge < selectedCategory.minAge || calculatedAge > selectedCategory.maxAge) {
       return {
         valid: false,
-        message: `Tu edad (${calculatedAge} años) no está dentro del rango permitido (${selectedCategory.minAge} a ${selectedCategory.maxAge} años).`,
+        message: `${ageSubject} (${calculatedAge} años) no está dentro del rango permitido (${selectedCategory.minAge} a ${selectedCategory.maxAge} años).`,
       };
     }
 
@@ -97,7 +116,7 @@ export function useInscriptionWizard() {
     }
 
     return { valid: true, message: '¡Cumple todos los requisitos de edad y categoría!' };
-  }, [selectedCategory, calculatedAge, formData.sex]);
+  }, [selectedCategory, calculatedAge, formData.sex, ageSubject]);
 
   /** Cada avance de paso vuelve al tope: el formulario es más alto que la pantalla. */
   const goToStep = (next: WizardStep) => {
@@ -159,7 +178,7 @@ export function useInscriptionWizard() {
       setCreatedInscription(response);
       goToStep(4);
     } catch (err) {
-      logError('InscriptionPage.handleSubmitInscription', err);
+      logError(`${logScope}.handleSubmitInscription`, err);
     }
   };
 

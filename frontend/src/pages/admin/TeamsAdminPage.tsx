@@ -2,7 +2,7 @@
 // Teams Admin Page
 // ===========================================
 import { useState } from 'react';
-import { UsersRound, Plus, Pencil, Trash2, MoreVertical } from 'lucide-react';
+import { UsersRound, Plus } from 'lucide-react';
 import { useTeams, useDeleteTeam } from '@/hooks/useTeams';
 import type { Team } from '@/types';
 import { TeamForm } from './components/TeamForm';
@@ -10,38 +10,28 @@ import { useDisciplines } from '@/hooks/useDisciplines';
 import { useCategories } from '@/hooks/useCategories';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
+import { createTeamColumns } from './teams/teamColumns';
+import { TeamsToolbar } from './teams/TeamsToolbar';
+import {
+  EMPTY_TEAM_FILTERS,
+  hasActiveTeamFilters,
+  toTeamQuery,
+  type TeamListFilters,
+} from './teams/teamFilters';
 
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { logError } from '@/lib/logger';
 
 export function TeamsAdminPage() {
-  const [department, setDepartment] = useState('');
-  const [locality, setLocality] = useState('');
-  const [disciplineId, setDisciplineId] = useState<string>('all');
-  const [categoryId, setCategoryId] = useState<string>('all');
+  const [filters, setFilters] = useState<TeamListFilters>(EMPTY_TEAM_FILTERS);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
 
@@ -51,14 +41,11 @@ export function TeamsAdminPage() {
 
   const { data: disciplines } = useDisciplines();
   const { data: categories } = useCategories({
-    disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
+    disciplineId: filters.disciplineId !== 'all' ? filters.disciplineId : undefined,
   });
 
   const { data: teamsData, isLoading, isFetching, isError, refetch } = useTeams({
-    department: department || undefined,
-    locality: locality || undefined,
-    disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
-    categoryId: categoryId !== 'all' ? categoryId : undefined,
+    ...toTeamQuery(filters),
     page,
     limit,
   });
@@ -67,27 +54,22 @@ export function TeamsAdminPage() {
   // El filtrado lo resuelve el backend, así que "hay filtros activos" es lo
   // único que el DataTable necesita saber para distinguir el vacío-por-filtro
   // del vacío-sin-datos.
-  const hasActiveFilters =
-    department.trim() !== '' ||
-    locality.trim() !== '' ||
-    disciplineId !== 'all' ||
-    categoryId !== 'all';
+  const hasActiveFilters = hasActiveTeamFilters(filters);
+
+  // Tocar cualquier filtro vuelve a la primera página: el resultado es otro y
+  // la página en la que estabas puede ya no existir.
+  const patchFilters = (patch: Partial<TeamListFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+  };
 
   const clearFilters = () => {
-    setDepartment('');
-    setLocality('');
-    setDisciplineId('all');
-    setCategoryId('all');
+    setFilters(EMPTY_TEAM_FILTERS);
     setPage(1);
   };
 
   const handleCreate = () => {
     setEditingTeam(undefined);
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = (team: Team) => {
-    setEditingTeam(team);
     setIsModalOpen(true);
   };
 
@@ -106,84 +88,13 @@ export function TeamsAdminPage() {
     }
   };
 
-  const columns: DataTableColumn<Team>[] = [
-    {
-      id: 'name',
-      header: 'Nombre',
-      // Columna de identidad: se renderiza como `<th scope="row">` y es donde
-      // el DataTable ancla el link primario de la fila clickeable.
-      rowHeader: true,
-      headClassName: 'min-w-[200px]',
-      cell: (team) => team.name,
+  const columns = createTeamColumns({
+    onEdit: (team) => {
+      setEditingTeam(team);
+      setIsModalOpen(true);
     },
-    {
-      id: 'discipline',
-      header: 'Disciplina',
-      cell: (team) => team.discipline?.name || '—',
-    },
-    {
-      id: 'category',
-      header: 'Categoría',
-      cell: (team) => team.category?.name || '—',
-    },
-    {
-      id: 'location',
-      header: 'Ubicación',
-      cell: (team) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">{team.department}</span>
-          <span className="text-xs text-primary-500">{team.locality}</span>
-        </div>
-      ),
-    },
-    {
-      id: 'members',
-      header: 'Jugadores',
-      cell: (team) => (
-        // `variant="secondary"` no genera color (`bg-secondary` no existe en el
-        // `@theme`): se usan tokens explícitos de la paleta institucional.
-        <Badge variant="outline" className="bg-muted text-primary-700 border-primary-200">
-          {team._count?.members ?? team.members?.length ?? 0} /{' '}
-          {team.discipline?.maxPlayers || '-'} Jugadores
-        </Badge>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'Acciones',
-      hideHeader: true,
-      // Celda con controles propios: se eleva sobre el overlay del link primario.
-      interactive: true,
-      headClassName: 'w-[80px]',
-      cell: (team) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={`Más acciones para ${team.name}`}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEdit(team)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setDeletingTeam(team)}
-              // `red-*` está fuera de la paleta institucional; `destructive-*` sí existe.
-              className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ];
+    onDelete: setDeletingTeam,
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -226,71 +137,12 @@ export function TeamsAdminPage() {
           </Button>
         }
         toolbar={
-          <>
-            <Select
-              value={disciplineId}
-              onValueChange={(v) => {
-                setDisciplineId(v);
-                setCategoryId('all');
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-full md:w-[220px]" aria-label="Filtrar por disciplina">
-                <SelectValue placeholder="Disciplina" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las disciplinas</SelectItem>
-                {disciplines?.data.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={categoryId}
-              onValueChange={(v) => {
-                setCategoryId(v);
-                setPage(1);
-              }}
-              disabled={disciplineId === 'all'}
-            >
-              <SelectTrigger className="w-full md:w-[220px]" aria-label="Filtrar por categoría">
-                <SelectValue placeholder="Categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las categorías</SelectItem>
-                {categories?.data.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Input
-              placeholder="Buscar por departamento..."
-              aria-label="Filtrar por departamento"
-              value={department}
-              onChange={(e) => {
-                setDepartment(e.target.value);
-                setPage(1);
-              }}
-              className="w-full md:w-[200px]"
-            />
-
-            <Input
-              placeholder="Buscar por localidad..."
-              aria-label="Filtrar por localidad"
-              value={locality}
-              onChange={(e) => {
-                setLocality(e.target.value);
-                setPage(1);
-              }}
-              className="w-full md:w-[200px]"
-            />
-          </>
+          <TeamsToolbar
+            filters={filters}
+            onChange={patchFilters}
+            disciplines={disciplines?.data ?? []}
+            categories={categories?.data ?? []}
+          />
         }
       />
 

@@ -1,15 +1,10 @@
 // ===========================================
 // Participant Form Component
 // ===========================================
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { participantSchema } from '@/schemas';
 import type { Participant } from '@/types';
 import { Sex } from '@/types';
-import { useCreateParticipant, useUpdateParticipant } from '@/hooks/useParticipants';
 import { SEX_LABELS } from '@/lib/constants';
+import { useParticipantForm } from './participant/useParticipantForm';
 
 import {
   Form,
@@ -29,9 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
-import { logError } from '@/lib/logger';
-
-type ParticipantFormValues = z.infer<typeof participantSchema>;
 
 interface ParticipantFormProps {
   initialData?: Participant;
@@ -39,67 +31,27 @@ interface ParticipantFormProps {
   onCancel?: () => void;
 }
 
+/**
+ * Formulario de alta/edición de participantes.
+ *
+ * Sólo arma el layout: los valores por defecto, el formateo de la fecha de
+ * nacimiento y el envío viven en `useParticipantForm`.
+ */
 export function ParticipantForm({ initialData, onSuccess, onCancel }: ParticipantFormProps) {
-  const createMutation = useCreateParticipant();
-  const updateMutation = useUpdateParticipant();
-  
-  const isPending = createMutation.isPending || updateMutation.isPending;
-  
-  const form = useForm<ParticipantFormValues>({
-    resolver: zodResolver(participantSchema) as any,
-    defaultValues: (initialData as any) || {
-      dni: '',
-      firstName: '',
-      lastName: '',
-      birthDate: '',
-      sex: Sex.MASCULINO,
-      phone: '',
-      email: '',
-      locality: '',
-      department: '',
-      address: '',
-    },
-  });
-
-  useEffect(() => {
-    if (initialData) {
-      // Format date for input type="date" if it comes as ISO
-      const formattedDate = initialData.birthDate 
-        ? new Date(initialData.birthDate).toISOString().split('T')[0] 
-        : '';
-        
-      form.reset({
-        ...initialData,
-        birthDate: formattedDate,
-      } as any);
-    }
-  }, [initialData, form]);
-
-  const onSubmit = async (values: ParticipantFormValues) => {
-    try {
-      if (initialData?.id) {
-        await updateMutation.mutateAsync({ id: initialData.id, payload: values });
-      } else {
-        await createMutation.mutateAsync(values);
-      }
-      onSuccess?.();
-    } catch (error) {
-      logError('ParticipantForm.onSubmit', error);
-    }
-  };
+  const { form, submit, isPending, isEditing } = useParticipantForm({ initialData, onSuccess });
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="dni"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>DNI</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ej. 40123456" {...field} disabled={!!initialData} />
+                  <Input placeholder="Ej. 40123456" {...field} disabled={isEditing} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -107,7 +59,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="sex"
             render={({ field }) => (
               <FormItem>
@@ -134,7 +86,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="firstName"
             render={({ field }) => (
               <FormItem>
@@ -148,7 +100,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="lastName"
             render={({ field }) => (
               <FormItem>
@@ -163,7 +115,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
         </div>
 
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="birthDate"
           render={({ field }) => (
             <FormItem>
@@ -178,7 +130,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="department"
             render={({ field }) => (
               <FormItem>
@@ -192,7 +144,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="locality"
             render={({ field }) => (
               <FormItem>
@@ -208,7 +160,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="email"
             render={({ field }) => (
               <FormItem>
@@ -222,7 +174,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="phone"
             render={({ field }) => (
               <FormItem>
@@ -237,7 +189,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
         </div>
 
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="address"
           render={({ field }) => (
             <FormItem>
@@ -256,7 +208,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
           </Button>
           <Button type="submit" disabled={isPending}>
             {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {initialData ? 'Guardar Cambios' : 'Crear Participante'}
+            {isEditing ? 'Guardar Cambios' : 'Crear Participante'}
           </Button>
         </div>
       </form>

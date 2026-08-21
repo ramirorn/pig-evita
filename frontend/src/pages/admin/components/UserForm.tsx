@@ -1,15 +1,11 @@
 // ===========================================
 // User Form Component
 // ===========================================
-import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useState } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
-import { createUserSchema, updateUserSchema } from '@/schemas';
-import { useCreateUser, useUpdateUser } from '@/hooks/useUsers';
 import { UserRole, type User } from '@/types';
 import { ROLE_LABELS } from '@/lib/constants';
+import { useUserForm } from './user/useUserForm';
 
 import {
   Form,
@@ -28,7 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { logError } from '@/lib/logger';
 
 const FORMOSA_DEPARTMENTS = [
   'Formosa',
@@ -48,96 +43,24 @@ interface UserFormProps {
   onCancel?: () => void;
 }
 
+/**
+ * Formulario de alta/edición de usuarios del panel.
+ *
+ * Sólo arma el layout: la elección de schema, los valores por defecto y los
+ * dos payloads distintos (alta vs edición) viven en `useUserForm`. Lo único
+ * que queda de estado local es el ojito para mostrar la contraseña, que es
+ * puro UI y no pertenece al formulario.
+ */
 export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const createMutation = useCreateUser();
-  const updateMutation = useUpdateUser();
-
-  const isPending = createMutation.isPending || updateMutation.isPending;
-  const isEditing = !!initialData;
-
-  const currentSchema = isEditing ? updateUserSchema : createUserSchema;
-  type FormValues = z.infer<typeof updateUserSchema>;
-
-  const form = useForm<FormValues>({
-    resolver: zodResolver(currentSchema) as any,
-    defaultValues: {
-      email: initialData?.email || '',
-      password: '',
-      firstName: initialData?.firstName || '',
-      lastName: initialData?.lastName || '',
-      role: initialData?.role || UserRole.COORDINADOR,
-      department: initialData?.department || '',
-      zone: initialData?.zone || '',
-      isActive: initialData ? initialData.isActive : true,
-    },
-  });
-
-  useEffect(() => {
-    if (initialData) {
-      form.reset({
-        email: initialData.email,
-        password: '',
-        firstName: initialData.firstName,
-        lastName: initialData.lastName,
-        role: initialData.role,
-        department: initialData.department || '',
-        zone: initialData.zone || '',
-        isActive: initialData.isActive,
-      });
-    }
-  }, [initialData, form]);
-
-  const onSubmit = async (values: FormValues) => {
-    try {
-      if (isEditing && initialData) {
-        const payload: {
-          email: string;
-          firstName: string;
-          lastName: string;
-          role: string;
-          department?: string;
-          zone?: string;
-          isActive?: boolean;
-          password?: string;
-        } = {
-          email: values.email,
-          firstName: values.firstName,
-          lastName: values.lastName,
-          role: values.role,
-          department: values.department || undefined,
-          zone: values.zone || undefined,
-          isActive: values.isActive,
-        };
-
-        if (values.password && values.password.trim().length >= 8) {
-          payload.password = values.password;
-        }
-
-        await updateMutation.mutateAsync({ id: initialData.id, payload });
-      } else {
-        await createMutation.mutateAsync({
-          email: values.email,
-          password: values.password || '',
-          firstName: values.firstName,
-          lastName: values.lastName,
-          role: values.role,
-          department: values.department || undefined,
-          zone: values.zone || undefined,
-        });
-      }
-      onSuccess?.();
-    } catch (error) {
-      logError('UserForm.onSubmit', error);
-    }
-  };
+  const { form, submit, isPending, isEditing } = useUserForm({ initialData, onSuccess });
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="firstName"
             render={({ field }) => (
               <FormItem>
@@ -151,7 +74,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="lastName"
             render={({ field }) => (
               <FormItem>
@@ -166,7 +89,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
         </div>
 
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="email"
           render={({ field }) => (
             <FormItem>
@@ -180,7 +103,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
         />
 
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="password"
           render={({ field }) => (
             <FormItem>
@@ -214,7 +137,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="role"
             render={({ field }) => (
               <FormItem>
@@ -239,7 +162,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="department"
             render={({ field }) => (
               <FormItem>
@@ -269,7 +192,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
         </div>
 
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="zone"
           render={({ field }) => (
             <FormItem>
@@ -284,7 +207,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
 
         {isEditing && (
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="isActive"
             render={({ field }) => (
               <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary-100 p-3 shadow-xs">
