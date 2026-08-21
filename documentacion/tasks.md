@@ -11,7 +11,7 @@
 
 **⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. **T26 completada** y **T27 en revisión** (implementada, pero con la mitad de LOC del DoD sin cumplir). Quedan T10 y T28. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. **T26 completada** y **T27 en revisión** (implementada, pero con la mitad de LOC del DoD sin cumplir). **T10 en revisión** (los 3 archivos del alcance, pero el DoD abarca 15 más). Queda **T28**. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
 
 ---
 
@@ -132,7 +132,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### T10 🟠 ⚛️ FE + 🎨 UI — Descomponer componentes React monolíticos (M-01)
 
-- [ ] **Descripción:** Refactorizar los 3 archivos >300 líneas extrayendo custom hooks y sub-componentes.
+- [~] **Descripción:** Refactorizar los 3 archivos >300 líneas extrayendo custom hooks y sub-componentes.
   - `CalendarEventForm.tsx` (555 → objetivo <200) → extraer `useCalendarEventForm`, `EventFormFields`, `EventVenuePicker`.
   - `InscriptionPage.tsx` (433 → objetivo <200) → extraer `useInscriptionWizard`, `ParticipantStep`, `DisciplineStep`, `ConfirmationStep`.
   - `VenuesAdminPage.tsx` (385 → objetivo <200) → extraer `VenuesTable`, `VenueFormDialog`.
@@ -143,7 +143,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `frontend/src/pages/admin/components/CalendarEventForm.tsx`
   - `frontend/src/pages/public/InscriptionPage.tsx`
   - `frontend/src/pages/admin/VenuesAdminPage.tsx`
-- **DoD:** ningún archivo en `frontend/src/pages/` supera 250 líneas. Ninguna página llama a `apiClient` directamente (todo vía hooks).
+- **DoD:** ningún archivo en `frontend/src/pages/` supera 250 líneas. Ninguna página llama a `apiClient` directamente (todo vía hooks). ⚠️ **DoD cumplido a medias.** ✅ Los 3 archivos del alcance quedaron **muy** por debajo del objetivo de 200: `CalendarEventForm` **555 → 122**, `VenuesAdminPage` **409 → 113**, `InscriptionPage` **434 → 130**. ✅ La segunda mitad (ninguna página llama a `apiClient`) **ya se cumplía** antes de empezar. ❌ **«Ningún archivo en `pages/` supera 250 líneas»: NO cumplido.** El DoD abarca mucho más que la descripción: eran **18** archivos por encima, no 3, y quedan **15** fuera del alcance de esta tarea (`ReportsPage` 349, `VenueForm` 348, `DelegateInscriptionPage` 331, `CalendarPage` 330, `UserForm` 326, `CompetitionForm` 326, `TeamsAdminPage` 322, `NewsPage` 311, `HomePage` 303, `CalendarAdminPage` 298, `ParticipantsPage` 272, `CompetitionDetailPage` 267, `ParticipantForm` 265, `InscriptionDetailPage` 252, `DashboardPage` 251). Verificado sin regresión comparando el markup **antes y después** con `renderToStaticMarkup`: **748 líneas idénticas**, y las 44 que difieren contienen todas un id de `useId`. Evidencia en `PROCESO.md → sección 4 → T10 (post-auditoría)`.
 
 ---
 
@@ -446,10 +446,10 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ## 📊 Estado de las tareas
 
-> Actualizado el 2026-08-19. Cada tarea completada tiene su bloque de evidencia
-> en `PROCESO.md → sección 4` y su propio commit.
+> Actualizado el 2026-08-19. Cada tarea tiene su bloque de evidencia en
+> `PROCESO.md → sección 4` y su propio commit.
 
-**Progreso: 25 de 28 completadas** · 1 con DoD parcial (ver la fila ⚠️).
+**Progreso: 25 completadas · 2 con DoD parcial · 1 pendientes** (de 28).
 Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -463,7 +463,7 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | **T07** | 🟡 | 🏗️ BE | Enriquecer `AuditInterceptor` con IP y User-Agent | ✅ Completada |
 | **T08** | 🟡 | ⚛️ FE | Silenciar `console.error` en producción del frontend | ✅ Completada |
 | **T09** | 🟠 | 🏗️ BE | Endurecer CORS y CSP | ✅ Completada |
-| **T10** | 🟠 | ⚛️ FE + 🎨 UI | Descomponer componentes React monolíticos | ⬜ Pendiente |
+| **T10** | 🟠 | ⚛️ FE + 🎨 UI | Descomponer componentes React monolíticos | ⚠️ DoD parcial |
 | **T11** | 🔴 | ⚛️ FE | Sanitizar HTML del backend antes de renderizar con `dangerouslySetInnerHTML` | ✅ Completada |
 | **T12** | 🔴 | ⚛️ FE | Limpiar cache de React Query en logout | ✅ Completada |
 | **T13** | 🟡 | ⚛️ FE | Namespace de queryKeys por userId | ✅ Completada |
@@ -493,3 +493,10 @@ Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta
 | 🚀 Optimización alta | 4 | 4 |
 | 📈 Optimización media | 4 | 4 |
 | ✨ Polish | 1 | 3 |
+
+### Sobre las tareas con DoD parcial
+
+- **T10** y **T27** tienen un criterio de aceptación que **no se cumple**, y en
+  ambos casos el criterio era inalcanzable o medía lo equivocado. Está documentado
+  en detalle en `PROCESO.md`; la decisión de ampliar el alcance o dar por buena la
+  métrica alternativa queda para el equipo.

@@ -3390,6 +3390,171 @@ no arregla nada**.
 
 ---
 
+### T10 (post-auditoría DevSecOps) — Descomponer los componentes monolíticos (M-01)
+
+> Corresponde a `tasks.md → Fase 3 → T10`. Implementada por el agente
+> ⚛️ **Frontend Engineer**.
+>
+> ⚠️ **Mitad del DoD cumplida.** Los 3 archivos del alcance bajaron muy por debajo
+> de su objetivo, pero el DoD pide que **ningún** archivo de `pages/` supere 250
+> líneas y quedan 15 fuera del alcance de la tarea.
+
+- **Fecha:** 2026-08-19
+- **Responsable:** Ramiro · implementación por el agente ⚛️ **Frontend Engineer**
+- **Hallazgo cubierto:** M-01 (componentes >300 LOC)
+- **Duración estimada / real:** 3h / ~1,5h
+
+#### Relevamiento previo (antes de delegar)
+
+1. **La segunda mitad del DoD ya se cumplía:** `grep -rln "apiClient" src/pages/`
+   no devuelve nada.
+2. **El DoD es mucho más grande que la descripción.** Pide que ningún archivo de
+   `pages/` supere 250 líneas, pero había **18** por encima, no 3. Se acotó el
+   alcance a los 3 que nombra la descripción y se pidió listar el resto.
+3. **Contexto cambiado desde la auditoría:** `VenuesAdminPage` había *crecido* a 409
+   líneas en T27 al migrarla a `<DataTable>`, así que la extracción de `VenuesTable`
+   que sugería la tarea **ya no aplicaba**. Y `InscriptionPage` ya tenía 5
+   subcomponentes extraídos: los nombres que pedía la tarea
+   (`ParticipantStep`/`DisciplineStep`/`ConfirmationStep`) **ya existían con otro
+   nombre**.
+
+#### Prompt utilizado
+
+Resumen de lo sustantivo:
+
+> Te toca **T10**. [Los dos desajustes del DoD + el contexto cambiado.]
+>
+> **Extraé por responsabilidad, no por cantidad de líneas.** Partir un componente al
+> medio para bajar el número deja dos archivos peores que uno. **Cuidado con las
+> props explosivas:** si extraer obliga a pasar 12 props, el corte está mal puesto.
+> Si en algún archivo la conclusión es "no baja de 200 sin romperlo", decilo con el
+> argumento — prefiero eso a un recorte artificial.
+>
+> **No cambies comportamiento.** Es un refactor: la UI y la funcionalidad tienen que
+> quedar idénticas. Si encontrás un bug, reportalo, no lo arregles acá.
+>
+> **El riesgo de un refactor es la regresión silenciosa:** renderizá con
+> `react-dom/server` **antes y después** y compará el markup.
+
+#### Resultado
+
+| Archivo | Antes | Después | Objetivo |
+|---|---|---|---|
+| `CalendarEventForm.tsx` | 555 | **122** | <200 ✅ |
+| `VenuesAdminPage.tsx` | 409 | **113** | <200 ✅ |
+| `InscriptionPage.tsx` | 434 | **130** | <200 ✅ |
+
+Diez archivos nuevos, agrupados por dominio: `components/calendar-event/`,
+`admin/venues/` y `public/inscription/`.
+
+#### Decisiones del agente (y por qué ese corte)
+
+**`CalendarEventForm`** — el corte es *"lógica / cuándo / dónde"*.
+`useCalendarEventForm` se lleva lo que el form **hace** (defaults, `reset` al
+cambiar de evento, traducción de fecha+hora al ISO del backend).
+`EventScheduleFields` agrupa el horario porque es **el único bloque que escribe
+campos derivados** —al tildar "fecha de fin" propone inicio + 2 h, los atajos de
+duración reescriben `endTime`— y esa mutualidad es la razón de que no se pueda
+partir sin pasar cuatro callbacks. `EventClassificationFields` agrupa disciplina +
+etapa + sede por una propiedad común: **sus opciones son catálogos remotos**, así
+que `useDisciplines`/`useVenues` bajan a donde se consumen.
+
+El `EventVenuePicker` que pedía la tarea **no tiene archivo propio**: son 28 líneas
+que comparten exactamente el mismo motivo de existir que los otros dos selects.
+
+**Las secciones reciben un único prop `form`**, deliberadamente: necesitan
+`control`, `watch`, `setValue` y `getValues`, y desarmarlo daría una lista de props
+que crece con cada atajo nuevo.
+
+**`VenuesAdminPage`** — lo que quedaba grande eran **las columnas** (147 líneas, la
+mitad del archivo): son "cómo se ve una sede en la tabla" y no dependen de la
+página salvo qué hacer al editar o eliminar. `VenueFormDialog` unifica los dos
+`<Dialog>` casi idénticos de alta y edición. `venueFilters.ts` guarda el modelo y
+el predicado; `VenuesToolbar` recibe `{ filters, onChange }` en vez de seis props
+sueltas.
+
+**`InscriptionPage`** — adentro de las 434 líneas había tres cosas distintas: ~195
+de máquina de estados, ~70 de stepper y ~55 de reparto de props. El `wizard` se
+crea en la página y no en `RegisterWizard` porque el botón de pestaña necesita su
+`step` para resetear a 1 cuando ya se emitió una credencial.
+
+#### Dónde decidió NO extraer (la parte que más valor tiene)
+
+- **`EventScheduleFields` (248 líneas) no se parte más:** una sola responsabilidad
+  con estado compartido entre sus partes; cortarlo obligaría a pasar `form` igual a
+  los pedazos y dejaría **dos archivos peores que uno**.
+- El header y las tabs de `InscriptionPage` **son el layout de la página**, no un
+  componente reutilizable.
+- El estado de consulta por QR queda inline: un `useInscriptionTracker` de 14
+  líneas sería **un archivo por el número, no por la responsabilidad**.
+
+#### Verificación (DoD)
+
+**Comparación de markup antes/después** con `renderToStaticMarkup`, con el cache de
+React Query sembrado con fixtures reales (3 sedes cubriendo activa/inactiva, con y
+sin dirección, con y sin capacidad) para que las filas rindieran con datos y no en
+skeleton. Cuatro casos: `VenuesAdminPage`, `CalendarEventForm` en alta y en edición
+(con `hasEndDate` activo, que cubre los atajos de duración) e `InscriptionPage`.
+
+**748 líneas de markup idénticas.** El único ruido fueron 44 líneas, **todas**
+conteniendo un id de `useId` —cambian porque extraer subcomponentes mueve la
+posición en el árbol— y se verificó que **cero** líneas difieren sin contener un id.
+
+Para el stepper, que se generalizó de tres bloques copiados a un `map`, hizo un
+chequeo aparte: markup original (copiado de git) contra el componente nuevo para
+`step` 1, 2, 3 y 4 — **idéntico en los cuatro**.
+
+**Efecto colateral bienvenido:** eliminó los **13 `as any`** que tenía
+`CalendarEventForm`, tipando el resolver como `Resolver<CalendarEventFormValues>`.
+Verificado a mano: **cero `any` en los archivos nuevos**.
+
+- [x] Los 3 archivos del alcance quedan **muy** por debajo de 200 líneas.
+- [x] Ninguna página llama a `apiClient` directamente (ya se cumplía).
+- [ ] **"Ningún archivo en `pages/` supera 250 líneas": NO cumplido.** Eran 18,
+  quedan **15**, todos fuera del alcance de esta tarea:
+  `ReportsPage` 349 · `VenueForm` 348 · `DelegateInscriptionPage` 331 ·
+  `CalendarPage` 330 · `UserForm` 326 · `CompetitionForm` 326 · `TeamsAdminPage` 322 ·
+  `NewsPage` 311 · `HomePage` 303 · `CalendarAdminPage` 298 · `ParticipantsPage` 272 ·
+  `CompetitionDetailPage` 267 · `ParticipantForm` 265 · `InscriptionDetailPage` 252 ·
+  `DashboardPage` 251.
+
+Reejecutado por fuera: `tsc` OK · `build` OK · `lint` sin warnings nuevos ·
+`safeExternalUrl` intacto (viajó a `venueColumns.tsx`) y la migración a `DataTable`
+sin deshacer.
+
+**Lo que la evidencia NO cubre**, declarado por el agente: el markup con los
+diálogos abiertos (Radix usa portales y `createPortal` no rinde en SSR) y los pasos
+2-4 del wizard, que dependen de interacción. Para el diálogo, la garantía es que el
+JSX se movió textualmente salvo el encabezado condicional; para los pasos, que los
+props que reciben los cuatro `Step*` no cambiaron ni en nombre ni en tipo.
+
+#### Notas / aprendizajes
+
+- **El markup byte a byte es la evidencia correcta para un refactor.** Convierte
+  "no debería haber cambiado nada" en un hecho verificable, y el ruido de `useId`
+  se explica y se acota en vez de aceptarse.
+- La instrucción de extraer **por responsabilidad y no por líneas** produjo un
+  resultado mejor que el objetivo: 122/113/130 contra un target de 200, con tres
+  lugares donde el agente **argumentó por qué no partir más**.
+
+#### Hallazgos fuera de alcance reportados por el agente
+
+1. **~69 `any` en `src/`, casi todos del mismo patrón** en los 8 formularios
+   restantes: `resolver: zodResolver(x) as any` + `control={form.control as any}`.
+   **La causa raíz está identificada:** los schemas usan `.default()`, así que los
+   tipos de entrada y salida de Zod difieren, y el `FormField` de shadcn expone dos
+   genéricos donde RHF 7.82 necesita tres. Se arregla form por form (como hizo acá)
+   o de raíz ampliando `FormField` — eso último toca un componente compartido por
+   los 9 forms y merece tarea propia.
+2. **`handleCopyCode` usa `navigator.clipboard.writeText` sin `catch`**: si el
+   navegador rechaza el permiso, la promesa queda sin manejar y **el toast de éxito
+   se muestra igual**. Bug preexistente; se dejó intacto por la regla de no cambiar
+   comportamiento.
+3. `StepPersonalData.tsx` mezcla el tipo `InscriptionFormData` con el componente,
+   lo que dispara el único warning de oxlint de esa carpeta.
+
+---
+
 <!--
 Repetir bloque de plantilla arriba por cada tarea T03..T34 completada.
 Se recomienda mantener las tareas cerradas en orden cronológico ascendente.
