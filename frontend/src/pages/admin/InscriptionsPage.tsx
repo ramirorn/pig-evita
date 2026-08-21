@@ -1,7 +1,7 @@
 // ===========================================
 // Inscriptions Admin Page
 // ===========================================
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ClipboardCheck, Search, Filter, ClipboardList } from 'lucide-react';
 import { Link } from 'react-router';
 import { useInscriptions } from '@/hooks/useInscriptions';
@@ -26,33 +26,21 @@ export function InscriptionsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
 
+  // La búsqueda se resuelve en el servidor: alcanza a todas las inscripciones,
+  // no sólo a la página visible. Se manda `undefined` cuando está vacía para no
+  // ensuciar la `queryKey` con un string vacío.
+  const busqueda = search.trim();
+
   const { data: inscriptionsData, isLoading, isFetching, isError, refetch } = useInscriptions({
     status: statusFilter !== 'all' ? statusFilter : undefined,
+    search: busqueda || undefined,
     page,
     limit,
   });
 
-  // `GET /inscriptions` no acepta `search` (ver `InscriptionFilters`): hasta que
-  // el backend lo soporte, el buscador filtra sólo la página ya traída. Antes el
-  // input existía pero no filtraba nada; el placeholder ahora dice la verdad.
-  const rows = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const data = inscriptionsData?.data ?? [];
-    if (!needle) return data;
-    return data.filter((inscription) =>
-      [
-        inscription.qrCode,
-        inscription.participant?.lastName ?? '',
-        inscription.participant?.firstName ?? '',
-        inscription.participant?.dni ?? '',
-      ]
-        .join(' ')
-        .toLowerCase()
-        .includes(needle),
-    );
-  }, [inscriptionsData, search]);
+  const rows = inscriptionsData?.data ?? [];
 
-  const hasActiveFilters = statusFilter !== 'all' || search.trim() !== '';
+  const hasActiveFilters = statusFilter !== 'all' || busqueda !== '';
 
   const clearFilters = () => {
     setStatusFilter('all');
@@ -164,10 +152,15 @@ export function InscriptionsPage() {
                 aria-hidden="true"
               />
               <Input
-                placeholder="Buscar en esta página por código QR, apellido o DNI..."
-                aria-label="Buscar inscripciones en la página actual"
+                placeholder="Buscar por código QR, apellido, nombre o DNI..."
+                aria-label="Buscar inscripciones"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  // La búsqueda ahora filtra en el servidor y cambia el total,
+                  // así que quedarse en la página 5 mostraría un listado vacío.
+                  setPage(1);
+                }}
                 className="pl-9"
               />
             </div>

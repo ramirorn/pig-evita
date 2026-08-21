@@ -10,6 +10,13 @@ export interface InscriptionFilters {
   status?: string;
   categoryId?: string;
   participantId?: string;
+  /**
+   * Búsqueda del lado del servidor: el backend la aplica sobre nombre, apellido
+   * y DNI del participante, y sobre el código QR
+   * (`inscriptions.service.ts → findAll`). Estaba soportada desde siempre pero
+   * faltaba acá, así que el buscador de la pantalla no llegaba a enviarla.
+   */
+  search?: string;
 }
 
 export interface CreateInscriptionPayload {

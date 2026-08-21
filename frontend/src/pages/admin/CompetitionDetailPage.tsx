@@ -83,6 +83,7 @@ export function CompetitionDetailPage() {
 
       {/* Fixture section */}
       <FixtureSection
+          resultType={competition.discipline?.resultType}
         matches={matches}
         format={competition.format}
         teamCount={availableTeams.length}

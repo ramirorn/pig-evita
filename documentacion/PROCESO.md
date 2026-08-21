@@ -3399,6 +3399,10 @@ texto (3,75:1); y **`InscriptionStatusBadge` remapeado a la paleta institucional
 porque 3 de sus 4 estados fallaban AA** (3,15 / 3,35 / 4,41 contra 4,5) — el `memo`
 de T26 quedó intacto.
 
+**Nota:** durante esta ronda se detectó que **el buscador de `InscriptionsPage` no
+filtraba nada**. Se dejó filtrando la página ya traída como parche honesto; el
+arreglo definitivo está en "Correcciones posteriores".
+
 **Verificación:** 93/93 chequeos renderizando las 5 páginas reales con
 `react-dom/server`. Hallazgo del harness: **React Query 5 enmascara el error en
 SSR** (`useQuery` devuelve `pending` aunque la entrada esté en `error`), así que el
@@ -3649,9 +3653,10 @@ fácil —mover dos helpers a otro módulo para quedar en ~190— y la descartó
 ellos recibe el `form` y lo muta; alejarlo de los dos botones que lo disparan es
 mover líneas para que dé el número."*
 
-**Hallazgo serio de estas rondas:** `MatchCard` toma el marcador con
-`Object.values(scoreData)[0]`, así que **el puntaje mostrado depende del orden de
-claves del JSON** que mande el backend.
+**Hallazgo serio de estas rondas, ya corregido:** `MatchCard` tomaba el marcador
+con `Object.values(scoreData)[0]`, así que **el puntaje mostrado dependía del orden
+de claves del JSON**. Se corrigió leyendo por clave explícita según el `resultType`
+de la disciplina — ver "Correcciones posteriores" al final de esta sección.
 
 ---
 
@@ -3807,6 +3812,69 @@ en verde con la flag activa y **0 `!`/`as any`** agregados en el diff.
    el cast lo deja pasar y el mapa devuelve `undefined` sin que TS lo marque.
 4. 7 errores de prettier preexistentes en `minio.service.spec.ts`.
 5. La flag no se propagó a `tsconfig.node.json` (config de Vite).
+
+---
+
+### Correcciones posteriores (2026-08-19) — tres hallazgos, con Docker levantado
+
+No son tareas de `tasks.md`: son bugs detectados durante la refactorización y
+confirmados en vivo contra el stack corriendo.
+
+#### 1. `npm run db:seed` no sembraba nada
+
+**Síntoma:** el comando imprimía *"The seed command has been executed"* y salía con
+código 0, pero la base quedaba igual. Se detectó al intentar reponer la contraseña
+del admin tras T04: el hash seguía correspondiendo a la contraseña vieja.
+
+**Causa:** `prisma.config.ts` declaraba `seed: './prisma/seed.ts'`, que es una
+**ruta**, no un comando. Prisma lo ejecuta con el shell y en Windows el shell no
+sabe correr un `.ts`: termina sin error y Prisma reporta éxito. El modo de falla es
+silencioso — el seed *parece* correr.
+
+**Arreglo:** `seed: 'npx ts-node prisma/seed.ts'`.
+
+**Verificación:** se corrompió el hash del admin a propósito
+(`UPDATE users SET password_hash='hash-roto-a-proposito'`), se corrió
+`npm run db:seed` y se comprobó con `argon2.verify` que el hash quedó repuesto y
+corresponde a la contraseña del `.env`.
+
+#### 2. El marcador del fixture dependía del orden de claves del JSON
+
+**Síntoma latente:** `MatchCard` mostraba `Object.values(scoreData)[0]`. Como
+`scoreData` es un `Json` libre, si el backend pasaba de `{ goals: 3 }` a
+`{ cards: 1, goals: 3 }` la pantalla mostraba **`1`** sin que nada fallara.
+
+**Arreglo:** nuevo `competition-detail/matchScore.ts` con `formatearMarcador()`,
+que lee **la clave que corresponde al `resultType` de la disciplina**
+(`GOLES→goals`, `PUNTOS→points`, `TIEMPO→time`, `SETS→sets`,
+`POSICIONES→position`). El `resultType` se pasa desde `CompetitionDetailPage` a
+través de `FixtureSection`.
+
+**Criterio:** ante un dato ausente o con otra forma **se muestra un guion**, no un
+número tomado de otra clave. Un guion se lee como "no hay marcador"; un número
+ajeno se lee como el marcador real.
+
+**Verificación:** 13 casos, incluida la regresión exacta (`{cards:1, goals:3}` →
+`3`, y el mismo objeto con las claves invertidas), que `{ points: 0 }` muestre
+**`0`** —el cero es un marcador válido— y que `SETS` con `[25,20,25]` muestre los
+sets ganados.
+
+#### 3. El buscador de inscripciones no llegaba al servidor
+
+**Corrección de un diagnóstico previo:** se había dicho que *"el arreglo real es
+agregar `search` a `GET /inscriptions`"*. **Eso era incorrecto: el backend ya lo
+soportaba** desde siempre — `inscriptions.service.findAll` arma un `OR` sobre
+nombre, apellido y DNI del participante, y sobre el código QR. Lo que faltaba era
+el campo `search` en la interfaz `InscriptionFilters` del frontend, así que la
+pantalla nunca lo enviaba.
+
+**Arreglo:** se agregó `search` al tipo y la página lo manda al servidor, se
+eliminó el filtrado local y el buscador vuelve a la página 1 al tipear (el total
+cambia con el filtro, así que quedarse en la página 5 mostraría un listado vacío).
+
+**Verificación contra el backend real:** sin `search` devuelve **108**
+inscripciones; con `search=Gonz`, **6** — o sea que alcanza a todo el padrón y no
+sólo a la página traída, que era la limitación del parche anterior.
 
 ---
 

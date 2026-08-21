@@ -1,15 +1,23 @@
 // ===========================================
 // MatchCard — tarjeta de un partido del fixture
 // ===========================================
-import type { Match } from '@/types';
+import type { Match, ResultType } from '@/types';
 import { Badge } from '@/components/ui/badge';
+import { formatearMarcador } from './matchScore';
 
 /**
  * `results` viene con dos entradas (local y visitante) pero el backend no
  * garantiza que estén completas, así que con `noUncheckedIndexedAccess` todo
  * el acceso es opcional y cae a los textos por defecto.
  */
-export function MatchCard({ match }: { match: Match }) {
+export function MatchCard({
+  match,
+  resultType,
+}: {
+  match: Match;
+  /** Tipo de resultado de la disciplina: define qué clave de `scoreData` leer. */
+  resultType: ResultType | undefined;
+}) {
   const results = match.results || [];
   const home = results[0];
   const away = results[1];
@@ -36,9 +44,9 @@ export function MatchCard({ match }: { match: Match }) {
           </span>
         </div>
         <div className="flex items-center gap-1 font-black text-primary-800 bg-primary-50 px-3 py-1 rounded-lg min-w-[60px] justify-center">
-          <span>{home?.scoreData && Object.values(home.scoreData)[0] !== undefined ? String(Object.values(home.scoreData)[0]) : '-'}</span>
+          <span>{formatearMarcador(home, resultType)}</span>
           <span className="text-primary-300">:</span>
-          <span>{away?.scoreData && Object.values(away.scoreData)[0] !== undefined ? String(Object.values(away.scoreData)[0]) : '-'}</span>
+          <span>{formatearMarcador(away, resultType)}</span>
         </div>
         <div className="flex-1">
           <span className={`font-semibold ${away?.isWinner ? 'text-green-700' : 'text-primary-900'}`}>

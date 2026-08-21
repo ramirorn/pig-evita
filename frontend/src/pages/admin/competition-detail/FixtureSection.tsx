@@ -5,11 +5,14 @@ import { useMemo } from 'react';
 import { Calendar, CheckCircle2, LayoutGrid, Loader2 } from 'lucide-react';
 import { CompetitionFormat, type Match } from '@/types';
 import { Button } from '@/components/ui/button';
+import type { ResultType } from '@/types';
 import { MatchCard } from './MatchCard';
 
 interface FixtureSectionProps {
   matches: Match[];
   format: string;
+  /** Tipo de resultado de la disciplina, para leer bien el marcador. */
+  resultType: ResultType | undefined;
   /** Equipos elegibles: por debajo de 2 no se puede generar el fixture. */
   teamCount: number;
   isGenerating: boolean;
@@ -19,6 +22,7 @@ interface FixtureSectionProps {
 export function FixtureSection({
   matches,
   format,
+  resultType,
   teamCount,
   isGenerating,
   onGenerate,
@@ -77,7 +81,7 @@ export function FixtureSection({
               </h4>
               <div className="grid gap-3 md:grid-cols-2">
                 {roundMatches.map((match) => (
-                  <MatchCard key={match.id} match={match} />
+                  <MatchCard key={match.id} match={match} resultType={resultType} />
                 ))}
               </div>
             </div>
