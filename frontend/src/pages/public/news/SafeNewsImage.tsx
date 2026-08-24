@@ -46,11 +46,18 @@ export function SafeNewsImage({
   alt: string;
   isLarge?: boolean;
 }) {
-  const [hasError, setHasError] = useState(false);
+  // Se guarda **qué** src falló, no un booleano (hallazgo R30): con un
+  // `hasError` suelto, reutilizar el componente con otra imagen sin
+  // desmontarlo seguía mostrando el placeholder de la anterior. Hoy no se
+  // dispara porque los padres keyean por `news.id`, pero deja de depender de
+  // eso el día que alguien agregue paginación o keyee por índice.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
   // `imageKey` es texto libre del backend y acá es la URL entera, no un
   // parámetro dentro de una base fija: hay que validar el schema antes de usarla.
   const safeSrc = safeImageSrc(src);
+
+  const hasError = failedSrc !== null && failedSrc === safeSrc;
 
   if (!safeSrc || hasError) {
     return <NewsImagePlaceholder title={alt} isLarge={isLarge} />;
@@ -60,7 +67,7 @@ export function SafeNewsImage({
     <img
       src={safeSrc}
       alt={alt}
-      onError={() => setHasError(true)}
+      onError={() => setFailedSrc(safeSrc)}
       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
     />
   );

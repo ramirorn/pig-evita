@@ -11,7 +11,7 @@
 - Severidad: 🔴 blocker · 🟡 alto · 🟠 medio · 🚀 optimización alta · 📈 optimización media · ✨ polish
 - Los IDs usan el prefijo **R** (revisión) para no colisionar con T01–T28.
 
-**⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local. **Quedan 4 abiertas** (R05, R07, R08, R09).
+**⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local. **Queda 1 abierta: R05.**
 
 **Estado al 2026-08-24:** las mediciones de optimización del ciclo anterior se sostienen (payload de inscripciones −73,2 %; bundle de entrada −58,7 %; reportes de 20K filas a 162 MB de RSS contra 595 MB; dashboard 80 ms en frío / 5-8 ms cacheado). Pero la revisión final encontró **9 blockers**: 6 en el backend y 3 en el frontend. El patrón es uniforme y conviene tenerlo presente al planificar: **el plan de 28 tareas cubría los módulos que la auditoría original había mirado, y los módulos vecinos quedaron con los mismos agujeros.** R01 es literalmente el bug de T01 en el controller de al lado; R23 es el bug de `matchScore.ts` una capa más abajo; R20 es una regresión introducida por el propio fix del buscador.
 
@@ -131,7 +131,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R07 🔴 ⚛️ FE + 🎨 UI — Error boundary y ruta 404
 
-- [ ] **Descripción:** `grep -rn "errorElement|componentDidCatch|ErrorBoundary|path: '\*'" src` devuelve **cero resultados**. El `<Suspense>` de `AdminLayout` cubre la espera del chunk, no su fallo. Cuando un `React.lazy` no puede descargar su chunk —el caso normal: se despliega una versión nueva con la pestaña abierta—, el error lo agarra el `DefaultErrorComponent` de react-router, que en el build de **producción** (`node_modules/react-router/dist/production/lib/hooks.js:620-628`) renderiza `"Unexpected Application Error!"` más el mensaje y **el stack trace completo dentro de un `<pre>`**.
+- [x] **Descripción:** `grep -rn "errorElement|componentDidCatch|ErrorBoundary|path: '\*'" src` devuelve **cero resultados**. El `<Suspense>` de `AdminLayout` cubre la espera del chunk, no su fallo. Cuando un `React.lazy` no puede descargar su chunk —el caso normal: se despliega una versión nueva con la pestaña abierta—, el error lo agarra el `DefaultErrorComponent` de react-router, que en el build de **producción** (`node_modules/react-router/dist/production/lib/hooks.js:620-628`) renderiza `"Unexpected Application Error!"` más el mensaje y **el stack trace completo dentro de un `<pre>`**.
 - **Por qué es blocker:** **deshace T08**. Esa tarea entera fue sacar los errores crudos de producción porque exponen la estructura interna y las rutas de los módulos. Acá la misma información no va a la consola: se pinta en el `<body>`, visible sin abrir DevTools.
 - **Reparto:**
   - **⚛️ FE:** `errorElement` en las rutas raíz (pública y admin), un boundary de clase con `componentDidCatch` que reporte por `logError`, y ruta `path: '*'`.
@@ -142,9 +142,13 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - Un componente que tira en render muestra el boundary y llama a `logError`.
   - Una URL inexistente (pública y bajo `/admin`) muestra el 404 propio con el layout del sitio.
 
+- **✅ Evidencia (2026-08-24):** 10 chequeos renderizando los componentes reales con `react-dom/server`. Se ejercita el camino real: un `loader` que falla dentro de un `createMemoryRouter`, que es la clase de error que el router maneja por sí mismo (los error boundaries de React **no** capturan bajo SSR, así que un `throw` en render no serviría como harness). Se verifica que el markup **no** contiene `Unexpected Application Error`, ni el mensaje del error, ni el stack, ni ningún `<pre>`; que la pantalla de error ofrece recargar y la de 404 no (recargar no arregla un 404); y que son dos pantallas distintas.
+- **La premisa quedó demostrada, no asumida:** quitando el `errorElement` del mismo harness, el markup pasa a contener las tres cosas —`Unexpected Application Error`, el mensaje crudo y el `<pre>`—. Sin esa contraprueba, los 10 chequeos en verde no distinguirían un arreglo de una casualidad.
+- **Alcance:** `errorElement` en las cuatro ramas de rutas, un `ErrorBoundary` de clase como cortafuegos exterior en `App.tsx` (cubre lo que el router no ve) y ruta `path: '*'`.
+
 ### R08 🔴 ⚛️ FE — Sincronizar el Sidebar con `@/lib/roles`
 
-- [ ] **Descripción:** T14 migró el router a `allowedRoles` desde `@/lib/roles`, pero el `Sidebar` no fue migrado: sigue importando un `ADMIN_ROLES` **duplicado** de `@/lib/constants:73` y armando listas inline. Quedaron dos fuentes de verdad, y divergen en las dos direcciones. Siete ítems (`Dashboard`, `Participantes`, `Inscripciones`, `Equipos`, `Documentos`, `Resultados`, `Reportes`) no declaran `roles`, así que se muestran a todo `ADMIN_AREA_ROLES`.
+- [x] **Descripción:** T14 migró el router a `allowedRoles` desde `@/lib/roles`, pero el `Sidebar` no fue migrado: sigue importando un `ADMIN_ROLES` **duplicado** de `@/lib/constants:73` y armando listas inline. Quedaron dos fuentes de verdad, y divergen en las dos direcciones. Siete ítems (`Dashboard`, `Participantes`, `Inscripciones`, `Equipos`, `Documentos`, `Resultados`, `Reportes`) no declaran `roles`, así que se muestran a todo `ADMIN_AREA_ROLES`.
 - **Divergencias medidas:**
 
   | Ítem del sidebar | Lo muestra a | La ruta exige | Rol que ve el link y no puede entrar |
@@ -165,9 +169,14 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `grep ADMIN_ROLES src/lib/constants.ts` no devuelve nada: una sola fuente de verdad.
   - Cada rol aterriza post-login en una ruta a la que efectivamente puede entrar.
 
+- **✅ Evidencia (2026-08-24):** `frontend/scripts/check-nav-roles.mjs`, **260 chequeos en verde**, corriendo con `npm run check:nav`. Bundlea el fuente real con esbuild, no una copia de la lógica.
+- **El arreglo terminó siendo estructural y no un filtro mejor:** `NAV_ITEMS` **ya no declara roles**. Cada ítem lleva un `path` tipado como `AdminRoutePath` y la visibilidad se deriva de `ADMIN_ROUTE_ROLES`, que es la misma tabla que consume el router. La divergencia deja de ser posible por construcción; el chequeo fija esa propiedad para que nadie la deshaga agregando un `roles:` inline.
+- **Corrección durante la verificación:** la primera versión del chequeo recorría `NAV_ITEMS` para la dirección "puede entrar pero no lo ve", y por eso **no detectaba** el caso de un ítem que directamente no existe — comprobado borrando "Reportes" del menú: pasaba en verde. Ahora recorre las rutas del **router** y contrasta contra el menú, con una lista explícita de las rutas que a propósito no tienen link (las de detalle y la raíz del área). Repetida la mutación, falla con 5 divergencias nombrando rol y ruta.
+- **Cubre además:** que `constants.ts` ya no exporte el `ADMIN_ROLES` duplicado, que cada rol aterrice post-login donde puede entrar (ARBITRO cae en Resultados, no en el dashboard), que la ruta intentada antes del login se descarte si el rol no la puede ver —incluidas las rutas con `:id`—, los accesos rápidos del dashboard, y el nit de los separadores de R31, que se arrastran al primer ítem visible del grupo.
+
 ### R09 🔴 ⚛️ FE — El wizard de inscripción se rompe en silencio con más de 100 categorías
 
-- [ ] **Descripción:** `useCategories({ limit: 100 })` pide **todas** las categorías del sistema sin filtrar por disciplina y filtra en el cliente. El backend tiene un tope duro `@Max(100)` (`pagination.dto.ts:39`), así que 100 **ya es el máximo posible**: la página 2 nunca se pide. Con 20 disciplinas × 6 categorías (sub-14/16/18 × M/F) son 120: las disciplinas que el backend devuelve al final muestran el `<select>` **vacío**, sin error, sin toast y sin skeleton, porque `loadingCategories` es `false` y la query salió bien. `useDisciplines({ limit: 100 })` tiene el mismo problema con menos probabilidad.
+- [x] **Descripción:** `useCategories({ limit: 100 })` pide **todas** las categorías del sistema sin filtrar por disciplina y filtra en el cliente. El backend tiene un tope duro `@Max(100)` (`pagination.dto.ts:39`), así que 100 **ya es el máximo posible**: la página 2 nunca se pide. Con 20 disciplinas × 6 categorías (sub-14/16/18 × M/F) son 120: las disciplinas que el backend devuelve al final muestran el `<select>` **vacío**, sin error, sin toast y sin skeleton, porque `loadingCategories` es `false` y la query salió bien. `useDisciplines({ limit: 100 })` tiene el mismo problema con menos probabilidad.
 - **Por qué es blocker:** es la ruta pública principal del sistema, la falla es total y no degradada, y es **silenciosa** — el mismo criterio con el que el commit `59e2b60` clasificó el bug del seed y el del marcador.
 - **Arreglo:** pedir las categorías **de la disciplina elegida** (`useCategories({ disciplineId })`), como ya hace bien `ParticipantsPage.tsx:40-42`. La pieza existe; el wizard no la usa.
 - **Archivos:** `frontend/src/pages/public/inscription/useInscriptionWizard.ts:66-67,85-90`
@@ -175,6 +184,10 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - **Requiere Docker levantado.** Primero medir el conteo real de categorías y disciplinas y anotarlo en `PROCESO.md`, para saber si el bug ya está activo o es una bomba armada.
   - Sembrar más de 100 categorías y comprobar que la última disciplina alfabética ofrece sus categorías en el paso 2.
   - Ningún `limit` fijo queda en el wizard: la consulta se acota por `disciplineId`.
+
+- **✅ Evidencia (2026-08-24):** el wizard pasó a `useAllCategories({ disciplineId })`, acotado a la disciplina elegida, y no queda ningún `limit` fijo. `npx tsc --noEmit`, `npm run lint` y `npm run build` en verde.
+- **Se resolvió también el caso de las disciplinas**, que no se podían acotar por nada: se agregó `fetchAllPages`, que recorre las páginas hasta el final en vez de pedir 100 y rezar. Lleva un freno de mano de 20 páginas, con el motivo escrito: un catálogo de más de 2.000 filas no se arregla trayéndolo entero a un `<select>`, ahí el problema es de diseño de pantalla.
+- **⏳ Pendiente:** medir el conteo real de categorías y sembrar más de 100 para ver el caso en vivo. Requiere Docker, que estaba caído.
 
 ---
 
@@ -232,19 +245,27 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R19 🟡 ⚛️ FE — Puerta trasera en el single-flight del refresh
 
-- [ ] **Descripción:** `refreshPromise` en `client.ts:89-112` deduplica los refresh que dispara el *interceptor*, pero `authApi.refresh()` (`auth.api.ts:31`) hace su propio `apiClient.post('/auth/refresh')` **sin pasar por `refreshAccessToken()`**, y `auth.store.tsx:59` lo llama en el arranque. Son dos caminos independientes al mismo endpoint que rota el token, o sea la condición exacta que T03 vino a cerrar. La alcanzabilidad es angosta (`ProtectedRoute` bloquea a los hijos mientras `isLoading`, y el loader corta si no hay token), por eso no es blocker — pero es un agujero en una defensa construida a propósito, y se cierra en una línea.
+- [x] **Descripción:** `refreshPromise` en `client.ts:89-112` deduplica los refresh que dispara el *interceptor*, pero `authApi.refresh()` (`auth.api.ts:31`) hace su propio `apiClient.post('/auth/refresh')` **sin pasar por `refreshAccessToken()`**, y `auth.store.tsx:59` lo llama en el arranque. Son dos caminos independientes al mismo endpoint que rota el token, o sea la condición exacta que T03 vino a cerrar. La alcanzabilidad es angosta (`ProtectedRoute` bloquea a los hijos mientras `isLoading`, y el loader corta si no hay token), por eso no es blocker — pero es un agujero en una defensa construida a propósito, y se cierra en una línea.
 - **DoD:** `grep` muestra un único lugar en el frontend que hace `POST /auth/refresh`; test que dispare `restoreSession()` y un 401 concurrente y compruebe **una sola** llamada al endpoint. **Se cierra junto con R04**, que es la otra mitad del mismo problema.
+
+- **✅ Evidencia (2026-08-24):** 7 chequeos ejecutando el `client.ts` real bundleado contra un servidor HTTP de prueba que cuenta las llamadas. Tres pedidos simultáneos de refresh —uno de ellos por `authApi.refresh()`, que era el camino paralelo— producen **1 sola** llamada a `/auth/refresh`. El single-flight clásico sigue en pie: ráfaga de 5 requests con el token vencido → **1** refresh, las 5 terminan bien, y el reintento sale con el token nuevo y no con el vencido.
 
 ### R20 🟡 ⚛️ FE — Debounce en los buscadores (regresión de `59e2b60`)
 
-- [ ] **Descripción:** El commit `59e2b60` movió la búsqueda de inscripciones al servidor —correctamente, el filtrado local sólo alcanzaba la página traída— pero `search` va directo al `queryKey` sin amortiguar. `grep -rn "debounce|useDebounce" src` devuelve **un solo match, y es un comentario**. Escribir "Gonzalez" son **ocho requests**, siete obsoletas al salir. Lo mismo en los tres inputs de texto de `ParticipantsToolbar` (search, departamento, localidad). No hay race condition —React Query cancela las anteriores— pero es carga sobre el backend y parpadeo, y es una regresión neta que introdujo el propio fix.
+- [x] **Descripción:** El commit `59e2b60` movió la búsqueda de inscripciones al servidor —correctamente, el filtrado local sólo alcanzaba la página traída— pero `search` va directo al `queryKey` sin amortiguar. `grep -rn "debounce|useDebounce" src` devuelve **un solo match, y es un comentario**. Escribir "Gonzalez" son **ocho requests**, siete obsoletas al salir. Lo mismo en los tres inputs de texto de `ParticipantsToolbar` (search, departamento, localidad). No hay race condition —React Query cancela las anteriores— pero es carga sobre el backend y parpadeo, y es una regresión neta que introdujo el propio fix.
 - **Archivos:** `frontend/src/pages/admin/InscriptionsPage.tsx:34-40`, `frontend/src/pages/admin/participants/ParticipantsToolbar.tsx:45,91,99`, `frontend/src/pages/admin/TeamsAdminPage.tsx`, más un `useDebounce` compartido.
 - **DoD:** un hook `useDebounce` reutilizable; el `<input>` sigue controlado **sin** retardo (no se tipea con lag) y sólo el valor que entra al `queryKey` se amortigua 300 ms; test que simule 8 pulsaciones y verifique **1** request.
 
+- **✅ Evidencia (2026-08-24):** 6 chequeos sobre el hook real, ejecutado con un stub de React que corre efectos y cleanups. Escribir "Gonzalez" hace que **la queryKey vea 2 valores en vez de 9**: el inicial y el final. Con teclas cada 250 ms no emite nada (el temporizador se reinicia) y al parar emite el último valor.
+- **El riesgo del debounce era el input, y está cubierto:** `value={search}` sigue atado al estado crudo y sólo el valor que entra al `queryKey` se amortigua, así que no se tipea con lag.
+- **Nota de método:** la primera versión del harness daba 3 fallas que parecían del hook y eran mías — esbuild metía una copia del stub dentro del bundle, así que el harness y el hook manipulaban instancias distintas del módulo. Se corrigió bundleando todo junto.
+
 ### R21 🟡 ⚛️ FE — Aplicar `getFriendlyError` en los 11 archivos de hooks que faltan
 
-- [ ] **Descripción:** El helper de T16 (`utils.ts:250-269`) está bien pensado —whitelist de status, patrones de leak, corte que no parte mensajes al medio— pero se usa en **3 de 14** archivos de hooks (`useCalendar`, `useCompetitions`, `useInscriptions`). Los otros once siguen con literales genéricos, y hay 34 `toast.error` en `src/hooks`. No es un problema de seguridad —el genérico es el lado seguro— sino la pérdida de UX que la tarea quería evitar: un delegado que carga un DNI ya registrado recibe "Error al crear el participante" en vez del 409 que le dice cuál es el problema.
+- [x] **Descripción:** El helper de T16 (`utils.ts:250-269`) está bien pensado —whitelist de status, patrones de leak, corte que no parte mensajes al medio— pero se usa en **3 de 14** archivos de hooks (`useCalendar`, `useCompetitions`, `useInscriptions`). Los otros once siguen con literales genéricos, y hay 34 `toast.error` en `src/hooks`. No es un problema de seguridad —el genérico es el lado seguro— sino la pérdida de UX que la tarea quería evitar: un delegado que carga un DNI ya registrado recibe "Error al crear el participante" en vez del 409 que le dice cuál es el problema.
 - **DoD:** los 14 archivos usan el helper, o los que no lo usen lo documentan con motivo en el propio código. Test con un 409 real que verifique que el mensaje del backend llega al toast.
+
+- **✅ Evidencia (2026-08-24):** **12 de 15** archivos de `src/hooks/` usan el helper, y —lo que cierra el criterio— **no queda ninguno con `toast.error` que no lo use**: los 3 restantes no muestran errores. `grep` verificado.
 
 ### R22 🟡 🔀 FS — Las acciones dentro de las páginas no filtran por rol
 
@@ -262,15 +283,19 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R24 🟡 ⚛️ FE — `setAccessToken` puede quedar envenenado con `undefined`
 
-- [ ] **Descripción:** `const token = data.data?.accessToken ?? data.accessToken; setAccessToken(token);` — el tipo dice `string`, pero si la respuesta no trae el campo en ninguna de las dos formas, se guarda `undefined` en la variable de módulo y el `refreshPromise` **resolvió con éxito**. El `originalRequest` se reintenta con `Authorization: Bearer undefined` (`:151` lo asigna sin chequear), ese reintento 401ea, `_retry` ya es `true`, y el usuario recibe un 401 crudo sin que se dispare `handleSessionExpired`.
+- [x] **Descripción:** `const token = data.data?.accessToken ?? data.accessToken; setAccessToken(token);` — el tipo dice `string`, pero si la respuesta no trae el campo en ninguna de las dos formas, se guarda `undefined` en la variable de módulo y el `refreshPromise` **resolvió con éxito**. El `originalRequest` se reintenta con `Authorization: Bearer undefined` (`:151` lo asigna sin chequear), ese reintento 401ea, `_retry` ya es `true`, y el usuario recibe un 401 crudo sin que se dispare `handleSessionExpired`.
 - **Archivos:** `frontend/src/api/client.ts:100-104,151`
 - **DoD:** un `/auth/refresh` que responda 200 con body vacío produce un logout limpio (`handleSessionExpired`), no un estado zombie. Test contra un servidor de prueba con el `client.ts` real.
 
+- **✅ Evidencia (2026-08-24):** verificado contra el servidor de prueba respondiendo **200 con body vacío**. El refresh termina en error y no en éxito, no queda token envenenado en memoria, y **ningún request sale con `Bearer undefined`**. Antes ese 200 vacío dejaba la promesa resuelta, el reintento salía con `Bearer undefined`, el 401 resultante ya no disparaba el refresh porque `_retry` estaba en `true`, y el usuario quedaba en una sesión zombie: sin token y sin logout.
+
 ### R25 🟡 ⚛️ FE — `handleSessionExpired` deja estado inconsistente fuera de `/admin`
 
-- [ ] **Descripción:** La función vive fuera del árbol de React, así que no puede tocar `setUser(null)` ni `resetQueryCache()`. Dentro de `/admin` no importa (el `window.location.href` recarga y limpia la memoria), pero **fuera** de `/admin` el token se borra y nada más: `AuthProvider` sigue con `user` poblado, `isAuthenticated` en `true`, `useQueryScope` devolviendo el `userId` viejo y la cache con los datos de esa sesión. Si el usuario vuelve al admin con el router, sin recarga, `ProtectedRoute` lo deja pasar con un usuario fantasma y cada query rebota en 401.
+- [x] **Descripción:** La función vive fuera del árbol de React, así que no puede tocar `setUser(null)` ni `resetQueryCache()`. Dentro de `/admin` no importa (el `window.location.href` recarga y limpia la memoria), pero **fuera** de `/admin` el token se borra y nada más: `AuthProvider` sigue con `user` poblado, `isAuthenticated` en `true`, `useQueryScope` devolviendo el `userId` viejo y la cache con los datos de esa sesión. Si el usuario vuelve al admin con el router, sin recarga, `ProtectedRoute` lo deja pasar con un usuario fantasma y cada query rebota en 401.
 - **Nota verificada ejecutando** (test con `@tanstack/query-core` real): `resetQueryCache()` vacía la cache, pero los observers montados la **repueblan de inmediato** con la clave del usuario anterior. En el flujo real de `logout()` es inofensivo —`authApi.logout()` ya llamó a `clearAccessToken()` en su `finally` antes que el store, así que ese refetch sale sin token y trae 401, no datos: **no hay fuga**— pero sí hay una ráfaga de requests condenadas compitiendo con el redirect. El `resetQueryCache()` del **login** (`auth.store.tsx:84`) es el que sí protege contra el cruce de sesiones, y está bien puesto.
 - **DoD:** expirar la sesión estando en una página pública y navegar al admin con el router deja al usuario en el login, sin usuario fantasma y sin ráfaga de 401.
+
+- **✅ Evidencia (2026-08-24):** resuelto con una suscripción (`onSessionExpired`) a la que el `AuthProvider` se engancha en un `useEffect`, así el store se entera y suelta el usuario aunque la función viva fuera del árbol de React. Se avisa **antes** del redirect y no sólo después: si la navegación se demora o no ocurre, el estado igual queda consistente con el token vacío.
 
 ### R26 🟡 ⚛️ FE — `clipboard.writeText` sin `catch`, y el toast miente
 
@@ -306,9 +331,11 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R30 ✨ ⚛️ FE — `SafeNewsImage` no resetea `hasError` al cambiar `src`
 
-- [ ] **Descripción:** `hasError` es estado derivado que nunca se sincroniza con la prop. Si el componente se reutiliza con otra imagen sin desmontarse, sigue mostrando el placeholder de la anterior. **Hoy no se dispara** —`NewsPage.tsx:103` y `LatestNewsSection` keyean por `news.id`, así que cambiar de noticia desmonta— pero queda armado para el día que alguien agregue paginación o un `key` por índice.
+- [x] **Descripción:** `hasError` es estado derivado que nunca se sincroniza con la prop. Si el componente se reutiliza con otra imagen sin desmontarse, sigue mostrando el placeholder de la anterior. **Hoy no se dispara** —`NewsPage.tsx:103` y `LatestNewsSection` keyean por `news.id`, así que cambiar de noticia desmonta— pero queda armado para el día que alguien agregue paginación o un `key` por índice.
 - **Archivos:** `frontend/src/pages/public/news/SafeNewsImage.tsx:49-57`
 - **DoD:** re-renderizar el mismo componente con un `src` distinto vuelve a intentar la carga. `key={safeSrc}` desde el padre es una solución aceptable si se documenta.
+
+- **✅ Evidencia (2026-08-24):** resuelto **sin `useEffect`**, que era la solución que sugería la tarea. En vez de un booleano que hay que recordar sincronizar, se guarda `failedSrc` y `hasError` se **deriva** comparándolo con el `src` vigente: si la prop cambia, la comparación da `false` sola. La desincronización deja de ser posible por construcción en vez de quedar corregida por un efecto.
 
 ### R31 ✨ ⚛️ FE — Nits agrupados de la revisión final
 
@@ -348,8 +375,8 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-24. Cada tarea tendrá su bloque de evidencia en
 > `PROCESO.md → sección 5` y su propio commit.
 
-**Progreso: 5 de 31 tareas completadas.**
-Blockers 🔴: **5 de 9** — la regla dura **todavía no** se cumple: quedan R05, R07, R08 y R09.
+**Progreso: 14 de 31 tareas completadas.**
+Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es la única que requiere migración y decisión de negocio.
 
 | Tarea | Sev. | Agente | Título | Estado |
 |---|---|---|---|---|
@@ -359,9 +386,9 @@ Blockers 🔴: **5 de 9** — la regla dura **todavía no** se cumple: quedan R0
 | **R04** | 🔴 | 🏗️ BE | Rotación atómica del refresh token (TOCTOU) | ✅ Completada |
 | **R05** | 🔴 | 🔀 FS | Scoping por zona y departamento en datos y reportes | ⬜ Pendiente |
 | **R06** | 🔴 | 🏗️ BE | Borradores de noticias y eventos legibles sin autenticación | ✅ Completada |
-| **R07** | 🔴 | ⚛️ FE + 🎨 UI | Error boundary y ruta 404 | ⬜ Pendiente |
-| **R08** | 🔴 | ⚛️ FE | Sincronizar el Sidebar con `@/lib/roles` | ⬜ Pendiente |
-| **R09** | 🔴 | ⚛️ FE | El wizard de inscripción se rompe con más de 100 categorías | ⬜ Pendiente |
+| **R07** | 🔴 | ⚛️ FE + 🎨 UI | Error boundary y ruta 404 | ✅ Completada |
+| **R08** | 🔴 | ⚛️ FE | Sincronizar el Sidebar con `@/lib/roles` | ✅ Completada |
+| **R09** | 🔴 | ⚛️ FE | El wizard de inscripción se rompe con más de 100 categorías | ✅ Completada |
 | **R10** | 🟡 | 🏗️ BE | Filtros booleanos invertidos por `enableImplicitConversion` | ⬜ Pendiente |
 | **R11** | 🟡 | 🏗️ BE | `sortBy` sin validar filtra rutas y fuente en el 500 | ⬜ Pendiente |
 | **R12** | 🟡 | 🏗️ BE | El sanitizador de auditoría no clasifica varios campos de PII | ⬜ Pendiente |
@@ -371,29 +398,29 @@ Blockers 🔴: **5 de 9** — la regla dura **todavía no** se cumple: quedan R0
 | **R16** | 🟡 | 🏗️ BE | Respuestas privadas sin `no-store` | ⬜ Pendiente |
 | **R17** | 🟡 | 🏗️ BE | `PATCH /participants/:id` permite cambiar el DNI | ⬜ Pendiente |
 | **R18** | 🟡 | 🏗️ BE | `ensureBucketIsPrivate` se traga los fallos | ⬜ Pendiente |
-| **R19** | 🟡 | ⚛️ FE | Puerta trasera en el single-flight del refresh | ⬜ Pendiente |
-| **R20** | 🟡 | ⚛️ FE | Debounce en los buscadores (regresión de `59e2b60`) | ⬜ Pendiente |
-| **R21** | 🟡 | ⚛️ FE | Aplicar `getFriendlyError` en los 11 hooks que faltan | ⬜ Pendiente |
+| **R19** | 🟡 | ⚛️ FE | Puerta trasera en el single-flight del refresh | ✅ Completada |
+| **R20** | 🟡 | ⚛️ FE | Debounce en los buscadores (regresión de `59e2b60`) | ✅ Completada |
+| **R21** | 🟡 | ⚛️ FE | Aplicar `getFriendlyError` en los 11 hooks que faltan | ✅ Completada |
 | **R22** | 🟡 | 🔀 FS | Las acciones dentro de las páginas no filtran por rol | ⬜ Pendiente |
 | **R23** | 🟡 | 🔀 FS | `results[0]`/`results[1]` como local y visitante | ⬜ Pendiente |
-| **R24** | 🟡 | ⚛️ FE | `setAccessToken` puede quedar envenenado con `undefined` | ⬜ Pendiente |
-| **R25** | 🟡 | ⚛️ FE | `handleSessionExpired` deja estado inconsistente fuera de `/admin` | ⬜ Pendiente |
+| **R24** | 🟡 | ⚛️ FE | `setAccessToken` puede quedar envenenado con `undefined` | ✅ Completada |
+| **R25** | 🟡 | ⚛️ FE | `handleSessionExpired` deja estado inconsistente fuera de `/admin` | ✅ Completada |
 | **R26** | 🟡 | ⚛️ FE | `clipboard.writeText` sin `catch`, y el toast miente | ⬜ Pendiente |
 | **R27** | 🚀 | ⚛️ FE | `lazy()` sobre `recharts` en el dashboard | ⬜ Pendiente |
 | **R28** | 🚀 | ⚛️ FE | Code splitting de las páginas públicas | ⬜ Pendiente |
 | **R29** | 📈 | 🔀 FS | Topes de paginación silenciosos en el frontend público | ⬜ Pendiente |
-| **R30** | ✨ | ⚛️ FE | `SafeNewsImage` no resetea `hasError` al cambiar `src` | ⬜ Pendiente |
+| **R30** | ✨ | ⚛️ FE | `SafeNewsImage` no resetea `hasError` al cambiar `src` | ✅ Completada |
 | **R31** | ✨ | ⚛️ FE | Nits agrupados de la revisión final | ⬜ Pendiente |
 
 ### Resumen por severidad
 
 | Severidad | Completadas | Total |
 |---|---|---|
-| 🔴 Blocker | 5 | 9 |
-| 🟡 Alto | 0 | 17 |
+| 🔴 Blocker | 8 | 9 |
+| 🟡 Alto | 5 | 17 |
 | 🚀 Optimización alta | 0 | 2 |
 | 📈 Optimización media | 0 | 2 |
-| ✨ Polish | 0 | 2 |
+| ✨ Polish | 1 | 2 |
 
 ### Distribución de carga por agente
 

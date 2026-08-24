@@ -2,31 +2,12 @@
 // Admin Sidebar Component
 // ===========================================
 import { Link, useLocation } from 'react-router';
-import {
-  LayoutDashboard,
-  Users,
-  ClipboardList,
-  UserPlus,
-  Trophy,
-  Tag,
-  UsersRound,
-  Swords,
-  Medal,
-  FileText,
-  Newspaper,
-  CalendarDays,
-  MapPin,
-  UserCog,
-  BarChart3,
-  Shield,
-  ChevronLeft,
-  ChevronRight,
-  X,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ROUTES, ADMIN_ROLES } from '@/lib/constants';
+import { ROUTES } from '@/lib/constants';
+import { rutaInicialPara } from '@/lib/adminRoutes';
 import { useAuth } from '@/store/auth.store';
-import { UserRole } from '@/types';
+import { navItemsParaRol } from './navItems';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -35,50 +16,25 @@ interface SidebarProps {
   onMobileClose?: () => void;
 }
 
-interface NavItem {
-  label: string;
-  path: string;
-  icon: React.ReactNode;
-  roles?: UserRole[];
-  separator?: boolean;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', path: ROUTES.DASHBOARD, icon: <LayoutDashboard className="w-5 h-5" /> },
-  // Gestión
-  { label: 'Participantes', path: ROUTES.PARTICIPANTS, icon: <Users className="w-5 h-5" />, separator: true },
-  { label: 'Inscripciones', path: ROUTES.INSCRIPTIONS, icon: <ClipboardList className="w-5 h-5" /> },
-  { label: 'Nueva Inscripción', path: ROUTES.NEW_INSCRIPTION, icon: <UserPlus className="w-5 h-5" />, roles: [...ADMIN_ROLES, UserRole.DELEGADO] },
-  { label: 'Equipos', path: ROUTES.TEAMS, icon: <UsersRound className="w-5 h-5" /> },
-  { label: 'Documentos', path: ROUTES.DOCUMENTS, icon: <FileText className="w-5 h-5" /> },
-  // Competencias
-  { label: 'Disciplinas', path: ROUTES.DISCIPLINES_ADMIN, icon: <Trophy className="w-5 h-5" />, separator: true, roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN_PROVINCIAL] },
-  { label: 'Categorías', path: ROUTES.CATEGORIES_ADMIN, icon: <Tag className="w-5 h-5" />, roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN_PROVINCIAL] },
-  { label: 'Competencias', path: ROUTES.COMPETITIONS, icon: <Swords className="w-5 h-5" />, roles: [...ADMIN_ROLES] },
-  { label: 'Resultados', path: ROUTES.RESULTS, icon: <Medal className="w-5 h-5" /> },
-  // Contenido
-  { label: 'Noticias', path: ROUTES.NEWS_ADMIN, icon: <Newspaper className="w-5 h-5" />, separator: true, roles: [...ADMIN_ROLES] },
-  { label: 'Calendario', path: ROUTES.CALENDAR_ADMIN, icon: <CalendarDays className="w-5 h-5" />, roles: [...ADMIN_ROLES] },
-  { label: 'Sedes', path: ROUTES.VENUES_ADMIN, icon: <MapPin className="w-5 h-5" />, roles: [...ADMIN_ROLES] },
-  // Sistema
-  { label: 'Usuarios', path: ROUTES.USERS, icon: <UserCog className="w-5 h-5" />, separator: true, roles: [UserRole.SUPER_ADMIN] },
-  { label: 'Reportes', path: ROUTES.REPORTS, icon: <BarChart3 className="w-5 h-5" /> },
-  { label: 'Auditoría', path: ROUTES.AUDIT, icon: <Shield className="w-5 h-5" />, roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN_PROVINCIAL] },
-];
-
 export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const location = useLocation();
-  const { hasRole } = useAuth();
+  const { user } = useAuth();
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.roles || hasRole(...item.roles),
-  );
+  // Qué links ve cada rol sale del mismo mapa que usa el router para decidir a
+  // qué rutas puede entrar (R08). Los separadores ya vienen resueltos sobre la
+  // lista completa, así que un grupo no pierde su línea porque se filtre el
+  // primer ítem.
+  const visibleItems = navItemsParaRol(user?.role);
+
+  // El logo lleva a la primera pantalla que el rol puede ver, no al dashboard
+  // fijo: para un ARBITRO el dashboard es un "Acceso Denegado".
+  const inicio = user ? rutaInicialPara(user.role) : ROUTES.HOME;
 
   const sidebarContent = (
     <>
       {/* Logo area */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-primary-100">
-        <Link to={ROUTES.DASHBOARD} className="flex items-center gap-2.5 overflow-hidden">
+        <Link to={inicio} className="flex items-center gap-2.5 overflow-hidden">
           <img
             src="/logo-sinfondo.png"
             alt="Juegos Evita Formoseños"
@@ -110,13 +66,13 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5" aria-label="Navegación administrativa">
-        {visibleItems.map((item, idx) => {
+        {visibleItems.map((item) => {
           const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
           const showCollapsed = collapsed && !mobileOpen;
 
           return (
             <div key={item.path}>
-              {item.separator && idx > 0 && (
+              {item.showSeparator && (
                 <div className="my-3 border-t border-primary-50" />
               )}
               <Link

@@ -9,6 +9,7 @@ import {
   type UpdateNewsPayload
 } from '@/api/news.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export const NEWS_KEYS = {
@@ -56,8 +57,8 @@ export function useCreateNews() {
       toast.success('Noticia creada exitosamente');
       queryClient.invalidateQueries({ queryKey: NEWS_KEYS.lists() });
     },
-    onError: () => {
-      toast.error('Error al crear la noticia');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al crear la noticia'));
     },
   });
 }
@@ -74,8 +75,8 @@ export function useUpdateNews() {
       queryClient.invalidateQueries({ queryKey: NEWS_KEYS.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: NEWS_KEYS.slugs() });
     },
-    onError: () => {
-      toast.error('Error al actualizar la noticia');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al actualizar la noticia'));
     },
   });
 }
@@ -89,8 +90,8 @@ export function useDeleteNews() {
       toast.success('Noticia eliminada exitosamente');
       queryClient.invalidateQueries({ queryKey: NEWS_KEYS.lists() });
     },
-    onError: () => {
-      toast.error('Error al eliminar la noticia');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al eliminar la noticia'));
     },
   });
 }

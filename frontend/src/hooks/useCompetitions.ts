@@ -81,8 +81,13 @@ export function useGenerateFixture() {
       queryClient.invalidateQueries({ queryKey: COMPETITION_KEYS.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: ['matches', variables.id] });
     },
-    onError: () => {
-      toast.error('Error al generar el fixture. Verifique que existan suficientes equipos/participantes inscriptos.');
+    onError: (error: unknown) => {
+      toast.error(
+        getFriendlyError(
+          error,
+          'Error al generar el fixture. Verifique que existan suficientes equipos/participantes inscriptos.',
+        ),
+      );
     },
   });
 }

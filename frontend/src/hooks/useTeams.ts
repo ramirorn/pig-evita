@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { teamsApi, type TeamFilters, type CreateTeamPayload, type UpdateTeamPayload, type AddTeamMemberPayload } from '@/api/teams.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { getFriendlyError } from '@/lib/utils';
 import { useQueryScope } from './useQueryScope';
 import { toast } from 'sonner';
 
@@ -56,8 +57,8 @@ export function useCreateTeam() {
       toast.success('Equipo creado exitosamente');
       queryClient.invalidateQueries({ queryKey: TEAM_KEYS.lists(scope) });
     },
-    onError: () => {
-      toast.error('Error al crear el equipo');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al crear el equipo'));
     },
   });
 }
@@ -74,8 +75,8 @@ export function useUpdateTeam() {
       queryClient.invalidateQueries({ queryKey: TEAM_KEYS.lists(scope) });
       queryClient.invalidateQueries({ queryKey: TEAM_KEYS.detail(scope, data.id) });
     },
-    onError: () => {
-      toast.error('Error al actualizar el equipo');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al actualizar el equipo'));
     },
   });
 }
@@ -91,8 +92,8 @@ export function useAddTeamMember() {
       toast.success('Miembro añadido al equipo');
       queryClient.invalidateQueries({ queryKey: TEAM_KEYS.detail(scope, variables.teamId) });
     },
-    onError: () => {
-      toast.error('Error al añadir miembro');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al añadir miembro'));
     },
   });
 }
@@ -108,8 +109,8 @@ export function useRemoveTeamMember() {
       toast.success('Miembro removido del equipo');
       queryClient.invalidateQueries({ queryKey: TEAM_KEYS.detail(scope, variables.teamId) });
     },
-    onError: () => {
-      toast.error('Error al remover miembro');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al remover miembro'));
     },
   });
 }
@@ -124,8 +125,8 @@ export function useDeleteTeam() {
       toast.success('Equipo eliminado exitosamente');
       queryClient.invalidateQueries({ queryKey: TEAM_KEYS.lists(scope) });
     },
-    onError: () => {
-      toast.error('Error al eliminar el equipo');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al eliminar el equipo'));
     },
   });
 }

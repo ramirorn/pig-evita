@@ -5,8 +5,8 @@ import { useMemo, useState } from 'react';
 import type React from 'react';
 import { toast } from 'sonner';
 import { Sex, type Inscription } from '@/types';
-import { useDisciplines } from '@/hooks/useDisciplines';
-import { useCategories } from '@/hooks/useCategories';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
+import { useAllCategories } from '@/hooks/useCategories';
 import { useCreateInscription } from '@/hooks/useInscriptions';
 import { logError } from '@/lib/logger';
 import type { InscriptionFormData } from './StepPersonalData';
@@ -63,8 +63,16 @@ export function useInscriptionWizard({
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [createdInscription, setCreatedInscription] = useState<Inscription | null>(null);
 
-  const { data: disciplinesData, isLoading: loadingDisciplines } = useDisciplines({ limit: 100 });
-  const { data: categoriesData, isLoading: loadingCategories } = useCategories({ limit: 100 });
+  // Las categorías se piden **de la disciplina elegida**, no todas. Antes era
+  // `useCategories({ limit: 100 })` filtrando en el cliente, y 100 es el máximo
+  // que acepta el backend: pasadas las 100 categorías del sistema, las últimas
+  // disciplinas mostraban el `<select>` vacío, sin error ni toast, porque la
+  // query salía bien y `loadingCategories` quedaba en `false` (R09).
+  const { data: disciplines, isLoading: loadingDisciplines } = useAllDisciplines();
+  const { data: categories, isLoading: loadingCategories } = useAllCategories(
+    { disciplineId: formData.disciplineId },
+    { enabled: Boolean(formData.disciplineId) },
+  );
   const createMutation = useCreateInscription();
 
   // Edad calculada a partir de la fecha de nacimiento.
@@ -81,21 +89,22 @@ export function useInscriptionWizard({
     return age;
   }, [formData.birthDate]);
 
-  // Sólo las categorías activas de la disciplina elegida.
+  // El backend ya devuelve sólo las de esta disciplina; acá queda el filtro de
+  // activas, que no es un parámetro de la consulta.
   const availableCategories = useMemo(() => {
-    if (!formData.disciplineId || !categoriesData?.data) return [];
-    return categoriesData.data.filter(
+    if (!formData.disciplineId || !categories) return [];
+    return categories.filter(
       (cat) => cat.disciplineId === formData.disciplineId && cat.isActive,
     );
-  }, [formData.disciplineId, categoriesData]);
+  }, [formData.disciplineId, categories]);
 
   const selectedDiscipline = useMemo(() => {
-    return disciplinesData?.data.find((d) => d.id === formData.disciplineId);
-  }, [formData.disciplineId, disciplinesData]);
+    return disciplines?.find((d) => d.id === formData.disciplineId);
+  }, [formData.disciplineId, disciplines]);
 
   const selectedCategory = useMemo(() => {
-    return categoriesData?.data.find((c) => c.id === formData.categoryId);
-  }, [formData.categoryId, categoriesData]);
+    return categories?.find((c) => c.id === formData.categoryId);
+  }, [formData.categoryId, categories]);
 
   // Chequeo de edad y sexo contra la categoría elegida.
   const categoryCompatibility = useMemo(() => {
@@ -217,7 +226,7 @@ export function useInscriptionWizard({
     termsAccepted,
     setTermsAccepted,
     createdInscription,
-    disciplines: disciplinesData?.data,
+    disciplines,
     availableCategories,
     selectedDiscipline,
     selectedCategory,

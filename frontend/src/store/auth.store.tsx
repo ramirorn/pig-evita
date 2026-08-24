@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { authApi, type LoginPayload } from '@/api/auth.api';
-import { clearAccessToken } from '@/api/client';
+import { clearAccessToken, onSessionExpired } from '@/api/client';
 import { resetQueryCache } from '@/lib/queryClient';
 import { type AuthUserProfile, type UserRole } from '@/types';
 
@@ -22,7 +22,8 @@ interface AuthState {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (payload: LoginPayload) => Promise<void>;
+  /** Devuelve el usuario logueado para que el llamador decida a dónde llevarlo. */
+  login: (payload: LoginPayload) => Promise<AuthUser>;
   logout: () => Promise<void>;
   hasRole: (...roles: UserRole[]) => boolean;
 }
@@ -75,6 +76,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  /**
+   * Sesión expirada fuera del árbol de React (hallazgo R25).
+   *
+   * `handleSessionExpired` (en `client.ts`) borra el access token cuando el
+   * refresh ya no se puede recuperar, pero no puede tocar este estado. Dentro
+   * de `/admin` daba igual porque recarga la página; fuera de `/admin` quedaba
+   * un usuario fantasma acá adentro: `isAuthenticated` en `true` y
+   * `useQueryScope` devolviendo el `userId` de una sesión que ya no existe, así
+   * que volver al admin con el router pasaba `ProtectedRoute` y cada query
+   * rebotaba en 401. Soltando el usuario, el router manda al login como
+   * corresponde.
+   *
+   * No se vacía la cache acá a propósito: los observers montados la repueblan
+   * al instante con la clave del usuario viejo y eso genera una ráfaga de
+   * requests condenadas (401, porque el token ya está limpio) compitiendo con
+   * el redirect. Contra el cruce de sesiones ya protege el `resetQueryCache()`
+   * del login, que corre antes de que el usuario nuevo quede seteado.
+   */
+  useEffect(() => onSessionExpired(() => setUser(null)), []);
+
   const login = useCallback(async (payload: LoginPayload) => {
     const response = await authApi.login(payload);
 
@@ -84,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await resetQueryCache();
 
     setUser(response.user);
+
+    return response.user;
   }, []);
 
   const logout = useCallback(async () => {

@@ -99,8 +99,8 @@ export function useReviewInscription() {
       queryClient.invalidateQueries({ queryKey: INSCRIPTION_KEYS.lists(scope) });
       queryClient.invalidateQueries({ queryKey: INSCRIPTION_KEYS.detail(scope, variables.id) });
     },
-    onError: () => {
-      toast.error('Error al revisar la inscripción');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al revisar la inscripción'));
     },
   });
 }
@@ -116,8 +116,8 @@ export function useApproveInscription() {
       queryClient.invalidateQueries({ queryKey: INSCRIPTION_KEYS.lists(scope) });
       queryClient.invalidateQueries({ queryKey: INSCRIPTION_KEYS.detail(scope, variables) });
     },
-    onError: () => {
-      toast.error('Error al aprobar la inscripción');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al aprobar la inscripción'));
     },
   });
 }
@@ -134,8 +134,8 @@ export function useRejectInscription() {
       queryClient.invalidateQueries({ queryKey: INSCRIPTION_KEYS.lists(scope) });
       queryClient.invalidateQueries({ queryKey: INSCRIPTION_KEYS.detail(scope, variables.id) });
     },
-    onError: () => {
-      toast.error('Error al rechazar la inscripción');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al rechazar la inscripción'));
     },
   });
 }

@@ -9,6 +9,7 @@ import {
   type UpdateParticipantPayload 
 } from '@/api/participants.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { getFriendlyError } from '@/lib/utils';
 import { useQueryScope } from './useQueryScope';
 import { toast } from 'sonner';
 
@@ -73,8 +74,8 @@ export function useCreateParticipant() {
       toast.success('Participante creado exitosamente');
       queryClient.invalidateQueries({ queryKey: PARTICIPANT_KEYS.lists(scope) });
     },
-    onError: () => {
-      toast.error('Error al crear el participante');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al crear el participante'));
     },
   });
 }
@@ -91,8 +92,8 @@ export function useUpdateParticipant() {
       queryClient.invalidateQueries({ queryKey: PARTICIPANT_KEYS.lists(scope) });
       queryClient.invalidateQueries({ queryKey: PARTICIPANT_KEYS.detail(scope, variables.id) });
     },
-    onError: () => {
-      toast.error('Error al actualizar el participante');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al actualizar el participante'));
     },
   });
 }

@@ -1,7 +1,7 @@
 // ===========================================
 // Auth API
 // ===========================================
-import apiClient, { setAccessToken, clearAccessToken } from './client';
+import apiClient, { setAccessToken, clearAccessToken, refreshAccessToken } from './client';
 import type { AuthResponse, AuthUserProfile, RefreshResponse } from '@/types';
 
 export interface LoginPayload {
@@ -24,13 +24,18 @@ export const authApi = {
    * Renueva el access token usando la cookie httpOnly.
    *
    * Se usa al arrancar la app para recuperar la sesión tras un reload (el token
-   * en memoria se pierde). Los 401 de otras requests los resuelve el
-   * interceptor de `client.ts`, que deduplica los refresh concurrentes.
+   * en memoria se pierde).
+   *
+   * Delega en el `refreshAccessToken()` de `client.ts` en vez de hacer su
+   * propio `POST /auth/refresh` (hallazgo R19): el backend rota el refresh
+   * token, así que si esta llamada y un 401 concurrente pedían cada una por su
+   * lado, la segunda llegaba con un token ya consumido. Pasando por el
+   * single-flight, arranque e interceptor comparten la misma promesa y el
+   * endpoint se llama una sola vez. El token también lo guarda esa función.
    */
   async refresh(): Promise<RefreshResponse> {
-    const { data } = await apiClient.post<RefreshResponse>('/auth/refresh');
-    setAccessToken(data.accessToken);
-    return data;
+    const accessToken = await refreshAccessToken();
+    return { accessToken };
   },
 
   /** Logout: invalida el refresh token en el server y borra la cookie. */

@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { documentsApi, type ReviewDocumentPayload } from '@/api/documents.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export const DOCUMENT_KEYS = {
@@ -30,8 +31,8 @@ export function useUploadDocument() {
       toast.success('Documento subido exitosamente');
       queryClient.invalidateQueries({ queryKey: DOCUMENT_KEYS.participant(variables.participantId) });
     },
-    onError: () => {
-      toast.error('Error al subir documento');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al subir documento'));
     },
   });
 }
@@ -48,8 +49,8 @@ export function useReviewDocument() {
         queryClient.invalidateQueries({ queryKey: DOCUMENT_KEYS.participant(data.participantId) });
       }
     },
-    onError: () => {
-      toast.error('Error al revisar el documento');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al revisar el documento'));
     },
   });
 }

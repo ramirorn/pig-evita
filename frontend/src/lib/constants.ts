@@ -70,13 +70,6 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.OPERADOR_MESA]: 'Operador de Mesa',
 };
 
-export const ADMIN_ROLES: UserRole[] = [
-  UserRole.SUPER_ADMIN,
-  UserRole.ADMIN_PROVINCIAL,
-  UserRole.ADMIN_DEPARTAMENTAL,
-  UserRole.ADMIN_ZONAL,
-];
-
 // ============ STATUS LABELS ============
 
 export const INSCRIPTION_STATUS_LABELS: Record<InscriptionStatus, string> = {

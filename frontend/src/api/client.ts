@@ -88,7 +88,17 @@ apiClient.interceptors.request.use(
  */
 let refreshPromise: Promise<string> | null = null;
 
-function refreshAccessToken(): Promise<string> {
+/**
+ * Único camino del frontend hacia `POST /auth/refresh` (hallazgo R19).
+ *
+ * Se exporta para que `auth.api.ts` la use en lugar de disparar su propia
+ * request: el backend **rota** el refresh token, así que dos caminos
+ * independientes al endpoint son exactamente la condición que este
+ * single-flight vino a cerrar. Si el arranque de la app (`restoreSession()`) y
+ * un 401 concurrente pedían cada uno por su lado, el segundo llegaba con un
+ * token ya consumido y el backend cerraba la sesión.
+ */
+export function refreshAccessToken(): Promise<string> {
   refreshPromise ??= axios
     .post<{ accessToken: string }>(`${API_BASE_URL}/auth/refresh`, null, {
       withCredentials: true, // manda la cookie httpOnly
@@ -97,10 +107,22 @@ function refreshAccessToken(): Promise<string> {
       // La respuesta viene envuelta por el interceptor del backend
       // (`{ success, data }`) sólo si pasa por `apiClient`; acá usamos `axios`
       // pelado a propósito, para no reentrar en este mismo interceptor.
-      const data = response.data as { accessToken: string } & {
-        data?: { accessToken: string };
+      const data = response.data as Partial<{ accessToken: string }> & {
+        data?: Partial<{ accessToken: string }>;
       };
       const token = data.data?.accessToken ?? data.accessToken;
+
+      // El tipo dice `string`, pero es la palabra del backend: si la respuesta
+      // no trae el campo en ninguna de las dos formas, guardar `undefined`
+      // dejaba la promesa resuelta "con éxito" y el reintento salía con
+      // `Bearer undefined` (hallazgo R24). Ese 401 ya no dispara el refresh
+      // porque `_retry` está en `true`, así que el usuario quedaba con una
+      // sesión zombie: sin token y sin logout. Un 200 sin token es una
+      // respuesta inservible; se trata como fallo y termina en logout limpio.
+      if (typeof token !== 'string' || token === '') {
+        throw new Error('La respuesta de /auth/refresh no trajo un access token válido');
+      }
+
       setAccessToken(token);
       return token;
     })
@@ -111,9 +133,43 @@ function refreshAccessToken(): Promise<string> {
   return refreshPromise;
 }
 
+// ============ AVISO DE SESIÓN EXPIRADA ============
+
+type SessionExpiredListener = () => void;
+
+const sessionExpiredListeners = new Set<SessionExpiredListener>();
+
+/**
+ * Suscribe un callback al evento "la sesión ya no se puede recuperar".
+ *
+ * `handleSessionExpired` vive fuera del árbol de React y por eso no podía tocar
+ * el estado del `AuthProvider` (hallazgo R25). Dentro de `/admin` no se notaba
+ * —el `window.location.href` recarga la página y con eso se va todo— pero
+ * **fuera** de `/admin` sólo se borraba el token: el store seguía con `user`
+ * poblado e `isAuthenticated` en `true`, así que volver al admin con el router
+ * (sin recarga) pasaba `ProtectedRoute` con un usuario fantasma y cada query
+ * rebotaba en 401. Con esta suscripción el store se entera y suelta el usuario.
+ *
+ * Devuelve la función para desuscribirse (pensada para el cleanup de un
+ * `useEffect`).
+ */
+export function onSessionExpired(listener: SessionExpiredListener): () => void {
+  sessionExpiredListeners.add(listener);
+  return () => {
+    sessionExpiredListeners.delete(listener);
+  };
+}
+
 /** Sesión no recuperable: se limpia el token y se saca al usuario del admin. */
 function handleSessionExpired(): void {
   clearAccessToken();
+
+  // Avisar siempre, también antes del redirect: si la navegación se demora o
+  // no ocurre, el estado de React igual queda consistente con el token vacío.
+  for (const listener of sessionExpiredListeners) {
+    listener();
+  }
+
   if (window.location.pathname.startsWith('/admin')) {
     window.location.href = '/admin/login';
   }

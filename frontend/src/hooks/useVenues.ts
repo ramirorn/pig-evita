@@ -9,6 +9,7 @@ import {
   type UpdateVenuePayload
 } from '@/api/venues.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export const VENUE_KEYS = {
@@ -45,8 +46,8 @@ export function useCreateVenue() {
       toast.success('Sede creada exitosamente');
       queryClient.invalidateQueries({ queryKey: VENUE_KEYS.lists() });
     },
-    onError: () => {
-      toast.error('Error al crear la sede');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al crear la sede'));
     },
   });
 }
@@ -62,8 +63,8 @@ export function useUpdateVenue() {
       queryClient.invalidateQueries({ queryKey: VENUE_KEYS.lists() });
       queryClient.invalidateQueries({ queryKey: VENUE_KEYS.detail(variables.id) });
     },
-    onError: () => {
-      toast.error('Error al actualizar la sede');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al actualizar la sede'));
     },
   });
 }
@@ -77,8 +78,8 @@ export function useDeleteVenue() {
       toast.success('Sede eliminada exitosamente');
       queryClient.invalidateQueries({ queryKey: VENUE_KEYS.lists() });
     },
-    onError: () => {
-      toast.error('Error al eliminar la sede');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al eliminar la sede'));
     },
   });
 }

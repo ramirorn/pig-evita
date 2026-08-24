@@ -6,6 +6,7 @@ import { Users, Plus } from 'lucide-react';
 import { useParticipants } from '@/hooks/useParticipants';
 import { useDisciplines } from '@/hooks/useDisciplines';
 import { useCategories } from '@/hooks/useCategories';
+import { useDebounce } from '@/hooks/useDebounce';
 import type { Participant } from '@/types';
 import { ParticipantForm } from './components/ParticipantForm';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
@@ -41,8 +42,21 @@ export function ParticipantsPage() {
     disciplineId: filters.disciplineId !== 'all' ? filters.disciplineId : undefined,
   });
 
+  // Los tres filtros de texto se amortiguan antes de entrar a la `queryKey`
+  // (R20): los `<input>` siguen atados a `filters` y responden sin retardo,
+  // pero la request espera a que el usuario deje de tipear. Los `Select` no
+  // pasan por el debounce: un click es una intención completa, no una ráfaga.
+  const debouncedSearch = useDebounce(filters.search);
+  const debouncedDepartment = useDebounce(filters.department);
+  const debouncedLocality = useDebounce(filters.locality);
+
   const { data: participantsData, isLoading, isFetching, isError, refetch } = useParticipants({
-    ...toParticipantQuery(filters),
+    ...toParticipantQuery({
+      ...filters,
+      search: debouncedSearch,
+      department: debouncedDepartment,
+      locality: debouncedLocality,
+    }),
     page,
     limit,
   });

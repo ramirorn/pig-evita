@@ -7,17 +7,27 @@ import {
   Activity, Loader2, TrendingUp, ArrowRight, AlertTriangle,
 } from 'lucide-react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useAuth } from '@/store/auth.store';
+import { puedeVerRuta, type AdminRoutePath } from '@/lib/adminRoutes';
 import { InscriptionStatus } from '@/types';
 import { ROUTES } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { formatRelativeTime } from '@/lib/utils';
 import { InscriptionsStatusCard } from './dashboard/InscriptionsStatusCard';
+import { quickActionsParaRol } from './dashboard/quickActions';
 
 export function DashboardPage() {
   // Una sola request para todo el panel (hallazgo Q3): antes eran 8 `useQuery`
   // que sólo se usaban para leer 8 contadores distintos.
   const { data: stats, isLoading, isError } = useDashboardStats();
+  const { user } = useAuth();
+
+  // El dashboard lo ven admins y coordinadores, pero sus atajos apuntaban a
+  // pantallas con permisos más chicos: un COORDINADOR tenía cuatro botones y
+  // tres lo mandaban a "Acceso Denegado" (R08). Se filtran con el mismo mapa que
+  // usa el router.
+  const puedeIr = (path: AdminRoutePath) => user !== null && puedeVerRuta(user.role, path);
 
   // A propósito SIN `useMemo` (hallazgo Q18): la única cosa que cambia entre
   // renders de esta página es `stats`, que además sería la única dependencia del
@@ -31,6 +41,9 @@ export function DashboardPage() {
     { label: 'Equipos', value: stats?.totalTeams ?? 0, icon: <UsersRound className="w-6 h-6" />, color: 'from-secondary-500 to-secondary-600', link: ROUTES.TEAMS },
     { label: 'Competencias', value: stats?.totalCompetitions ?? 0, icon: <Trophy className="w-6 h-6" />, color: 'from-accent-500 to-accent-600', link: ROUTES.COMPETITIONS },
   ];
+
+  // Accesos rápidos: sólo los que el rol puede abrir de verdad.
+  const quickActions = quickActionsParaRol(user?.role);
 
   const pendingCount =
     stats?.inscriptionsByStatus.find((row) => row.status === InscriptionStatus.PENDIENTE)?.count ?? 0;
@@ -62,25 +75,44 @@ export function DashboardPage() {
         <>
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {cards.map((stat, idx) => (
-              <Link
-                key={stat.label}
-                to={stat.link}
-                className={`stat-card group hover:shadow-md hover:-translate-y-0.5 transition-all animate-fade-in cursor-pointer`}
-                style={{ animationDelay: `${idx * 0.08}s` }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center text-white shadow-sm group-hover:shadow-md transition-shadow`}>
-                    {stat.icon}
+            {cards.map((stat, idx) => {
+              const contenido = (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center text-white shadow-sm group-hover:shadow-md transition-shadow`}>
+                      {stat.icon}
+                    </div>
+                    <TrendingUp className="w-4 h-4 text-primary-300 group-hover:text-primary-500 transition-colors" />
                   </div>
-                  <TrendingUp className="w-4 h-4 text-primary-300 group-hover:text-primary-500 transition-colors" />
+                  <p className="text-3xl font-black text-primary-900 animate-count-up" style={{ animationDelay: `${idx * 0.1}s` }}>
+                    {stat.value}
+                  </p>
+                  <p className="text-sm font-medium text-primary-500">{stat.label}</p>
+                </>
+              );
+
+              // El número se muestra igual; lo que se saca es el link cuando el
+              // rol no puede abrir esa pantalla, para no ofrecer un camino que
+              // termina en "Acceso Denegado".
+              return puedeIr(stat.link) ? (
+                <Link
+                  key={stat.label}
+                  to={stat.link}
+                  className={`stat-card group hover:shadow-md hover:-translate-y-0.5 transition-all animate-fade-in cursor-pointer`}
+                  style={{ animationDelay: `${idx * 0.08}s` }}
+                >
+                  {contenido}
+                </Link>
+              ) : (
+                <div
+                  key={stat.label}
+                  className="stat-card group animate-fade-in"
+                  style={{ animationDelay: `${idx * 0.08}s` }}
+                >
+                  {contenido}
                 </div>
-                <p className="text-3xl font-black text-primary-900 animate-count-up" style={{ animationDelay: `${idx * 0.1}s` }}>
-                  {stat.value}
-                </p>
-                <p className="text-sm font-medium text-primary-500">{stat.label}</p>
-              </Link>
-            ))}
+              );
+            })}
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
@@ -100,25 +132,25 @@ export function DashboardPage() {
                 <span className="text-sm font-medium text-primary-500 ml-2">Pendientes</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-4 border-t border-primary-100">
-                <Link to={ROUTES.INSCRIPTIONS} className="p-3 bg-primary-50 rounded-lg text-primary-700 font-medium text-sm text-center hover:bg-primary-100 transition-colors">
-                  Revisar Inscripciones
-                </Link>
-                <Link to={ROUTES.COMPETITIONS} className="p-3 bg-primary-50 rounded-lg text-primary-700 font-medium text-sm text-center hover:bg-primary-100 transition-colors">
-                  Generar Fixtures
-                </Link>
-                <Link to={ROUTES.RESULTS} className="p-3 bg-primary-50 rounded-lg text-primary-700 font-medium text-sm text-center hover:bg-primary-100 transition-colors">
-                  Cargar Resultados
-                </Link>
-                <Link to={ROUTES.REPORTS} className="p-3 bg-primary-50 rounded-lg text-primary-700 font-medium text-sm text-center hover:bg-primary-100 transition-colors">
-                  Descargar Reportes
-                </Link>
-              </div>
+              {quickActions.length > 0 && (
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-primary-100">
+                  {quickActions.map((action) => (
+                    <Link
+                      key={action.link}
+                      to={action.link}
+                      className="p-3 bg-primary-50 rounded-lg text-primary-700 font-medium text-sm text-center hover:bg-primary-100 transition-colors"
+                    >
+                      {action.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Recent inscriptions */}
-          {recentInscriptions.length > 0 && (
+          {/* El listado sólo tiene sentido para quien puede abrir una inscripción. */}
+          {puedeIr(ROUTES.INSCRIPTIONS) && recentInscriptions.length > 0 && (
             <div className="card">
               <div className="flex items-center justify-between px-6 py-4 border-b border-primary-100">
                 <h3 className="font-bold text-primary-900 flex items-center gap-2">

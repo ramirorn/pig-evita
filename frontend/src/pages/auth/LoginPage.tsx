@@ -5,13 +5,13 @@ import { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router';
 import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/store/auth.store';
-import { ROUTES } from '@/lib/constants';
+import { destinoPostLogin } from '@/lib/adminRoutes';
 import type { AxiosError } from 'axios';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, isLoading, user } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,12 +31,14 @@ export function LoginPage() {
     );
   }
 
-  // If already logged in, redirect declaratively
-  if (isAuthenticated) {
-    return <Navigate to={ROUTES.DASHBOARD} replace />;
-  }
+  const intentada = (location.state as { from?: { pathname: string } })?.from?.pathname;
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || ROUTES.DASHBOARD;
+  // Con sesión abierta, cada rol va a la primera pantalla que puede ver: mandar
+  // a todos al dashboard dejaba a un ARBITRO —que no lo puede ver— en un
+  // "Acceso Denegado" apenas se logueaba (R08).
+  if (user) {
+    return <Navigate to={destinoPostLogin(user.role, intentada)} replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,8 +51,9 @@ export function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      await login({ email, password });
-      navigate(from, { replace: true });
+      const usuario = await login({ email, password });
+      // Se respeta la ruta que quería abrir, salvo que su rol no la pueda ver.
+      navigate(destinoPostLogin(usuario.role, intentada), { replace: true });
     } catch (err) {
       const axiosError = err as AxiosError<{ message: string }>;
       if (axiosError.response?.status === 401) {

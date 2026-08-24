@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ClipboardCheck, Search, Filter, ClipboardList } from 'lucide-react';
 import { Link } from 'react-router';
 import { useInscriptions } from '@/hooks/useInscriptions';
+import { useDebounce } from '@/hooks/useDebounce';
 import { InscriptionStatus, type Inscription } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +30,11 @@ export function InscriptionsPage() {
   // La búsqueda se resuelve en el servidor: alcanza a todas las inscripciones,
   // no sólo a la página visible. Se manda `undefined` cuando está vacía para no
   // ensuciar la `queryKey` con un string vacío.
-  const busqueda = search.trim();
+  //
+  // El `<input>` sigue atado a `search` (sin retardo, se tipea normal); lo que
+  // se amortigua es únicamente el valor que entra a la `queryKey`, así que
+  // escribir un apellido dispara una request y no una por tecla (R20).
+  const busqueda = useDebounce(search.trim());
 
   const { data: inscriptionsData, isLoading, isFetching, isError, refetch } = useInscriptions({
     status: statusFilter !== 'all' ? statusFilter : undefined,
@@ -40,7 +45,9 @@ export function InscriptionsPage() {
 
   const rows = inscriptionsData?.data ?? [];
 
-  const hasActiveFilters = statusFilter !== 'all' || busqueda !== '';
+  // Para "hay filtros activos" se mira el valor crudo: es feedback de UI y no
+  // tiene por qué esperar al debounce.
+  const hasActiveFilters = statusFilter !== 'all' || search.trim() !== '';
 
   const clearFilters = () => {
     setStatusFilter('all');

@@ -8,6 +8,7 @@ import type { Team } from '@/types';
 import { TeamForm } from './components/TeamForm';
 import { useDisciplines } from '@/hooks/useDisciplines';
 import { useCategories } from '@/hooks/useCategories';
+import { useDebounce } from '@/hooks/useDebounce';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
@@ -44,8 +45,19 @@ export function TeamsAdminPage() {
     disciplineId: filters.disciplineId !== 'all' ? filters.disciplineId : undefined,
   });
 
+  // Los dos filtros de texto se amortiguan antes de entrar a la `queryKey`
+  // (R20): los `<input>` siguen atados a `filters` y responden sin retardo,
+  // pero la request espera a que el usuario deje de tipear. Los `Select` no
+  // pasan por el debounce: un click es una intención completa, no una ráfaga.
+  const debouncedDepartment = useDebounce(filters.department);
+  const debouncedLocality = useDebounce(filters.locality);
+
   const { data: teamsData, isLoading, isFetching, isError, refetch } = useTeams({
-    ...toTeamQuery(filters),
+    ...toTeamQuery({
+      ...filters,
+      department: debouncedDepartment,
+      locality: debouncedLocality,
+    }),
     page,
     limit,
   });

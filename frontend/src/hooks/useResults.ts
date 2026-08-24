@@ -7,6 +7,7 @@ import {
   type MatchResultPayload
 } from '@/api/results.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export const RESULT_KEYS = {
@@ -35,8 +36,8 @@ export function useSubmitMatchResult() {
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       queryClient.invalidateQueries({ queryKey: RESULT_KEYS.all });
     },
-    onError: () => {
-      toast.error('Error al cargar los resultados del partido');
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'Error al cargar los resultados del partido'));
     },
   });
 }
