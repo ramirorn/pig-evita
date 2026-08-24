@@ -64,7 +64,7 @@ describe('Auth — cookie httpOnly del refresh token (e2e)', () => {
   let app: INestApplication<App>;
   let jwtService: JwtService;
   let prisma: {
-    user: { findUnique: jest.Mock; update: jest.Mock };
+    user: { findUnique: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
     auditLog: { create: jest.Mock };
   };
 
@@ -88,6 +88,35 @@ describe('Auth — cookie httpOnly del refresh token (e2e)', () => {
           }
           return Promise.resolve({ ...USER });
         }),
+        // La rotación de R04 es condicional: `updateMany` con el hash leído en
+        // el `where`. El mock **evalúa el where contra el estado actual** en vez
+        // de devolver `count: 1` siempre — si no, un mock complaciente haría
+        // pasar tanto el código nuevo como el viejo y el test no probaría nada.
+        updateMany: jest.fn(
+          ({
+            where,
+            data,
+          }: {
+            where: { id: string; refreshToken?: unknown };
+            data: Record<string, unknown>;
+          }) => {
+            const esperado = where.refreshToken;
+            const coincide =
+              where.id === USER.id &&
+              (esperado === undefined ||
+                // `{ not: null }` = "cualquier sesión viva".
+                (typeof esperado === 'object' && esperado !== null
+                  ? USER.refreshToken !== null
+                  : USER.refreshToken === esperado));
+
+            if (!coincide) return Promise.resolve({ count: 0 });
+
+            if (data.refreshToken !== undefined) {
+              USER.refreshToken = data.refreshToken as string | null;
+            }
+            return Promise.resolve({ count: 1 });
+          },
+        ),
       },
       auditLog: { create: jest.fn().mockResolvedValue({}) },
     };

@@ -18,6 +18,10 @@ import {
 } from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
 import { EngineFactory } from './engine.factory';
+import {
+  COMPETITION_PUBLIC_DETAIL,
+  MATCH_PUBLIC,
+} from '../../common/prisma-selects';
 
 @Injectable()
 export class CompetitionsService {
@@ -103,19 +107,27 @@ export class CompetitionsService {
     return buildPaginatedResponse(competitions, total, filterDto);
   }
 
+  /**
+   * Competencia con su fixture.
+   *
+   * El endpoint que la sirve es `@Public()`: cualquiera sin token la lee. Hasta
+   * R01 bajaba con `results: { include: { participant: true } }`, es decir la
+   * fila completa de `Participant` —DNI, fecha de nacimiento, email, teléfono y
+   * domicilio de chicos menores de edad— publicada en la web. Es el mismo bug
+   * que cerró T01 en `findByQr()`, un módulo más allá.
+   *
+   * Ahora proyecta con los selects compartidos de `common/prisma-selects.ts`:
+   * el participante entra sólo con nombre y apellido (`PARTICIPANT_NAME`), y
+   * `venue`/`category`/`discipline` dejan de arrastrar columnas nuevas por el
+   * solo hecho de que alguien las agregue al esquema.
+   */
   async findOne(id: string) {
     const competition = await this.prisma.competition.findUnique({
       where: { id },
-      include: {
-        discipline: true,
-        category: true,
+      select: {
+        ...COMPETITION_PUBLIC_DETAIL,
         matches: {
-          include: {
-            venue: true,
-            results: {
-              include: { team: true, participant: true },
-            },
-          },
+          select: MATCH_PUBLIC,
           orderBy: [{ round: 'asc' }, { matchNumber: 'asc' }],
         },
       },

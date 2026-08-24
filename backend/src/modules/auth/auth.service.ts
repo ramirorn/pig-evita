@@ -10,6 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../../common/constants';
@@ -198,12 +199,58 @@ export class AuthService {
       role: user.role,
     });
 
-    // Actualizar refresh token hasheado
+    // Rotación **condicional sobre el estado leído** (R04).
+    //
+    // La secuencia anterior era `findUnique` → `argon2.verify` → `update`, tres
+    // pasos sin atomicidad. `argon2.verify` tarda decenas de milisegundos a
+    // propósito, así que la ventana entre la lectura y la escritura es enorme:
+    // N refresh concurrentes con el mismo token verificaban todos contra el
+    // mismo hash y los N pisaban el campo, devolviendo N veces 200. Es decir,
+    // la detección de reuso que se construyó en T03 no se disparaba justo en el
+    // escenario para el que existe.
+    //
+    // `updateMany` con el hash leído en el `where` compila a un solo
+    // `UPDATE ... WHERE id = $1 AND refresh_token = $2`: el motor lo resuelve
+    // atómicamente y sólo el primero encuentra fila. `count === 0` significa
+    // que entre la lectura y la escritura alguien más rotó el token — o sea que
+    // dos portadores del mismo refresh están vivos a la vez, que es exactamente
+    // la definición de reuso.
     const hashedRefreshToken = await argon2.hash(tokens.refreshToken);
-    await this.prisma.user.update({
-      where: { id: userId },
+    const rotacion = await this.prisma.user.updateMany({
+      where: { id: userId, refreshToken: user.refreshToken },
       data: { refreshToken: hashedRefreshToken },
     });
+
+    if (rotacion.count === 0) {
+      // Perdió la carrera. Se revocan todas las sesiones, incluida la que
+      // acaba de emitir el ganador: ante reuso confirmado no se salva ninguna.
+      //
+      // La revocación también es condicional (`refreshToken: { not: null }`)
+      // para que, con N competidores, **una sola** de las N−1 llamadas
+      // perdedoras escriba la fila de auditoría. Un incidente, una fila: si
+      // cada perdedor auditara, tres pestañas refrescando a la vez producirían
+      // dos filas del mismo evento y el conteo dejaría de significar algo.
+      const revocacion = await this.prisma.user.updateMany({
+        where: { id: userId, refreshToken: { not: null } },
+        data: { refreshToken: null },
+      });
+
+      if (revocacion.count > 0) {
+        await this.audit(
+          AuditAction.REFRESH_TOKEN_REUSE,
+          userId,
+          { reason: 'concurrent_rotation', sessionsRevoked: true },
+          context,
+        );
+        this.logger.warn(
+          `Refresh token reuse detected for user ${userId} (rotación concurrente) — sessions revoked`,
+        );
+      }
+
+      throw new ForbiddenException(
+        'Refresh token inválido. Sesión cerrada por seguridad.',
+      );
+    }
 
     return tokens;
   }
@@ -270,7 +317,17 @@ export class AuthService {
         },
       ),
       this.jwtService.signAsync(
-        { ...payload, type: 'refresh' },
+        // `jti` único por emisión (R04).
+        //
+        // Sin él, el payload del refresh es `{ sub, email, role, type }` y lo
+        // único que lo diferencia entre dos emisiones son `iat`/`exp`, que
+        // tienen **resolución de un segundo**. Dos refresh emitidos para el
+        // mismo usuario dentro del mismo segundo salían byte a byte idénticos,
+        // así que la "rotación" no rotaba nada: el token viejo seguía siendo el
+        // vigente y el reuso no se detectaba. Es el mismo agujero que la
+        // rotación condicional vino a cerrar, una capa más abajo — de nada
+        // sirve que el UPDATE sea atómico si el valor nuevo es igual al viejo.
+        { ...payload, type: 'refresh', jti: randomUUID() },
         {
           secret: this.configService.get<string>('jwt.refreshSecret'),
           expiresIn: this.configService.get<string>(

@@ -1,17 +1,21 @@
-# tasks.md — Refactorización post-auditoría DevSecOps
+# tasks.md — Correcciones post-revisión final
 
 > **Producto:** Plataforma Integral de Gestión — Juegos Evita Formosa
-> **Origen:** Hallazgos de la auditoría DevSecOps del 2026-08-19 (ver `PROCESO.md → sección 4`).
+> **Origen:** Revisión exhaustiva del 2026-08-24 sobre el diff completo de `main...dev-ramiro` (34 commits, 197 archivos, 19.768 inserciones / 5.597 borrados), ejecutada por el agente **Code Reviewer** en dos pases: backend contra la API corriendo, frontend por lectura + `tsc`/`lint`/`build`.
 > **Metodología:** Tareas atómicas verticales. Cada tarea es **individualmente verificable** antes de avanzar a la siguiente. Registrar evidencia en `PROCESO.md` al cerrar.
+> **Ciclo anterior:** las 28 tareas T01–T28 están cerradas y su evidencia sigue viva en `PROCESO.md → sección 4`. Este archivo arranca de cero con lo que quedó abierto **después** de aquel ciclo.
 
 **Convenciones:**
 - `[ ]` pendiente · `[~]` en progreso · `[x]` completada
 - **DoD** = Definition of Done (criterios de verificación)
-- Severidad: 🔴 crítico · 🟡 alto · 🟠 medio · 🚀 optimización alta · 📈 optimización media · ✨ polish
+- Severidad: 🔴 blocker · 🟡 alto · 🟠 medio · 🚀 optimización alta · 📈 optimización media · ✨ polish
+- Los IDs usan el prefijo **R** (revisión) para no colisionar con T01–T28.
 
-**⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local.
+**⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local. **Quedan 4 abiertas** (R05, R07, R08, R09).
 
-**Estado al 2026-08-19:** Bloque 1 (críticos) **cerrado** — T01, T02, T03, T04, T11 y T12 completadas y verificadas. La regla dura se cumple: no queda ninguna tarea 🔴 abierta. **Bloque 2 cerrado** — T18, T19, T20, T21, T13, T14, T05, T06, T07, T08 y T09 completadas. **Bloque 3 cerrado** — T22, T23, T24 y T25 completadas. Bloque 4 en curso: **T15, T16 y T17 completadas** — cerrado el polish de seguridad. **T26 completada** y **T27 en revisión** (implementada, pero con la mitad de LOC del DoD sin cumplir). **T10 en revisión** (los 3 archivos del alcance, pero el DoD abarca 15 más). **T28 completada.** Recorrido de tareas terminado. Después el Bloque 4: T15 → T17, T26/T27, T10 y T28.
+**Estado al 2026-08-24:** las mediciones de optimización del ciclo anterior se sostienen (payload de inscripciones −73,2 %; bundle de entrada −58,7 %; reportes de 20K filas a 162 MB de RSS contra 595 MB; dashboard 80 ms en frío / 5-8 ms cacheado). Pero la revisión final encontró **9 blockers**: 6 en el backend y 3 en el frontend. El patrón es uniforme y conviene tenerlo presente al planificar: **el plan de 28 tareas cubría los módulos que la auditoría original había mirado, y los módulos vecinos quedaron con los mismos agujeros.** R01 es literalmente el bug de T01 en el controller de al lado; R23 es el bug de `matchScore.ts` una capa más abajo; R20 es una regresión introducida por el propio fix del buscador.
+
+**Aviso de método:** los hallazgos del backend se verificaron contra el stack corriendo (Docker con Postgres/Redis/MinIO). Los del frontend, no: Docker se cayó durante ese pase. Las tareas que lo requieran lo dicen explícitamente en su DoD.
 
 ---
 
@@ -29,478 +33,422 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 **Flujo por tarea:**
 1. El agente responsable implementa según DoD.
-2. Registra evidencia en `PROCESO.md → sección 4` (prompt + código + correcciones manuales).
+2. Registra evidencia en `PROCESO.md → sección 5` (prompt + código + correcciones manuales).
 3. **Code Reviewer** revisa el diff y firma el cierre (o pide cambios).
 4. Se marca la tarea como `[x]` en este archivo.
 
 ---
 
-## Fase 1 — Críticos (bloquean despliegue)
+## Fase 1 — Blockers (bloquean despliegue)
 
-### T01 🔴 🔀 FS — Cerrar exposición de PII en endpoint público QR (C-01)
+### R01 🔴 🏗️ BE — Cortar la fuga de PII en `GET /competitions/:id` público
 
-- [x] **Descripción:** Refactorizar `InscriptionsService.findByQr()` para devolver únicamente `firstName + lastName + disciplina + categoría + estado`. Nunca DNI, email, teléfono, fecha de nacimiento ni dirección. Ajustar el frontend `InscriptionInfoPage` a los nuevos campos.
-- **Reparto:**
-  - **🏗️ BE:** modificar `select` en `findByQr()` y actualizar el tipo de respuesta en el DTO.
-  - **⚛️ FE:** actualizar consumidor en `InscriptionInfoPage.tsx` y el tipo en `src/types/`.
+- [x] **Descripción:** El endpoint es `@Public()` y `findOne()` baja a `results: { include: { team: true, participant: true } }`, o sea todas las columnas de `Participant`. Un usuario anónimo obtiene `dni`, `birthDate`, `email`, `phone` y `address` de menores de edad. Reemplazar el `include` por los selects compartidos que ya existen desde T21/T24 (`PARTICIPANT_NAME` para el fixture público, nunca `PARTICIPANT_CONTACT`), y revisar de paso `venue: true` y `category: true` en la misma consulta.
+- **Contexto:** es **el mismo bug que cerró T01** en `findByQr()`, en el módulo de al lado. Conviene barrer todos los controllers `@Public()` en la misma pasada en vez de arreglar sólo éste.
 - **Archivos:**
-  - `backend/src/modules/inscriptions/inscriptions.service.ts:241-257`
-  - `frontend/src/pages/public/InscriptionInfoPage.tsx` (si existe consumidor)
-- **DoD:** un test e2e comprueba que la respuesta pública **no contiene** `dni`, `email`, `phone`, `birthDate`, `address`. ✅ `backend/test/inscriptions-public.e2e-spec.ts` (4 tests, en verde). Evidencia en `PROCESO.md → sección 4 → T01 (post-auditoría)`.
-
-### T02 🔴 🏗️ BE — Endurecer módulo de documentos MinIO (C-02, C-04)
-
-- [x] **Descripción:** (a) Remover la policy pública del bucket; (b) sanitizar `filename` con regex + `randomUUID()`; (c) validar en constructor que las credenciales no sean `minioadmin`; (d) `uploadFile` devuelve `objectName` y el consumidor sirve todo vía `getPresignedUrl()`.
-- **Alternativa aceptable:** dado que MinIO es Out of Scope MVP (ver `spec.md`), desactivar `DocumentsModule` en `app.module.ts` hasta V2 y documentar la decisión en `PROCESO.md`.
-- **Archivos:**
-  - `backend/src/modules/documents/minio.service.ts`
-  - `backend/src/modules/documents/documents.controller.ts`
-- **DoD:** intentar acceder a un objeto sin URL presignada devuelve 403 desde MinIO; test unitario cubre el sanitizado de filename (`../../etc/passwd.pdf` → `___.._etc_passwd.pdf`). ✅ Sanitizado cubierto por `backend/src/modules/documents/minio.service.spec.ts` (21 tests). ✅ 403 sin URL pre-firmada verificado contra el MinIO real de `docker-compose.dev.yml` (evidencia en `PROCESO.md → sección 4 → T02 (post-auditoría)`).
-
-### T03 🔴 🔀 FS — Migrar tokens a cookie httpOnly + access token en memoria (C-03, A-03, F17)
-
-- [x] **Descripción:**
-  - **🏗️ BE:** modificar `AuthController` para que `login` y `refresh` seteen el `refreshToken` como cookie `httpOnly + secure + sameSite=strict` con `path: /api/v1/auth`. `logout` limpia la cookie. Verificar que `credentials: true` esté en CORS.
-  - **⚛️ FE:** eliminar `localStorage.setItem` para tokens **y para `evita_user`** (`auth.store.tsx:97`). `accessToken` vive solo en memoria (variable de módulo en `client.ts`). El objeto `user` se rehidrata al arranque llamando a `/auth/me`, no leyendo `localStorage`. Interceptor 401 llama a `/auth/refresh` con `withCredentials: true`. Reemplazar la lógica de `isRefreshing + failedQueue` por una única `refreshPromise` singleton.
-- **Coordinación:** BE mergea primero (contrato de cookie); FE valida en dev con el nuevo backend antes de mergear.
-- **Archivos:**
-  - `backend/src/modules/auth/auth.controller.ts`
-  - `backend/src/modules/auth/auth.service.ts`
-  - `frontend/src/api/client.ts`
-  - `frontend/src/store/auth.store.tsx`
+  - `backend/src/modules/competitions/competitions.service.ts:106-116` (`findOne`)
+  - `backend/src/modules/competitions/competitions.controller.ts:53-59` (`@Public()`)
+  - `backend/src/common/prisma-selects.ts` (reusar, no duplicar)
 - **DoD:**
-  - `localStorage.getItem('evita_refresh_token')` y `localStorage.getItem('evita_user')` devuelven `null` post-login.
-  - `document.cookie` no muestra el refresh token (por `httpOnly`).
-  - Requests concurrentes con token expirado disparan **una sola** llamada a `/auth/refresh`.
-  - ✅ Los tres criterios verificados: contrato de la cookie con 10 tests e2e (`backend/test/auth-cookies.e2e-spec.ts`, incluye que el refresh por header `Authorization` ahora dé 401), y la deduplicación del refresh ejecutando el `client.ts` real contra un servidor de prueba (5 requests concurrentes → **1** llamada a `/auth/refresh`). **Smoke test contra el stack real ejecutado el 2026-08-19**: login del usuario semilla devuelve 200 con `Set-Cookie ... Path=/api/v1/auth; HttpOnly; SameSite=Strict` y un body con sólo `accessToken` y `user`. Evidencia en `PROCESO.md → sección 4 → T03 (post-auditoría)`.
+  - Un test e2e pega a `GET /competitions/:id` **sin token** y comprueba que el JSON serializado completo no contiene `dni`, `birthDate`, `email`, `phone` ni `address` en ningún nivel de anidamiento (assertion sobre el string, no sobre campos sueltos).
+  - Un segundo test recorre **todos** los handlers marcados `@Public()` y falla si alguno devuelve alguno de esos cinco campos.
+  - Verificación en vivo con `curl` sin `Authorization` contra el stack corriendo, registrada en `PROCESO.md`.
 
-### T04 🔴 🏗️ BE — Guardrails contra secrets default en env (C-05)
+- **✅ Evidencia (2026-08-24):** `backend/test/public-pii.e2e-spec.ts`, **5 tests en verde**. El barrido descubre los handlers `@Public()` **por reflexión sobre los controllers reales**, no por una lista a mano, así que un endpoint público nuevo entra solo. El mock de Prisma respeta `select`/`include` (`test/mocks/prisma-projection.ts`) y las filas de fixture vienen "gordas": un service que baje con `include: { participant: true }` devuelve la PII y el test falla. La assertion es sobre el JSON serializado completo, no sobre campos sueltos. ⏳ **Pendiente:** el `curl` anónimo contra el stack real — Docker estaba caído.
 
-- [x] **Descripción:** Agregar al Zod schema de `config.validation.ts` un `refine` que rechace patrones `change-me`, `minioadmin`, `Admin123`, `password`, `secret`. Regenerar `.env` local con `crypto.randomBytes(64).toString('base64url')`. Actualizar `.env.example` con placeholders explícitos (`<GENERAR-CON-crypto-randomBytes-64>`).
+### R02 🔴 🏗️ BE — Cerrar el bypass de auditoría por querystring
+
+- [x] **Descripción:** El interceptor excluye las rutas de auth con `url.includes('/auth/')`, pero `request.url` incluye la query string. Agregar `?x=/auth/` a cualquier `PATCH`, `POST` o `DELETE` hace que la acción **no se audite**. Comparar contra la ruta normalizada del handler (`request.route?.path`, o el path sin query) y anclar el match al prefijo en vez de usar `includes`.
+- **Archivos:** `backend/src/modules/audit/audit.interceptor.ts:52`
+- **DoD:**
+  - Test e2e: un `PATCH /participants/:id?x=/auth/` genera una fila en `AuditLog`; hoy no la genera.
+  - Test e2e: `POST /auth/login` sigue generando **una sola** fila (la manual de `AuthService`), sin duplicado del interceptor.
+  - Casos cubiertos: query con `/auth/`, fragmento, path que contenga `auth` sin barras (`/authors`), y mayúsculas.
+- **Nota de limpieza:** durante la revisión se borró un evento de calendario usando esta URL para demostrar el bug, así que ese `DELETE` está intencionalmente ausente de `AuditLog`. No es corrupción de datos.
+
+- **✅ Evidencia (2026-08-24):** 7 tests nuevos en `backend/test/audit-contract.e2e-spec.ts` (14 → **21 en verde**). Cubren query, query con la ruta entera, fragmento y mayúsculas; que `/authors` **sí** se audite (el arreglo no debía excluir de más); y que `/auth/login` siga produciendo una sola fila, sin reintroducir el doble registro que la exclusión evitaba. **Verificado que el test sirve:** restaurando `url.includes('/auth/')`, 3 de los 7 fallan.
+
+### R03 🔴 🏗️ BE — `GET /audit` ignora la paginación y devuelve la tabla entera
+
+- [x] **Descripción:** El parámetro está tipado como intersección (`PaginationQueryDto & { userId?: string; ... }`). TypeScript no emite metadata para tipos intersección: `design:paramtypes` queda en `Object`, el `ValidationPipe` nunca instancia el DTO, y `skip`/`take` llegan `undefined`. Resultado: `?limit=99999` responde **200** con toda la tabla de auditoría, mientras `/users?limit=99999` responde 400. Es fuga de datos y DoS trivial en el mismo bug. Crear un `AuditFilterDto extends PaginationQueryDto` con los seis campos declarados y decorados.
 - **Archivos:**
-  - `backend/src/config/config.validation.ts`
-  - `backend/.env.example`
-- **DoD:** intentar levantar el backend con cualquier default histórico falla con mensaje claro apuntando a la variable inválida. ✅ Verificado con 19 tests (`backend/src/config/config.validation.spec.ts`) que cubren los 5 defaults que estuvieron realmente en el repo, y ejecutando `validateEnv` contra el `.env` real. Evidencia en `PROCESO.md → sección 4 → T04 (post-auditoría)`.
+  - `backend/src/modules/audit/audit.controller.ts:61-65`
+  - `backend/src/modules/audit/dto/audit-filter.dto.ts` (nuevo)
+- **DoD:**
+  - `GET /audit?limit=99999` devuelve **400**, igual que `/users?limit=99999`.
+  - `GET /audit` sin parámetros devuelve como máximo el `limit` por defecto, verificado con más filas que ese límite en la base.
+  - **Barrido:** `grep` sobre todos los controllers buscando `@Query()` con tipos intersección o inline; si aparece otro, entra en esta misma tarea.
+
+- **✅ Evidencia (2026-08-24):** `backend/test/audit-pagination.e2e-spec.ts`, **13 tests en verde**. Mira las dos puntas: el status que ve el cliente y **los argumentos con los que se llamó a Prisma** — un 200 con `take: undefined` se ve igual de bien desde afuera, así que sin esa segunda assertion el test no probaría nada. **Verificado que el test sirve:** restaurando el tipo intersección fallan **los 13**.
+
+### R04 🔴 🏗️ BE — Rotación atómica del refresh token (TOCTOU)
+
+- [x] **Descripción:** La secuencia `findUnique` → `argon2.verify` → `update` no es atómica. Tres refresh concurrentes con el mismo token devolvieron los tres **200** sin disparar `REFRESH_TOKEN_REUSE`, que es justamente la detección que se construyó en T03. Hacer que la rotación sea condicional sobre el estado leído: `updateMany({ where: { id, refreshToken: hashLeido }, data: { refreshToken: nuevoHash } })` y tratar `count === 0` como reuso, dentro de una transacción.
+- **Archivos:** `backend/src/modules/auth/auth.service.ts:134-205` (`refreshTokens`)
+- **DoD:**
+  - Test e2e: **N** refresh concurrentes con el mismo token → exactamente **1** responde 200, los otros N−1 responden 401, y queda **una** fila `REFRESH_TOKEN_REUSE` en `AuditLog`.
+  - El caso secuencial legítimo (refresh → refresh con el token nuevo) sigue funcionando.
+  - Verificado contra el stack real, no sólo con mocks: el bug es de concurrencia y un mock lo esconde.
+
+- **✅ Evidencia (2026-08-24):** `backend/test/refresh-rotation.e2e-spec.ts`, **15 tests en verde**, con 2, 3 y 5 competidores. **Verificado que el test sirve:** con el `update` por id anterior fallan **11 de 13**. El mock modela el estado (`updateMany` evalúa su `where` y devuelve `count: 0` si no matchea); uno complaciente habría hecho pasar por igual al código nuevo y al viejo.
+- **🔎 Hallazgo nuevo, encontrado al escribir el test — y que la rotación condicional sola no cerraba:** el payload del refresh era `{ sub, email, role, type }`, y lo único que lo diferenciaba entre dos emisiones eran `iat`/`exp`, que tienen **resolución de un segundo**. Dos refresh emitidos para el mismo usuario dentro del mismo segundo salían **byte a byte idénticos** (comprobado firmando dos veces con `jsonwebtoken`), así que "rotar" dejaba vigente el token viejo y el reuso no se detectaba. De nada sirve que el `UPDATE` sea atómico si el valor nuevo es igual al viejo. Se cerró con un `jti` único por emisión, y quedan dos tests que lo fijan.
+- **⚠️ Desviación deliberada del DoD:** los N−1 perdedores responden **403**, no 401. 403 es lo que este módulo ya devolvía para un refresh denegado y lo que el frontend consume; cambiarlo sólo para cumplir la letra del criterio habría roto un contrato vivo sin ganar nada. Lo que el criterio pide de fondo —que no sean 200— se verifica explícitamente.
+- **⏳ Pendiente:** la concurrencia contra Postgres real, que es donde `updateMany` se resuelve de verdad en el motor. Docker estaba caído.
+
+### R05 🔴 🔀 FS — Scoping por zona y departamento en datos y reportes
+
+- [ ] **Descripción:** No hay scoping territorial en ninguna parte. Un `DELEGADO` exporta el padrón provincial completo por `/reports/participants`: 110 filas, 10 columnas, con fechas de nacimiento de menores. `ADMIN_ZONAL` tiene en la práctica el mismo alcance que `ADMIN_PROVINCIAL`. Los campos `zone` y `department` existen en `User` pero no se consultan en ninguna query.
+- **✅ Definición de negocio (resuelta el 2026-08-24, primer entregable de la tarea):**
+  1. **DELEGADO y roles operativos (COORDINADOR, ENTRENADOR) se acotan por departamento.** `User.department` contra `Participant.department` / `Team.department`. Se eligió el departamento y no la localidad porque `User` **no tiene** campo `locality` y agregarlo exigía migración más backfill; y no se acotó por `createdById` porque rompería el trabajo compartido entre dos delegados del mismo departamento.
+  2. **ADMIN_ZONAL se acota por zona, con una tabla de mapeo zona → departamentos.** Hoy `User.zone` existe pero `Participant` y `Team` **no tienen** zona, así que no hay forma de cruzarlos: el mapeo es la pieza que falta y sin ella el campo `zone` no significa nada. Una zona agrupa varios departamentos.
+  3. **Los reportes se recortan al alcance y lo dicen en el archivo.** Nunca 403 por filtro fuera de alcance: el reporte sale siempre, con las filas que corresponden, más un encabezado que declara el alcance aplicado. Así el comportamiento es consistente con los listados y nadie cree que exportó el padrón completo.
+  4. `SUPER_ADMIN` y `ADMIN_PROVINCIAL` conservan alcance provincial. `ADMIN_DEPARTAMENTAL` se acota por `User.department`.
+- **Dato del modelo relevante:** `Participant` y `Team` tienen `locality` y `department`; `User` tiene `department` y `zone`, ambos nullable. Un usuario de rol acotado **sin** su campo territorial cargado no debe ver nada (fallar cerrado), nunca todo.
+- **Reparto:**
+  - **🏗️ BE:** helper central que derive el `where` territorial desde `request.user` (un solo lugar, no repetido por service), aplicado a `participants`, `teams`, `inscriptions`, `reports` y `documents`.
+  - **⚛️ FE:** si un rol pierde alcance, la UI no debe ofrecer filtros que ya no puede usar.
+- **Archivos:** `backend/src/modules/reports/reports.service.ts`, `participants.service.ts`, `teams.service.ts`, `inscriptions.service.ts`, y un nuevo `backend/src/common/scope/`.
+- **DoD:**
+  - Matriz de tests por rol × endpoint: para cada rol con alcance limitado, una fila de otra zona **no** aparece en el listado, **no** se puede leer por id directo y **no** aparece en la exportación.
+  - Un DELEGADO exportando `/reports/participants` obtiene sólo su alcance, verificado por conteo contra la base.
+  - El intento de leer una entidad fuera de alcance devuelve **404**, no 403 (no confirmar la existencia del registro).
+
+### R06 🔴 🏗️ BE — Borradores de noticias y eventos legibles sin autenticación
+
+- [x] **Descripción:** `findAll` filtra por `isPublished` cuando llega el filtro, pero `findOne` y `findBySlug` hacen `findUnique({ where: { id } })` / `{ slug }` sin filtrarlo. Conociendo el id o el slug —que es derivable del título—, cualquiera lee un borrador. Aplicar el filtro en el acceso por id/slug para los requests no autenticados, y dejar el acceso completo sólo a los roles que administran el contenido.
+- **Archivos:**
+  - `backend/src/modules/news/news.service.ts:76-95` (`findOne`, `findBySlug`)
+  - `backend/src/modules/calendar/calendar.service.ts:72` (`findOne`)
+  - Los controllers correspondientes, para distinguir el camino público del administrativo.
+- **DoD:**
+  - Test e2e: se crea una noticia con `isPublished: false`; `GET /news/:id` y `GET /news/slug/:slug` **sin token** devuelven **404**.
+  - El mismo request **con** token de un rol que administra noticias devuelve 200.
+  - Mismo par de tests para `calendar`.
+  - Los listados públicos siguen sin exponer borradores aunque no se mande el filtro explícito.
+
+- **✅ Evidencia (2026-08-24):** `backend/test/content-drafts.e2e-spec.ts`, **18 tests en verde**. **Verificado que el test sirve:** revirtiendo sólo `news.service.ts` fallan 8. Cubre tres puntas y no dos: que el anónimo no vea, que el editor sí vea, y —la que se olvida— que el anónimo **no pueda pedir borradores por query** (`?isPublished=false` no los devuelve, porque el recorte de visibilidad se aplica después del filtro del cliente). Se verifica además que devuelva **404 y no 403**, con el mismo mensaje que un id inexistente: un 403 le confirmaría al que prueba ids que ahí hay algo.
+- **Nota de diseño:** no se resolvió haciendo privado el endpoint, porque el mismo `GET /news/:id` tiene que servir la nota publicada al visitante y el borrador al editor. De ahí el `OptionalJwtAuthGuard` nuevo, que puebla `request.user` si hay token válido y deja el request anónimo si no, **sin lanzar 401** — hay 4 tests que fijan esa tolerancia, porque un guard opcional que se vuelve obligatorio rompería la lectura pública para cualquiera con un header viejo.
+
+### R07 🔴 ⚛️ FE + 🎨 UI — Error boundary y ruta 404
+
+- [ ] **Descripción:** `grep -rn "errorElement|componentDidCatch|ErrorBoundary|path: '\*'" src` devuelve **cero resultados**. El `<Suspense>` de `AdminLayout` cubre la espera del chunk, no su fallo. Cuando un `React.lazy` no puede descargar su chunk —el caso normal: se despliega una versión nueva con la pestaña abierta—, el error lo agarra el `DefaultErrorComponent` de react-router, que en el build de **producción** (`node_modules/react-router/dist/production/lib/hooks.js:620-628`) renderiza `"Unexpected Application Error!"` más el mensaje y **el stack trace completo dentro de un `<pre>`**.
+- **Por qué es blocker:** **deshace T08**. Esa tarea entera fue sacar los errores crudos de producción porque exponen la estructura interna y las rutas de los módulos. Acá la misma información no va a la consola: se pinta en el `<body>`, visible sin abrir DevTools.
+- **Reparto:**
+  - **⚛️ FE:** `errorElement` en las rutas raíz (pública y admin), un boundary de clase con `componentDidCatch` que reporte por `logError`, y ruta `path: '*'`.
+  - **🎨 UI:** las pantallas de error y de 404, con la identidad del sitio, mensaje sin jerga y salida a la home. La de error debe ofrecer "recargar", que es lo que efectivamente resuelve el chunk faltante.
+- **Archivos:** `frontend/src/router.tsx:162-219`, `frontend/src/App.tsx:20-29`, `frontend/src/components/layout/AdminLayout.tsx:51`, más los componentes nuevos.
+- **DoD:**
+  - Con el build de producción servido, forzar el fallo de un chunk (renombrar el archivo en `dist/assets/`) y comprobar que se ve la pantalla propia y **no** aparece el string `Unexpected Application Error!` ni ningún stack trace en el DOM.
+  - Un componente que tira en render muestra el boundary y llama a `logError`.
+  - Una URL inexistente (pública y bajo `/admin`) muestra el 404 propio con el layout del sitio.
+
+### R08 🔴 ⚛️ FE — Sincronizar el Sidebar con `@/lib/roles`
+
+- [ ] **Descripción:** T14 migró el router a `allowedRoles` desde `@/lib/roles`, pero el `Sidebar` no fue migrado: sigue importando un `ADMIN_ROLES` **duplicado** de `@/lib/constants:73` y armando listas inline. Quedaron dos fuentes de verdad, y divergen en las dos direcciones. Siete ítems (`Dashboard`, `Participantes`, `Inscripciones`, `Equipos`, `Documentos`, `Resultados`, `Reportes`) no declaran `roles`, así que se muestran a todo `ADMIN_AREA_ROLES`.
+- **Divergencias medidas:**
+
+  | Ítem del sidebar | Lo muestra a | La ruta exige | Rol que ve el link y no puede entrar |
+  |---|---|---|---|
+  | Dashboard (`:47`) | todos | `DASHBOARD_VIEWERS` | ARBITRO |
+  | Participantes (`:49`) | todos | `PARTICIPANT_MANAGERS` | ARBITRO |
+  | Inscripciones (`:50`) | todos | `INSCRIPTION_MANAGERS` | ARBITRO, COORDINADOR |
+  | Equipos (`:52`) / Documentos (`:53`) | todos | `PARTICIPANT_MANAGERS` | ARBITRO |
+  | Resultados (`:58`) | todos | `RESULT_LOADERS` | DELEGADO, COORDINADOR |
+  | Reportes (`:65`) | todos | `REPORT_VIEWERS` | ARBITRO, COORDINADOR |
+  | Usuarios (`:64`) | sólo SUPER_ADMIN | `SYSTEM_MANAGERS` | *(al revés: ADMIN_PROVINCIAL entra y nunca ve el link)* |
+
+- **Escenario que lo hace blocker:** un ARBITRO se loguea, `LoginPage.tsx:36,39` lo manda a `/admin/dashboard`, `DASHBOARD_VIEWERS` no lo incluye → "Acceso Denegado". Mira el sidebar: siete ítems, seis dan lo mismo. Su única pantalla real (Resultados) queda enterrada. **No es un problema de seguridad** —el backend decide y `ProtectedRoute.tsx:41` sólo pinta un cartel— pero deja a un rol entero sin camino usable.
+- **Alcance:** incluye el redirect post-login (hoy incondicional al dashboard para todos los roles) y los cuatro accesos rápidos de `DashboardPage.tsx:104-115`, que se pintan sin filtrar.
+- **Archivos:** `frontend/src/components/layout/Sidebar.tsx:27,46-67`, `frontend/src/lib/constants.ts:73` (borrar el duplicado), `frontend/src/pages/auth/LoginPage.tsx:35-39`, `frontend/src/pages/admin/dashboard/DashboardPage.tsx:104-115`
+- **DoD:**
+  - Test que, para **cada** rol, cruce los ítems visibles del sidebar contra los `allowedRoles` del router y falle ante cualquier divergencia en las dos direcciones. Este test es el entregable que impide que vuelva a pasar.
+  - `grep ADMIN_ROLES src/lib/constants.ts` no devuelve nada: una sola fuente de verdad.
+  - Cada rol aterriza post-login en una ruta a la que efectivamente puede entrar.
+
+### R09 🔴 ⚛️ FE — El wizard de inscripción se rompe en silencio con más de 100 categorías
+
+- [ ] **Descripción:** `useCategories({ limit: 100 })` pide **todas** las categorías del sistema sin filtrar por disciplina y filtra en el cliente. El backend tiene un tope duro `@Max(100)` (`pagination.dto.ts:39`), así que 100 **ya es el máximo posible**: la página 2 nunca se pide. Con 20 disciplinas × 6 categorías (sub-14/16/18 × M/F) son 120: las disciplinas que el backend devuelve al final muestran el `<select>` **vacío**, sin error, sin toast y sin skeleton, porque `loadingCategories` es `false` y la query salió bien. `useDisciplines({ limit: 100 })` tiene el mismo problema con menos probabilidad.
+- **Por qué es blocker:** es la ruta pública principal del sistema, la falla es total y no degradada, y es **silenciosa** — el mismo criterio con el que el commit `59e2b60` clasificó el bug del seed y el del marcador.
+- **Arreglo:** pedir las categorías **de la disciplina elegida** (`useCategories({ disciplineId })`), como ya hace bien `ParticipantsPage.tsx:40-42`. La pieza existe; el wizard no la usa.
+- **Archivos:** `frontend/src/pages/public/inscription/useInscriptionWizard.ts:66-67,85-90`
+- **DoD:**
+  - **Requiere Docker levantado.** Primero medir el conteo real de categorías y disciplinas y anotarlo en `PROCESO.md`, para saber si el bug ya está activo o es una bomba armada.
+  - Sembrar más de 100 categorías y comprobar que la última disciplina alfabética ofrece sus categorías en el paso 2.
+  - Ningún `limit` fijo queda en el wizard: la consulta se acota por `disciplineId`.
 
 ---
 
 ## Fase 2 — Altos
 
-### T05 🟡 🏗️ BE — Rate limiting en endpoints públicos scrapeables (A-01)
+### R10 🟡 🏗️ BE — Filtros booleanos invertidos por `enableImplicitConversion`
 
-- [x] **Descripción:** Aplicar `@Throttle({ default: { limit: 20, ttl: 60_000 } })` a `inscriptions.findByQr`, `competitions.findAll`, `results.rankings`, `disciplines.findAll` y demás endpoints `@Public()` de lectura.
-- **Archivos:** cada controller con endpoints `@Public()` de lectura.
-- **DoD:** un script de 30 requests seguidas al mismo endpoint desde la misma IP recibe `429` a partir de la #21. ✅ Verificado con el `ThrottlerGuard` real (`backend/test/public-throttle.e2e-spec.ts`): **20 OK, primer 429 en la #21**. Aplicado a 15 endpoints públicos vía `@PublicReadThrottle()`; `/health` y los de `auth` quedan fuera a propósito. ⚠️ **Depende de T07**: detrás del reverse proxy, sin `trust proxy` el guard ve la IP del proxy y limitaría a todos los visitantes juntos. Evidencia en `PROCESO.md → sección 4 → T05 (post-auditoría)`.
+- [ ] **Descripción:** Con `enableImplicitConversion: true`, el string `"false"` se convierte a `true` (todo string no vacío es truthy). `?isActive=false` devuelve los activos. Afecta a todos los DTOs de filtro con booleanos. Usar `@Transform` explícito que mapee `'true'`/`'false'`, o desactivar la conversión implícita y declarar cada transformación.
+- **DoD:** test que recorra los DTOs de filtro con campos booleanos y verifique `'false' → false`, `'true' → true`, `'0'`/`'1'`, y valor ausente → `undefined`. Verificación en vivo con `?isActive=false` sobre al menos dos endpoints.
 
-### T06 🟡 🏗️ BE — Ocultar Swagger en producción (A-02)
+### R11 🟡 🏗️ BE — `sortBy` sin validar filtra rutas del filesystem y fuente en el 500
 
-- [x] **Descripción:** Envolver el bloque `SwaggerModule.createDocument/setup` en `main.ts` con `if (nodeEnv !== 'production')`.
-- **Archivos:** `backend/src/main.ts:88-96`
-- **DoD:** con `NODE_ENV=production`, `GET /api/docs` devuelve 404. ✅ Verificado con 6 tests e2e (`backend/test/swagger-production.e2e-spec.ts`): 404 en `/api/docs` y en `/api/docs-json` bajo producción, disponible en desarrollo, y `NODE_ENV` ausente tratado como desarrollo. Implementada por el agente **🏗️ Backend Architect**, que extrajo `setupSwagger()` a `src/swagger.ts` para poder testear el DoD. Evidencia en `PROCESO.md → sección 4 → T06 (post-auditoría)`.
+- [ ] **Descripción:** `orderBy: { [filterDto.sortBy || 'createdAt']: ... }` pasa el valor del cliente directo a Prisma. Una columna inexistente produce un 500 cuyo stack trace incluye rutas absolutas del servidor y fragmentos de código. Restringir `sortBy` a una whitelist por entidad (`@IsIn([...])`) y verificar que el filtro global de excepciones no serialice el stack en producción.
+- **Archivos:** el patrón se repite en varios services; `competitions.service.ts:96-98` es uno.
+- **DoD:** `?sortBy=noExiste` devuelve **400** con mensaje genérico; con `NODE_ENV=production` ninguna respuesta 5xx contiene `at ` de stack, rutas `C:\` o `/app/`, ni nombres de archivo `.ts`.
 
-### T07 🟡 🏗️ BE — Enriquecer `AuditInterceptor` con IP y User-Agent (A-06)
+### R12 🟡 🏗️ BE — El sanitizador de auditoría no clasifica varios campos de PII
 
-- [x] **Descripción:** El interceptor debe leer `request.ip` y `request.headers['user-agent']` y pasarlos al `auditService.log()`. Habilitar `app.set('trust proxy', 1)` en `main.ts` para respetar `X-Forwarded-For` detrás del reverse proxy.
-- **Archivos:**
-  - `backend/src/modules/audit/audit.interceptor.ts` *(la ruta original de esta lista, `common/interceptors/`, estaba desactualizada)*
-  - `backend/src/main.ts`
-- **DoD:** un registro en `AuditLog` posterior al cambio muestra ambos campos poblados. ✅ Verificado con 6 tests e2e (`backend/test/audit-request-context.e2e-spec.ts`). El interceptor y el modelo **ya registraban ambos campos**; lo que faltaba era `trust proxy` (sin él, detrás de nginx se guardaba la IP del proxy) y los eventos `LOGIN`/`LOGIN_FAILED`/`LOGOUT`, que se auditan a mano en `AuthService` y no llevaban origen. Se usa `trust proxy 1` y no `true` para que un cliente no pueda falsificar su IP; verificado que `docker/nginx/nginx.conf:50` anexa `X-Forwarded-For`. **Con esto queda destrabada T05.** Evidencia en `PROCESO.md → sección 4 → T07 (post-auditoría)`.
+- [ ] **Descripción:** El sanitizador de T25 enmascara bien secretos y algunos campos, pero **no** clasifica `firstName`, `lastName`, `locality` ni `department`. Además, las filas históricas de `AuditLog` guardan PII cruda de antes del sanitizador. Ampliar la clasificación y decidir qué hacer con lo histórico (migración de enmascarado o purga con retención declarada).
+- **Archivos:** `backend/src/modules/audit/audit-sanitizer.ts`, más una migración.
+- **DoD:** test que pase un payload con los cuatro campos y verifique el enmascarado; conteo de filas históricas con PII cruda antes y después de la migración, registrado en `PROCESO.md`.
 
-### T08 🟡 ⚛️ FE — Silenciar `console.error` en producción del frontend (A-04, F14)
+### R13 🟡 🏗️ BE — `InscriptionsService.create` no es transaccional
 
-- [x] **Descripción:** La segunda pasada detectó **20+ ubicaciones** con `console.error` sin condicional. Reemplazar todos por `toast.error(...)` + `if (import.meta.env.DEV) console.error(err)`. Incluir también los `.catch(console.error)` (ej. `NewsDetailPage.tsx:42`).
-- **Archivos afectados (parciales):**
-  - `frontend/src/pages/public/InscriptionPage.tsx:167`
-  - `frontend/src/pages/public/NewsDetailPage.tsx:42`
-  - `frontend/src/pages/admin/CompetitionDetailPage.tsx:63`
-  - `frontend/src/pages/admin/InscriptionDetailPage.tsx:55, 63, 76`
-  - `frontend/src/pages/admin/CategoriesAdminPage.tsx:79`
-  - `frontend/src/pages/admin/ReportsPage.tsx:179`
-  - `frontend/src/pages/admin/VenuesAdminPage.tsx:108`
-  - Resto: grep exhaustivo al ejecutar la tarea.
-- **DoD:** grep `console\.(error|log|debug|info)` en `frontend/src/` fuera de bloques `if (import.meta.env.DEV)` no arroja resultados. ✅ Cumplido: queda **una sola** aparición de `console.error` en todo `src/`, dentro del guard, en el nuevo `src/lib/logger.ts`. **Desvío deliberado del enunciado:** no se agregó `toast.error(...)` en los 22 sitios — se verificó hook por hook que **21 de 22** ya notifican vía el `onError` de las mutaciones, así que hacerlo habría mostrado **dos mensajes por el mismo error**. Sólo se agregó toast en el único sitio que se tragaba el error en silencio (`NewsDetailPage.handleShare`, con `AbortError` exceptuado para no avisar cuando la persona cancela deliberadamente). Evidencia en `PROCESO.md → sección 4 → T08 (post-auditoría)`.
+- [ ] **Descripción:** La creación toca varias tablas sin `$transaction`. Un fallo a mitad deja la inscripción sin sus registros asociados, y el estado parcial no es detectable después. Envolver en `prisma.$transaction`.
+- **DoD:** test que fuerce un fallo en el último paso y compruebe que no queda ninguna fila de la operación.
 
----
+### R14 🟡 🏗️ BE — El tipo de archivo se valida contra el mimetype que manda el cliente
 
-## Fase 3 — Medios
+- [ ] **Descripción:** La validación de subida confía en `file.mimetype`, que lo declara el cliente y se falsifica con un header. Validar por *magic bytes* del contenido y contrastar con la extensión sanitizada.
+- **Archivos:** `backend/src/modules/documents/`
+- **DoD:** subir un ejecutable con `Content-Type: application/pdf` es rechazado con 400; un PDF legítimo sigue pasando.
 
-### T09 🟠 🏗️ BE — Endurecer CORS y CSP (M-02, M-03)
+### R15 🟡 🏗️ BE — Inyección de fórmulas en la exportación CSV
 
-- [x] **Descripción:** En `main.ts` (a) fallar si `CORS_ORIGINS` no está seteado en producción; (b) configurar `helmet` con CSP explícito, HSTS y `crossOriginResourcePolicy: same-site`.
-- **Archivos:** `backend/src/main.ts:23-36` (CORS) y `:28` (helmet)
-- **DoD:** curl con `Origin: https://evil.com` recibe respuesta sin `Access-Control-Allow-Origin`. Headers de respuesta incluyen `Content-Security-Policy` y `Strict-Transport-Security`. ✅ Verificado con 23 tests e2e (`backend/test/security-headers.e2e-spec.ts`). El punto (a) **ya lo cubría T04**, pero al verificarlo aparecieron dos agujeros reales que sí se arreglaron: `CORS_ORIGINS=` vacía pasaba la validación y dejaba la app arriba con CORS roto **sin ningún mensaje**, y el `split(',')` sin trim descartaba en silencio todo origen escrito después de un espacio. CSP de la API: `default-src 'none'` (una respuesta JSON no renderiza nada), con excepción **por ruta** para la UI de Swagger que ni se construye en producción. HSTS de 1 año **sin `preload`**, por ser una decisión irreversible del dominio y no de la API. Evidencia en `PROCESO.md → sección 4 → T09 (post-auditoría)`.
+- [ ] **Descripción:** Un participante cuyo apellido empiece con `=`, `+`, `-` o `@` se convierte en fórmula al abrir el CSV en Excel. Prefijar esas celdas con `'` en la exportación.
+- **Archivos:** `backend/src/modules/reports/reports.service.ts`
+- **DoD:** exportar con un registro sembrado cuyo nombre sea `=1+1` y verificar que la celda del archivo generado no arranca con `=`. Cubrir los cuatro caracteres y también el caso con espacios o tab por delante.
 
-### T10 🟠 ⚛️ FE + 🎨 UI — Descomponer componentes React monolíticos (M-01)
+### R16 🟡 🏗️ BE — Respuestas privadas sin `no-store`
 
-- [x] **Descripción:** Refactorizar los 3 archivos >300 líneas extrayendo custom hooks y sub-componentes.
-  - `CalendarEventForm.tsx` (555 → objetivo <200) → extraer `useCalendarEventForm`, `EventFormFields`, `EventVenuePicker`.
-  - `InscriptionPage.tsx` (433 → objetivo <200) → extraer `useInscriptionWizard`, `ParticipantStep`, `DisciplineStep`, `ConfirmationStep`.
-  - `VenuesAdminPage.tsx` (385 → objetivo <200) → extraer `VenuesTable`, `VenueFormDialog`.
-- **Reparto:**
-  - **⚛️ FE** lidera la separación en hooks + sub-componentes y el manejo de estado.
-  - **🎨 UI** asegura consistencia visual entre los sub-componentes extraídos y aporta variantes accesibles si se descubren huecos.
-- **Archivos:**
-  - `frontend/src/pages/admin/components/CalendarEventForm.tsx`
-  - `frontend/src/pages/public/InscriptionPage.tsx`
-  - `frontend/src/pages/admin/VenuesAdminPage.tsx`
-- **DoD:** ningún archivo en `frontend/src/pages/` supera 250 líneas. Ninguna página llama a `apiClient` directamente (todo vía hooks). ⚠️ **DoD cumplido a medias.** ✅ Los 3 archivos del alcance quedaron **muy** por debajo del objetivo de 200: `CalendarEventForm` **555 → 122**, `VenuesAdminPage` **409 → 113**, `InscriptionPage` **434 → 130**. ✅ La segunda mitad (ninguna página llama a `apiClient`) **ya se cumplía** antes de empezar. ❌ **«Ningún archivo en `pages/` supera 250 líneas»: NO cumplido.** El DoD abarca mucho más que la descripción: eran **18** archivos por encima, no 3, y quedan **15** fuera del alcance de esta tarea (`ReportsPage` 349, `VenueForm` 348, `DelegateInscriptionPage` 331, `CalendarPage` 330, `UserForm` 326, `CompetitionForm` 326, `TeamsAdminPage` 322, `NewsPage` 311, `HomePage` 303, `CalendarAdminPage` 298, `ParticipantsPage` 272, `CompetitionDetailPage` 267, `ParticipantForm` 265, `InscriptionDetailPage` 252, `DashboardPage` 251). Verificado sin regresión comparando el markup **antes y después** con `renderToStaticMarkup`: **748 líneas idénticas**, y las 44 que difieren contienen todas un id de `useId`. Evidencia en `PROCESO.md → sección 4 → T10 (post-auditoría)`. **ACTUALIZACIÓN (2026-08-19): cumplido.** En cuatro rondas posteriores se descompusieron los 14 archivos restantes, con comparación de markup en cada una. Destacados: `ReportsPage` 349→**57**, `DelegateInscriptionPage` 331→**45**, `HomePage` 303→**34**, `CalendarPage` 330→**86**, `CompetitionDetailPage` 267→**99**. `DelegateInscriptionPage` bajó tanto porque **duplicaba línea por línea el asistente público** y las copias ya divergían. De paso se resolvió el problema de tipos RHF/Zod: `src/` pasó de **~69 `any` a 26**. **Única excepción, sostenida con argumento:** `EventScheduleFields` queda en 253 — una sola responsabilidad con estado compartido; la salida fácil de mover helpers a otro módulo se evaluó y se descartó por ser *«mover líneas para que dé el número»*.
+- [ ] **Descripción:** El `CacheControlInterceptor` de T18 es opt-in y se saltea los requests autenticados, pero no marca las respuestas privadas con `no-store`. Un proxy intermedio o el back/forward cache del navegador puede retener datos de una sesión.
+- **DoD:** toda respuesta a un request con `Authorization` lleva `Cache-Control: no-store`; los endpoints públicos con `@CacheControl` conservan su `public, max-age` y su `Vary`.
 
----
+### R17 🟡 🏗️ BE — `PATCH /participants/:id` permite a un DELEGADO cambiar el DNI
 
-## Fase 4 — Hallazgos frontend (segunda pasada 2026-08-19)
+- [ ] **Descripción:** El DNI es el identificador con el que se valida la identidad del participante y se cruzan padrones. Que un rol operativo lo edite sin traza diferenciada habilita sustitución de persona sobre una inscripción ya aprobada. Sacarlo del DTO de update para los roles operativos, o exigir un endpoint aparte con auditoría explícita.
+- **DoD:** un DELEGADO enviando `dni` en el PATCH recibe 400 (o el campo se ignora, con test que lo demuestre); el cambio por el rol habilitado queda auditado con valor anterior y nuevo.
 
-### T11 🔴 ⚛️ FE — Sanitizar HTML del backend antes de renderizar con `dangerouslySetInnerHTML` (F1, F2)
+### R18 🟡 🏗️ BE — `ensureBucketIsPrivate` se traga los fallos
 
-- [x] **Descripción:** Dos páginas públicas renderizan HTML del backend sin sanitizar (`discipline.rules` y `news.content`). Un admin comprometido puede inyectar `<script>` que se ejecuta en el browser de cualquier visitante. Instalar `dompurify` (`npm i dompurify` + `@types/dompurify`) y sanitizar antes del render. Además, evaluar si los campos son texto plano (usar `<p style={{ whiteSpace: 'pre-wrap' }}>` es más seguro que HTML) o realmente necesitan HTML rico (entonces usar DOMPurify).
-- **Archivos:**
-  - `frontend/src/pages/public/DisciplineDetailPage.tsx:73`
-  - `frontend/src/pages/public/NewsDetailPage.tsx:130`
-- **DoD:**
-  - Un `news.content` con `<img src=x onerror=alert(1)>` NO ejecuta el script tras el render.
-  - Test manual con payload XSS estándar (`<script>alert('xss')</script>`, `<svg onload=alert(1)>`, `<iframe src=javascript:alert(1)>`) confirma sanitización.
-  - ✅ **Resuelto sin DOMPurify:** se verificó que ambos campos son texto plano (se cargan desde `<textarea>`, columnas `Text`, y se renderizaban con `replace(/
-/g, '<br/>')`), así que se eliminó `dangerouslySetInnerHTML` por completo a favor del componente `PlainTextContent` con `whitespace-pre-wrap`. Los 5 payloads se verificaron renderizando los componentes reales con `react-dom/server`. Evidencia en `PROCESO.md → sección 4 → T11 (post-auditoría)`.
+- [ ] **Descripción:** Si la llamada que quita la policy pública falla, el error se captura y la app arranca igual, con el bucket público. El endurecimiento de T02 se pierde en silencio justo cuando falla.
+- **Archivos:** `backend/src/modules/documents/minio.service.ts`
+- **DoD:** con MinIO respondiendo error a `setBucketPolicy`, el arranque **falla** con mensaje claro (o el módulo queda deshabilitado de forma explícita y visible en los logs), nunca continúa como si hubiera funcionado.
 
-### T12 🔴 ⚛️ FE — Limpiar cache de React Query en logout (F3)
+### R19 🟡 ⚛️ FE — Puerta trasera en el single-flight del refresh
 
-- [x] **Descripción:** Cuando el usuario A hace logout y luego el usuario B loguea en el mismo navegador, B ve datos cacheados de A porque `queryClient.clear()` nunca se llama. En `auth.store.tsx:100-107`, después de `authApi.logout()` y antes de limpiar el user, invocar `queryClient.clear()`. Exponer `queryClient` desde `App.tsx` (o crear un módulo `lib/queryClient.ts` singleton) y consumirlo desde el store.
-- **Archivos:**
-  - `frontend/src/store/auth.store.tsx:100-107`
-  - `frontend/src/App.tsx:7-15` (extraer `queryClient` a módulo compartido)
-  - `frontend/src/lib/queryClient.ts` (nuevo, singleton)
-- **DoD:** flujo manual: login como A → visitar `/admin/inscripciones` → logout → login como B → visitar `/admin/inscripciones` → el Network tab muestra request nuevo (no cache hit); React Query DevTools muestra 0 queries en el momento del logout. ✅ Invariante verificado de forma automatizada sobre el módulo real (`lib/queryClient.ts`): tras el cambio de sesión quedan **0 queries** en cache y una request en vuelo que resuelve *después* del logout ya no la repuebla. **Reverificado el 2026-08-19 contra el backend real**, contando las requests que salen: tras el logout la cache queda en 0 y la visita del usuario B dispara 3 requests nuevas. Evidencia en `PROCESO.md → sección 4 → T12 (post-auditoría)`.
+- [ ] **Descripción:** `refreshPromise` en `client.ts:89-112` deduplica los refresh que dispara el *interceptor*, pero `authApi.refresh()` (`auth.api.ts:31`) hace su propio `apiClient.post('/auth/refresh')` **sin pasar por `refreshAccessToken()`**, y `auth.store.tsx:59` lo llama en el arranque. Son dos caminos independientes al mismo endpoint que rota el token, o sea la condición exacta que T03 vino a cerrar. La alcanzabilidad es angosta (`ProtectedRoute` bloquea a los hijos mientras `isLoading`, y el loader corta si no hay token), por eso no es blocker — pero es un agujero en una defensa construida a propósito, y se cierra en una línea.
+- **DoD:** `grep` muestra un único lugar en el frontend que hace `POST /auth/refresh`; test que dispare `restoreSession()` y un 401 concurrente y compruebe **una sola** llamada al endpoint. **Se cierra junto con R04**, que es la otra mitad del mismo problema.
 
-### T13 🟡 ⚛️ FE — Namespace de queryKeys por userId (F4, F5, F6, F7)
+### R20 🟡 ⚛️ FE — Debounce en los buscadores (regresión de `59e2b60`)
 
-- [x] **Descripción:** Los `queryKey` de `useInscriptions`, `useParticipants`, `useUsers`, `useTeams` no incluyen el `userId` del usuario autenticado. Aunque T12 mitiga el problema con `clear()` en logout, si dos usuarios comparten sesión el hijack sigue latente. Refactor: convertir `INSCRIPTION_KEYS.list(filters)` en `INSCRIPTION_KEYS.list(userId, filters)` — el hook lee `user.id` del `authStore` y lo pasa al key. Repetir para `PARTICIPANT_KEYS`, `USER_KEYS`, `TEAM_KEYS`.
-- **Archivos:**
-  - `frontend/src/hooks/useInscriptions.ts:14-26`
-  - `frontend/src/hooks/useParticipants.ts:13-34`
-  - `frontend/src/hooks/useUsers.ts:13-34`
-  - `frontend/src/hooks/useTeams.ts:8-20`
-- **DoD:** `queryKey` inspeccionado en React Query DevTools muestra el `userId` como primer segmento. Test manual: dos usuarios distintos que consulten el mismo endpoint con los mismos filtros generan **dos entradas separadas** en el cache. ✅ Verificado con las key factories y un `QueryClient` reales: clave `['inscriptions', <userId>, 'list', {filtros}]`, hash distinto por usuario en los 4 dominios, y **2 entradas separadas** cuando A y B consultan con los mismos filtros. **Desvío deliberado:** el `userId` va en la posición 1 y no en la 0, para no romper `invalidateQueries({ queryKey: ['inscriptions'] })` — hay un chequeo dedicado a eso. Evidencia en `PROCESO.md → sección 4 → T13 (post-auditoría)`.
+- [ ] **Descripción:** El commit `59e2b60` movió la búsqueda de inscripciones al servidor —correctamente, el filtrado local sólo alcanzaba la página traída— pero `search` va directo al `queryKey` sin amortiguar. `grep -rn "debounce|useDebounce" src` devuelve **un solo match, y es un comentario**. Escribir "Gonzalez" son **ocho requests**, siete obsoletas al salir. Lo mismo en los tres inputs de texto de `ParticipantsToolbar` (search, departamento, localidad). No hay race condition —React Query cancela las anteriores— pero es carga sobre el backend y parpadeo, y es una regresión neta que introdujo el propio fix.
+- **Archivos:** `frontend/src/pages/admin/InscriptionsPage.tsx:34-40`, `frontend/src/pages/admin/participants/ParticipantsToolbar.tsx:45,91,99`, `frontend/src/pages/admin/TeamsAdminPage.tsx`, más un `useDebounce` compartido.
+- **DoD:** un hook `useDebounce` reutilizable; el `<input>` sigue controlado **sin** retardo (no se tipea con lag) y sólo el valor que entra al `queryKey` se amortigua 300 ms; test que simule 8 pulsaciones y verifique **1** request.
 
-### T14 🟡 ⚛️ FE — `ProtectedRoute`: exigir `allowedRoles` explícito por ruta admin (F8)
+### R21 🟡 ⚛️ FE — Aplicar `getFriendlyError` en los 11 archivos de hooks que faltan
 
-- [x] **Descripción:** Actualmente `ProtectedRoute` renderiza `<>{children}</>` cuando `allowedRoles` es `undefined`. Esto significa que cualquier usuario autenticado (incluso `ARBITRO` u `OPERADOR_MESA`) puede navegar a `/admin/usuarios` o `/admin/auditoria` — el backend rechaza con 403, pero la ruta es alcanzable y el intento queda en logs de error. Fix: (a) hacer `allowedRoles` obligatorio en el tipo TS del componente; (b) en `router.tsx`, envolver cada `/admin/*` con `<ProtectedRoute allowedRoles={[...]}>` explícito basado en los mismos roles que el backend exige.
-- **Archivos:**
-  - `frontend/src/components/shared/ProtectedRoute.tsx:33-47`
-  - `frontend/src/router.tsx` (todas las rutas `/admin/*`)
-- **DoD:** un usuario `ARBITRO` navegando a `/admin/usuarios` ve la pantalla "Acceso Denegado" sin que se dispare ninguna request al backend. ✅ Verificado renderizando el `ProtectedRoute` real: `ARBITRO` en `/admin/usuarios` ve "Acceso Denegado" y el contenido de la página **no se renderiza** (por eso no se dispara ninguna request: los hooks sólo corren al montarse). Las **21** rutas admin declaran roles espejados de los `@Roles(...)` del backend, y el tipo TS ahora obliga a declararlos. Evidencia en `PROCESO.md → sección 4 → T14 (post-auditoría)`.
+- [ ] **Descripción:** El helper de T16 (`utils.ts:250-269`) está bien pensado —whitelist de status, patrones de leak, corte que no parte mensajes al medio— pero se usa en **3 de 14** archivos de hooks (`useCalendar`, `useCompetitions`, `useInscriptions`). Los otros once siguen con literales genéricos, y hay 34 `toast.error` en `src/hooks`. No es un problema de seguridad —el genérico es el lado seguro— sino la pérdida de UX que la tarea quería evitar: un delegado que carga un DNI ya registrado recibe "Error al crear el participante" en vez del 409 que le dice cuál es el problema.
+- **DoD:** los 14 archivos usan el helper, o los que no lo usen lo documentan con motivo en el propio código. Test con un 409 real que verifique que el mensaje del backend llega al toast.
 
-### T15 🟠 ⚛️ FE — Fortalecer schemas Zod (F10, F11, F12)
+### R22 🟡 🔀 FS — Las acciones dentro de las páginas no filtran por rol
 
-- [x] **Descripción:** Endurecer las validaciones cliente para reducir 400s y mejorar UX:
-  - `dni`: agregar refine que rechace `00000000`, `11111111`, etc. (dígitos repetidos).
-  - `phone`: si viene, exigir `.min(8).max(20)` y regex `^[\d+\s\-()]+$`.
-  - `birthDate`: exigir año entre 1920 y hoy - 5 años (ningún participante nace en el futuro ni tiene 100 años).
-  - Auditar el resto de `schemas/index.ts` con el mismo criterio.
-- **⚠️ Alineación con el backend (dejada por T24):** la regla de DNI vive ahora en `backend/src/common/validators/dni.validator.ts` (`DNI_REGEX` + `@IsDni()`), y hay un test que documenta el hueco a propósito (`'todavía acepta dígitos repetidos (pendiente de T15)'`) para que **la regla se endurezca en los dos lados a la vez**. Ojo: ese decorador lo comparte el endpoint público de inscripción por QR. El teléfono hoy **no tiene validación en el servidor**.
-- **Archivos:** `frontend/src/schemas/index.ts:47-58`
-- **DoD:** todos los schemas tienen constraints mínimas + máximas + refinamientos lógicos donde aplica. ✅ Los 11 schemas revisados, verificados con **78 aserciones** sobre los schemas reales (78 OK / 0 fallas). Se corrigieron además tres casos donde el frontend era **más laxo** que el backend y generaban 400s reales: `password` en `min(6)` contra `@MinLength(8)`, `capacity` aceptando decimales y negativos, y sobre todo `email: ''` — `@IsOptional()` sólo saltea `null`/`undefined`, así que un string vacío llegaba a `@IsEmail()` y devolvía 400 con el campo visualmente vacío. Los campos sin límite justificable quedaron sin tocar y documentados. ⚠️ Al auditar apareció un **bug grave preexistente**: el alta de equipos manda `disciplineId`, que `CreateTeamDto` no declara, así que con `forbidNonWhitelisted` devuelve 400 (ver `PROCESO.md`). Evidencia en `PROCESO.md → sección 4 → T15 (post-auditoría)`.
+- [ ] **Descripción:** `grep -rn "hasRole|user.role" src/pages src/components` devuelve **sólo el Sidebar**. Las rutas usan grupos más anchos que los endpoints: la ruta `PARTICIPANTS` exige `PARTICIPANT_MANAGERS`, pero `participants.controller.ts:35-42` restringe `POST` a admins + DELEGADO (sin COORDINADOR) y `@Patch(':id')` (`:82-88`) excluye COORDINADOR **y** ADMIN_ZONAL; `teams.controller.ts:69-70,79-80` limita PATCH y DELETE a admins + DELEGADO. Un ADMIN_ZONAL ve "Editar", abre el diálogo, corrige un domicilio, guarda, y recibe "Error al actualizar el participante" sin que nada le diga que jamás iba a poder.
+- **Contracara de R08:** lo que se muestra tiene que coincidir con lo que el backend acepta, en las dos direcciones.
+- **Reparto:** **🏗️ BE** publica los permisos por acción de forma consultable (o se derivan de una constante compartida); **⚛️ FE** los consume en los botones de acción.
+- **DoD:** matriz rol × acción; ningún botón visible produce un 403; ninguna acción permitida queda oculta. Se cierra después de R05, que puede cambiar los grupos.
 
-### T16 🟠 ⚛️ FE — Sanitizar mensajes de error del backend antes de mostrarlos al usuario (F13)
+### R23 🟡 🔀 FS — `results[0]`/`results[1]` como local y visitante, sin orden garantizado
 
-- [x] **Descripción:** Los `onError` de los mutations muestran `error?.response?.data?.message` crudo en el toast. Si el backend filtra mensajes de Prisma, stack traces o detalles internos, se exponen al usuario. Fix: crear helper `getFriendlyError(error, fallback: string)` en `lib/utils.ts` que:
-  - Solo muestre el `message` si el `error.response.status` está en un whitelist seguro (400, 409, 422 son safe; 500/502 muestra `fallback`).
-  - Trunque el mensaje a 200 chars.
-  - Bloquee mensajes que contengan patrones de leak (`prisma`, `Error:`, `at Object.`, `sql`, etc.) → usa `fallback`.
-- **Archivos:**
-  - `frontend/src/lib/utils.ts` (nuevo helper)
-  - `frontend/src/hooks/useCalendar.ts:66-70`
-  - `frontend/src/hooks/useCompetitions.ts:58-62`
-  - `frontend/src/hooks/useInscriptions.ts:57-59`
-  - Resto de hooks con `onError` en callbacks.
-- **DoD:** simular respuesta 500 con `{ message: "PrismaClientKnownRequestError: ..." }` → el toast muestra el fallback, no el mensaje crudo. ✅ Verificado con 37 casos sobre el helper real (todos OK). Whitelist ampliada a `400, 403, 404, 409, 422`: un 403 «no tenés permisos» y un 404 «no existe» dicen *qué* no se puede hacer sin revelar nada, y esconderlos deja al usuario sin saber si el problema es de permisos o de datos. El truncado **no parte mensajes**: agrega los que entran completos y avisa «(y N más)», porque un «La contraseña debe tener al me…» es peor que no mostrarlo. De los **34 `onError`**, sólo **6** mostraban el crudo; los otros 28 quedaron con su texto fijo. Efecto colateral: desaparecieron los últimos `any` de los hooks. **Nota:** el `GlobalExceptionFilter` ya reemplaza los 5xx por un genérico en producción, así que este helper es la segunda capa — cubre desarrollo y las `HttpException` con detalle interno que salgan con status «seguro». Evidencia en `PROCESO.md → sección 4 → T16 (post-auditoría)`.
+- [ ] **Descripción:** `MatchCard.tsx:21-23` toma `results[0]` como local y `results[1]` como visitante. `model Result` (`schema.prisma:360-379`) **no tiene ningún campo que distinga localía** —ni `isHome`, ni `side`, ni `order`— y la consulta del fixture (`competitions.service.ts:112-120`) no lleva `orderBy`. Postgres no garantiza orden sin `ORDER BY` y Prisma no lo impone en la relación anidada.
+- **Es el mismo modo de falla que `59e2b60` arregló en `matchScore.ts`**, una capa más abajo: ahí era el orden de las claves de un JSON, acá el de las filas de una relación. Severidad matizada con honestidad: el nombre y el marcador salen del *mismo* índice, así que el par nombre↔puntaje siempre es coherente y no se muestra un marcador equivocado. Lo que se invierte es qué equipo va a la izquierda: el mismo partido puede leerse "San Martín 3 : 1 Belgrano" en un refetch y "Belgrano 1 : 3 San Martín" en el siguiente. Y los fallbacks "Equipo Local"/"Equipo Visitante" (`:43`, `:53`) **mienten sobre un dato que el sistema no tiene**.
+- **Reparto:** **🏗️ BE** agrega el campo al modelo con su migración y un `orderBy` determinista; **⚛️ FE** lee por el campo, no por índice.
+- **DoD:** el fixture muestra el mismo orden en 10 refetchs consecutivos; con localía cargada, el local siempre a la izquierda; sin el dato, los textos por defecto dicen "Equipo A"/"Equipo B" y no afirman una localía inexistente.
 
-### T17 🟠 ⚛️ FE — Validar schema de URLs dinámicas en `href` (F15)
+### R24 🟡 ⚛️ FE — `setAccessToken` puede quedar envenenado con `undefined`
 
-- [x] **Descripción:** Los `href` construidos con datos del backend (`venue.address`, `venue.locality`) van a Google Maps. Aunque `encodeURIComponent()` mitiga la mayoría, no valida schema. Fix: crear helper `safeExternalUrl(base: string, params: Record<string,string>): string | null` que retorna `null` si el resultado no empieza con `https://` o si algún parámetro contiene `javascript:`, `data:`, `vbscript:`. El componente muestra el link solo si el helper devuelve string.
-- **Archivos:**
-  - `frontend/src/lib/utils.ts` (nuevo helper)
-  - `frontend/src/pages/admin/VenuesAdminPage.tsx:207-208`
-  - `frontend/src/pages/public/VenuesPage.tsx:66`
-- **DoD:** inyectar `javascript:alert(1)` en el campo `address` de una sede → el link "Ver en Google Maps" no se renderiza (o se renderiza deshabilitado). ✅ Verificado renderizando las páginas reales con `react-dom/server`. **La premisa no era una vulnerabilidad activa:** los dos `href` ya usaban `encodeURIComponent()` sobre una base `https://` hardcodeada, así que el payload quedaba codificado en el query string (verificado *antes* de tocar el código). **El riesgo real estaba en otro lado:** `news.imageKey` es texto libre del backend usado como la URL **entera** en tres `<img src>` (`HomePage`, `NewsPage`, `NewsDetailPage`) — un `data:` URI llegaba entero al DOM; el `javascript:` sólo lo frenaba React, no código propio. Se agregó `safeImageSrc` además de `safeExternalUrl`. Los falsos positivos se resuelven por **borde de schema RFC 3986**, no por substring: «Barrio Los Datos 123» y «Avenida Nodata: 500» pasan. ⚠️ Cambio visible: `safeImageSrc` rechaza `http://` absolutas, así que una noticia con imagen por HTTP pasa a mostrar el placeholder. Evidencia en `PROCESO.md → sección 4 → T17 (post-auditoría)`.
+- [ ] **Descripción:** `const token = data.data?.accessToken ?? data.accessToken; setAccessToken(token);` — el tipo dice `string`, pero si la respuesta no trae el campo en ninguna de las dos formas, se guarda `undefined` en la variable de módulo y el `refreshPromise` **resolvió con éxito**. El `originalRequest` se reintenta con `Authorization: Bearer undefined` (`:151` lo asigna sin chequear), ese reintento 401ea, `_retry` ya es `true`, y el usuario recibe un 401 crudo sin que se dispare `handleSessionExpired`.
+- **Archivos:** `frontend/src/api/client.ts:100-104,151`
+- **DoD:** un `/auth/refresh` que responda 200 con body vacío produce un logout limpio (`handleSessionExpired`), no un estado zombie. Test contra un servidor de prueba con el `client.ts` real.
+
+### R25 🟡 ⚛️ FE — `handleSessionExpired` deja estado inconsistente fuera de `/admin`
+
+- [ ] **Descripción:** La función vive fuera del árbol de React, así que no puede tocar `setUser(null)` ni `resetQueryCache()`. Dentro de `/admin` no importa (el `window.location.href` recarga y limpia la memoria), pero **fuera** de `/admin` el token se borra y nada más: `AuthProvider` sigue con `user` poblado, `isAuthenticated` en `true`, `useQueryScope` devolviendo el `userId` viejo y la cache con los datos de esa sesión. Si el usuario vuelve al admin con el router, sin recarga, `ProtectedRoute` lo deja pasar con un usuario fantasma y cada query rebota en 401.
+- **Nota verificada ejecutando** (test con `@tanstack/query-core` real): `resetQueryCache()` vacía la cache, pero los observers montados la **repueblan de inmediato** con la clave del usuario anterior. En el flujo real de `logout()` es inofensivo —`authApi.logout()` ya llamó a `clearAccessToken()` en su `finally` antes que el store, así que ese refetch sale sin token y trae 401, no datos: **no hay fuga**— pero sí hay una ráfaga de requests condenadas compitiendo con el redirect. El `resetQueryCache()` del **login** (`auth.store.tsx:84`) es el que sí protege contra el cruce de sesiones, y está bien puesto.
+- **DoD:** expirar la sesión estando en una página pública y navegar al admin con el router deja al usuario en el login, sin usuario fantasma y sin ráfaga de 401.
+
+### R26 🟡 ⚛️ FE — `clipboard.writeText` sin `catch`, y el toast miente
+
+- [ ] **Descripción:** `navigator.clipboard.writeText(code); toast.success('Código copiado al portapapeles');` — la promesa rechaza si el contexto no es seguro (`http://` en una demo o en la red interna), si el permiso está denegado o si el documento no tiene foco. Resultado: una unhandled rejection **y** un toast verde que le dice al participante que su código de inscripción se copió cuando el portapapeles quedó vacío. Después lo pega en WhatsApp y manda cualquier cosa.
+- **Archivos:** `frontend/src/pages/public/inscription/useInscriptionWizard.ts:196-199`, `frontend/src/pages/public/NewsDetailPage.tsx:56`
+- **DoD:** el toast de éxito sólo aparece si la promesa resolvió; el rechazo muestra un error accionable y no queda unhandled. Verificado sirviendo el frontend por `http://` en una IP de red local.
 
 ---
 
-## Fase 5 — Optimizaciones (auditoría de performance/DRY 2026-08-19)
+## Fase 3 — Optimizaciones
 
-> Todas las tareas de esta fase son **ganancias netas** — no degradan funcionalidad, no cambian la API pública ni empeoran claridad del código. Impacto: 🚀 alto · 📈 medio · ✨ polish.
+### R27 🚀 ⚛️ FE — `lazy()` sobre `recharts` en el dashboard
 
-### T18 🚀 🏗️ BE — Quick wins backend: `compression` + `Cache-Control` en endpoints públicos (Q1, Q4, Q7, Q8)
+- [ ] **Descripción:** Medido con `npm run build`: `DashboardPage-BmjpRhUx.js` pesa **322,80 kB (95,26 kB gzip)**, contra 14,53 kB del siguiente admin más pesado — **22×**. Son 42 ocurrencias de `recharts` en el chunk, todas desde `InscriptionsStatusCard.tsx:6`. `DashboardPage` es el destino post-login de **todos** los roles: 95 kB gzip en el camino crítico de cada login, por un donut de cuatro porciones.
+- **Crédito donde corresponde:** el comentario de `InscriptionsStatusCard.tsx:10-20` documenta el problema con precisión y declara que el `lazy()` es otra tarea. Es deuda declarada, no escondida — y el corte ya está servido por T10.
+- **DoD:** el chunk de `DashboardPage` baja por debajo de 50 kB; el donut carga en un chunk aparte con su propio fallback; cifras de `npm run build` antes y después en `PROCESO.md`.
 
-- [x] **Descripción:**
-  - Agregar `compression` middleware en `main.ts` antes de `app.listen()`. Reduce 60-70% el payload JSON.
-  - Crear `@CacheControl(maxAgeSeconds)` decorator + interceptor que setea header `Cache-Control: public, max-age=N` y aplicarlo a `disciplines.findAll`, `categories.findAll`, `venues.findAll`, `news.findAll` (5-10 min de TTL).
-- **Archivos:**
-  - `backend/src/main.ts` (agregar `app.use(compression())`)
-  - `backend/src/common/decorators/cache-control.decorator.ts` (nuevo)
-  - `backend/src/common/interceptors/cache-control.interceptor.ts` (nuevo)
-  - Controllers públicos con endpoints casi-estáticos.
-- **DoD:**
-  - Response headers de un endpoint público muestran `Content-Encoding: gzip` (con `Accept-Encoding: gzip`) y `Cache-Control: public, max-age=600`.
-  - Ningún endpoint privado o mutable recibe caché.
-  - ✅ Verificado con 7 tests e2e (`backend/test/http-cache.e2e-spec.ts`): payload de 13.830 B → 513 B con gzip, `Cache-Control: public, max-age=600` en el listado público, y tres tests negativos (endpoint sin decorador, endpoint mutable, y request con `Authorization`). Evidencia en `PROCESO.md → sección 4 → T18 (post-auditoría)`.
+### R28 🚀 ⚛️ FE — Code splitting de las páginas públicas
 
-### T19 🚀 ⚛️ FE — Ajustar `staleTime` de React Query por dominio (Q4, Q14)
+- [ ] **Descripción:** Medido con `npm run build`: `index-CVXHwlVk.js` pesa **442,63 kB (128,47 kB gzip)**. T20 lazificó las 20 páginas admin, con el buen detalle de importar cada una desde su archivo y no desde el barrel — pero las nueve públicas se importan de forma estática (`router.tsx:35-46`) y **desde el barrel** `@/pages/public/index`, que es justo el error que el comentario de `router.tsx:49-52` explica que hay que evitar. Un ciudadano que entra a ver el calendario se descarga las nueve páginas públicas, el `LoginPage`, `AuthProvider`, `QueryClientProvider` y los layouts: 128 kB gzip en un móvil formoseño.
+- **DoD:** el chunk de entrada baja por debajo de 60 kB gzip; cada página pública tiene su chunk; ningún import desde el barrel en `router.tsx`; el `lazy()` no rompe la primera pintura de la home (medir LCP antes y después).
 
-- [x] **Descripción:** El `staleTime` global es 30s — demasiado corto para datos casi estáticos. Refactor:
-  - Global default: 5 min.
-  - Override por dominio: `disciplines`, `categories`, `venues`, `news` → 10 min. `inscriptions`, `participants` → 1-2 min. `results`, `matches` → 30s (más volátil).
-  - Agregar `prefetchQuery` en `router.tsx` (loader) para `disciplines` y `categories` — se comparten en muchas páginas admin.
-- **Archivos:**
-  - `frontend/src/App.tsx:7-15` (defaults globales)
-  - `frontend/src/hooks/useDisciplines.ts`, `useCategories.ts`, `useVenues.ts`, `useNews.ts` (overrides)
-  - `frontend/src/router.tsx` (loaders con prefetch)
-- **DoD:** Network tab de DevTools: al navegar entre pantallas admin en 2-3 min, `disciplines` y `categories` no se re-fetchean. ✅ Verificado ejecutando el `queryClient` y las key factories reales: 6 navegaciones admin seguidas generan **1** request de `disciplines` y **1** de `categories` (contra **6** con el `staleTime: 0` anterior), los datos volátiles siguen revalidando a los 30 s, y ningún hook quedó sin declarar frescura. **Reverificado el 2026-08-19 contra el backend real**: 6 navegaciones admin seguidas generan **3 requests en total** (sin el `staleTime` serían 18). Evidencia en `PROCESO.md → sección 4 → T19 (post-auditoría)`.
+### R29 📈 🔀 FS — Topes de paginación silenciosos en el frontend público
 
-### T20 🚀 ⚛️ FE — Code splitting: lazy loading de rutas admin (Q6)
-
-- [x] **Descripción:** Actualmente `router.tsx` importa las 20+ admin pages estáticamente → el visitante público descarga ~150-200KB de JS admin innecesario. Refactor a `React.lazy()` + `Suspense` boundary por sección admin (`AdminLayout` envuelve el `Outlet` con `<Suspense fallback={<PageSkeleton />}>`).
-- **Archivos:**
-  - `frontend/src/router.tsx`
-  - `frontend/src/components/layout/AdminLayout.tsx` (agregar Suspense)
-  - `frontend/src/components/shared/PageSkeleton.tsx` (nuevo, si no existe)
-- **DoD:**
-  - `npm run build` genera chunks separados por página admin (`DashboardPage-<hash>.js`, `InscriptionsPage-<hash>.js`, etc.).
-  - Bundle de entrada para ruta pública `/` no incluye código de admin (verificar con `npm run build -- --report` o `rollup-plugin-visualizer`).
-  - ✅ **Entry: 1.269.368 B → 524.305 B (58,7% menos; 358 → 155 kB gzip)**, con 501 KB de código admin repartido en 20 chunks diferidos. Verificado por contenido además de por tamaño: marcadores exclusivos de páginas admin ausentes del entry y presentes en su chunk. Evidencia en `PROCESO.md → sección 4 → T20 (post-auditoría)`.
-
-### T21 🚀 🏗️ BE — Reemplazar `include: X: true` por `select` en services (Q2, Q9, Q11, Q17)
-
-- [x] **Descripción:** Múltiples services traen entidades completas cuando la UI solo necesita 3-4 campos. Aplicar `select` explícito en:
-  - `inscriptions.findAll` y `findOne` (participant, category, team, createdBy/reviewedBy/approvedBy).
-  - `teams.findAll` y `findOne` (members.participant).
-  - `results.rankings` (participant/team).
-- Además, extraer los `select` reusables a `backend/src/common/prisma-selects.ts` (`PARTICIPANT_SUMMARY`, `USER_SUMMARY`, `CATEGORY_WITH_DISCIPLINE`) para evitar drift entre módulos.
-- **Archivos:**
-  - `backend/src/modules/inscriptions/inscriptions.service.ts:194-229`
-  - `backend/src/modules/teams/teams.service.ts:92-120`
-  - `backend/src/modules/results/results.service.ts`
-  - `backend/src/common/prisma-selects.ts` (nuevo)
-- **DoD:** payload JSON de `GET /inscriptions?pageSize=50` se reduce ≥30%. Ninguna funcionalidad UI se rompe. ✅ **127.451 B → 34.218 B (73,2% menos)** medido con el `select` real del service aplicado sobre filas completas (`backend/test/payload-size.e2e-spec.ts`). Se recorrieron los consumidores del frontend campo por campo antes de recortar; único ajuste necesario: el listado de equipos pasa a `_count.members`. Evidencia en `PROCESO.md → sección 4 → T21 (post-auditoría)`.
-
-### T22 📈 🔀 FS — Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas (Q3)
-
-- [x] **Descripción:** `DashboardPage` dispara 8 `useQuery` para contar inscripciones por estado, participantes, teams, competitions. Consolidar en un endpoint backend `GET /dashboard/stats` que ejecute todas las cuentas en una sola query Prisma con `count` + `groupBy`. Cachear el resultado en Redis con TTL 60s. Frontend consume con un solo `useDashboardStats()`.
-- **Reparto:**
-  - **🏗️ BE:** crea el endpoint + cache Redis.
-  - **⚛️ FE:** crea el hook `useDashboardStats` y refactoriza `DashboardPage`.
-- **Archivos:**
-  - `backend/src/modules/dashboard/dashboard.service.ts` (nuevo o refactor)
-  - `backend/src/modules/dashboard/dashboard.controller.ts`
-  - `frontend/src/hooks/useDashboardStats.ts` (nuevo)
-  - `frontend/src/pages/admin/DashboardPage.tsx:27-34` (reemplazar 8 hooks por 1)
-- **DoD:** Network tab: cargar el Dashboard genera **1 request** (contra 8+). Tiempo total <200ms. ✅ **1 request** verificado por la cadena mecánica: la página importa un solo hook de datos, el hook tiene un solo `useQuery` y la API hace una sola llamada. ✅ **<200 ms medido contra el stack real: 80 ms en frío y 5-8 ms con cache de Redis.** El endpoint **ya existía** con cache Redis, pero el frontend nunca lo consumía y al payload le faltaban las inscripciones por estado (4 de los 8 requests) y las recientes; TTL bajado de 300s a 60s. 16 tests e2e nuevos en `backend/test/dashboard-stats.e2e-spec.ts`. Evidencia en `PROCESO.md → sección 4 → T22 (post-auditoría)`.
-
-### T23 📈 🏗️ BE — Streaming + paginación en reports Excel/CSV (Q5, Q23)
-
-- [x] **Descripción:** `reports.service.ts` construye todo el workbook en memoria antes de enviar. Con 10K+ filas, riesgo de OOM. Refactor:
-  - Cambiar `writeBuffer()` por `workbook.xlsx.write(res)` stream directo al response.
-  - Para queries grandes, iterar con cursor Prisma (`prisma.$queryRaw` con `LIMIT/OFFSET` o `cursor`-based pagination) y escribir filas al workbook de a lotes de 1000.
-- **Archivos:** `backend/src/modules/reports/reports.service.ts:26-97` y demás métodos `getXxxData`.
-- **DoD:** generar un reporte de 20K filas mantiene RSS del proceso <300MB (medir con `process.memoryUsage()`). ✅ **162 MB** contra los **595 MB** de la implementación anterior, que no cumplía el DoD (medido con `node backend/test/reports-memoria-manual.js 20000`, un proceso por caso y la versión vieja como testigo). El Δheap se aplana al escalar (44 → 52 → 55 MB para 20k/50k/100k filas): lo vivo a la vez lo fija el lote de 1000, no el total. 18 tests e2e deterministas, verificados en 10 corridas seguidas. Evidencia en `PROCESO.md → sección 4 → T23 (post-auditoría)`.
-
-### T24 📈 🏗️ BE — DRY backend: validators, DTOs con `PartialType`, includes reusables (Q13, Q15)
-
-- [x] **Descripción:**
-  - Extraer validadores repetidos (DNI regex, phone regex, email) a `backend/src/common/validators/` y crear decorators `@IsDni()`, `@IsPhone()` que envuelvan `@Matches` + `@IsString`.
-  - Verificar que todos los `UpdateXxxDto` usen `PartialType(CreateXxxDto)` en lugar de duplicar campos.
-  - Consolidar objetos `include`/`select` repetidos en `common/prisma-selects.ts` (ya cubierto por T21).
-- **Archivos:**
-  - `backend/src/common/validators/dni.validator.ts` (nuevo)
-  - `backend/src/common/validators/phone.validator.ts` (nuevo)
-  - `backend/src/modules/*/dto/*.dto.ts` (aplicar)
-- **DoD:** grep `Matches\(\/\^\\d\{7,8\}\$` en `backend/src/modules/` retorna 0 resultados (todo usa `@IsDni()`). ✅ 0 resultados; de hecho no queda ningún `@Matches` en `src/modules/`. **Se hizo sólo `@IsDni()`:** el agente declinó `@IsPhone()` y el de email con argumento — hoy no hay ninguna regla de teléfono que centralizar (los dos usos son `@IsOptional() @IsString()`), así que el decorador sería una trampa para el próximo que le meta un regex adentro y endurezca en silencio el endpoint público. `UpdateResultDto` se deja sin `PartialType` porque **no existe `CreateResultDto` y no debería**: los `Result` los crea el motor de competencia, no la API. 34 tests, incluida una clase de control que compara mensaje por mensaje contra los decoradores inline previos. Evidencia en `PROCESO.md → sección 4 → T24 (post-auditoría)`.
-
-### T25 📈 🏗️ BE — Consolidar auditoría: interceptor vs llamadas manuales (Q10)
-
-- [x] **Descripción:** El `AuditInterceptor` audita CRUD genérico, pero varios services también invocan `auditService.log()` manualmente → doble registro o registros huérfanos. Definir contrato:
-  - Interceptor cubre CREATE / UPDATE / DELETE automáticamente vía decorador `@Audit(entity)`.
-  - Services solo llaman manual para eventos no-CRUD (LOGIN, LOGOUT, REFRESH_TOKEN, APPROVE_INSCRIPTION, REJECT_INSCRIPTION).
-- Documentar el contrato en `common/decorators/audit.decorator.ts` con JSDoc.
-- **Archivos:**
-  - `backend/src/modules/audit/audit.interceptor.ts`
-  - Todos los services que llaman `auditService.log()` (revisar auth, users, inscriptions).
-- **DoD:** al crear una inscripción, `SELECT COUNT(*) FROM AuditLog WHERE entityId = 'X'` devuelve exactamente 1 registro (no 2). ✅ Verificado con 14 tests e2e (`backend/test/audit-contract.e2e-spec.ts`). **La premisa del hallazgo no se sostenía:** nunca hubo doble registro, porque el interceptor excluía `/auth/` y las dos vías eran disjuntas por construcción. Y el DoD era **imposible de cumplir**: en un `POST` la URL no tiene id, así que `parseUrl()` devolvía `entityId: null` para **todo CREATE** — el `COUNT(*)` daba **0**, no 2. Corregido tomando el id de la respuesta. El valor real quedó en: saneamiento **profundo** de `changes` movido a `AuditService.log()` (punto de entrada único), con secretos redactados y PII **enmascarada y no borrada** para no perder la capacidad de detectar credential stuffing; `REFRESH_TOKEN_REUSE` y `REFRESH_TOKEN_DENIED` nuevos; y `AuthService.logAuditAction` eliminado. **Se mantiene opt-out**: con opt-in, un endpoint sin decorar deja de auditarse *en silencio* — ruido mal etiquetado es recuperable, ceguera no. Evidencia en `PROCESO.md → sección 4 → T25 (post-auditoría)`.
-
-### T26 ✨ ⚛️ FE — Memoización de valores derivados en páginas admin (Q18, Q19, Q20)
-
-- [x] **Descripción:** Varios páginas construyen arrays/objetos inline en cada render (causan re-renders de hijos memoizados):
-  - `DashboardPage.tsx:38-43` — array `stats` → `useMemo`.
-  - `InscriptionsPage.tsx:45-56` — función `getStatusBadge` inline → extraer a componente memoizado `<InscriptionStatusBadge>` (cubre también Q28).
-  - `CompetitionDetailPage.tsx:67-74` — `matchesByRound` inline → `useMemo`.
-- **Archivos:** los tres mencionados.
-- **DoD:** React DevTools Profiler muestra reducción medible de re-renders al cambiar filtros en `InscriptionsPage`. ⚠️ **El Profiler no se pudo correr** (no hay navegador ni runner con DOM). Se verificó **el mecanismo que el Profiler observaría**, con 12 chequeos: `InscriptionStatusBadge` es un `memo` real con comparación shallow, todas sus props son primitivas y `shallowEqual` entre renders da **`true`** (el bailout ocurre) y `false` cuando cambia el estado. Se memoizaron **3** sitios y se **descartaron 10** con argumento escrito: los `filtered` de 7 páginas dependen de `search`, que es *exactamente* lo que dispara el re-render, así que el memo sería costo puro; y el array `stats` del dashboard tendría como única dep lo único que cambia, o sea que **nunca acertaría**. Cambio visible: `InscriptionDetailPage` mostraba el enum crudo (`PENDIENTE`) y ahora usa la etiqueta en castellano, igual que la tabla (Q28). Evidencia en `PROCESO.md → sección 4 → T26 (post-auditoría)`.
-
-### T27 ✨ 🎨 UI + ⚛️ FE — DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables
-
-- [x] **Descripción:** Todas las páginas admin de listado (`ParticipantsPage`, `VenuesPage`, `NewsPage`, `UsersPage`, `InscriptionsPage`) reimplementan la misma tabla con paginación, skeleton, empty state y confirmación de borrado. Extraer a:
-  - `components/shared/DataTable.tsx` — recibe `columns`, `data`, `pagination`, `isLoading`.
-  - `components/shared/ConfirmDialog.tsx` — dialog genérico para "¿Confirmás borrar X?".
-  - `components/shared/TableSkeleton.tsx` — skeleton estándar.
-- **Reparto:**
-  - **🎨 UI** define el sistema de tokens, estados (default/hover/disabled/loading/empty), variantes y accesibilidad (foco, ARIA, contraste WCAG AA).
-  - **⚛️ FE** implementa la API tipada, integra con TanStack Query, migra una página de prueba.
-- Migrar 1 página a modo de prueba (recomiendo `VenuesAdminPage` porque también beneficia a T10).
-- **Archivos:** `frontend/src/components/shared/*` (nuevos), 1 página migrada.
-- **DoD:** LOC total del frontend en `pages/admin/` disminuye ≥15% tras migrar 3 páginas. Componentes cumplen WCAG AA (contraste + navegación por teclado). ⚠️ **DoD cumplido a medias — se registra el fallo.** ✅ **WCAG AA verificado** con 55 chequeos sobre el componente real (semántica, foco, `role="status"`/`alert`, y que vacío-por-filtro ≠ vacío-sin-datos). ❌ **La métrica de LOC NO se cumple y va en dirección contraria: 7238 → 7327 (+89 líneas)**, más 405 nuevas en `shared/DataTable.tsx`. Era además **aritméticamente imposible**: 15% de 7238 son 1086 líneas, y las 3 páginas de listado más grandes suman 940. De esas +89, ~55 son **funcionalidad que antes no existía** (estado de error con `refetch` —ninguna de las 8 páginas lo tenía, un backend caído se veía como «sin datos»—, la distinción vacío-por-filtro y los `aria-label`). La métrica que sí mide el valor: el **andamiaje repetido** de las 3 páginas migradas pasó de 35/42/35 líneas a **0/2/0**, y quedan **192 líneas** absorbibles en las 5 páginas sin migrar. **Queda a decisión del equipo:** migrar las 5 restantes (el equilibrio en LOC llegaría cerca de la 6ª-8ª página) o dar por buena la métrica de andamiaje. Evidencia en `PROCESO.md → sección 4 → T27 (post-auditoría)`. **ACTUALIZACIÓN (2026-08-19): se migraron las 8 páginas y el criterio de LOC quedó refutado empíricamente.** Las 5 restantes pasaron de 1080 a 1223 líneas; `pages/admin/` de 7297 a 7440. Balance de las 8: **+232**. Descontando comentarios y blancos tampoco baja. El agente refutó su propia estimación: *«mi estimación de 6ª u 8ª página estaba mal; no hay una 9ª que lo dé vuelta. T27 no se justifica por LOC y no debería haberse vendido así»*. El motivo: se borran ~40 líneas de andamiaje por página y entran ~30 de objetos de columna más ~22 de props — **da parejo antes de sumar funcionalidad**. **Lo que sí entregó:** listados con estado de error y reintento **0/8 → 8/8**; que distinguen vacío-por-filtro **1/8 → 8/8**; con semántica de tabla accesible **0/8 → 8/8**. `<DataTable>` no necesitó ni un cambio para las 5 nuevas. Se marca **completada con desviación documentada**: no queda trabajo que cumpla ese criterio.
-
-### T28 ✨ 🔀 FS — Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO (Q24, Q26, Q27)
-
-- [x] **Descripción:**
-  - **⚛️ FE:** `tsconfig.app.json` agregar `"noUncheckedIndexedAccess": true` y arreglar los TS errors que aparezcan (usualmente `arr[0]` pasa a `arr[0] | undefined`).
-  - **🏗️ BE:** `PaginationQueryDto` agregar `@Min(1) @Max(200)` a `pageSize` (evita `?pageSize=99999`).
-  - **🏗️ BE:** `MinioService` envolver operaciones críticas con retry (max 3, exponential backoff) usando `p-retry` o implementación propia.
-- **Archivos:**
-  - `frontend/tsconfig.app.json`
-  - `backend/src/common/dto/pagination.dto.ts`
-  - `backend/src/modules/documents/minio.service.ts`
-- **DoD:** frontend compila con la flag nueva. `GET /participants?pageSize=99999` devuelve 400. Test unit de MinIO que forza fallo transitorio pasa tras retries. ✅ Los tres criterios. La flag dio **4 errores** y arreglarlos destapó un **bug de runtime que la flag no marcaba**: los atajos de duración del formulario de eventos protegían los minutos pero no las horas, así que con un `startTime` mal formado escribían literalmente `"NaN:00"`. Cero `!`, `as` o `any` agregados. **El tope de paginación NO se subió de 100 a 200:** ya existía sobre `limit` (el campo `pageSize` del enunciado no existe), y subirlo habría sido *aflojar* un límite — «una regresión de seguridad disfrazada de cumplimiento». `?limit=99999` da 400 por rango y `?pageSize=99999` da 400 por `forbidNonWhitelisted`: dos defensas distintas. Retry de MinIO con **allowlist** de errores transitorios (ante error desconocido **no** se reintenta), sin `p-retry` para no repetir el peaje de ESM que ya pagó `uuid`, y con jitter para que varias instancias no vuelvan a tirar MinIO al recuperarse. 12 tests nuevos (22 → 34). Evidencia en `PROCESO.md → sección 4 → T28 (post-auditoría)`.
+- [ ] **Descripción:** Mismo patrón que R09, con menos daño pero igual de invisible:
+  - `NewsPage.tsx:16-19` — `limit: 50` y el buscador filtra **en el cliente** sobre esas 50. La noticia 51 no se encuentra buscándola, y el `EmptyState` dice "No se encontraron artículos que coincidan con tu búsqueda", que es literalmente falso.
+  - `CalendarPage.tsx:23` — `limit: 100`, filtrado local en `calendarFilters.ts:37-57`. El evento 101 no existe para el calendario público.
+- **DoD:** con más registros que el tope, la búsqueda y los filtros alcanzan a **todo** el conjunto (búsqueda server-side o paginación real). Ningún `EmptyState` afirma "no hay resultados" cuando lo cierto es "no hay resultados en lo que trajimos".
 
 ---
 
-## Distribución de carga por agente
+## Fase 4 — Polish
 
-| Agente | Tareas asignadas | Total |
-|---|---|---|
-| **🏗️ Backend Architect** | T02, T04, T05, T06, T07, T09, T18, T21, T23, T24, T25 | **11** |
-| **⚛️ Frontend Engineer** | T08, T11, T12, T13, T14, T15, T16, T17, T19, T20, T26 | **11** |
-| **🎨 UI Designer** | T10 (co-lidera con FE), T27 (co-lidera con FE) | **2** |
-| **🔀 Full-stack (BE + FE)** | T01, T03, T22, T28 | **4** |
-| **👁️ Code Reviewer** | Todas al cierre | **28** |
+### R30 ✨ ⚛️ FE — `SafeNewsImage` no resetea `hasError` al cambiar `src`
 
----
+- [ ] **Descripción:** `hasError` es estado derivado que nunca se sincroniza con la prop. Si el componente se reutiliza con otra imagen sin desmontarse, sigue mostrando el placeholder de la anterior. **Hoy no se dispara** —`NewsPage.tsx:103` y `LatestNewsSection` keyean por `news.id`, así que cambiar de noticia desmonta— pero queda armado para el día que alguien agregue paginación o un `key` por índice.
+- **Archivos:** `frontend/src/pages/public/news/SafeNewsImage.tsx:49-57`
+- **DoD:** re-renderizar el mismo componente con un `src` distinto vuelve a intentar la carga. `key={safeSrc}` desde el padre es una solución aceptable si se documenta.
 
-## Trazabilidad hallazgo → tarea
+### R31 ✨ ⚛️ FE — Nits agrupados de la revisión final
 
-| Hallazgo auditoría | Tarea | Severidad | Agente |
-|---|---|---|---|
-| C-01 (PII en QR público) | T01 | 🔴 | 🔀 FS |
-| C-02 (bucket MinIO público) | T02 | 🔴 | 🏗️ BE |
-| C-04 (path traversal filename) | T02 | 🔴 | 🏗️ BE |
-| C-03 (tokens en localStorage) | T03 | 🔴 | 🔀 FS |
-| A-03 (race condition refresh) | T03 | 🔴 | 🔀 FS |
-| F17 (user object en localStorage) | T03 | 🔴 | 🔀 FS |
-| C-05 (secrets default en env) | T04 | 🔴 | 🏗️ BE |
-| A-01 (sin throttle en públicos) | T05 | 🟡 | 🏗️ BE |
-| A-02 (Swagger en producción) | T06 | 🟡 | 🏗️ BE |
-| A-06 (audit sin IP/UA) | T07 | 🟡 | 🏗️ BE |
-| A-04 (console.error en prod) | T08 | 🟡 | ⚛️ FE |
-| F14 (console.error extendido) | T08 | 🟡 | ⚛️ FE |
-| M-02 (CORS default) | T09 | 🟠 | 🏗️ BE |
-| M-03 (Helmet sin CSP) | T09 | 🟠 | 🏗️ BE |
-| M-01 (componentes >300 LOC) | T10 | 🟠 | ⚛️ FE + 🎨 UI |
-| F1, F2 (XSS `dangerouslySetInnerHTML`) | T11 | 🔴 | ⚛️ FE |
-| F3 (queryClient no se limpia en logout) | T12 | 🔴 | ⚛️ FE |
-| F4–F7 (queryKeys sin userId) | T13 | 🟡 | ⚛️ FE |
-| F8 (ProtectedRoute sin allowedRoles) | T14 | 🟡 | ⚛️ FE |
-| F10–F12 (schemas Zod débiles) | T15 | 🟠 | ⚛️ FE |
-| F13 (errores backend crudos al usuario) | T16 | 🟠 | ⚛️ FE |
-| F15 (href sin validación de schema) | T17 | 🟠 | ⚛️ FE |
-| Q1, Q4, Q7, Q8 (compression + cache headers) | T18 | 🚀 | 🏗️ BE |
-| Q4, Q14 (staleTime + prefetch) | T19 | 🚀 | ⚛️ FE |
-| Q6 (lazy loading rutas admin) | T20 | 🚀 | ⚛️ FE |
-| Q2, Q9, Q11, Q17 (include → select) | T21 | 🚀 | 🏗️ BE |
-| Q3 (dashboard 8→1 query) | T22 | 📈 | 🔀 FS |
-| Q5, Q23 (streaming reports) | T23 | 📈 | 🏗️ BE |
-| Q13, Q15 (DRY validators + DTOs) | T24 | 📈 | 🏗️ BE |
-| Q10 (auditoría duplicada) | T25 | 📈 | 🏗️ BE |
-| Q18, Q19, Q20, Q28 (memoización + StatusBadge) | T26 | ✨ | ⚛️ FE |
-| DRY frontend (DataTable, ConfirmDialog) | T27 | ✨ | 🎨 UI + ⚛️ FE |
-| Q24, Q26, Q27 (tsconfig, pagination max, retry) | T28 | ✨ | 🔀 FS |
+- [ ] **Descripción:** Ocho hallazgos menores que no justifican una tarea cada uno:
+  - `CompetitionPublicPage.tsx:96` — `key={idx}` sobre datos dinámicos (el único del diff; los demás son constantes estáticas o skeletons). En una tabla de posiciones que reordena al cargar resultados, React reusa DOM por posición. Con celdas de texto plano el daño es cosmético, pero es la misma tabla cuya correctitud se acaba de endurecer en `matchScore.ts`.
+  - `public/calendar/calendarFilters.ts:44,52` — el filtro de mes usa `getMonth()` sin mirar el año: un evento de marzo de 2025 matchea "Marzo" junto con los de 2026.
+  - `public/inscription/TrackInscription.tsx:45-51` — el input de código QR tiene `placeholder` pero ni `<label>` ni `aria-label`. Se marca porque el resto del diff es notablemente bueno en esto (`ParticipantsToolbar` etiqueta sus cinco filtros, `Pagination` sus cuatro botones, `DataTable` maneja `scope`, `caption` y live regions con cuidado real); éste quedó suelto.
+  - `schemas/index.ts:206` (`loginSchema`) y `:279` (`participantSchema`) — definidos y sin usar donde corresponde: `LoginPage.tsx:45-48` valida a mano y `useInscriptionWizard.ts:129-136` reimplementa la regla del DNI con un regex inline. T15 endureció los schemas y dos caminos de entrada no los consultan.
+  - `api/client.ts:144` — `!originalRequest._retry` sin optional chaining, mientras `:140` sí usa `originalRequest?.url`. No explota, pero la inconsistencia sugiere que uno de los dos está mal y no se sabe cuál.
+  - `components/shared/DataTable.tsx:317` — `meta && onPageChange && meta.totalPages > 1` esconde el bloque entero cuando hay una sola página, y con él el selector de "Por página": con `limit: 10` y 12 registros el usuario ve dos páginas, baja a 10, quedan 8, y pierde el control para volver a subirlo.
+  - `components/layout/Sidebar.tsx:119` — `item.separator && idx > 0` se evalúa sobre `visibleItems`, no sobre `NAV_ITEMS`: si el ítem que porta el flag se filtra por rol, el grupo pierde su separador. **Se cierra con R08.**
+  - `pages/admin/CompetitionDetailPage.tsx:86` — indentación rota en el `resultType={...}` que agregó `59e2b60`.
+  - `pages/public/NewsPage.tsx:22-30` — el único warning real de `npm run lint` (`useMemo depends on 'allNews', which changes every render`). Es inofensivo, pero conviene resolverlo con intención en vez de dejarlo pasar.
+- **DoD:** `npm run lint` sin warnings; `npx tsc --noEmit` limpio; los cuatro puntos con impacto funcional (mes sin año, `key`, `DataTable`, schemas) con un test cada uno.
 
 ---
 
-## Orden de ejecución recomendado
+## 🗺️ Orden de ejecución recomendado
 
-**Bloque 1 — Seguridad crítica (bloquean despliegue fuera de red local):**
-1. **T11** (⚛️ FE — XSS en HTML público) — trivial, cierra ejecución de código arbitrario en visitantes anónimos.
-2. **T12** (⚛️ FE — cache leak en logout) — chico y bloqueante para uso multi-usuario del mismo navegador.
-3. **T03** (🔀 FS — tokens en cookies httpOnly) — mayor blast radius, cierra vector de account takeover vía XSS.
-4. **T01** (🔀 FS — PII en QR) — chico, cierra fuga activa de datos personales.
-5. **T02** (🏗️ BE) o **desactivar `DocumentsModule`** — MinIO es Out of Scope MVP.
-6. **T04** (🏗️ BE — guardrails env) — evita regresiones futuras.
-
-**Bloque 2 — Seguridad alta/media + quick wins de optimización:**
-7. **T18** (🏗️ BE — compression + cache headers) — 15 min, gana 60-70% de payload.
-8. **T19** (⚛️ FE — staleTime React Query) — 1h, corta 50-100 requests innecesarios por sesión.
-9. **T20** (⚛️ FE — lazy loading admin) — 1-2h, corta 150-200KB del bundle público.
-10. **T21** (🏗️ BE — include → select) — 1h, reduce payload 30%.
-11. **T13, T14** (⚛️ FE — namespace de cache + ProtectedRoute) — completan la fortaleza post-T03.
-12. **T05 → T09** (🏗️ BE + ⚛️ FE — rate limiting, Swagger prod, audit IP/UA, console.error, CORS/CSP).
-
-**Bloque 3 — Optimizaciones estructurales:**
-13. **T22** (🔀 FS — dashboard stats único) — mejor UX al abrir /admin.
-14. **T23** (🏗️ BE — reports streaming) — evita OOM cuando crezca la base.
-15. **T24, T25** (🏗️ BE — DRY + auditoría consolidada) — mantenibilidad.
-
-**Bloque 4 — Polish final:**
-16. **T15 → T17** (⚛️ FE — validación Zod, sanitización errores, URLs) — polish de seguridad.
-17. **T26, T27** (⚛️ FE + 🎨 UI — memoización + componentes reutilizables frontend).
-18. **T10** (⚛️ FE + 🎨 UI — descomposición monolitos) — beneficia a T27.
-19. **T28** (🔀 FS — tsconfig strict, pagination max, MinIO retry) — cierre.
+1. **R01, R06** (🏗️ BE) — fugas de datos, y las dos son un `select`/`where`. Máximo impacto por línea tocada.
+2. **R02, R03** (🏗️ BE) — bypass de auditoría y DoS del `/audit`. Mecánicos y acotados.
+3. **R04 + R19** (🏗️ BE + ⚛️ FE) — juntas: son las dos mitades del mismo problema de rotación del refresh.
+4. **R07** (⚛️ FE + 🎨 UI) — error boundary y 404. Media hora y elimina el peor modo de falla del frontend.
+5. **R08** (⚛️ FE) — sidebar. Mecánico, y el test cruzado es lo que impide que se vuelva a desincronizar.
+6. **R09** (⚛️ FE) — wizard. **Requiere Docker** para medir el conteo real primero.
+7. **R05** (🔀 FS) — scoping territorial. Va acá porque necesita definición de negocio y puede cambiar los grupos de roles que consume R22.
+8. **R10 → R18** (🏗️ BE) — altos de backend, en cualquier orden entre sí.
+9. **R20, R21, R24, R25, R26** (⚛️ FE) — altos de frontend.
+10. **R22, R23** (🔀 FS) — necesitan coordinación y R23 toca el schema; después de R05.
+11. **R27, R28, R29** — optimización, con cifras de `npm run build` antes y después.
+12. **R30, R31** — polish de cierre.
 
 ---
 
 ## 📊 Estado de las tareas
 
-> Actualizado el 2026-08-19. Cada tarea tiene su bloque de evidencia en
-> `PROCESO.md → sección 4` y su propio commit.
+> Actualizado el 2026-08-24. Cada tarea tendrá su bloque de evidencia en
+> `PROCESO.md → sección 5` y su propio commit.
 
-**Progreso: 28 de 28 tareas completadas.**
-Críticos 🔴: **6 de 6** — la regla dura se cumple, no queda ninguna abierta.
+**Progreso: 5 de 31 tareas completadas.**
+Blockers 🔴: **5 de 9** — la regla dura **todavía no** se cumple: quedan R05, R07, R08 y R09.
 
 | Tarea | Sev. | Agente | Título | Estado |
 |---|---|---|---|---|
-| **T01** | 🔴 | 🔀 FS | Cerrar exposición de PII en endpoint público QR | ✅ Completada |
-| **T02** | 🔴 | 🏗️ BE | Endurecer módulo de documentos MinIO | ✅ Completada |
-| **T03** | 🔴 | 🔀 FS | Migrar tokens a cookie httpOnly + access token en memoria | ✅ Completada |
-| **T04** | 🔴 | 🏗️ BE | Guardrails contra secrets default en env | ✅ Completada |
-| **T05** | 🟡 | 🏗️ BE | Rate limiting en endpoints públicos scrapeables | ✅ Completada |
-| **T06** | 🟡 | 🏗️ BE | Ocultar Swagger en producción | ✅ Completada |
-| **T07** | 🟡 | 🏗️ BE | Enriquecer `AuditInterceptor` con IP y User-Agent | ✅ Completada |
-| **T08** | 🟡 | ⚛️ FE | Silenciar `console.error` en producción del frontend | ✅ Completada |
-| **T09** | 🟠 | 🏗️ BE | Endurecer CORS y CSP | ✅ Completada |
-| **T10** | 🟠 | ⚛️ FE + 🎨 UI | Descomponer componentes React monolíticos | ✅ Completada |
-| **T11** | 🔴 | ⚛️ FE | Sanitizar HTML del backend antes de renderizar con `dangerouslySetInnerHTML` | ✅ Completada |
-| **T12** | 🔴 | ⚛️ FE | Limpiar cache de React Query en logout | ✅ Completada |
-| **T13** | 🟡 | ⚛️ FE | Namespace de queryKeys por userId | ✅ Completada |
-| **T14** | 🟡 | ⚛️ FE | `ProtectedRoute`: exigir `allowedRoles` explícito por ruta admin | ✅ Completada |
-| **T15** | 🟠 | ⚛️ FE | Fortalecer schemas Zod | ✅ Completada |
-| **T16** | 🟠 | ⚛️ FE | Sanitizar mensajes de error del backend antes de mostrarlos al usuario | ✅ Completada |
-| **T17** | 🟠 | ⚛️ FE | Validar schema de URLs dinámicas en `href` | ✅ Completada |
-| **T18** | 🚀 | 🏗️ BE | Quick wins backend: `compression` + `Cache-Control` en endpoints públicos | ✅ Completada |
-| **T19** | 🚀 | ⚛️ FE | Ajustar `staleTime` de React Query por dominio | ✅ Completada |
-| **T20** | 🚀 | ⚛️ FE | Code splitting: lazy loading de rutas admin | ✅ Completada |
-| **T21** | 🚀 | 🏗️ BE | Reemplazar `include: X: true` por `select` en services | ✅ Completada |
-| **T22** | 📈 | 🔀 FS | Endpoint único `/dashboard/stats` reemplaza 8 queries paralelas | ✅ Completada |
-| **T23** | 📈 | 🏗️ BE | Streaming + paginación en reports Excel/CSV | ✅ Completada |
-| **T24** | 📈 | 🏗️ BE | DRY backend: validators, DTOs con `PartialType`, includes reusables | ✅ Completada |
-| **T25** | 📈 | 🏗️ BE | Consolidar auditoría: interceptor vs llamadas manuales | ✅ Completada |
-| **T26** | ✨ | ⚛️ FE | Memoización de valores derivados en páginas admin | ✅ Completada |
-| **T27** | ✨ | 🎨 UI + ⚛️ FE | DRY frontend: `<DataTable>`, `<ConfirmDialog>`, `<TableSkeleton>` reusables | ✅ Completada |
-| **T28** | ✨ | 🔀 FS | Polish: `noUncheckedIndexedAccess`, límites en pagination, retry en MinIO | ✅ Completada |
+| **R01** | 🔴 | 🏗️ BE | Cortar la fuga de PII en `GET /competitions/:id` público | ✅ Completada |
+| **R02** | 🔴 | 🏗️ BE | Cerrar el bypass de auditoría por querystring | ✅ Completada |
+| **R03** | 🔴 | 🏗️ BE | `GET /audit` ignora la paginación y devuelve la tabla entera | ✅ Completada |
+| **R04** | 🔴 | 🏗️ BE | Rotación atómica del refresh token (TOCTOU) | ✅ Completada |
+| **R05** | 🔴 | 🔀 FS | Scoping por zona y departamento en datos y reportes | ⬜ Pendiente |
+| **R06** | 🔴 | 🏗️ BE | Borradores de noticias y eventos legibles sin autenticación | ✅ Completada |
+| **R07** | 🔴 | ⚛️ FE + 🎨 UI | Error boundary y ruta 404 | ⬜ Pendiente |
+| **R08** | 🔴 | ⚛️ FE | Sincronizar el Sidebar con `@/lib/roles` | ⬜ Pendiente |
+| **R09** | 🔴 | ⚛️ FE | El wizard de inscripción se rompe con más de 100 categorías | ⬜ Pendiente |
+| **R10** | 🟡 | 🏗️ BE | Filtros booleanos invertidos por `enableImplicitConversion` | ⬜ Pendiente |
+| **R11** | 🟡 | 🏗️ BE | `sortBy` sin validar filtra rutas y fuente en el 500 | ⬜ Pendiente |
+| **R12** | 🟡 | 🏗️ BE | El sanitizador de auditoría no clasifica varios campos de PII | ⬜ Pendiente |
+| **R13** | 🟡 | 🏗️ BE | `InscriptionsService.create` no es transaccional | ⬜ Pendiente |
+| **R14** | 🟡 | 🏗️ BE | Tipo de archivo validado contra el mimetype del cliente | ⬜ Pendiente |
+| **R15** | 🟡 | 🏗️ BE | Inyección de fórmulas en la exportación CSV | ⬜ Pendiente |
+| **R16** | 🟡 | 🏗️ BE | Respuestas privadas sin `no-store` | ⬜ Pendiente |
+| **R17** | 🟡 | 🏗️ BE | `PATCH /participants/:id` permite cambiar el DNI | ⬜ Pendiente |
+| **R18** | 🟡 | 🏗️ BE | `ensureBucketIsPrivate` se traga los fallos | ⬜ Pendiente |
+| **R19** | 🟡 | ⚛️ FE | Puerta trasera en el single-flight del refresh | ⬜ Pendiente |
+| **R20** | 🟡 | ⚛️ FE | Debounce en los buscadores (regresión de `59e2b60`) | ⬜ Pendiente |
+| **R21** | 🟡 | ⚛️ FE | Aplicar `getFriendlyError` en los 11 hooks que faltan | ⬜ Pendiente |
+| **R22** | 🟡 | 🔀 FS | Las acciones dentro de las páginas no filtran por rol | ⬜ Pendiente |
+| **R23** | 🟡 | 🔀 FS | `results[0]`/`results[1]` como local y visitante | ⬜ Pendiente |
+| **R24** | 🟡 | ⚛️ FE | `setAccessToken` puede quedar envenenado con `undefined` | ⬜ Pendiente |
+| **R25** | 🟡 | ⚛️ FE | `handleSessionExpired` deja estado inconsistente fuera de `/admin` | ⬜ Pendiente |
+| **R26** | 🟡 | ⚛️ FE | `clipboard.writeText` sin `catch`, y el toast miente | ⬜ Pendiente |
+| **R27** | 🚀 | ⚛️ FE | `lazy()` sobre `recharts` en el dashboard | ⬜ Pendiente |
+| **R28** | 🚀 | ⚛️ FE | Code splitting de las páginas públicas | ⬜ Pendiente |
+| **R29** | 📈 | 🔀 FS | Topes de paginación silenciosos en el frontend público | ⬜ Pendiente |
+| **R30** | ✨ | ⚛️ FE | `SafeNewsImage` no resetea `hasError` al cambiar `src` | ⬜ Pendiente |
+| **R31** | ✨ | ⚛️ FE | Nits agrupados de la revisión final | ⬜ Pendiente |
 
 ### Resumen por severidad
 
 | Severidad | Completadas | Total |
 |---|---|---|
-| 🔴 Crítico | 6 | 6 |
-| 🟡 Alto | 6 | 6 |
-| 🟠 Medio | 5 | 5 |
-| 🚀 Optimización alta | 4 | 4 |
-| 📈 Optimización media | 4 | 4 |
-| ✨ Polish | 3 | 3 |
+| 🔴 Blocker | 5 | 9 |
+| 🟡 Alto | 0 | 17 |
+| 🚀 Optimización alta | 0 | 2 |
+| 📈 Optimización media | 0 | 2 |
+| ✨ Polish | 0 | 2 |
 
-### Dos desviaciones documentadas
+### Distribución de carga por agente
 
-Ambas tareas están cerradas, pero con un criterio que se apartó del enunciado:
+| Agente | Tareas asignadas | Total |
+|---|---|---|
+| **🏗️ Backend Architect** | R01, R02, R03, R04, R06, R10, R11, R12, R13, R14, R15, R16, R17, R18 | **14** |
+| **⚛️ Frontend Engineer** | R08, R09, R19, R20, R21, R24, R25, R26, R27, R28, R30, R31 | **12** |
+| **⚛️ FE + 🎨 UI Designer** | R07 | **1** |
+| **🔀 Full-stack (BE + FE)** | R05, R22, R23, R29 | **4** |
+| **👁️ Code Reviewer** | Todas al cierre | **31** |
 
-- **T27** — el criterio de LOC quedó **refutado empíricamente**: se migraron las 8
-  páginas y el total subió igual. El valor entregado se mide en otra unidad
-  (estado de error 0/8 → 8/8, vacío-por-filtro 1/8 → 8/8, semántica de tabla
-  accesible 0/8 → 8/8).
-- **T10** — cumplido salvo **`EventScheduleFields` (253 líneas)**, que se dejó así
-  con argumento sostenido en dos rondas: partirlo daría dos archivos peores que uno.
+---
+
+## 🧭 Trazabilidad hallazgo → tarea
+
+| Hallazgo de la revisión final | Tarea | Severidad | Agente |
+|---|---|---|---|
+| PII de menores en `GET /competitions/:id` anónimo | R01 | 🔴 | 🏗️ BE |
+| Auditoría salteable con `?x=/auth/` | R02 | 🔴 | 🏗️ BE |
+| `@Query()` con tipo intersección → sin validación ni paginación | R03 | 🔴 | 🏗️ BE |
+| TOCTOU en la rotación del refresh token | R04 | 🔴 | 🏗️ BE |
+| Padrón provincial completo exportable por un DELEGADO | R05 | 🔴 | 🔀 FS |
+| Borradores de news/calendar por id y slug sin auth | R06 | 🔴 | 🏗️ BE |
+| Sin error boundary → stack trace renderizado en producción | R07 | 🔴 | ⚛️ FE + 🎨 UI |
+| Sidebar con fuente de verdad duplicada de roles | R08 | 🔴 | ⚛️ FE |
+| Wizard de inscripción contra el techo de `@Max(100)` | R09 | 🔴 | ⚛️ FE |
+| `?isActive=false` devuelve los activos | R10 | 🟡 | 🏗️ BE |
+| `sortBy` sin whitelist → 500 con rutas y fuente | R11 | 🟡 | 🏗️ BE |
+| Sanitizador de auditoría incompleto + PII histórica | R12 | 🟡 | 🏗️ BE |
+| Alta de inscripción no transaccional | R13 | 🟡 | 🏗️ BE |
+| Tipo de archivo por mimetype del cliente | R14 | 🟡 | 🏗️ BE |
+| Inyección de fórmulas en CSV | R15 | 🟡 | 🏗️ BE |
+| Respuestas autenticadas sin `no-store` | R16 | 🟡 | 🏗️ BE |
+| DNI editable por rol operativo | R17 | 🟡 | 🏗️ BE |
+| `ensureBucketIsPrivate` con fallo silencioso | R18 | 🟡 | 🏗️ BE |
+| Segundo camino a `/auth/refresh` fuera del single-flight | R19 | 🟡 | ⚛️ FE |
+| Búsqueda server-side sin debounce | R20 | 🟡 | ⚛️ FE |
+| `getFriendlyError` aplicado a 3 de 14 hooks | R21 | 🟡 | ⚛️ FE |
+| Botones de acción sin filtro de rol | R22 | 🟡 | 🔀 FS |
+| Localía inferida del orden de `results[]` | R23 | 🟡 | 🔀 FS |
+| Token de módulo envenenable con `undefined` | R24 | 🟡 | ⚛️ FE |
+| Sesión expirada fuera de `/admin` deja usuario fantasma | R25 | 🟡 | ⚛️ FE |
+| Toast de "copiado" sin verificar el portapapeles | R26 | 🟡 | ⚛️ FE |
+| `recharts` en el chunk de aterrizaje post-login | R27 | 🚀 | ⚛️ FE |
+| Páginas públicas sin code splitting | R28 | 🚀 | ⚛️ FE |
+| `limit` fijo con filtrado local en news y calendar | R29 | 📈 | 🔀 FS |
+| `hasError` sin sincronizar con la prop `src` | R30 | ✨ | ⚛️ FE |
+| Nits varios (key por índice, mes sin año, label, schemas) | R31 | ✨ | ⚛️ FE |
+
+---
+
+## ✅ Lo que la revisión confirmó que quedó bien
+
+Se deja escrito para no volver a auditar lo ya verificado:
+
+- **Backend:** los payloads reducidos por `select` explícito (−73,2 % en `/inscriptions?limit=50`), el streaming de reportes (162 MB de RSS para 20K filas contra 595 MB), el endpoint único `/dashboard/stats` (80 ms en frío, 5-8 ms cacheado), el contrato de la cookie httpOnly, los guardrails de secrets en env, el rate limiting con `trust proxy 1`, y Swagger fuera de producción.
+- **Frontend:** cero `console.*` fuera de `logger.ts`, cero `localStorage`/`sessionStorage` con datos de sesión, cero `document.cookie`; **cero `dangerouslySetInnerHTML`** en todo el proyecto; **46 de 46 `useMutation` con `onError`**; `tsc --noEmit` limpio con `noUncheckedIndexedAccess`; **un solo `React.memo`** y ninguno inútil (lo contrario del antipatrón de memoizar por las dudas); el reset de paginación centralizado en `patchFilters`/`clearFilters` en los tres listados que paginan; `safeImageSrc`/`safeExternalUrl` validando sobre el resultado parseado y no sobre substrings; y el `DataTable` con `scope`, `caption` en sr-only, live region con debounce y un solo tab stop por fila.
+- **`matchScore.ts`** quedó como arreglo ejemplar: convierte un modo de falla silencioso en un guion visible, distingue el `0` legítimo del dato ausente, y el comentario deja escrito el bug original para que nadie lo reintroduzca.

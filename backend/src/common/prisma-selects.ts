@@ -100,3 +100,103 @@ export const TEAM_MEMBER_WITH_PARTICIPANT = {
   participantId: true,
   participant: { select: PARTICIPANT_SUMMARY },
 } satisfies Prisma.TeamMemberSelect;
+
+// -------------------------------------------------
+// Proyecciones del fixture público (R01)
+// -------------------------------------------------
+
+/**
+ * Sede tal como se la nombra dentro de un fixture público.
+ *
+ * Sin `address`: en el fixture alcanza con el nombre y la localidad para
+ * ubicar el partido. La dirección completa se sirve por `GET /venues/:id`,
+ * que es el endpoint que existe para mapas. Traerla acá sólo agregaba
+ * superficie a una respuesta que además arrastra participantes.
+ */
+export const VENUE_PUBLIC_SUMMARY = {
+  id: true,
+  name: true,
+  locality: true,
+  department: true,
+} satisfies Prisma.VenueSelect;
+
+/**
+ * Resultado de un partido en la vista pública: quién compitió y cómo salió.
+ *
+ * El participante entra con `PARTICIPANT_NAME` —nombre y apellido, nada más—.
+ * Antes se traía con `include: { participant: true }`, o sea la ficha entera:
+ * DNI, fecha de nacimiento, email, teléfono y domicilio de menores de edad,
+ * servidos sin token.
+ */
+export const RESULT_PUBLIC = {
+  id: true,
+  matchId: true,
+  teamId: true,
+  participantId: true,
+  scoreData: true,
+  ranking: true,
+  isWinner: true,
+  team: { select: TEAM_SUMMARY },
+  participant: { select: PARTICIPANT_NAME },
+} satisfies Prisma.ResultSelect;
+
+/**
+ * Partido dentro de un fixture público.
+ *
+ * Sin `notes`: es el campo de observaciones internas del back-office (motivos
+ * de reprogramación, comentarios sobre los equipos) y no tiene por qué salir
+ * a la web.
+ */
+export const MATCH_PUBLIC = {
+  id: true,
+  competitionId: true,
+  venueId: true,
+  round: true,
+  matchNumber: true,
+  status: true,
+  scheduledAt: true,
+  startedAt: true,
+  finishedAt: true,
+  venue: { select: VENUE_PUBLIC_SUMMARY },
+  results: { select: RESULT_PUBLIC },
+} satisfies Prisma.MatchSelect;
+
+/**
+ * Disciplina dentro de una competencia.
+ *
+ * Suma `type` y `resultType` a `DISCIPLINE_SUMMARY` porque la vista de fixture
+ * los necesita para saber qué clave de `scoreData` leer al pintar el marcador.
+ * No incluye `rules`, que es un HTML largo y no se muestra en esa pantalla.
+ */
+export const DISCIPLINE_IN_COMPETITION = {
+  ...DISCIPLINE_SUMMARY,
+  type: true,
+  resultType: true,
+} satisfies Prisma.DisciplineSelect;
+
+/** Categoría dentro de una competencia: la etiqueta y el rango que la define. */
+export const CATEGORY_IN_COMPETITION = {
+  id: true,
+  name: true,
+  sex: true,
+  minAge: true,
+  maxAge: true,
+} satisfies Prisma.CategorySelect;
+
+/** Competencia con su fixture, tal como la sirve el endpoint público. */
+export const COMPETITION_PUBLIC_DETAIL = {
+  id: true,
+  disciplineId: true,
+  categoryId: true,
+  stage: true,
+  format: true,
+  status: true,
+  name: true,
+  startDate: true,
+  endDate: true,
+  config: true,
+  createdAt: true,
+  updatedAt: true,
+  discipline: { select: DISCIPLINE_IN_COMPETITION },
+  category: { select: CATEGORY_IN_COMPETITION },
+} satisfies Prisma.CompetitionSelect;

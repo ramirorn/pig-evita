@@ -35,11 +35,22 @@ export class CalendarService {
     return event;
   }
 
-  async findAll(filterDto: CalendarFilterDto) {
+  /**
+   * Listado de eventos.
+   *
+   * `verBorradores` lo decide el controller según el rol. Cuando es `false`,
+   * `isPublished: true` se impone después de leer el filtro del cliente: si no,
+   * bastaba `?isPublished=false` para listar los eventos sin publicar.
+   */
+  async findAll(filterDto: CalendarFilterDto, verBorradores = false) {
     const where: Prisma.CalendarEventWhereInput = {};
 
     if (filterDto.isPublished !== undefined) {
       where.isPublished = filterDto.isPublished;
+    }
+
+    if (!verBorradores) {
+      where.isPublished = true;
     }
 
     if (filterDto.fromDate || filterDto.toDate) {
@@ -69,9 +80,16 @@ export class CalendarService {
     return buildPaginatedResponse(events, total, filterDto);
   }
 
-  async findOne(id: string) {
-    const event = await this.prisma.calendarEvent.findUnique({
-      where: { id },
+  /**
+   * Evento por id.
+   *
+   * El endpoint es `@Public()` y hasta R06 no miraba `isPublished`: con el uuid
+   * en la mano cualquiera leía un evento todavía no anunciado. Se filtra en el
+   * `where` para que responda **404** en vez de confirmar que existe.
+   */
+  async findOne(id: string, verBorradores = false) {
+    const event = await this.prisma.calendarEvent.findFirst({
+      where: verBorradores ? { id } : { id, isPublished: true },
     });
 
     if (!event) {
@@ -82,17 +100,32 @@ export class CalendarService {
   }
 
   async update(id: string, updateDto: UpdateCalendarEventDto) {
-    await this.findOne(id); // Verificar que existe
+    // `true`: el camino administrativo edita también eventos sin publicar.
+    await this.findOne(id, true); // Verificar que existe
 
     const updateData: Prisma.CalendarEventUpdateInput = {
       ...(updateDto.title !== undefined ? { title: updateDto.title } : {}),
-      ...(updateDto.description !== undefined ? { description: updateDto.description || null } : {}),
-      ...(updateDto.startDate !== undefined ? { startDate: new Date(updateDto.startDate) } : {}),
-      ...(updateDto.endDate !== undefined ? { endDate: updateDto.endDate ? new Date(updateDto.endDate) : null } : {}),
-      ...(updateDto.stage !== undefined ? { stage: updateDto.stage || null } : {}),
-      ...(updateDto.venueId !== undefined ? { venueId: updateDto.venueId || null } : {}),
-      ...(updateDto.disciplineId !== undefined ? { disciplineId: updateDto.disciplineId || null } : {}),
-      ...(updateDto.isPublished !== undefined ? { isPublished: updateDto.isPublished } : {}),
+      ...(updateDto.description !== undefined
+        ? { description: updateDto.description || null }
+        : {}),
+      ...(updateDto.startDate !== undefined
+        ? { startDate: new Date(updateDto.startDate) }
+        : {}),
+      ...(updateDto.endDate !== undefined
+        ? { endDate: updateDto.endDate ? new Date(updateDto.endDate) : null }
+        : {}),
+      ...(updateDto.stage !== undefined
+        ? { stage: updateDto.stage || null }
+        : {}),
+      ...(updateDto.venueId !== undefined
+        ? { venueId: updateDto.venueId || null }
+        : {}),
+      ...(updateDto.disciplineId !== undefined
+        ? { disciplineId: updateDto.disciplineId || null }
+        : {}),
+      ...(updateDto.isPublished !== undefined
+        ? { isPublished: updateDto.isPublished }
+        : {}),
     };
 
     const updated = await this.prisma.calendarEvent.update({
@@ -105,7 +138,7 @@ export class CalendarService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
+    await this.findOne(id, true);
     const deleted = await this.prisma.calendarEvent.delete({
       where: { id },
     });

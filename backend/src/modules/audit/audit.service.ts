@@ -4,7 +4,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { PaginationQueryDto, buildPaginatedResponse } from '../../common/dto';
+import { buildPaginatedResponse } from '../../common/dto';
+import { AuditFilterDto } from './dto';
 import { sanitizeAuditChanges } from './audit-sanitizer';
 
 /**
@@ -68,16 +69,7 @@ export class AuditService {
   /**
    * Consultar logs de auditoría con paginación y filtros.
    */
-  async findAll(
-    query: PaginationQueryDto & {
-      userId?: string;
-      action?: string;
-      entity?: string;
-      entityId?: string;
-      fromDate?: string;
-      toDate?: string;
-    },
-  ) {
+  async findAll(query: AuditFilterDto) {
     const where: Prisma.AuditLogWhereInput = {};
 
     if (query.userId) {

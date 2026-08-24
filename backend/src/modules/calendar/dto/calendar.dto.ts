@@ -33,7 +33,9 @@ export class CreateCalendarEventDto {
 
   @ApiPropertyOptional({ description: 'Fecha de fin (ISO 8601)' })
   @IsOptional()
-  @ValidateIf((o) => o.endDate !== '' && o.endDate !== null && o.endDate !== undefined)
+  @ValidateIf(
+    (o) => o.endDate !== '' && o.endDate !== null && o.endDate !== undefined,
+  )
   @IsDateString()
   endDate?: string;
 
@@ -42,19 +44,28 @@ export class CreateCalendarEventDto {
     enum: CompetitionStage,
   })
   @IsOptional()
-  @ValidateIf((o) => o.stage !== '' && o.stage !== null && o.stage !== undefined)
+  @ValidateIf(
+    (o) => o.stage !== '' && o.stage !== null && o.stage !== undefined,
+  )
   @IsEnum(CompetitionStage)
   stage?: CompetitionStage;
 
   @ApiPropertyOptional({ description: 'ID de la sede' })
   @IsOptional()
-  @ValidateIf((o) => o.venueId !== '' && o.venueId !== null && o.venueId !== undefined)
+  @ValidateIf(
+    (o) => o.venueId !== '' && o.venueId !== null && o.venueId !== undefined,
+  )
   @IsString()
   venueId?: string;
 
   @ApiPropertyOptional({ description: 'ID de la disciplina' })
   @IsOptional()
-  @ValidateIf((o) => o.disciplineId !== '' && o.disciplineId !== null && o.disciplineId !== undefined)
+  @ValidateIf(
+    (o) =>
+      o.disciplineId !== '' &&
+      o.disciplineId !== null &&
+      o.disciplineId !== undefined,
+  )
   @IsString()
   disciplineId?: string;
 

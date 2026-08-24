@@ -97,6 +97,27 @@ class SondaController {
   accionDeNegocio() {
     return { ok: true };
   }
+
+  /** Escritura sobre un recurso con id, para ejercitar el bypass de R02. */
+  @Patch(':id')
+  actualizar() {
+    return { ok: true };
+  }
+}
+
+/**
+ * Controller cuyo prefijo *empieza* con "auth" sin serlo.
+ *
+ * La exclusión vieja usaba `includes('/auth/')`; la nueva compara el primer
+ * segmento por igualdad. Sin este controller no habría forma de probar que el
+ * arreglo no se pasó de largo y ahora excluye de más.
+ */
+@Controller('authors')
+class AuthorsController {
+  @Post()
+  crear() {
+    return { ok: true };
+  }
 }
 
 /** El interceptor no espera a `log()`: hay que dejar correr la microtask. */
@@ -106,7 +127,7 @@ const flush = () =>
 describe('Contrato de auditoría (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: {
-    user: { findUnique: jest.Mock; update: jest.Mock };
+    user: { findUnique: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
     auditLog: { create: jest.Mock };
   };
 
@@ -130,6 +151,33 @@ describe('Contrato de auditoría (e2e)', () => {
           }
           return Promise.resolve({ ...USER });
         }),
+        // Rotación condicional de R04. El `where` se evalúa de verdad contra el
+        // estado actual: un mock que devolviera `count: 1` siempre haría pasar
+        // por igual al código nuevo y al viejo.
+        updateMany: jest.fn(
+          ({
+            where,
+            data,
+          }: {
+            where: { id: string; refreshToken?: unknown };
+            data: Record<string, unknown>;
+          }) => {
+            const esperado = where.refreshToken;
+            const coincide =
+              where.id === USER.id &&
+              (esperado === undefined ||
+                (typeof esperado === 'object' && esperado !== null
+                  ? USER.refreshToken !== null
+                  : USER.refreshToken === esperado));
+
+            if (!coincide) return Promise.resolve({ count: 0 });
+
+            if (data.refreshToken !== undefined) {
+              USER.refreshToken = data.refreshToken as string | null;
+            }
+            return Promise.resolve({ count: 1 });
+          },
+        ),
       },
       auditLog: { create: jest.fn().mockResolvedValue({}) },
     };
@@ -144,6 +192,7 @@ describe('Contrato de auditoría (e2e)', () => {
         InscriptionsController,
         UsersController,
         SondaController,
+        AuthorsController,
       ],
       providers: [
         AuthService,
@@ -429,6 +478,69 @@ describe('Contrato de auditoría (e2e)', () => {
   // -------------------------------------------------
   // 5. Red de seguridad del esquema opt-out
   // -------------------------------------------------
+  // -------------------------------------------------
+  // R02 — la exclusión de /auth no se puede forzar desde la query
+  // -------------------------------------------------
+  describe('Bypass de auditoría por querystring (R02)', () => {
+    const ID = '55555555-5555-4555-8555-555555555555';
+
+    it('un PATCH con ?x=/auth/ colgado SE audita igual', async () => {
+      prisma.auditLog.create.mockClear();
+
+      await patch(`/sondas/${ID}?x=/auth/`).expect(200);
+      await flush();
+
+      // El modo de falla original: `request.url` incluye la query, así que
+      // `url.includes('/auth/')` daba true y la escritura pasaba sin registrar.
+      // Una acción de escritura sin fila es ceguera forense, no ruido de menos.
+      expect(filas()).toHaveLength(1);
+      expect(filas()[0]).toMatchObject({ entity: 'sondas', entityId: ID });
+    });
+
+    it.each([
+      ['query', `?x=/auth/`],
+      ['query con la ruta entera', `?redirect=/api/v1/auth/login`],
+      ['fragmento', `#/auth/`],
+      ['mayúsculas en la query', `?x=/AUTH/`],
+    ])('tampoco se saltea con %s', async (_caso, sufijo) => {
+      prisma.auditLog.create.mockClear();
+
+      await patch(`/sondas/${ID}${sufijo}`).expect(200);
+      await flush();
+
+      expect(filas()).toHaveLength(1);
+      expect(filas()[0]).toMatchObject({ entity: 'sondas' });
+    });
+
+    it('/authors se audita: la exclusión es por segmento, no por substring', async () => {
+      prisma.auditLog.create.mockClear();
+
+      await post('/authors').expect(201);
+      await flush();
+
+      // El arreglo tenía que cerrar el bypass sin excluir de más. Con
+      // `includes('/auth')` esta ruta habría dejado de auditarse.
+      expect(filas()).toHaveLength(1);
+      expect(filas()[0]).toMatchObject({ entity: 'authors' });
+    });
+
+    it('las rutas de auth reales siguen produciendo UNA sola fila', async () => {
+      prisma.auditLog.create.mockClear();
+
+      await post('/auth/login')
+        .send({ email: USER.email, password: PASSWORD })
+        .expect(200);
+      await flush();
+
+      // La exclusión existe para que el interceptor no duplique lo que
+      // `AuthService` ya audita a mano con su propia acción. Cerrar el bypass
+      // no debe reintroducir el doble registro que evitaba.
+      const deLogin = filas().filter((f) => f.action === AuditAction.LOGIN);
+      expect(deLogin).toHaveLength(1);
+      expect(filas()).toHaveLength(1);
+    });
+  });
+
   describe('Cobertura de las rutas de escritura reales', () => {
     // RequestMethod de Nest: 1=POST, 2=PUT, 3=DELETE, 4=PATCH.
     const METODOS_DE_ESCRITURA = new Set([1, 2, 3, 4]);

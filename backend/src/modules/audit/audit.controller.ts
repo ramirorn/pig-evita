@@ -7,12 +7,11 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { Roles } from '../../common/decorators';
 import { Role } from '../../common/constants';
-import { PaginationQueryDto } from '../../common/dto';
+import { AuditFilterDto } from './dto';
 
 @ApiTags('Audit')
 @Controller('audit')
@@ -27,48 +26,10 @@ export class AuditController {
     description: 'Lista paginada de acciones registradas.',
   })
   @ApiResponse({ status: 200, description: 'Lista de logs de auditoría' })
-  @ApiQuery({
-    name: 'userId',
-    required: false,
-    description: 'Filtrar por usuario',
-  })
-  @ApiQuery({
-    name: 'action',
-    required: false,
-    description: 'Filtrar por acción (CREATE, UPDATE, DELETE, LOGIN, etc.)',
-  })
-  @ApiQuery({
-    name: 'entity',
-    required: false,
-    description:
-      'Filtrar por entidad (users, participants, inscriptions, etc.)',
-  })
-  @ApiQuery({
-    name: 'entityId',
-    required: false,
-    description: 'Filtrar por ID de entidad',
-  })
-  @ApiQuery({
-    name: 'fromDate',
-    required: false,
-    description: 'Fecha desde (ISO)',
-  })
-  @ApiQuery({
-    name: 'toDate',
-    required: false,
-    description: 'Fecha hasta (ISO)',
-  })
-  async findAll(
-    @Query()
-    query: PaginationQueryDto & {
-      userId?: string;
-      action?: string;
-      entity?: string;
-      entityId?: string;
-      fromDate?: string;
-      toDate?: string;
-    },
-  ) {
+  // El tipo tiene que ser una **clase**: con un tipo intersección TypeScript no
+  // emite `design:paramtypes` utilizable y el ValidationPipe global se saltea
+  // el DTO entero, incluido el `@Max(100)` de la paginación (R03).
+  async findAll(@Query() query: AuditFilterDto) {
     return this.auditService.findAll(query);
   }
 }

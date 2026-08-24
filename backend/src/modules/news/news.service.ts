@@ -44,11 +44,23 @@ export class NewsService {
     return news;
   }
 
-  async findAll(filterDto: NewsFilterDto) {
+  /**
+   * Listado de noticias.
+   *
+   * `verBorradores` viene del controller: es `true` sólo para los roles que
+   * administran contenido. Cuando es `false` el filtro `isPublished: true` se
+   * impone al final, **pisando** lo que haya pedido el cliente: sin eso, un
+   * anónimo listaba los borradores con sólo mandar `?isPublished=false`.
+   */
+  async findAll(filterDto: NewsFilterDto, verBorradores = false) {
     const where: Prisma.NewsWhereInput = {};
 
     if (filterDto.isPublished !== undefined) {
       where.isPublished = filterDto.isPublished;
+    }
+
+    if (!verBorradores) {
+      where.isPublished = true;
     }
 
     if (filterDto.search) {
@@ -73,9 +85,17 @@ export class NewsService {
     return buildPaginatedResponse(newsList, total, filterDto);
   }
 
-  async findOne(id: string) {
-    const news = await this.prisma.news.findUnique({
-      where: { id },
+  /**
+   * Noticia por id.
+   *
+   * `findAll` filtraba por `isPublished` pero el acceso directo por id no, y el
+   * endpoint es `@Public()`: conociendo el uuid se leía cualquier borrador sin
+   * token (R06). El filtro va en el `where`, no en un `if` posterior, para que
+   * el borrador devuelva **404** y no confirme siquiera que el id existe.
+   */
+  async findOne(id: string, verBorradores = false) {
+    const news = await this.prisma.news.findFirst({
+      where: verBorradores ? { id } : { id, isPublished: true },
     });
 
     if (!news) {
@@ -85,9 +105,14 @@ export class NewsService {
     return news;
   }
 
-  async findBySlug(slug: string) {
-    const news = await this.prisma.news.findUnique({
-      where: { slug },
+  /**
+   * Noticia por slug. Mismo problema que `findOne`, y peor: el slug se deriva
+   * del título con `generateSlug`, así que ni siquiera hacía falta conocer un
+   * uuid para adivinar la URL de un borrador.
+   */
+  async findBySlug(slug: string, verBorradores = false) {
+    const news = await this.prisma.news.findFirst({
+      where: verBorradores ? { slug } : { slug, isPublished: true },
     });
 
     if (!news) {
@@ -98,7 +123,8 @@ export class NewsService {
   }
 
   async update(id: string, updateDto: UpdateNewsDto) {
-    const news = await this.findOne(id);
+    // `true`: el camino administrativo tiene que poder editar un borrador.
+    const news = await this.findOne(id, true);
 
     const updateData: Prisma.NewsUpdateInput = { ...updateDto };
 
@@ -131,7 +157,7 @@ export class NewsService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
+    await this.findOne(id, true);
 
     const news = await this.prisma.news.delete({
       where: { id },

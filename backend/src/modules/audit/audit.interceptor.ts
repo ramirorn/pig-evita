@@ -49,7 +49,14 @@ export class AuditInterceptor implements NestInterceptor {
     // Las rutas de auth se auditan a mano en AuthService, con eventos que el
     // interceptor no sabría nombrar (LOGIN_FAILED no es un CREATE). Excluirlas
     // acá es lo que hace que las dos vías sean disjuntas y no haya doble fila.
-    if (url.includes('/auth/')) {
+    //
+    // La comparación va contra la **ruta normalizada**, no contra `url`:
+    // `request.url` incluye la query string, así que `url.includes('/auth/')`
+    // se satisfacía con un `?x=/auth/` colgado de cualquier PATCH o DELETE y
+    // la escritura quedaba sin auditar (R02). Ahora se compara el primer
+    // segmento de la ruta por igualdad, lo que además deja de excluir por
+    // error rutas como `/authors`.
+    if (this.esRutaDeAuth(request)) {
       return next.handle();
     }
 
@@ -67,6 +74,8 @@ export class AuditInterceptor implements NestInterceptor {
     const user = (request as any).user;
     const userId = user?.sub ?? null;
 
+    // Acá se parsea la URL real, no el patrón del router: el uuid del recurso
+    // está en `/inscriptions/<uuid>/approve` y no en `/inscriptions/:id/approve`.
     const { entity: entityFromUrl, entityId: entityIdFromUrl } =
       this.parseUrl(url);
     const entity = options.entity ?? entityFromUrl;
@@ -115,12 +124,39 @@ export class AuditInterceptor implements NestInterceptor {
     return typeof id === 'string' && UUID_REGEX.test(id) ? id : null;
   }
 
+  /**
+   * Ruta efectiva del request, sin query string ni fragmento.
+   *
+   * Se prefiere la ruta del router de Express (`req.baseUrl` + el patrón del
+   * handler) porque es la que resolvió el framework y ningún parámetro del
+   * cliente puede alterar. `originalUrl`/`url` quedan como respaldo para los
+   * casos en que el request no llegó a matchear una ruta.
+   */
+  private rutaNormalizada(request: Request): string {
+    const patron = (request as Request & { route?: { path?: string } }).route
+      ?.path;
+    const cruda =
+      typeof patron === 'string'
+        ? `${request.baseUrl ?? ''}${patron}`
+        : (request.originalUrl ?? request.url ?? '');
+
+    return cruda.split('?')[0].split('#')[0];
+  }
+
+  /** ¿El request cae en el módulo de auth, que se audita a mano? */
+  private esRutaDeAuth(request: Request): boolean {
+    const { entity } = this.parseUrl(this.rutaNormalizada(request));
+    // Igualdad, no `includes`: `/authors` no es `/auth`.
+    return entity.toLowerCase() === 'auth';
+  }
+
   private parseUrl(url: string): { entity: string; entityId: string | null } {
     // Parse: /api/v1/users/uuid → entity: "users", entityId: "uuid"
-    // La query string no forma parte de la ruta y confundiría al split.
-    const path = url.split('?')[0];
+    // La query string y el fragmento no forman parte de la ruta y confundirían
+    // al split.
+    const path = url.split('?')[0].split('#')[0];
     const parts = path
-      .replace(/^\/api\/v1\//, '')
+      .replace(/^\/api\/v\d+\//i, '')
       .split('/')
       .filter(Boolean);
     const entity = parts[0] || 'unknown';

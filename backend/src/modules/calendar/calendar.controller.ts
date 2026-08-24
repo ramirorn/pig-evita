@@ -11,6 +11,7 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,8 +25,16 @@ import {
   UpdateCalendarEventDto,
   CalendarFilterDto,
 } from './dto';
-import { Roles, Public, PublicReadThrottle } from '../../common/decorators';
+import {
+  Roles,
+  Public,
+  CurrentUser,
+  PublicReadThrottle,
+} from '../../common/decorators';
 import { ADMIN_ROLES } from '../../common/constants';
+import { OptionalJwtAuthGuard } from '../../common/guards';
+import { puedeVerBorradores } from '../../common/content-visibility';
+import type { UsuarioConRol } from '../../common/content-visibility';
 
 @ApiTags('Calendar')
 @Controller('calendar')
@@ -41,21 +50,34 @@ export class CalendarController {
     return this.calendarService.create(createDto);
   }
 
+  /**
+   * Públicos con autenticación opcional (R06): con token de un rol que
+   * administra contenido se ven también los eventos sin publicar; sin token,
+   * sólo los publicados. Ver `OptionalJwtAuthGuard`.
+   */
   @Get()
   @Public() // Calendario público
+  @UseGuards(OptionalJwtAuthGuard)
   @PublicReadThrottle()
   @ApiOperation({ summary: 'Listar eventos del calendario' })
   @ApiResponse({ status: 200, description: 'Lista de eventos paginada' })
-  async findAll(@Query() filterDto: CalendarFilterDto) {
-    return this.calendarService.findAll(filterDto);
+  async findAll(
+    @Query() filterDto: CalendarFilterDto,
+    @CurrentUser() user: UsuarioConRol | null,
+  ) {
+    return this.calendarService.findAll(filterDto, puedeVerBorradores(user));
   }
 
   @Get(':id')
   @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @PublicReadThrottle()
   @ApiOperation({ summary: 'Obtener evento por ID' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.calendarService.findOne(id);
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: UsuarioConRol | null,
+  ) {
+    return this.calendarService.findOne(id, puedeVerBorradores(user));
   }
 
   @Patch(':id')
