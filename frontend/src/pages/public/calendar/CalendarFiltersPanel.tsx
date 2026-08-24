@@ -4,8 +4,7 @@
 import { Filter, RotateCcw, Search, X } from 'lucide-react';
 import type { Discipline } from '@/types';
 import { Input } from '@/components/ui/input';
-import { MONTH_NAMES } from './eventStageStyles';
-import type { CalendarPageFilters } from './calendarFilters';
+import type { CalendarPageFilters, OpcionDeMes } from './calendarFilters';
 
 interface CalendarFiltersPanelProps {
   filters: CalendarPageFilters;
@@ -16,6 +15,12 @@ interface CalendarFiltersPanelProps {
   disciplines: Discipline[];
   /** Cantidad ya filtrada; el panel sólo la muestra, no la calcula. */
   resultCount: number;
+  /**
+   * Meses con eventos, ya resueltos por la página (`opcionesDeMes`). El panel
+   * no arma la lista: los doce meses fijos no alcanzan desde que la clave
+   * incluye el año (R31).
+   */
+  monthOptions: OpcionDeMes[];
 }
 
 export function CalendarFiltersPanel({
@@ -25,6 +30,7 @@ export function CalendarFiltersPanel({
   hasActiveFilters,
   disciplines,
   resultCount,
+  monthOptions,
 }: CalendarFiltersPanelProps) {
   return (
     <div className="bg-white rounded-2xl border border-primary-100 p-5 shadow-sm mb-10">
@@ -71,9 +77,9 @@ export function CalendarFiltersPanel({
             className="w-full h-10 px-3 text-sm rounded-xl border border-primary-200 bg-white text-primary-900 focus:outline-none focus:ring-2 focus:ring-primary-500 font-medium cursor-pointer"
           >
             <option value="ALL">Todos los meses</option>
-            {MONTH_NAMES.map((monthName, idx) => (
-              <option key={idx} value={idx.toString()}>
-                {monthName}
+            {monthOptions.map((mes) => (
+              <option key={mes.value} value={mes.value}>
+                {mes.label}
               </option>
             ))}
           </select>

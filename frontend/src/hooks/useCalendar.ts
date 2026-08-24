@@ -9,6 +9,7 @@ import {
   type UpdateCalendarEventPayload
 } from '@/api/calendar.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { fetchAllPages } from '@/lib/fetchAllPages';
 import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -16,6 +17,7 @@ export const CALENDAR_KEYS = {
   all: ['calendar'] as const,
   lists: () => [...CALENDAR_KEYS.all, 'list'] as const,
   list: (filters?: CalendarFilters) => [...CALENDAR_KEYS.lists(), { filters }] as const,
+  listAll: (filters: CalendarFilters) => [...CALENDAR_KEYS.lists(), 'all', filters] as const,
   details: () => [...CALENDAR_KEYS.all, 'detail'] as const,
   detail: (id: string) => [...CALENDAR_KEYS.details(), id] as const,
 };
@@ -24,6 +26,26 @@ export function useCalendarEvents(filters?: CalendarFilters) {
   return useQuery({
     queryKey: CALENDAR_KEYS.list(filters),
     queryFn: () => calendarApi.findAll(filters),
+    staleTime: STALE_TIME.OPERATIONAL,
+  });
+}
+
+/**
+ * Todos los eventos que matchean el filtro, recorriendo la paginación hasta el
+ * final.
+ *
+ * El calendario público filtra en el cliente (mes, etapa, disciplina, texto) y
+ * lo hacía sobre un `limit: 100`, que es además el tope duro del backend: el
+ * evento 101 no existía para el calendario, y el `EmptyState` decía "no se
+ * encontraron eventos con los filtros seleccionados" cuando lo cierto era "no
+ * hay eventos entre los 100 que trajimos" (R29). Devuelve el arreglo directo
+ * porque ya no queda paginación de la que hablar.
+ */
+export function useAllCalendarEvents(filters: CalendarFilters = {}) {
+  return useQuery({
+    queryKey: CALENDAR_KEYS.listAll(filters),
+    queryFn: () =>
+      fetchAllPages((page, limit) => calendarApi.findAll({ ...filters, page, limit })),
     staleTime: STALE_TIME.OPERATIONAL,
   });
 }

@@ -299,9 +299,13 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R26 🟡 ⚛️ FE — `clipboard.writeText` sin `catch`, y el toast miente
 
-- [ ] **Descripción:** `navigator.clipboard.writeText(code); toast.success('Código copiado al portapapeles');` — la promesa rechaza si el contexto no es seguro (`http://` en una demo o en la red interna), si el permiso está denegado o si el documento no tiene foco. Resultado: una unhandled rejection **y** un toast verde que le dice al participante que su código de inscripción se copió cuando el portapapeles quedó vacío. Después lo pega en WhatsApp y manda cualquier cosa.
+- [x] **Descripción:** `navigator.clipboard.writeText(code); toast.success('Código copiado al portapapeles');` — la promesa rechaza si el contexto no es seguro (`http://` en una demo o en la red interna), si el permiso está denegado o si el documento no tiene foco. Resultado: una unhandled rejection **y** un toast verde que le dice al participante que su código de inscripción se copió cuando el portapapeles quedó vacío. Después lo pega en WhatsApp y manda cualquier cosa.
 - **Archivos:** `frontend/src/pages/public/inscription/useInscriptionWizard.ts:196-199`, `frontend/src/pages/public/NewsDetailPage.tsx:56`
 - **DoD:** el toast de éxito sólo aparece si la promesa resolvió; el rechazo muestra un error accionable y no queda unhandled. Verificado sirviendo el frontend por `http://` en una IP de red local.
+
+- **✅ Evidencia (2026-08-24):** 5 chequeos ejecutando el helper real. Se agregó `src/lib/clipboard.ts`, único lugar del frontend que llama a `writeText`. Un detalle que la tarea no anticipaba y sí importa: en `http://` contra una IP de red la API **no existe**, no es que rechace — así que además del `try/catch` hay que chequear que `navigator.clipboard?.writeText` esté. El cuarto chequeo es un listener de `unhandledRejection` sobre los tres escenarios: **0 rechazos sin atender**. El mensaje de error es accionable ("Seleccioná el texto y copialo a mano").
+- **Alcance real mayor al enunciado:** en `NewsDetailPage` el tilde de "copiado" también se prendía siempre; ahora depende del resultado.
+- **⏳ Pendiente:** la demo sirviendo por `http://` en una IP de red local. El caso está cubierto por el test que simula exactamente esa condición, pero es simulación.
 
 ---
 
@@ -309,21 +313,49 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R27 🚀 ⚛️ FE — `lazy()` sobre `recharts` en el dashboard
 
-- [ ] **Descripción:** Medido con `npm run build`: `DashboardPage-BmjpRhUx.js` pesa **322,80 kB (95,26 kB gzip)**, contra 14,53 kB del siguiente admin más pesado — **22×**. Son 42 ocurrencias de `recharts` en el chunk, todas desde `InscriptionsStatusCard.tsx:6`. `DashboardPage` es el destino post-login de **todos** los roles: 95 kB gzip en el camino crítico de cada login, por un donut de cuatro porciones.
+- [x] **Descripción:** Medido con `npm run build`: `DashboardPage-BmjpRhUx.js` pesa **322,80 kB (95,26 kB gzip)**, contra 14,53 kB del siguiente admin más pesado — **22×**. Son 42 ocurrencias de `recharts` en el chunk, todas desde `InscriptionsStatusCard.tsx:6`. `DashboardPage` es el destino post-login de **todos** los roles: 95 kB gzip en el camino crítico de cada login, por un donut de cuatro porciones.
 - **Crédito donde corresponde:** el comentario de `InscriptionsStatusCard.tsx:10-20` documenta el problema con precisión y declara que el `lazy()` es otra tarea. Es deuda declarada, no escondida — y el corte ya está servido por T10.
 - **DoD:** el chunk de `DashboardPage` baja por debajo de 50 kB; el donut carga en un chunk aparte con su propio fallback; cifras de `npm run build` antes y después en `PROCESO.md`.
 
+- **✅ Evidencia (2026-08-24), medida con `npm run build`:**
+
+  | | antes | después |
+  |---|---|---|
+  | `DashboardPage` | 322,80 kB / **95,31 kB gzip** | **8,12 kB / 2,77 kB gzip** |
+  | `InscriptionsStatusDonut` | *(dentro del anterior)* | 315,73 kB / 93,03 kB gzip, diferido |
+
+  El DoD pedía bajar de 50 kB: quedó en **8,12 kB**. Los 93 kB gzip salen del camino crítico del login de todos los roles.
+- **El corte quedó dentro de la card y no en la página:** la leyenda y el marco no dependen de `recharts`, así que se pintan de entrada y sólo el hueco del gráfico espera. El contenedor de 140 px queda **fuera** del `<Suspense>` y el fallback es un anillo con `role="status"`, así que la card no salta al cargar.
+- **Sin regresión visual:** comparación de markup contra un worktree de `HEAD` — la leyenda de la card rinde idéntica; lo único que cambia es el donut por su fallback, que es el cambio buscado.
+
 ### R28 🚀 ⚛️ FE — Code splitting de las páginas públicas
 
-- [ ] **Descripción:** Medido con `npm run build`: `index-CVXHwlVk.js` pesa **442,63 kB (128,47 kB gzip)**. T20 lazificó las 20 páginas admin, con el buen detalle de importar cada una desde su archivo y no desde el barrel — pero las nueve públicas se importan de forma estática (`router.tsx:35-46`) y **desde el barrel** `@/pages/public/index`, que es justo el error que el comentario de `router.tsx:49-52` explica que hay que evitar. Un ciudadano que entra a ver el calendario se descarga las nueve páginas públicas, el `LoginPage`, `AuthProvider`, `QueryClientProvider` y los layouts: 128 kB gzip en un móvil formoseño.
+- [x] **Descripción:** Medido con `npm run build`: `index-CVXHwlVk.js` pesa **442,63 kB (128,47 kB gzip)**. T20 lazificó las 20 páginas admin, con el buen detalle de importar cada una desde su archivo y no desde el barrel — pero las nueve públicas se importan de forma estática (`router.tsx:35-46`) y **desde el barrel** `@/pages/public/index`, que es justo el error que el comentario de `router.tsx:49-52` explica que hay que evitar. Un ciudadano que entra a ver el calendario se descarga las nueve páginas públicas, el `LoginPage`, `AuthProvider`, `QueryClientProvider` y los layouts: 128 kB gzip en un móvil formoseño.
 - **DoD:** el chunk de entrada baja por debajo de 60 kB gzip; cada página pública tiene su chunk; ningún import desde el barrel en `router.tsx`; el `lazy()` no rompe la primera pintura de la home (medir LCP antes y después).
+
+- **✅ Evidencia (2026-08-24), medida con `npm run build`:**
+
+  | | antes | después |
+  |---|---|---|
+  | chunk de entrada | 412,44 kB / **120,33 kB gzip** | **285,40 kB / 90,02 kB gzip** |
+  | JS de la primera pintura (entry + `modulepreload`) | 558,80 kB / **167,17 kB gzip** | **472,39 kB / 150,92 kB gzip** |
+  | chunks JS | 44 | 102 |
+
+  Se borró el barrel `pages/public/index.tsx` y `grep` sobre `router.tsx` da **0** imports desde barriles. Se lazificaron además `LoginPage`, `InscriptionInfoPage` y `AdminLayout` — el shell del panel viajaba en el entry, o sea que un ciudadano se bajaba el sidebar y el botón de cerrar sesión. Efecto colateral: mover los `lazy()` a su módulo apagó **20 warnings** de `only-export-components`.
+- **⚠️ Desviación deliberada 1 — la home queda estática.** Lazificarla saca 2,80 kB gzip del entry y a cambio mete un round-trip entre el parseo del entry y el primer render, que es exactamente el intervalo que mide el LCP de la ruta de aterrizaje. En un móvil formoseño la latencia pesa más que 2,8 kB. Queda argumentado en el comentario del import.
+- **⚠️ Desviación deliberada 2 — no se llegó al "&lt; 60 kB gzip" del DoD, y no se forzó.** Los 90 kB que quedan no son páginas: son `react-dom`, react-router, react-query, axios, sonner y los layouts, o sea lo que necesita cualquier ruta. Un `manualChunks` que moviera `react`/`react-dom` a un `vendor-react` dejaría el número en ~30 kB y el criterio "cumplido", pero **el navegador descargaría exactamente lo mismo**: es maquillar la métrica. La cifra que sí mide lo que le pasa al usuario es la de primera pintura, **−16,25 kB gzip (−9,7 %)**, y para quien entra a `/calendario` la caída es mayor porque ya no arrastra las otras ocho páginas.
+- **⏳ Pendiente:** medir LCP en un navegador. Sin backend no hay app que cargar de verdad; la decisión sobre la home se tomó con la cifra de transferencia y el razonamiento de cascada.
 
 ### R29 📈 🔀 FS — Topes de paginación silenciosos en el frontend público
 
-- [ ] **Descripción:** Mismo patrón que R09, con menos daño pero igual de invisible:
+- [x] **Descripción:** Mismo patrón que R09, con menos daño pero igual de invisible:
   - `NewsPage.tsx:16-19` — `limit: 50` y el buscador filtra **en el cliente** sobre esas 50. La noticia 51 no se encuentra buscándola, y el `EmptyState` dice "No se encontraron artículos que coincidan con tu búsqueda", que es literalmente falso.
   - `CalendarPage.tsx:23` — `limit: 100`, filtrado local en `calendarFilters.ts:37-57`. El evento 101 no existe para el calendario público.
 - **DoD:** con más registros que el tope, la búsqueda y los filtros alcanzan a **todo** el conjunto (búsqueda server-side o paginación real). Ningún `EmptyState` afirma "no hay resultados" cuando lo cierto es "no hay resultados en lo que trajimos".
+
+- **✅ Evidencia (2026-08-24):** 5 chequeos. El calendario alcanza los 250 eventos donde antes cortaba en 100 (3 requests vía `fetchAllPages`), y el filtro de mes ve eventos que estaban más allá del tope.
+- **Las dos pantallas se resolvieron distinto, a propósito.** El calendario usa `fetchAllPages`. Noticias **no**: el backend ya soporta `search` sobre título y copete, y traerse el archivo entero de noticias para filtrarlo en el cliente sería el mismo error con otro disfraz. Así que la búsqueda viaja al servidor —con `useDebounce`, el patrón de R20— y la página pagina de verdad. El `EmptyState` que afirmaba "no se encontraron artículos que coincidan con tu búsqueda" pasó a ser cierto.
+- **Los dos chequeos de noticias interceptan el adapter de la instancia real de Axios**, no un stub del módulo, así que ejercitan `news.api.ts` con sus interceptores y muestran los query params que salen al aire.
 
 ---
 
@@ -339,7 +371,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R31 ✨ ⚛️ FE — Nits agrupados de la revisión final
 
-- [ ] **Descripción:** Ocho hallazgos menores que no justifican una tarea cada uno:
+- [x] **Descripción:** Ocho hallazgos menores que no justifican una tarea cada uno:
   - `CompetitionPublicPage.tsx:96` — `key={idx}` sobre datos dinámicos (el único del diff; los demás son constantes estáticas o skeletons). En una tabla de posiciones que reordena al cargar resultados, React reusa DOM por posición. Con celdas de texto plano el daño es cosmético, pero es la misma tabla cuya correctitud se acaba de endurecer en `matchScore.ts`.
   - `public/calendar/calendarFilters.ts:44,52` — el filtro de mes usa `getMonth()` sin mirar el año: un evento de marzo de 2025 matchea "Marzo" junto con los de 2026.
   - `public/inscription/TrackInscription.tsx:45-51` — el input de código QR tiene `placeholder` pero ni `<label>` ni `aria-label`. Se marca porque el resto del diff es notablemente bueno en esto (`ParticipantsToolbar` etiqueta sus cinco filtros, `Pagination` sus cuatro botones, `DataTable` maneja `scope`, `caption` y live regions con cuidado real); éste quedó suelto.
@@ -350,6 +382,13 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - `pages/admin/CompetitionDetailPage.tsx:86` — indentación rota en el `resultType={...}` que agregó `59e2b60`.
   - `pages/public/NewsPage.tsx:22-30` — el único warning real de `npm run lint` (`useMemo depends on 'allNews', which changes every render`). Es inofensivo, pero conviene resolverlo con intención en vez de dejarlo pasar.
 - **DoD:** `npm run lint` sin warnings; `npx tsc --noEmit` limpio; los cuatro puntos con impacto funcional (mes sin año, `key`, `DataTable`, schemas) con un test cada uno.
+
+- **✅ Evidencia (2026-08-24):** 22 chequeos entre los cuatro nits con impacto funcional, más comparación de markup del `DataTable` con 2 y 3 páginas (idéntico: el arreglo sólo toca el caso de una sola página).
+- **El filtro de mes** pasó de `'0'..'11'` a clave `'YYYY-MM'`, y las opciones se derivan **de los eventos que hay** ("Marzo 2025", "Marzo 2026") en vez de listar doce meses fijos: con el año en juego, ofrecer un mes vacío sólo puede terminar en una lista vacía.
+- **Los schemas de Zod** que estaban definidos y sin usar ahora se usan, y eso destapó reglas que el código a mano dejaba pasar: `participantSchema` rechaza `00000000` y el 31 de febrero, que el regex inline aceptaba.
+- **El nit del `originalRequest._retry`** se resolvió determinando cuál de los dos lugares estaba mal: el que faltaba chequear era el segundo, porque sin `config` no hay request que reenviar.
+- **Corrección sobre el informe del agente:** dio por cerrada la indentación de `CompetitionDetailPage.tsx:86` sin tocarla, y seguía rota (10 espacios contra 8 de las props hermanas). Se arregló al verificar.
+- **⚠️ Desviación del DoD:** quedan **6 warnings** de lint (el criterio pedía cero), todas `react(only-export-components)` en primitivas de `ui/` que exportan sus variantes de `cva` junto al componente, más `auth.store` y `StepPersonalData`. Ninguna es de los archivos de R31 y sacarlas obliga a partir cada primitiva en dos módulos, que es una refactorización con su propia superficie de riesgo. Se bajó de **36 a 6**.
 
 ---
 
@@ -375,7 +414,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-24. Cada tarea tendrá su bloque de evidencia en
 > `PROCESO.md → sección 5` y su propio commit.
 
-**Progreso: 14 de 31 tareas completadas.**
+**Progreso: 19 de 31 tareas completadas.**
 Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es la única que requiere migración y decisión de negocio.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -405,22 +444,22 @@ Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es 
 | **R23** | 🟡 | 🔀 FS | `results[0]`/`results[1]` como local y visitante | ⬜ Pendiente |
 | **R24** | 🟡 | ⚛️ FE | `setAccessToken` puede quedar envenenado con `undefined` | ✅ Completada |
 | **R25** | 🟡 | ⚛️ FE | `handleSessionExpired` deja estado inconsistente fuera de `/admin` | ✅ Completada |
-| **R26** | 🟡 | ⚛️ FE | `clipboard.writeText` sin `catch`, y el toast miente | ⬜ Pendiente |
-| **R27** | 🚀 | ⚛️ FE | `lazy()` sobre `recharts` en el dashboard | ⬜ Pendiente |
-| **R28** | 🚀 | ⚛️ FE | Code splitting de las páginas públicas | ⬜ Pendiente |
-| **R29** | 📈 | 🔀 FS | Topes de paginación silenciosos en el frontend público | ⬜ Pendiente |
+| **R26** | 🟡 | ⚛️ FE | `clipboard.writeText` sin `catch`, y el toast miente | ✅ Completada |
+| **R27** | 🚀 | ⚛️ FE | `lazy()` sobre `recharts` en el dashboard | ✅ Completada |
+| **R28** | 🚀 | ⚛️ FE | Code splitting de las páginas públicas | ✅ Completada |
+| **R29** | 📈 | 🔀 FS | Topes de paginación silenciosos en el frontend público | ✅ Completada |
 | **R30** | ✨ | ⚛️ FE | `SafeNewsImage` no resetea `hasError` al cambiar `src` | ✅ Completada |
-| **R31** | ✨ | ⚛️ FE | Nits agrupados de la revisión final | ⬜ Pendiente |
+| **R31** | ✨ | ⚛️ FE | Nits agrupados de la revisión final | ✅ Completada |
 
 ### Resumen por severidad
 
 | Severidad | Completadas | Total |
 |---|---|---|
 | 🔴 Blocker | 8 | 9 |
-| 🟡 Alto | 5 | 17 |
-| 🚀 Optimización alta | 0 | 2 |
-| 📈 Optimización media | 0 | 2 |
-| ✨ Polish | 1 | 2 |
+| 🟡 Alto | 6 | 17 |
+| 🚀 Optimización alta | 2 | 2 |
+| 📈 Optimización media | 1 | 2 |
+| ✨ Polish | 2 | 2 |
 
 ### Distribución de carga por agente
 

@@ -11,10 +11,51 @@ import type { CalendarEvent } from '@/types';
  */
 export interface CalendarPageFilters {
   search: string;
-  /** Índice de mes como string ('0'..'11') o 'ALL'; sale del `<select>`. */
+  /**
+   * Mes **con año**, como `'2026-03'`, o `'ALL'`; sale del `<select>`.
+   *
+   * Antes viajaba el índice de mes suelto (`'0'..'11'`) y el filtro comparaba
+   * con `getMonth()` sin mirar el año: elegir "Marzo" mostraba juntos los
+   * eventos de marzo de 2025 y los de marzo de 2026, que en un calendario
+   * deportivo con etapas anuales es directamente un dato equivocado (R31).
+   */
   month: string;
   stage: string;
   disciplineId: string;
+}
+
+/** Clave `YYYY-MM` de una fecha ISO, en hora local (igual que la mostrada). */
+export function claveDeMes(fechaIso: string): string {
+  const fecha = new Date(fechaIso);
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Una opción del selector de mes: la clave que viaja y la etiqueta visible. */
+export interface OpcionDeMes {
+  value: string;
+  label: string;
+}
+
+/**
+ * Los meses que **de verdad** tienen eventos, en orden cronológico.
+ *
+ * Se derivan del conjunto traído en vez de listar los doce meses fijos: con el
+ * año en juego, "Marzo" a secas ya no identifica nada, y ofrecer "Marzo 2025"
+ * cuando no hay ningún evento en marzo de 2025 es una opción que sólo puede
+ * terminar en una lista vacía.
+ */
+export function opcionesDeMes(events: CalendarEvent[], nombresDeMes: string[]): OpcionDeMes[] {
+  const claves = new Set(events.map((event) => claveDeMes(event.startDate)));
+
+  return [...claves]
+    .sort()
+    .map((value) => {
+      const [anio, mes] = value.split('-');
+      // `noUncheckedIndexedAccess`: el split de una clave que armamos nosotros
+      // siempre da dos partes, pero el tipo no lo sabe.
+      const nombre = nombresDeMes[Number(mes) - 1] ?? mes;
+      return { value, label: `${nombre} ${anio}` };
+    });
 }
 
 export const EMPTY_CALENDAR_FILTERS: CalendarPageFilters = {
@@ -33,7 +74,13 @@ export function hasActiveCalendarFilters(filters: CalendarPageFilters): boolean 
   );
 }
 
-/** El backend devuelve hasta 100 eventos publicados: el filtrado es local. */
+/**
+ * Filtrado local sobre el conjunto **completo** de eventos publicados.
+ *
+ * Antes esto corría sobre los primeros 100 que devolvía el backend y nadie lo
+ * decía; ahora la página los trae todos con `useAllCalendarEvents` (R29), así
+ * que filtrar en memoria vuelve a ser legítimo.
+ */
 export function filterCalendarEvents(
   events: CalendarEvent[],
   filters: CalendarPageFilters,
@@ -41,7 +88,7 @@ export function filterCalendarEvents(
   const needle = filters.search.toLowerCase();
 
   return events.filter((event) => {
-    const eventMonth = new Date(event.startDate).getMonth().toString();
+    const eventMonth = claveDeMes(event.startDate);
 
     const matchesSearch =
       filters.search === '' ||

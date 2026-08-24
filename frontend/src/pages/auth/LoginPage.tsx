@@ -6,6 +6,7 @@ import { useNavigate, useLocation, Navigate } from 'react-router';
 import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/store/auth.store';
 import { destinoPostLogin } from '@/lib/adminRoutes';
+import { loginSchema } from '@/schemas';
 import type { AxiosError } from 'axios';
 
 export function LoginPage() {
@@ -44,14 +45,24 @@ export function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!email || !password) {
-      setError('Ingresá tu email y contraseña.');
+    // La validación la hace `loginSchema`, el mismo esquema que endureció T15
+    // para que coincida con el `LoginDto` del backend (`@MinLength(8)`). Acá se
+    // chequeaba a mano que los campos no estuvieran vacíos y nada más: una
+    // contraseña de 6 caracteres pasaba el formulario y volvía como un 400
+    // genérico ("Error al conectar con el servidor"), que no le dice al usuario
+    // qué corregir (R31).
+    const validacion = loginSchema.safeParse({ email, password });
+    if (!validacion.success) {
+      // El primer problema alcanza: el formulario muestra un solo mensaje.
+      setError(validacion.error.issues[0]?.message ?? 'Revisá tu email y tu contraseña.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const usuario = await login({ email, password });
+      // Se manda lo que salió del schema, no el estado crudo: el email va
+      // trimmeado y de paso queda una sola fuente de verdad sobre el payload.
+      const usuario = await login(validacion.data);
       // Se respeta la ruta que quería abrir, salvo que su rol no la pueda ver.
       navigate(destinoPostLogin(usuario.role, intentada), { replace: true });
     } catch (err) {

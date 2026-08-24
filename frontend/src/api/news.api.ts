@@ -8,6 +8,12 @@ export interface NewsFilters {
   page?: number;
   limit?: number;
   isPublished?: boolean;
+  /**
+   * Búsqueda server-side sobre título y bajada (`NewsFilterDto` → `search`, con
+   * `mode: 'insensitive'` en Prisma). El listado público filtraba en el cliente
+   * sobre las primeras 50 noticias: la 51 no aparecía nunca (R29).
+   */
+  search?: string;
 }
 
 export interface CreateNewsPayload {

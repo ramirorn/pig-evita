@@ -1,12 +1,13 @@
 // ===========================================
 // Public Layout
 // ===========================================
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
 import { Footer } from './Footer';
+import { PublicPageFallback } from '@/components/shared/PublicPageFallback';
 
 const NAV_LINKS = [
   { label: 'Inicio', path: ROUTES.HOME },
@@ -148,8 +149,12 @@ export function PublicLayout() {
       </header>
 
       {/* Main content */}
+      {/* Las páginas públicas se cargan bajo demanda (R28): el layout —header,
+          nav y footer— se pinta de una y sólo el contenido espera su chunk. */}
       <main id="main-content" className="flex-1">
-        <Outlet />
+        <Suspense fallback={<PublicPageFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* Footer */}

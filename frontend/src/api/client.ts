@@ -190,14 +190,23 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    // `error.config` es opcional en Axios (un error de red disparado antes de
+    // armar la request no lo trae), y el tipo lo decía a medias: `:196` usaba
+    // `originalRequest?.url` pero `:200` accedía a `._retry` sin guard. La
+    // inconsistencia sugería que uno de los dos estaba mal; el que estaba mal
+    // era el segundo. Con el `| undefined` explícito, TypeScript obliga a
+    // decidir, y la decisión correcta es no reintentar lo que no se puede
+    // reintentar: sin `config` no hay request que reenviar (R31).
+    const originalRequest = error.config as
+      | (InternalAxiosRequestConfig & { _retry?: boolean })
+      | undefined;
 
     const isAuthEndpoint =
       originalRequest?.url?.includes('/auth/login') ||
       originalRequest?.url?.includes('/auth/refresh');
 
     // 401 en una request normal: intentar renovar el access token una vez.
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       try {

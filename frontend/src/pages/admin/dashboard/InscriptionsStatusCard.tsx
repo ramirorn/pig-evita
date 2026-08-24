@@ -1,24 +1,28 @@
 // ===========================================
 // InscriptionsStatusCard — donut de inscripciones por estado
 // ===========================================
-import { useMemo } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
 import { Activity } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { InscriptionStatus, type DashboardStatusCount } from '@/types';
 import { INSCRIPTION_STATUS_LABELS } from '@/lib/constants';
 
 /**
- * Este módulo es **el único** del área admin que importa `recharts`, y por eso
- * vive aparte de `DashboardPage`.
+ * El SVG del donut se carga aparte (R27).
  *
- * `recharts` es lo que hacía que el chunk de `DashboardPage` pesara 322 KB (el
- * más grande del admin por lejos). Con el gráfico acá adentro, convertir el
- * import de la página en un `lazy()` alcanza para sacar esas 322 KB del chunk
- * de la ruta: la tarjeta entera se resuelve en un único límite de carga y el
- * fallback puede ser el marco de la card. Ese paso es otra tarea — acá sólo
- * queda servido el corte.
+ * `recharts` es lo que hacía que el chunk de `DashboardPage` pesara 322 kB (el
+ * más grande del admin por lejos, 22× el siguiente). Como `DashboardPage` es el
+ * aterrizaje post-login de todos los roles, esos 95 kB gzip estaban en el camino
+ * crítico de cada login. Con el gráfico aislado en `InscriptionsStatusDonut` y
+ * este `lazy()`, `recharts` sale del chunk de la ruta y se descarga sólo cuando
+ * hay inscripciones que dibujar.
+ *
+ * El corte está puesto acá adentro y no en `DashboardPage` a propósito: la
+ * leyenda y el marco de la card no dependen de `recharts`, así que pueden
+ * pintarse de una y sólo el hueco de 160×160 espera al chunk.
  */
-const DONUT_COLORS = {
+const InscriptionsStatusDonut = lazy(() => import('./InscriptionsStatusDonut'));
+
+const DONUT_COLORS: Record<InscriptionStatus, string> = {
   [InscriptionStatus.PENDIENTE]: '#E8AA34',    // accent-500
   [InscriptionStatus.REVISADA]: '#1b5ea9',     // primary-500
   [InscriptionStatus.APROBADA]: '#2D723B',     // secondary-500
@@ -54,36 +58,13 @@ export function InscriptionsStatusCard({ data }: InscriptionsStatusCardProps) {
       </h3>
       {donutData.length > 0 ? (
         <div className="flex items-center gap-6">
+          {/* El contenedor con su `w-40 h-40` queda **fuera** del Suspense: el
+              hueco del gráfico ya ocupa su lugar antes de que llegue el chunk,
+              así la card no salta cuando el donut aparece. */}
           <div className="w-40 h-40 flex-shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={donutData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={70}
-                  paddingAngle={3}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {donutData.map((entry) => (
-                    <Cell
-                      key={entry.key}
-                      fill={DONUT_COLORS[entry.key]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value, name) => [`${value}`, `${name}`]}
-                  contentStyle={{
-                    borderRadius: '8px',
-                    border: '1px solid #e5e7eb',
-                    fontSize: '13px',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<DonutFallback />}>
+              <InscriptionsStatusDonut data={donutData} colors={DONUT_COLORS} />
+            </Suspense>
           </div>
           <div className="flex-1 space-y-2">
             {donutData.map((d) => (
@@ -105,6 +86,25 @@ export function InscriptionsStatusCard({ data }: InscriptionsStatusCardProps) {
           No hay inscripciones todavía.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Anillo gris del mismo diámetro que el donut (140 px de caja externa dentro de
+ * los 160 del contenedor), para que el espacio esté reservado desde el primer
+ * frame y no haya salto de layout al resolver el `lazy()`.
+ */
+function DonutFallback() {
+  return (
+    <div
+      className="w-full h-full flex items-center justify-center"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span className="sr-only">Cargando el gráfico de inscripciones por estado…</span>
+      <span className="w-[140px] h-[140px] rounded-full border-[30px] border-primary-100 animate-pulse" />
     </div>
   );
 }

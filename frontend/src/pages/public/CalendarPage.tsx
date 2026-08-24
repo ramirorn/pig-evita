@@ -3,7 +3,7 @@
 // ===========================================
 import { useMemo, useState } from 'react';
 import { CalendarDays, Loader2 } from 'lucide-react';
-import { useCalendarEvents } from '@/hooks/useCalendar';
+import { useAllCalendarEvents } from '@/hooks/useCalendar';
 import { useDisciplines } from '@/hooks/useDisciplines';
 import { PageHero } from '@/components/shared/PageHero';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -13,23 +13,32 @@ import {
   EMPTY_CALENDAR_FILTERS,
   filterCalendarEvents,
   hasActiveCalendarFilters,
+  opcionesDeMes,
   type CalendarPageFilters,
 } from './calendar/calendarFilters';
+import { MONTH_NAMES } from './calendar/eventStageStyles';
 
 export function CalendarPage() {
   const [filters, setFilters] = useState<CalendarPageFilters>(EMPTY_CALENDAR_FILTERS);
 
-  // Traer hasta 100 eventos publicados para el calendario
-  const { data: calendarData, isLoading } = useCalendarEvents({ isPublished: true, limit: 100 });
+  // Todos los eventos publicados, recorriendo la paginación hasta el final: el
+  // `limit: 100` que había acá era el tope duro del backend disfrazado de
+  // "traeme todo", y los filtros de abajo corren en memoria (R29).
+  const { data: calendarEvents, isLoading } = useAllCalendarEvents({ isPublished: true });
   const { data: disciplinesData } = useDisciplines({ isActive: true });
 
   const disciplines = disciplinesData?.data || [];
 
   // Filtrado reactivo en el cliente
+  const allEvents = useMemo(() => calendarEvents ?? [], [calendarEvents]);
+
   const filteredEvents = useMemo(
-    () => filterCalendarEvents(calendarData?.data ?? [], filters),
-    [calendarData, filters],
+    () => filterCalendarEvents(allEvents, filters),
+    [allEvents, filters],
   );
+
+  // Sólo los meses que tienen algún evento, con su año.
+  const monthOptions = useMemo(() => opcionesDeMes(allEvents, MONTH_NAMES), [allEvents]);
 
   const hasActiveFilters = hasActiveCalendarFilters(filters);
 
@@ -51,6 +60,7 @@ export function CalendarPage() {
           hasActiveFilters={hasActiveFilters}
           disciplines={disciplines}
           resultCount={filteredEvents.length}
+          monthOptions={monthOptions}
         />
 
         {/* Lista del Timeline */}

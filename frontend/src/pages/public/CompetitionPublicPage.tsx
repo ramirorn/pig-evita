@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router';
 import { Trophy, ArrowLeft, Loader2, Calendar, LayoutGrid, Medal, Activity } from 'lucide-react';
 import { useCompetition } from '@/hooks/useCompetitions';
 import { useRankings } from '@/hooks/useResults';
+import { rankingRowKey } from './competition/rankingRowKey';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CompetitionFormat } from '@/types';
@@ -93,7 +94,7 @@ export function CompetitionPublicPage() {
                 </thead>
                 <tbody className="divide-y divide-primary-100">
                   {rankings.map((entry, idx) => (
-                    <tr key={idx} className={idx < 3 ? 'bg-amber-50/30' : ''}>
+                    <tr key={rankingRowKey(entry)} className={idx < 3 ? 'bg-amber-50/30' : ''}>
                       <td className="px-4 py-4 font-bold text-primary-900">{entry.position}</td>
                       <td className="px-4 py-4 font-medium text-primary-800">
                         {entry.team?.name || `${entry.participant?.lastName}, ${entry.participant?.firstName}`}

@@ -41,8 +41,16 @@ export function TrackInscription({
       {/* Search Input */}
       <form onSubmit={onSubmit} className="card p-4 flex gap-2 shadow-sm">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-primary-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          {/* El `placeholder` desaparece al escribir y ningún lector de
+              pantalla lo anuncia como nombre del campo: el input necesita su
+              propia etiqueta (R31). Va visualmente oculta porque el encabezado
+              de arriba ya explica qué se pide. */}
+          <label htmlFor="codigo-qr-inscripcion" className="sr-only">
+            Código QR de la inscripción
+          </label>
+          <Search className="w-4 h-4 text-primary-400 absolute left-3.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
           <input
+            id="codigo-qr-inscripcion"
             type="text"
             placeholder="Código QR (ej. EVITA-12345678)"
             value={searchQr}

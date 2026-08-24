@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDate, safeImageSrc } from '@/lib/utils';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
 import { logError } from '@/lib/logger';
+import { copiarAlPortapapeles, MENSAJE_COPIA_FALLIDA } from '@/lib/clipboard';
 import { toast } from 'sonner';
 
 export function NewsDetailPage() {
@@ -53,9 +54,19 @@ export function NewsDetailPage() {
           toast.error('No pudimos abrir el menú de compartir. Copiá el enlace desde la barra del navegador.');
         });
     } else {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      // El tilde de "copiado" ahora depende del resultado real de la promesa:
+      // antes se prendía siempre, incluso sirviendo el sitio por `http://`,
+      // donde `navigator.clipboard` ni siquiera existe (R26).
+      void copiarAlPortapapeles(window.location.href, 'NewsDetailPage.handleShare').then(
+        (copiado) => {
+          if (!copiado) {
+            toast.error(MENSAJE_COPIA_FALLIDA);
+            return;
+          }
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        },
+      );
     }
   };
 

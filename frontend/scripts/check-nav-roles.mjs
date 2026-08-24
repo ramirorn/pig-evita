@@ -53,7 +53,6 @@ execSync(
 );
 
 const {
-  NAV_ITEMS,
   navItemsParaRol,
   ADMIN_ROUTE_ROLES,
   puedeVerRuta,

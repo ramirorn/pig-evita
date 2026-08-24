@@ -314,7 +314,14 @@ export function DataTable<TRow>({
         </span>
       </div>
 
-      {meta && onPageChange && meta.totalPages > 1 && (
+      {/* El bloque se muestra también con una sola página, siempre que haya algo
+          que paginar. Antes la condición pedía `meta.totalPages > 1` y escondía
+          el bloque entero —selector de "Por página" incluido—: con `limit: 10` y
+          12 registros el usuario veía dos páginas, bajaba a 10, quedaban 8 en
+          una sola página y perdía el control para volver a subirlo. Los botones
+          de navegación se deshabilitan solos cuando no hay a dónde ir (R31).
+          Con cero registros no se pinta nada: ahí manda el estado vacío. */}
+      {meta && onPageChange && meta.total > 0 && (
         <Pagination
           page={meta.page}
           totalPages={meta.totalPages}

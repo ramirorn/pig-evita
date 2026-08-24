@@ -9,6 +9,8 @@ import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { useAllCategories } from '@/hooks/useCategories';
 import { useCreateInscription } from '@/hooks/useInscriptions';
 import { logError } from '@/lib/logger';
+import { participantSchema } from '@/schemas';
+import { copiarAlPortapapeles, MENSAJE_COPIA_FALLIDA } from '@/lib/clipboard';
 import type { InscriptionFormData } from './StepPersonalData';
 
 /** 1: Personal, 2: Disciplina, 3: Confirmación, 4: Credencial. */
@@ -135,14 +137,21 @@ export function useInscriptionWizard({
 
   const handleNextToSport = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.dni.trim() || !formData.firstName.trim() || !formData.lastName.trim() || !formData.birthDate || !formData.locality.trim()) {
-      toast.error('Por favor completá todos los campos obligatorios');
+
+    // El paso 1 valida con `participantSchema`, que es exactamente el conjunto
+    // de campos de esta pantalla. Antes había una lista de `.trim()` a mano más
+    // un `/^\d{7,8}$/` inline que reimplementaba la regla del DNI: T15 endureció
+    // el schema (dígitos repetidos, fecha de nacimiento fuera de rango, largos
+    // máximos) y este camino de entrada no se enteraba (R31).
+    const validacion = participantSchema.safeParse(formData);
+    if (!validacion.success) {
+      // Un toast por vez: el primer problema en el orden de los campos.
+      toast.error(
+        validacion.error.issues[0]?.message ?? 'Revisá los datos del participante',
+      );
       return;
     }
-    if (!/^\d{7,8}$/.test(formData.dni.trim())) {
-      toast.error('El DNI debe tener 7 u 8 dígitos numéricos');
-      return;
-    }
+
     goToStep(2);
   };
 
@@ -202,9 +211,16 @@ export function useInscriptionWizard({
     toast.success('Código QR descargado correctamente');
   };
 
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast.success('Código copiado al portapapeles');
+  const handleCopyCode = async (code: string) => {
+    // El toast verde sale **después** de que la promesa resolvió: antes se
+    // cantaba el éxito sin esperar nada y el participante se llevaba un
+    // portapapeles vacío (R26).
+    const copiado = await copiarAlPortapapeles(code, `${logScope}.handleCopyCode`);
+    if (copiado) {
+      toast.success('Código copiado al portapapeles');
+      return;
+    }
+    toast.error(MENSAJE_COPIA_FALLIDA);
   };
 
   const handlePrint = () => {

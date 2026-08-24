@@ -1,7 +1,7 @@
 // ===========================================
 // Application Router
 // ===========================================
-import { lazy } from 'react';
+import { Suspense } from 'react';
 import { createBrowserRouter } from 'react-router';
 import { ROUTES } from '@/lib/constants';
 import { queryClient, STALE_TIME } from '@/lib/queryClient';
@@ -19,18 +19,17 @@ import { CATEGORY_KEYS } from '@/hooks/useCategories';
 
 // Layouts
 import { PublicLayout } from '@/components/layout/PublicLayout';
-import { AdminLayout } from '@/components/layout/AdminLayout';
 import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import { RouteErrorBoundary } from '@/components/shared/RouteErrorBoundary';
 import { ErrorScreen } from '@/components/shared/ErrorScreen';
+import { PublicPageFallback } from '@/components/shared/PublicPageFallback';
 
-// Auth
-import { LoginPage } from '@/pages/auth/LoginPage';
-
-// Public pages
-import { HomePage } from '@/pages/public/HomePage';
-import { InscriptionInfoPage } from '@/pages/public/InscriptionInfoPage';
+// Auth y páginas de ruta: todas lazy, declaradas en un solo lugar.
+// El detalle importante está en el comentario de `@/pages/lazyPages`.
 import {
+  LoginPage,
+  AdminLayout,
+  InscriptionInfoPage,
   DisciplinesPage,
   DisciplineDetailPage,
   NewsPage,
@@ -39,74 +38,42 @@ import {
   VenuesPage,
   RankingsPage,
   CompetitionPublicPage,
-} from '@/pages/public/index';
+  DashboardPage,
+  ParticipantsPage,
+  ParticipantDetailPage,
+  InscriptionsPage,
+  InscriptionDetailPage,
+  DelegateInscriptionPage,
+  DisciplinesAdminPage,
+  CategoriesAdminPage,
+  TeamsAdminPage,
+  TeamDetailPage,
+  CompetitionsPage,
+  CompetitionDetailPage,
+  ResultsPage,
+  DocumentsPage,
+  NewsAdminPage,
+  CalendarAdminPage,
+  VenuesAdminPage,
+  UsersPage,
+  ReportsPage,
+  AuditPage,
+} from '@/pages/lazyPages';
 
-// ============ ADMIN PAGES (lazy) ============
-// Se importan una por una desde su archivo, no desde el barrel: importar
-// `@/pages/admin/index` arrastraría las 20 páginas al mismo chunk y anularía
-// el split. Cada `lazy()` produce un chunk propio que sólo se descarga al
-// entrar a esa ruta (hallazgo Q6).
-const DashboardPage = lazy(() =>
-  import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })),
-);
-const ParticipantsPage = lazy(() =>
-  import('@/pages/admin/ParticipantsPage').then((m) => ({ default: m.ParticipantsPage })),
-);
-const ParticipantDetailPage = lazy(() =>
-  import('@/pages/admin/ParticipantDetailPage').then((m) => ({ default: m.ParticipantDetailPage })),
-);
-const InscriptionsPage = lazy(() =>
-  import('@/pages/admin/InscriptionsPage').then((m) => ({ default: m.InscriptionsPage })),
-);
-const InscriptionDetailPage = lazy(() =>
-  import('@/pages/admin/InscriptionDetailPage').then((m) => ({ default: m.InscriptionDetailPage })),
-);
-const DelegateInscriptionPage = lazy(() =>
-  import('@/pages/admin/DelegateInscriptionPage').then((m) => ({ default: m.DelegateInscriptionPage })),
-);
-const DisciplinesAdminPage = lazy(() =>
-  import('@/pages/admin/DisciplinesAdminPage').then((m) => ({ default: m.DisciplinesAdminPage })),
-);
-const CategoriesAdminPage = lazy(() =>
-  import('@/pages/admin/CategoriesAdminPage').then((m) => ({ default: m.CategoriesAdminPage })),
-);
-const TeamsAdminPage = lazy(() =>
-  import('@/pages/admin/TeamsAdminPage').then((m) => ({ default: m.TeamsAdminPage })),
-);
-const TeamDetailPage = lazy(() =>
-  import('@/pages/admin/TeamDetailPage').then((m) => ({ default: m.TeamDetailPage })),
-);
-const CompetitionsPage = lazy(() =>
-  import('@/pages/admin/CompetitionsPage').then((m) => ({ default: m.CompetitionsPage })),
-);
-const CompetitionDetailPage = lazy(() =>
-  import('@/pages/admin/CompetitionDetailPage').then((m) => ({ default: m.CompetitionDetailPage })),
-);
-const ResultsPage = lazy(() =>
-  import('@/pages/admin/ResultsPage').then((m) => ({ default: m.ResultsPage })),
-);
-const DocumentsPage = lazy(() =>
-  import('@/pages/admin/DocumentsPage').then((m) => ({ default: m.DocumentsPage })),
-);
-const NewsAdminPage = lazy(() =>
-  import('@/pages/admin/NewsAdminPage').then((m) => ({ default: m.NewsAdminPage })),
-);
-const CalendarAdminPage = lazy(() =>
-  import('@/pages/admin/CalendarAdminPage').then((m) => ({ default: m.CalendarAdminPage })),
-);
-const VenuesAdminPage = lazy(() =>
-  import('@/pages/admin/VenuesAdminPage').then((m) => ({ default: m.VenuesAdminPage })),
-);
-const UsersPage = lazy(() =>
-  import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })),
-);
-const ReportsPage = lazy(() =>
-  import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })),
-);
-const AuditPage = lazy(() =>
-  import('@/pages/admin/AuditPage').then((m) => ({ default: m.AuditPage })),
-);
-
+// La home es la única página que se queda en el chunk de entrada, a propósito.
+//
+// Medido con `npm run build`: lazificarla saca 2,80 kB gzip del entry (92,53 →
+// 89,73). A cambio mete un round-trip extra entre el parseo del entry y el
+// primer render —el navegador tiene que descubrir el chunk, pedirlo y recién
+// ahí pintar—, que es justo el intervalo que mide el LCP de la ruta de
+// aterrizaje del sitio. Cambiar 2,8 kB por una cascada en la primera pintura es
+// mal negocio en un móvil formoseño, que es donde la latencia pesa más que los
+// bytes.
+//
+// Las otras ocho públicas se alcanzan navegando, con el entry ya parseado y el
+// chunk descargándose mientras el usuario todavía está leyendo: ahí el `lazy()`
+// es ganancia neta y por eso sí están en `lazyPages` (R28).
+import { HomePage } from '@/pages/public/HomePage';
 
 /**
  * Precarga los catálogos que comparten casi todas las pantallas admin
@@ -145,6 +112,17 @@ function prefetchCatalogosAdmin() {
 
 
 /**
+ * `<Suspense>` para las rutas que no cuelgan de ningún layout.
+ *
+ * `PublicLayout` y `AdminLayout` ya envuelven su `<Outlet />`, pero el login y
+ * la página de inscripción se montan sueltas: sin este límite, su `lazy()`
+ * dispararía el fallback del router entero.
+ */
+function sinLayout(element: React.ReactNode) {
+  return <Suspense fallback={<PublicPageFallback />}>{element}</Suspense>;
+}
+
+/**
  * Envuelve el elemento de una ruta con su control de acceso.
  *
  * Cada ruta admin declara explícitamente qué roles la pueden ver (hallazgo F8).
@@ -180,10 +158,15 @@ export const router = createBrowserRouter([
   },
 
   // ============ INSCRIPTION (standalone info page, no layout) ============
-  { path: ROUTES.INSCRIPTION, element: <InscriptionInfoPage />, errorElement: <RouteErrorBoundary /> },
+  // Sin layout no hay `<Suspense>` heredado: cada una pone el suyo.
+  {
+    path: ROUTES.INSCRIPTION,
+    element: sinLayout(<InscriptionInfoPage />),
+    errorElement: <RouteErrorBoundary />,
+  },
 
   // ============ AUTH ============
-  { path: ROUTES.LOGIN, element: <LoginPage />, errorElement: <RouteErrorBoundary /> },
+  { path: ROUTES.LOGIN, element: sinLayout(<LoginPage />), errorElement: <RouteErrorBoundary /> },
 
   // ============ ADMIN ROUTES (Protected) ============
   {
@@ -191,7 +174,7 @@ export const router = createBrowserRouter([
     // ruta con su propio `allowedRoles`.
     element: (
       <ProtectedRoute allowedRoles={ADMIN_AREA_ROLES}>
-        <AdminLayout />
+        {sinLayout(<AdminLayout />)}
       </ProtectedRoute>
     ),
     // Cubre el fallo de descarga de los chunks lazy de las páginas admin: el
