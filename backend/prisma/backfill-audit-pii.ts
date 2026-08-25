@@ -9,6 +9,9 @@
 // evidencia que pide el DoD de R12. Correrlo es idempotente: una segunda pasada
 // tiene que reportar 0 reescritas.
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
+import 'dotenv/config';
 import {
   reenmascararPiiHistorica,
   type ClienteBackfill,
@@ -38,7 +41,12 @@ async function contarFilasConPiiCruda(prisma: PrismaClient): Promise<number> {
 
 async function main() {
   const soloContar = process.argv.includes('--dry');
-  const prisma = new PrismaClient();
+
+  // Prisma 7 exige un driver adapter: `new PrismaClient()` a secas falla al
+  // construirse. Se arma igual que en `seed.ts`, que es el otro script que
+  // corre fuera de Nest y no tiene el `PrismaService` a mano.
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   try {
     const antes = await contarFilasConPiiCruda(prisma);
@@ -64,6 +72,7 @@ async function main() {
     }
   } finally {
     await prisma.$disconnect();
+    await pool.end();
   }
 }
 

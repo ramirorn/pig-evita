@@ -11,10 +11,9 @@
 -- que ya existen quedan así — es lo correcto, porque de ellas no se puede
 -- deducir quién era local.
 --
--- ATENCION: este SQL se genero con `prisma migrate diff` SIN base de datos
--- (Docker caido al momento de escribirlo). No se aplico ni se valido contra un
--- Postgres real: falta correr `prisma migrate deploy` / `migrate dev` cuando la
--- base vuelva a estar disponible.
+-- Generado con `prisma migrate diff` sin base (Docker estaba caido), y
+-- APLICADO Y VERIFICADO despues con `prisma migrate deploy` contra el Postgres
+-- de docker-compose.dev.yml el 2026-08-25.
 
 -- AlterTable
 ALTER TABLE "results" ADD COLUMN     "is_home" BOOLEAN;
