@@ -179,7 +179,13 @@ export class CompetitionsService {
       );
     }
 
-    const ids = generateDto.teamIds?.length
+    // Quién compite lo decide **el llamador**, no una heurística sobre el id.
+    // El motor adivinaba con `id.includes('-')`, que los uuid de participante
+    // también cumplen: el fixture de una disciplina individual terminaba
+    // escribiendo un `teamId` que apuntaba a un participante y explotaba con un
+    // 500. Verificado en vivo antes de arreglarlo.
+    const esPorEquipos = Boolean(generateDto.teamIds?.length);
+    const ids = esPorEquipos
       ? generateDto.teamIds
       : generateDto.participantIds;
     if (!ids || ids.length < 2) {
@@ -189,7 +195,11 @@ export class CompetitionsService {
     }
 
     const engine = this.engineFactory.getEngine(competition.format);
-    await engine.generateFixture(competition, ids);
+    await engine.generateFixture(
+      competition,
+      ids,
+      esPorEquipos ? 'team' : 'participant',
+    );
 
     // Cambiar estado a ACTIVA
     await this.prisma.competition.update({
