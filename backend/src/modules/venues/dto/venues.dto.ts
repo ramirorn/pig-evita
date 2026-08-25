@@ -11,7 +11,8 @@ import {
   IsString,
   Min,
 } from 'class-validator';
-import { PaginationQueryDto } from '../../../common/dto';
+import { ToBoolean } from '../../../common/transformers';
+import { PaginationQueryDto, SortableBy } from '../../../common/dto';
 
 export class CreateVenueDto {
   @ApiProperty({
@@ -60,9 +61,20 @@ export class CreateVenueDto {
 export class UpdateVenueDto extends PartialType(CreateVenueDto) {
   @ApiPropertyOptional({ description: 'Activo o inactivo' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 }
+
+export const CAMPOS_ORDEN_VENUE = [
+  'createdAt',
+  'updatedAt',
+  'name',
+  'locality',
+  'department',
+  'capacity',
+  'isActive',
+] as const;
 
 export class VenueFilterDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filtrar por localidad' })
@@ -77,6 +89,18 @@ export class VenueFilterDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ description: 'Filtrar por estado activo' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
+
+  // R11 — whitelist de orden. Sin esto el string del cliente entra crudo al
+  // `orderBy` de Prisma y una columna inexistente termina en un 500 con la
+  // ruta del archivo y el fragmento de la consulta adentro del mensaje.
+  @ApiPropertyOptional({
+    description: 'Campo para ordenar',
+    enum: CAMPOS_ORDEN_VENUE,
+    default: 'createdAt',
+  })
+  @SortableBy(CAMPOS_ORDEN_VENUE)
+  sortBy?: string = 'createdAt';
 }

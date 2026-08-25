@@ -24,6 +24,7 @@
     "db:migrate:deploy": "npx prisma migrate deploy",
     "db:seed": "npx prisma db seed",
     "db:studio": "npx prisma studio",
+    "audit:backfill-pii": "ts-node prisma/backfill-audit-pii.ts",
     "db:reset": "npx prisma migrate reset"
   },
   "prisma": {

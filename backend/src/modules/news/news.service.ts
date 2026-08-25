@@ -4,8 +4,13 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateNewsDto, UpdateNewsDto, NewsFilterDto } from './dto';
-import { buildPaginatedResponse } from '../../common/dto';
+import {
+  CreateNewsDto,
+  UpdateNewsDto,
+  NewsFilterDto,
+  CAMPOS_ORDEN_NEWS,
+} from './dto';
+import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
 
 @Injectable()
 export class NewsService {
@@ -75,9 +80,14 @@ export class NewsService {
         where,
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: {
-          [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc',
-        },
+        // R11 — el campo de orden se valida contra la whitelist antes de
+        // llegar a Prisma; lo desconocido cae al default en vez de explotar.
+        orderBy: buildOrderBy(
+          CAMPOS_ORDEN_NEWS,
+          'createdAt',
+          filterDto.sortBy,
+          filterDto.sortOrder,
+        ),
       }),
       this.prisma.news.count({ where }),
     ]);

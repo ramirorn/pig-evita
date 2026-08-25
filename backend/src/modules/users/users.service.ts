@@ -10,8 +10,13 @@ import {
 import * as argon2 from 'argon2';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateUserDto, UpdateUserDto, UserFilterDto } from './dto';
-import { buildPaginatedResponse } from '../../common/dto';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  UserFilterDto,
+  CAMPOS_ORDEN_USER,
+} from './dto';
+import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
 
 // Campos a excluir de las respuestas
 const userSelect = {
@@ -102,9 +107,14 @@ export class UsersService {
         select: userSelect,
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: {
-          [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc',
-        },
+        // R11 — el campo de orden se valida contra la whitelist antes de
+        // llegar a Prisma; lo desconocido cae al default en vez de explotar.
+        orderBy: buildOrderBy(
+          CAMPOS_ORDEN_USER,
+          'createdAt',
+          filterDto.sortBy,
+          filterDto.sortOrder,
+        ),
       }),
       this.prisma.user.count({ where }),
     ]);

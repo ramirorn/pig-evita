@@ -15,8 +15,9 @@ import {
   UpdateTeamDto,
   TeamFilterDto,
   AddTeamMemberDto,
+  CAMPOS_ORDEN_TEAM,
 } from './dto';
-import { buildPaginatedResponse } from '../../common/dto';
+import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
 import {
   CATEGORY_WITH_DISCIPLINE,
   DISCIPLINE_SUMMARY,
@@ -113,9 +114,14 @@ export class TeamsService {
         },
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: {
-          [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc',
-        },
+        // R11 — el campo de orden se valida contra la whitelist antes de
+        // llegar a Prisma; lo desconocido cae al default en vez de explotar.
+        orderBy: buildOrderBy(
+          CAMPOS_ORDEN_TEAM,
+          'createdAt',
+          filterDto.sortBy,
+          filterDto.sortOrder,
+        ),
       }),
       this.prisma.team.count({ where }),
     ]);

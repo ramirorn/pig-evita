@@ -13,8 +13,9 @@ import {
   CreateDisciplineDto,
   UpdateDisciplineDto,
   DisciplineFilterDto,
+  CAMPOS_ORDEN_DISCIPLINE,
 } from './dto';
-import { buildPaginatedResponse } from '../../common/dto';
+import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
 
 @Injectable()
 export class DisciplinesService {
@@ -62,7 +63,14 @@ export class DisciplinesService {
         include: { _count: { select: { categories: true } } },
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: { [filterDto.sortBy || 'name']: filterDto.sortOrder || 'asc' },
+        // R11 — el campo de orden se valida contra la whitelist antes de
+        // llegar a Prisma; lo desconocido cae al default en vez de explotar.
+        orderBy: buildOrderBy(
+          CAMPOS_ORDEN_DISCIPLINE,
+          'name',
+          filterDto.sortBy,
+          filterDto.sortOrder,
+        ),
       }),
       this.prisma.discipline.count({ where }),
     ]);

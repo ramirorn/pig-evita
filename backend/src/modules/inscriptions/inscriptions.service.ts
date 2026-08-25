@@ -88,62 +88,87 @@ export class InscriptionsService {
       );
     }
 
-    // 4. Crear o encontrar participante por DNI
-    let participant = await this.prisma.participant.findUnique({
-      where: { dni },
-    });
-
-    if (!participant) {
-      participant = await this.prisma.participant.create({
-        data: {
-          dni,
-          firstName,
-          lastName,
-          birthDate: birthDateObj,
-          sex,
-          phone,
-          email,
-          locality,
-          department,
-          address,
-        },
-      });
-      this.logger.log(`New participant created: ${dni}`);
-    }
-
-    // 5. Verificar que no esté ya inscripto en esta categoría
-    const existingInscription = await this.prisma.inscription.findUnique({
-      where: {
-        participantId_categoryId: {
-          participantId: participant.id,
-          categoryId,
-        },
-      },
-    });
-
-    if (existingInscription) {
-      throw new ConflictException(
-        'El participante ya está inscripto en esta categoría',
-      );
-    }
-
     // 6. Generar código QR único
     const qrCode = `EVITA-${uuidv4().slice(0, 8).toUpperCase()}`;
 
-    // 7. Crear inscripción
-    const inscription = await this.prisma.inscription.create({
-      data: {
-        participantId: participant.id,
-        categoryId,
-        teamId,
-        qrCode,
-        createdById,
-        status: InscriptionStatus.PENDIENTE,
-      },
-      include: {
-        participant: true,
-        category: { include: { discipline: true } },
-      },
+    // -------------------------------------------------
+    // R13 — pasos 4, 5 y 7 en una sola transacción
+    // -------------------------------------------------
+    //
+    // Antes esto eran tres escrituras sueltas: se creaba el `Participant`, se
+    // chequeaba el duplicado y se creaba la `Inscription`. Si la última fallaba
+    // —violación de la unique de `qrCode`, la FK de `teamId` apuntando a un
+    // equipo borrado, o simplemente la conexión cayéndose— el participante
+    // recién creado quedaba huérfano: una fila de una persona real, sin
+    // inscripción, invisible para todas las pantallas y para el reintento (que
+    // al volver a mandar el mismo DNI encuentra el participante existente y ya
+    // no lo recrea, pero tampoco corrige nada). Estado parcial indetectable.
+    //
+    // También cierra la ventana de carrera del paso 5: dos requests simultáneos
+    // con el mismo DNI y la misma categoría pasaban los dos el chequeo de
+    // duplicado. Ahora el segundo choca contra la unique
+    // `participantId_categoryId` **adentro** de su transacción y no deja rastro.
+    //
+    // `$transaction` interactiva (callback) y no la variante de array: los
+    // pasos dependen del resultado del anterior (el `participantId` sale del
+    // paso 4). Todo lo que no toca la base —validaciones, generación del QR,
+    // render de la imagen— queda afuera para no tener la transacción abierta
+    // más tiempo del necesario.
+    const inscription = await this.prisma.$transaction(async (tx) => {
+      // 4. Crear o encontrar participante por DNI
+      let participant = await tx.participant.findUnique({
+        where: { dni },
+      });
+
+      if (!participant) {
+        participant = await tx.participant.create({
+          data: {
+            dni,
+            firstName,
+            lastName,
+            birthDate: birthDateObj,
+            sex,
+            phone,
+            email,
+            locality,
+            department,
+            address,
+          },
+        });
+        this.logger.log(`New participant created: ${dni}`);
+      }
+
+      // 5. Verificar que no esté ya inscripto en esta categoría
+      const existingInscription = await tx.inscription.findUnique({
+        where: {
+          participantId_categoryId: {
+            participantId: participant.id,
+            categoryId,
+          },
+        },
+      });
+
+      if (existingInscription) {
+        throw new ConflictException(
+          'El participante ya está inscripto en esta categoría',
+        );
+      }
+
+      // 7. Crear inscripción
+      return tx.inscription.create({
+        data: {
+          participantId: participant.id,
+          categoryId,
+          teamId,
+          qrCode,
+          createdById,
+          status: InscriptionStatus.PENDIENTE,
+        },
+        include: {
+          participant: true,
+          category: { include: { discipline: true } },
+        },
+      });
     });
 
     // 8. Generar imagen QR

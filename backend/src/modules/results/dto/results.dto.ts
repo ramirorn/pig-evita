@@ -10,6 +10,7 @@ import {
   IsOptional,
   IsUUID,
 } from 'class-validator';
+import { ToBoolean } from '../../../common/transformers';
 
 export class UpdateResultDto {
   @ApiPropertyOptional({
@@ -29,6 +30,7 @@ export class UpdateResultDto {
 
   @ApiPropertyOptional({ description: 'Si es el ganador del encuentro' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isWinner?: boolean;
 }

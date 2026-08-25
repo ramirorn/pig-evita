@@ -16,8 +16,9 @@ import {
   IsBoolean,
   MinLength,
 } from 'class-validator';
+import { ToBoolean } from '../../../common/transformers';
 import { Role } from '../../../common/constants';
-import { PaginationQueryDto } from '../../../common/dto';
+import { PaginationQueryDto, SortableBy } from '../../../common/dto';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -70,9 +71,21 @@ export class UpdateUserDto extends PartialType(
 
   @ApiPropertyOptional({ description: 'Estado activo/inactivo' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 }
+
+export const CAMPOS_ORDEN_USER = [
+  'createdAt',
+  'updatedAt',
+  'lastName',
+  'firstName',
+  'email',
+  'role',
+  'isActive',
+  'lastLoginAt',
+] as const;
 
 export class UserFilterDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filtrar por rol', enum: Role })
@@ -82,6 +95,7 @@ export class UserFilterDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ description: 'Filtrar por estado activo' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 
@@ -89,4 +103,15 @@ export class UserFilterDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   department?: string;
+
+  // R11 — whitelist de orden. Sin esto el string del cliente entra crudo al
+  // `orderBy` de Prisma y una columna inexistente termina en un 500 con la
+  // ruta del archivo y el fragmento de la consulta adentro del mensaje.
+  @ApiPropertyOptional({
+    description: 'Campo para ordenar',
+    enum: CAMPOS_ORDEN_USER,
+    default: 'createdAt',
+  })
+  @SortableBy(CAMPOS_ORDEN_USER)
+  sortBy?: string = 'createdAt';
 }

@@ -10,6 +10,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { esAutenticado } from '../interceptors/cache-control.interceptor';
 
 interface ErrorResponse {
   success: false;
@@ -61,6 +62,28 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       }
     }
 
+    // R11 — corte final antes de serializar.
+    //
+    // El caso que originó esto: `orderBy: { [sortBy]: ... }` con una columna
+    // inexistente hace que Prisma tire un `PrismaClientValidationError` cuyo
+    // `message` incluye la invocación completa —`C:\...\competitions.service.ts:96`,
+    // el fragmento de código y los nombres de las columnas reales—. Eso salía
+    // tal cual en el JSON del 500.
+    //
+    // La whitelist de `sortBy` cierra esa puerta puntual; esto cierra la
+    // categoría entera: **ningún 5xx en producción devuelve otra cosa que un
+    // mensaje fijo**, venga de donde venga la excepción (incluida una
+    // `InternalServerErrorException` que alguien arme con el texto del error
+    // adentro). Los detalles quedan en el log del servidor, que es donde tienen
+    // que estar.
+    if (
+      statusCode >= HttpStatus.INTERNAL_SERVER_ERROR &&
+      process.env.NODE_ENV === 'production'
+    ) {
+      message = 'Error interno del servidor';
+      errors = undefined;
+    }
+
     const errorResponse: ErrorResponse = {
       success: false,
       statusCode,
@@ -69,6 +92,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
     };
+
+    // R16 — los guards corren **antes** que los interceptores, así que un 401
+    // del `JwtAuthGuard` o un 403 del `RolesGuard` nunca pasa por el
+    // `CacheControlInterceptor` y saldría sin encabezado de caché. Acá se cierra
+    // ese hueco: si el request traía credenciales y nadie puso todavía un
+    // `Cache-Control`, se marca `no-store`.
+    if (esAutenticado(request) && !response.getHeader('Cache-Control')) {
+      response.setHeader('Cache-Control', 'no-store');
+    }
 
     response.status(statusCode).json(errorResponse);
   }

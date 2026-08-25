@@ -11,8 +11,9 @@ import {
   IsString,
   Min,
 } from 'class-validator';
+import { ToBoolean } from '../../../common/transformers';
 import { DisciplineType, ResultType } from '@prisma/client';
-import { PaginationQueryDto } from '../../../common/dto';
+import { PaginationQueryDto, SortableBy } from '../../../common/dto';
 
 export class CreateDisciplineDto {
   @ApiProperty({ description: 'Nombre de la disciplina', example: 'Fútbol 11' })
@@ -51,11 +52,21 @@ export class CreateDisciplineDto {
 
   @ApiPropertyOptional({ description: 'Activo o inactivo' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 }
 
 export class UpdateDisciplineDto extends PartialType(CreateDisciplineDto) {}
+
+export const CAMPOS_ORDEN_DISCIPLINE = [
+  'createdAt',
+  'updatedAt',
+  'name',
+  'sortOrder',
+  'type',
+  'isActive',
+] as const;
 
 export class DisciplineFilterDto extends PaginationQueryDto {
   @ApiPropertyOptional({
@@ -68,6 +79,18 @@ export class DisciplineFilterDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ description: 'Filtrar por estado activo' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
+
+  // R11 — whitelist de orden. Sin esto el string del cliente entra crudo al
+  // `orderBy` de Prisma y una columna inexistente termina en un 500 con la
+  // ruta del archivo y el fragmento de la consulta adentro del mensaje.
+  @ApiPropertyOptional({
+    description: 'Campo para ordenar',
+    enum: CAMPOS_ORDEN_DISCIPLINE,
+    default: 'createdAt',
+  })
+  @SortableBy(CAMPOS_ORDEN_DISCIPLINE)
+  sortBy?: string = 'createdAt';
 }

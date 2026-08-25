@@ -9,7 +9,8 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
-import { PaginationQueryDto } from '../../../common/dto';
+import { ToBoolean } from '../../../common/transformers';
+import { PaginationQueryDto, SortableBy } from '../../../common/dto';
 
 export class CreateTeamDto {
   @ApiProperty({ description: 'Nombre del equipo', example: 'Los Pumas' })
@@ -44,9 +45,19 @@ export class CreateTeamDto {
 export class UpdateTeamDto extends PartialType(CreateTeamDto) {
   @ApiPropertyOptional({ description: 'Activo o inactivo' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 }
+
+export const CAMPOS_ORDEN_TEAM = [
+  'createdAt',
+  'updatedAt',
+  'name',
+  'locality',
+  'department',
+  'isActive',
+] as const;
 
 export class TeamFilterDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filtrar por disciplina' })
@@ -71,8 +82,20 @@ export class TeamFilterDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ description: 'Filtrar por estado activo' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
+
+  // R11 — whitelist de orden. Sin esto el string del cliente entra crudo al
+  // `orderBy` de Prisma y una columna inexistente termina en un 500 con la
+  // ruta del archivo y el fragmento de la consulta adentro del mensaje.
+  @ApiPropertyOptional({
+    description: 'Campo para ordenar',
+    enum: CAMPOS_ORDEN_TEAM,
+    default: 'createdAt',
+  })
+  @SortableBy(CAMPOS_ORDEN_TEAM)
+  sortBy?: string = 'createdAt';
 }
 
 export class AddTeamMemberDto {
@@ -83,6 +106,7 @@ export class AddTeamMemberDto {
 
   @ApiPropertyOptional({ description: 'Es capitán' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isCaptain?: boolean;
 

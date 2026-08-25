@@ -3,6 +3,7 @@
 // ===========================================
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  Allow,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -21,12 +22,25 @@ export class UploadDocumentDto {
   @IsEnum(DocumentType)
   type: DocumentType;
 
+  /**
+   * Sólo para que Swagger muestre el campo del formulario: el archivo llega por
+   * `@UploadedFile()`, no por el body.
+   *
+   * El `@Allow()` no es decorativo. Con `target: ES2023` TypeScript emite los
+   * campos de clase como propiedades reales (`useDefineForClassFields`), así que
+   * el DTO instanciado tiene `file: undefined` aunque el body de multer no
+   * traiga nada. Sin ningún decorador de class-validator, esa propiedad no está
+   * en la whitelist y `forbidNonWhitelisted` respondía **400 "property file
+   * should not exist" a toda subida**, incluso a la de un PDF impecable. Lo
+   * descubrió el test de R14 al mandar el primer archivo legítimo.
+   */
   @ApiProperty({
     description: 'Archivo binario',
     type: 'string',
     format: 'binary',
   })
-  file: any;
+  @Allow()
+  file?: any;
 }
 
 export class ReviewDocumentDto {

@@ -3,7 +3,8 @@
 // ===========================================
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { PaginationQueryDto } from '../../../common/dto';
+import { ToBoolean } from '../../../common/transformers';
+import { PaginationQueryDto, SortableBy } from '../../../common/dto';
 
 export class CreateNewsDto {
   @ApiProperty({ description: 'Título de la noticia' })
@@ -28,6 +29,7 @@ export class CreateNewsDto {
 
   @ApiPropertyOptional({ description: 'Publicar inmediatamente' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isPublished?: boolean;
 }
@@ -39,9 +41,29 @@ export class UpdateNewsDto extends PartialType(CreateNewsDto) {
   imageKey?: string;
 }
 
+export const CAMPOS_ORDEN_NEWS = [
+  'createdAt',
+  'updatedAt',
+  'publishedAt',
+  'title',
+  'isPublished',
+] as const;
+
 export class NewsFilterDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Solo publicadas' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isPublished?: boolean;
+
+  // R11 — whitelist de orden. Sin esto el string del cliente entra crudo al
+  // `orderBy` de Prisma y una columna inexistente termina en un 500 con la
+  // ruta del archivo y el fragmento de la consulta adentro del mensaje.
+  @ApiPropertyOptional({
+    description: 'Campo para ordenar',
+    enum: CAMPOS_ORDEN_NEWS,
+    default: 'createdAt',
+  })
+  @SortableBy(CAMPOS_ORDEN_NEWS)
+  sortBy?: string = 'createdAt';
 }

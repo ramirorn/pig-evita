@@ -18,7 +18,8 @@ const DISCIPLINES = Array.from({ length: 40 }, (_, i) => ({
   name: `Disciplina de prueba número ${i}`,
   type: 'INDIVIDUAL',
   resultType: 'TIEMPO',
-  rules: 'Reglamento de ejemplo repetido para que el JSON tenga volumen. '.repeat(3),
+  rules:
+    'Reglamento de ejemplo repetido para que el JSON tenga volumen. '.repeat(3),
   isActive: true,
 }));
 
@@ -52,7 +53,6 @@ async function medirRespuesta(encoding: string): Promise<number> {
 }
 
 describe('Cache HTTP — compression + Cache-Control (e2e)', () => {
-
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [DisciplinesController],
@@ -148,15 +148,22 @@ describe('Cache HTTP — compression + Cache-Control (e2e)', () => {
       expect(res.headers['cache-control']).toBeUndefined();
     });
 
-    it('NO cachea si el request llega autenticado', async () => {
+    it('NO cachea si el request llega autenticado: sale no-store', async () => {
       // Aunque el endpoint sea público, un proxy compartido no debe guardar la
       // respuesta de una sesión y servírsela a otra persona.
+      //
+      // Hasta R16 esta assertion era `toBeUndefined()`: el interceptor se
+      // salteaba el request autenticado y no ponía encabezado ninguno. Ausencia
+      // de `Cache-Control` no es lo mismo que prohibición de cachear —un proxy
+      // puede aplicar su heurística de frescura— así que ahora la respuesta
+      // sale marcada `no-store`. El espíritu del test (esta respuesta no se
+      // guarda) es el mismo; lo que cambió es que ahora se dice explícitamente.
       const res = await request(app.getHttpServer())
         .get('/disciplines')
         .set('Authorization', 'Bearer un-access-token')
         .expect(200);
 
-      expect(res.headers['cache-control']).toBeUndefined();
+      expect(res.headers['cache-control']).toBe('no-store');
     });
   });
 });

@@ -23,8 +23,9 @@ import {
   UpdateParticipantDto,
   ParticipantFilterDto,
 } from './dto';
-import { Roles } from '../../common/decorators';
+import { Roles, CurrentUser } from '../../common/decorators';
 import { Role, ADMIN_ROLES } from '../../common/constants';
+import type { JwtPayload } from '../auth/interfaces';
 
 @ApiTags('Participants')
 @Controller('participants')
@@ -90,10 +91,18 @@ export class ParticipantsController {
   @ApiResponse({ status: 200, description: 'Participante actualizado' })
   @ApiResponse({ status: 404, description: 'No encontrado' })
   @ApiResponse({ status: 409, description: 'DNI ya registrado' })
+  @ApiResponse({
+    status: 400,
+    description: 'El rol no puede modificar el DNI (ver R17)',
+  })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateDto: UpdateParticipantDto,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    return this.participantsService.update(id, updateDto);
+    // El actor viaja hasta el service porque la regla no es "quién entra al
+    // endpoint" (eso ya lo resuelve `@Roles`) sino "quién puede tocar este
+    // campo". Ponerla en un guard obligaría a leer el body desde el guard.
+    return this.participantsService.update(id, updateDto, actor);
   }
 }

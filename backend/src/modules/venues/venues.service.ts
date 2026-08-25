@@ -4,8 +4,13 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateVenueDto, UpdateVenueDto, VenueFilterDto } from './dto';
-import { buildPaginatedResponse } from '../../common/dto';
+import {
+  CreateVenueDto,
+  UpdateVenueDto,
+  VenueFilterDto,
+  CAMPOS_ORDEN_VENUE,
+} from './dto';
+import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
 
 @Injectable()
 export class VenuesService {
@@ -46,7 +51,14 @@ export class VenuesService {
         where,
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: { [filterDto.sortBy || 'name']: filterDto.sortOrder || 'asc' },
+        // R11 — el campo de orden se valida contra la whitelist antes de
+        // llegar a Prisma; lo desconocido cae al default en vez de explotar.
+        orderBy: buildOrderBy(
+          CAMPOS_ORDEN_VENUE,
+          'name',
+          filterDto.sortBy,
+          filterDto.sortOrder,
+        ),
       }),
       this.prisma.venue.count({ where }),
     ]);
@@ -86,7 +98,9 @@ export class VenuesService {
 
     // If venue has matches associated, soft delete by marking inactive
     if (venue._count && venue._count.matches > 0) {
-      this.logger.log(`Venue ${venue.name} has matches, soft-deleting (deactivating)`);
+      this.logger.log(
+        `Venue ${venue.name} has matches, soft-deleting (deactivating)`,
+      );
       return this.prisma.venue.update({
         where: { id },
         data: { isActive: false },

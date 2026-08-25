@@ -12,6 +12,7 @@ import {
   IsUUID,
   ValidateIf,
 } from 'class-validator';
+import { ToBoolean } from '../../../common/transformers';
 import { CompetitionStage } from '@prisma/client';
 import { PaginationQueryDto } from '../../../common/dto';
 
@@ -71,6 +72,7 @@ export class CreateCalendarEventDto {
 
   @ApiPropertyOptional({ description: 'Publicar inmediatamente' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isPublished?: boolean;
 }
@@ -92,6 +94,7 @@ export class CalendarFilterDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ description: 'Solo publicados' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isPublished?: boolean;
 }

@@ -15,8 +15,9 @@ import {
   UpdateCompetitionDto,
   CompetitionFilterDto,
   GenerateFixtureDto,
+  CAMPOS_ORDEN_COMPETITION,
 } from './dto';
-import { buildPaginatedResponse } from '../../common/dto';
+import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
 import { EngineFactory } from './engine.factory';
 import {
   COMPETITION_PUBLIC_DETAIL,
@@ -97,9 +98,14 @@ export class CompetitionsService {
         },
         skip: filterDto.skip,
         take: filterDto.take,
-        orderBy: {
-          [filterDto.sortBy || 'createdAt']: filterDto.sortOrder || 'desc',
-        },
+        // R11 — el campo de orden se valida contra la whitelist antes de
+        // llegar a Prisma; lo desconocido cae al default en vez de explotar.
+        orderBy: buildOrderBy(
+          CAMPOS_ORDEN_COMPETITION,
+          'createdAt',
+          filterDto.sortBy,
+          filterDto.sortOrder,
+        ),
       }),
       this.prisma.competition.count({ where }),
     ]);

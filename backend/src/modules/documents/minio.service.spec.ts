@@ -45,9 +45,24 @@ const UUID_PREFIX =
 describe('MinioService', () => {
   let service: MinioService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
     service = new MinioService(buildConfigService());
+
+    // R18 — desde el cierre de esa tarea, `uploadFile` y `getPresignedUrl` no
+    // corren si la verificacion de bucket privado no paso. Los tests de abajo
+    // ejercitan el retry y el sanitizado de claves, no el bootstrap, asi que
+    // arrancan con el bucket ya verificado (bucket existente y sin policy).
+    // Los tests que SI miran el bootstrap llaman a `onModuleInit()` ellos
+    // mismos con sus propios mocks.
+    mockMinioClient.bucketExists.mockResolvedValue(true);
+    mockMinioClient.getBucketPolicy.mockRejectedValue(
+      Object.assign(new Error('NoSuchBucketPolicy'), {
+        code: 'NoSuchBucketPolicy',
+      }),
+    );
+    await service.onModuleInit();
+    jest.clearAllMocks();
   });
 
   // -------------------------------------------------
@@ -56,25 +71,33 @@ describe('MinioService', () => {
   describe('validación de credenciales en el constructor', () => {
     it('rechaza el default "minioadmin" en el access key', () => {
       expect(
-        () => new MinioService(buildConfigService({ 'minio.accessKey': 'minioadmin' })),
+        () =>
+          new MinioService(
+            buildConfigService({ 'minio.accessKey': 'minioadmin' }),
+          ),
       ).toThrow(/MINIO_ACCESS_KEY/);
     });
 
     it('rechaza el default "minioadmin" en el secret key', () => {
       expect(
-        () => new MinioService(buildConfigService({ 'minio.secretKey': 'minioadmin' })),
+        () =>
+          new MinioService(
+            buildConfigService({ 'minio.secretKey': 'minioadmin' }),
+          ),
       ).toThrow(/MINIO_SECRET_KEY/);
     });
 
     it('rechaza credenciales vacías', () => {
       expect(
-        () => new MinioService(buildConfigService({ 'minio.secretKey': '   ' })),
+        () =>
+          new MinioService(buildConfigService({ 'minio.secretKey': '   ' })),
       ).toThrow(/no está definida/);
     });
 
     it('rechaza credenciales demasiado cortas', () => {
       expect(
-        () => new MinioService(buildConfigService({ 'minio.accessKey': 'abc12' })),
+        () =>
+          new MinioService(buildConfigService({ 'minio.accessKey': 'abc12' })),
       ).toThrow(/al menos 8 caracteres/);
     });
 
@@ -82,7 +105,9 @@ describe('MinioService', () => {
       expect(
         () =>
           new MinioService(
-            buildConfigService({ 'minio.secretKey': 'un-secreto-largo-y-random' }),
+            buildConfigService({
+              'minio.secretKey': 'un-secreto-largo-y-random',
+            }),
           ),
       ).toThrow(/valor por defecto/);
     });
@@ -230,7 +255,11 @@ describe('MinioService', () => {
     it('devuelve el objectName sanitizado (sin prefijo de bucket)', async () => {
       mockMinioClient.putObject.mockResolvedValue(undefined);
 
-      const result = await service.uploadFile(file, 'participants/abc', file.originalname);
+      const result = await service.uploadFile(
+        file,
+        'participants/abc',
+        file.originalname,
+      );
 
       expect(result.startsWith('/juegos-evita/')).toBe(false);
       expect(result.startsWith('participants/abc/')).toBe(true);
@@ -256,7 +285,9 @@ describe('MinioService', () => {
   // -------------------------------------------------
   describe('getPresignedUrl', () => {
     beforeEach(() => {
-      mockMinioClient.presignedGetObject.mockResolvedValue('https://signed.url');
+      mockMinioClient.presignedGetObject.mockResolvedValue(
+        'https://signed.url',
+      );
     });
 
     it('acepta el formato histórico "/bucket/objectName"', async () => {

@@ -6,6 +6,7 @@ import {
   Logger,
   BadRequestException,
   InternalServerErrorException,
+  ServiceUnavailableException,
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -132,8 +133,41 @@ export function isTransientMinioError(error: unknown): boolean {
   return false;
 }
 
+/**
+ * `getBucketPolicy` sobre un bucket sin policy tira `NoSuchBucketPolicy`. Es la
+ * única forma que tiene el protocolo de decir "no hay policy", y es una buena
+ * noticia: el bucket es privado.
+ */
+export function esPolicyInexistente(error: unknown): boolean {
+  const candidato = error as { code?: unknown; message?: unknown };
+  const code = typeof candidato?.code === 'string' ? candidato.code : '';
+  const mensaje =
+    typeof candidato?.message === 'string' ? candidato.message : '';
+  return /NoSuchBucketPolicy|NoSuchBucket/i.test(code + ' ' + mensaje);
+}
+
+/**
+ * Error de la verificación de bucket privado que **no** admite arrancar igual
+ * (R18): sabemos que el bucket existe y que puede tener una policy pública que
+ * no pudimos sacar. Es distinto de "MinIO no contesta", donde el estado es
+ * desconocido pero tampoco hay servicio de archivos que dar.
+ */
+export class BucketPuedeSerPublicoError extends Error {
+  constructor(mensaje: string) {
+    super(mensaje);
+    this.name = 'BucketPuedeSerPublicoError';
+  }
+}
+
 @Injectable()
 export class MinioService implements OnModuleInit {
+  /**
+   * ¿Se verificó en esta corrida que el bucket es privado? Arranca en `false` y
+   * ninguna operación de archivos se ejecuta hasta que pase a `true`. Es la
+   * pieza que hace que el fallo sea imposible de ignorar: antes el `catch`
+   * dejaba el flujo exactamente igual que en el camino feliz.
+   */
+  private bucketVerificadoPrivado = false;
   private readonly logger = new Logger(MinioService.name);
   private readonly minioClient: Minio.Client;
   private readonly bucketName: string;
@@ -228,13 +262,62 @@ export class MinioService implements OnModuleInit {
         },
         MINIO_BOOTSTRAP_MAX_DELAY_MS,
       );
+
+      this.bucketVerificadoPrivado = true;
     } catch (error) {
-      // MinIO caído no debe tumbar toda la API, pero sí quedar registrado:
-      // hasta que este chequeo corra OK no hay garantía de bucket privado.
+      // -------------------------------------------------
+      // R18 — acá vivía un `catch` que sólo logueaba
+      // -------------------------------------------------
+      //
+      // El endurecimiento de T02 (bucket privado, acceso sólo por URL firmada)
+      // se perdía justo cuando fallaba: la app arrancaba, `uploadFile` seguía
+      // subiendo documentos de menores y el bucket podía estar sirviendo esos
+      // objetos a cualquiera. El único rastro era una línea de log entre
+      // cientos. Un fallo de seguridad silencioso es peor que una caída.
+      //
+      // Ahora hay dos desenlaces, según qué se sabe del estado del bucket:
+      if (error instanceof BucketPuedeSerPublicoError) {
+        // 1) Sabemos que puede estar público (la policy estaba y no se pudo
+        //    sacar, o no se pudo ni leer). El arranque **falla**. No hay
+        //    degradación posible: el riesgo no es no poder subir archivos, es
+        //    que los que ya están se estén sirviendo abiertos.
+        this.logger.error(
+          `ARRANQUE ABORTADO: el bucket "${this.bucketName}" puede estar público y no se pudo cerrar. ` +
+            `Causa: ${error.message}`,
+        );
+        throw error;
+      }
+
+      // 2) MinIO no contesta: el estado es desconocido. La API arranca —el
+      //    resto del sistema (inscripciones, competencias, reportes) no tiene
+      //    por qué caerse porque el almacén de archivos esté abajo— pero el
+      //    módulo queda **explícitamente deshabilitado**: cada intento de subir
+      //    o de firmar una URL responde 503 hasta que la verificación pase.
+      //    Antes esto seguía como si nada.
       this.logger.error(
-        `No se pudo verificar que el bucket "${this.bucketName}" sea privado: ${
-          (error as Error).message
-        }`,
+        `MÓDULO DE DOCUMENTOS DESHABILITADO: no se pudo verificar que el bucket ` +
+          `"${this.bucketName}" sea privado (${(error as Error).message}). ` +
+          `Las subidas y las URLs firmadas responden 503 hasta que la verificación pase.`,
+      );
+    }
+  }
+
+  /**
+   * Corta la operación si el bucket no está verificado como privado.
+   *
+   * Reintenta la verificación en caliente: si MinIO estaba caído al arrancar y
+   * volvió, el primer upload la vuelve a correr y el módulo se rehabilita solo,
+   * sin necesidad de redeploy.
+   */
+  private async asegurarBucketPrivado(): Promise<void> {
+    if (this.bucketVerificadoPrivado) return;
+
+    await this.ensureBucketIsPrivate();
+
+    if (!this.bucketVerificadoPrivado) {
+      throw new ServiceUnavailableException(
+        'El almacenamiento de archivos no está disponible: no se pudo verificar ' +
+          'que el bucket sea privado.',
       );
     }
   }
@@ -245,16 +328,33 @@ export class MinioService implements OnModuleInit {
 
     try {
       currentPolicy = await this.minioClient.getBucketPolicy(this.bucketName);
-    } catch {
-      // `NoSuchBucketPolicy`: el bucket ya es privado.
-      return;
+    } catch (error) {
+      // Sólo `NoSuchBucketPolicy` significa "el bucket ya es privado". El
+      // `catch {}` pelado que había acá trataba **cualquier** error como esa
+      // buena noticia: con un `AccessDenied` —credenciales sin permiso de
+      // policy, que es un escenario perfectamente posible— la app daba el
+      // bucket por privado sin haber podido leer nada.
+      if (esPolicyInexistente(error)) return;
+
+      throw new BucketPuedeSerPublicoError(
+        `no se pudo leer la policy del bucket: ${(error as Error).message}`,
+      );
     }
 
     if (!currentPolicy || currentPolicy.trim() === '') {
       return;
     }
 
-    await this.minioClient.setBucketPolicy(this.bucketName, '');
+    try {
+      await this.minioClient.setBucketPolicy(this.bucketName, '');
+    } catch (error) {
+      // Este es el caso exacto de R18: había una policy (probablemente la
+      // pública heredada) y el intento de sacarla falló.
+      throw new BucketPuedeSerPublicoError(
+        `no se pudo eliminar la policy existente: ${(error as Error).message}`,
+      );
+    }
+
     this.logger.warn(
       `Se eliminó una policy pública pre-existente del bucket "${this.bucketName}". ` +
         'Los objetos ahora sólo son accesibles vía URL pre-firmada.',
@@ -335,6 +435,8 @@ export class MinioService implements OnModuleInit {
     folder: string,
     filename: string,
   ): Promise<string> {
+    await this.asegurarBucketPrivado();
+
     const objectName = this.buildObjectName(folder, filename);
 
     // El reintento es posible porque `file.buffer` es un Buffer en memoria
@@ -379,6 +481,8 @@ export class MinioService implements OnModuleInit {
     objectName: string,
     expiryInSeconds = DEFAULT_PRESIGNED_EXPIRY,
   ): Promise<string> {
+    await this.asegurarBucketPrivado();
+
     const cleanObjectName = this.normalizeObjectName(objectName);
     const expiry = Math.min(
       Math.max(expiryInSeconds, MIN_PRESIGNED_EXPIRY),

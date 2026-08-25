@@ -387,8 +387,12 @@ describe('Contrato de auditoría (e2e)', () => {
       expect(changes.email).toBe('a***@juegosevita.gob.ar');
       expect(changes.perfil.dni).toBe('******56');
 
-      // Lo que no es sensible se conserva: la auditoría sigue contando qué pasó.
-      expect(changes.firstName).toBe('Ana');
+      // R12 — `firstName` pasó a estar clasificado como PII: se conserva la
+      // inicial (alcanza para correlacionar filas) y nada más. Hasta R12 esta
+      // línea esperaba `'Ana'` en claro, que era el agujero: la fila redactaba
+      // la contraseña y a la vez guardaba el nombre completo del chico.
+      expect(changes.firstName).toBe('A***');
+      expect(JSON.stringify(changes)).not.toContain('Ana');
     });
 
     it('también sanea los eventos manuales de auth (misma vía, mismo filtro)', async () => {

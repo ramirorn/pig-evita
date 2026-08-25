@@ -25,6 +25,7 @@ import {
 } from '@nestjs/swagger';
 import { DocumentsService } from './documents.service';
 import { UploadDocumentDto, ReviewDocumentDto } from './dto';
+import { FileSignaturePipe } from './file-signature.pipe';
 import { Roles, CurrentUser } from '../../common/decorators';
 import { Role, ADMIN_ROLES } from '../../common/constants';
 
@@ -49,16 +50,18 @@ export class DocumentsController {
     // y `type` (enum) antes de que lleguen a Prisma.
     @Body() body: UploadDocumentDto,
     @UploadedFile(
+      // Sólo el tamaño (sigue devolviendo 422, como antes). El
+      // `addFileTypeValidator` que había acá comparaba contra `file.mimetype`,
+      // que lo declara el cliente: se fue a `FileSignaturePipe`, que mira los
+      // magic bytes del contenido y responde 400 (ver R14).
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: /(jpeg|jpg|png|pdf)$/i,
-        })
         .addMaxSizeValidator({
           maxSize: 5 * 1024 * 1024, // 5MB
         })
         .build({
           errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
         }),
+      FileSignaturePipe,
     )
     file: Express.Multer.File,
   ) {

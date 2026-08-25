@@ -48,6 +48,20 @@ export const INSCRIPTION_APPROVERS: Role[] = [
   Role.ADMIN_DEPARTAMENTAL,
 ];
 
+/**
+ * Roles habilitados a **cambiar el DNI** de un participante ya cargado (R17).
+ *
+ * El DNI no es un dato más del formulario: es la clave con la que se valida la
+ * identidad del chico y con la que se cruzan los padrones. Cambiarlo sobre una
+ * inscripción aprobada equivale a sustituir a la persona que va a competir, sin
+ * que ninguna pantalla lo muestre como algo distinto de una corrección de
+ * tipeo. Por eso queda fuera del alcance de los roles operativos
+ * (`DELEGADO`, que es quien carga las altas del día) y sólo lo pueden hacer los
+ * dos roles provinciales, con una fila de auditoría propia que guarda el valor
+ * anterior y el nuevo.
+ */
+export const DNI_EDITORS: Role[] = [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL];
+
 /** Roles que pueden cargar resultados */
 export const RESULT_LOADERS: Role[] = [
   Role.SUPER_ADMIN,
@@ -90,4 +104,6 @@ export enum AuditAction {
   APPROVE_INSCRIPTION = 'APPROVE_INSCRIPTION',
   REJECT_INSCRIPTION = 'REJECT_INSCRIPTION',
   UPLOAD = 'UPLOAD',
+  /** Cambio de DNI de un participante (R17): se audita aparte del UPDATE. */
+  DNI_CHANGE = 'DNI_CHANGE',
 }

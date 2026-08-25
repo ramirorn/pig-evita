@@ -16,7 +16,7 @@ import {
   CompetitionFormat,
   CompetitionStatus,
 } from '@prisma/client';
-import { PaginationQueryDto } from '../../../common/dto';
+import { PaginationQueryDto, SortableBy } from '../../../common/dto';
 
 export class CreateCompetitionDto {
   @ApiProperty({ description: 'ID de la disciplina' })
@@ -41,19 +41,27 @@ export class CreateCompetitionDto {
     description: 'Nombre opcional (ej: Final Provincial 2024)',
   })
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value?.trim()))
+  @Transform(({ value }) =>
+    typeof value === 'string' && value.trim() === ''
+      ? undefined
+      : value?.trim(),
+  )
   @IsString()
   name?: string;
 
   @ApiPropertyOptional({ description: 'Fecha de inicio' })
   @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @Transform(({ value }) =>
+    value === '' || value === null ? undefined : value,
+  )
   @IsDateString()
   startDate?: string;
 
   @ApiPropertyOptional({ description: 'Fecha de fin' })
   @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @Transform(({ value }) =>
+    value === '' || value === null ? undefined : value,
+  )
   @IsDateString()
   endDate?: string;
 
@@ -70,6 +78,16 @@ export class UpdateCompetitionDto extends PartialType(CreateCompetitionDto) {
   @IsEnum(CompetitionStatus)
   status?: CompetitionStatus;
 }
+
+export const CAMPOS_ORDEN_COMPETITION = [
+  'createdAt',
+  'updatedAt',
+  'startDate',
+  'endDate',
+  'name',
+  'stage',
+  'status',
+] as const;
 
 export class CompetitionFilterDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filtrar por disciplina' })
@@ -91,6 +109,17 @@ export class CompetitionFilterDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(CompetitionStatus)
   status?: CompetitionStatus;
+
+  // R11 — whitelist de orden. Sin esto el string del cliente entra crudo al
+  // `orderBy` de Prisma y una columna inexistente termina en un 500 con la
+  // ruta del archivo y el fragmento de la consulta adentro del mensaje.
+  @ApiPropertyOptional({
+    description: 'Campo para ordenar',
+    enum: CAMPOS_ORDEN_COMPETITION,
+    default: 'createdAt',
+  })
+  @SortableBy(CAMPOS_ORDEN_COMPETITION)
+  sortBy?: string = 'createdAt';
 }
 
 // Generate Fixture DTO

@@ -13,7 +13,7 @@ import {
 } from 'class-validator';
 import { Sex } from '@prisma/client';
 import { IsDni } from '../../../common/validators';
-import { PaginationQueryDto } from '../../../common/dto';
+import { PaginationQueryDto, SortableBy } from '../../../common/dto';
 
 export class CreateParticipantDto {
   @ApiProperty({ description: 'DNI del participante', example: '12345678' })
@@ -72,6 +72,17 @@ export class CreateParticipantDto {
 
 export class UpdateParticipantDto extends PartialType(CreateParticipantDto) {}
 
+export const CAMPOS_ORDEN_PARTICIPANT = [
+  'createdAt',
+  'updatedAt',
+  'lastName',
+  'firstName',
+  'birthDate',
+  'dni',
+  'locality',
+  'department',
+] as const;
+
 export class ParticipantFilterDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filtrar por DNI' })
   @IsOptional()
@@ -105,4 +116,15 @@ export class ParticipantFilterDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID('4')
   categoryId?: string;
+
+  // R11 — whitelist de orden. Sin esto el string del cliente entra crudo al
+  // `orderBy` de Prisma y una columna inexistente termina en un 500 con la
+  // ruta del archivo y el fragmento de la consulta adentro del mensaje.
+  @ApiPropertyOptional({
+    description: 'Campo para ordenar',
+    enum: CAMPOS_ORDEN_PARTICIPANT,
+    default: 'createdAt',
+  })
+  @SortableBy(CAMPOS_ORDEN_PARTICIPANT)
+  sortBy?: string = 'createdAt';
 }

@@ -12,6 +12,7 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
+import { ToBoolean } from '../../../common/transformers';
 import { Sex } from '@prisma/client';
 import { PaginationQueryDto } from '../../../common/dto';
 
@@ -58,6 +59,7 @@ export class CreateCategoryDto {
   teamSize?: number;
   @ApiPropertyOptional({ description: 'Activa o inactiva' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 }
@@ -77,6 +79,7 @@ export class CategoryFilterDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ description: 'Filtrar por estado activo' })
   @IsOptional()
+  @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 }

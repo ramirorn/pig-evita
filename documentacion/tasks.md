@@ -195,53 +195,93 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R10 🟡 🏗️ BE — Filtros booleanos invertidos por `enableImplicitConversion`
 
-- [ ] **Descripción:** Con `enableImplicitConversion: true`, el string `"false"` se convierte a `true` (todo string no vacío es truthy). `?isActive=false` devuelve los activos. Afecta a todos los DTOs de filtro con booleanos. Usar `@Transform` explícito que mapee `'true'`/`'false'`, o desactivar la conversión implícita y declarar cada transformación.
+- [x] **Descripción:** Con `enableImplicitConversion: true`, el string `"false"` se convierte a `true` (todo string no vacío es truthy). `?isActive=false` devuelve los activos. Afecta a todos los DTOs de filtro con booleanos. Usar `@Transform` explícito que mapee `'true'`/`'false'`, o desactivar la conversión implícita y declarar cada transformación.
 - **DoD:** test que recorra los DTOs de filtro con campos booleanos y verifique `'false' → false`, `'true' → true`, `'0'`/`'1'`, y valor ausente → `undefined`. Verificación en vivo con `?isActive=false` sobre al menos dos endpoints.
+
+- **✅ Evidencia (2026-08-24):** `backend/test/boolean-filters.e2e-spec.ts`, **76 tests**. Capa DTO: los 7 filtros × (`'false'`→false, `'true'`→true, `'0'`, `'1'`, mayúsculas, ausente→`undefined`, vacío→`undefined`, booleano real intacto, basura→400). Capa HTTP sobre `/disciplines` y `/venues` contra un Prisma que **aplica el `where`**: los conjuntos `isActive=true` e `isActive=false` son **disjuntos y suman el total**. **Contraprueba:** quitando `@ToBoolean()` fallan **39 de 76**.
+- **⚠️ No se tocó `enableImplicitConversion`, a propósito.** Apagarlo globalmente arregla 16 campos y rompe en silencio las coerciones numéricas y de fecha de otros DTOs de query que viven de esa conversión y no declaran transformación propia. El `@Transform` acotado además es más preciso: lee `obj[key]` —el valor **crudo**— y no `value`, porque class-transformer corre la conversión implícita *antes* que las transformaciones custom. Verificado con una sonda: con `isActive` en `'false'`, `value` llega como `true` y `obj[key]` sigue siendo `'false'`.
 
 ### R11 🟡 🏗️ BE — `sortBy` sin validar filtra rutas del filesystem y fuente en el 500
 
-- [ ] **Descripción:** `orderBy: { [filterDto.sortBy || 'createdAt']: ... }` pasa el valor del cliente directo a Prisma. Una columna inexistente produce un 500 cuyo stack trace incluye rutas absolutas del servidor y fragmentos de código. Restringir `sortBy` a una whitelist por entidad (`@IsIn([...])`) y verificar que el filtro global de excepciones no serialice el stack en producción.
+- [x] **Descripción:** `orderBy: { [filterDto.sortBy || 'createdAt']: ... }` pasa el valor del cliente directo a Prisma. Una columna inexistente produce un 500 cuyo stack trace incluye rutas absolutas del servidor y fragmentos de código. Restringir `sortBy` a una whitelist por entidad (`@IsIn([...])`) y verificar que el filtro global de excepciones no serialice el stack en producción.
 - **Archivos:** el patrón se repite en varios services; `competitions.service.ts:96-98` es uno.
 - **DoD:** `?sortBy=noExiste` devuelve **400** con mensaje genérico; con `NODE_ENV=production` ninguna respuesta 5xx contiene `at ` de stack, rutas `C:\` o `/app/`, ni nombres de archivo `.ts`.
 
+- **✅ Evidencia (2026-08-24):** `backend/test/sort-whitelist.e2e-spec.ts`, **18 tests**. Un `sortBy` inexistente devuelve 400 genérico y **Prisma ni se llama**; `passwordHash`, `user.email`, un path traversal, un `DROP TABLE` y `__proto__` → 400; el cuerpo del 400 no contiene `.ts`, rutas de Windows, `/app/` ni `prisma.`. Con `NODE_ENV=production` ningún 5xx lleva stack, rutas ni `errors`.
+- **El doble de Prisma reproduce el error real** (texto calcado del `PrismaClientValidationError`, con ruta absoluta y fragmento de código), así que si la whitelist no cortara, el test vería el 500 filtrado. **Contraprueba:** con los DTOs y services viejos fallan **9 de 18**; revirtiendo sólo el filtro de excepciones falla 1 — la del detalle envuelto en `InternalServerErrorException`, que era justo el caso que el filtro viejo dejaba pasar entero.
+- **Defensa en profundidad:** además de la whitelist en el DTO, `buildOrderBy()` manda lo desconocido al default en vez de dejar que explote. `sortOrder` pasó de `@IsString()` a `@IsIn(['asc','desc'])`.
+
 ### R12 🟡 🏗️ BE — El sanitizador de auditoría no clasifica varios campos de PII
 
-- [ ] **Descripción:** El sanitizador de T25 enmascara bien secretos y algunos campos, pero **no** clasifica `firstName`, `lastName`, `locality` ni `department`. Además, las filas históricas de `AuditLog` guardan PII cruda de antes del sanitizador. Ampliar la clasificación y decidir qué hacer con lo histórico (migración de enmascarado o purga con retención declarada).
+- [x] **Descripción:** El sanitizador de T25 enmascara bien secretos y algunos campos, pero **no** clasifica `firstName`, `lastName`, `locality` ni `department`. Además, las filas históricas de `AuditLog` guardan PII cruda de antes del sanitizador. Ampliar la clasificación y decidir qué hacer con lo histórico (migración de enmascarado o purga con retención declarada).
 - **Archivos:** `backend/src/modules/audit/audit-sanitizer.ts`, más una migración.
 - **DoD:** test que pase un payload con los cuatro campos y verifique el enmascarado; conteo de filas históricas con PII cruda antes y después de la migración, registrado en `PROCESO.md`.
 
+- **✅ Evidencia (2026-08-24):** `backend/test/audit-pii-fields.e2e-spec.ts`, **18 tests**. Los cuatro campos se enmascaran conservando la inicial (`Gómez` queda en `G***`), también anidados y dentro de arrays. La migración corre contra una tabla en memoria que **guarda de verdad los updates**: filas con PII cruda **antes = 3, después = 0**; la segunda corrida reescribe 0, o sea que es idempotente y segura de reintentar si se corta a mitad. **Contraprueba:** sin la clasificación nueva fallan **7 de 18**; con la migración que no escribe, **5 de 18**.
+- **Se enmascara y no se borra**, por la misma razón que el resto del módulo: la tabla tiene que seguir sirviendo para correlacionar ("¿las 200 altas de la madrugada son de la misma persona o de 200?"). El campo `name` a secas **no** se toca: es el nombre de una disciplina o una sede, no de una persona.
+- **Decisión sobre lo histórico: re-enmascarado, no purga**, vía `npm run audit:backfill-pii` (con `--dry` para contar sin escribir). La purga dejaría `changes` en null, que tira el único registro de *qué* cambió en cada operación y convierte `AuditLog` en un mero log de accesos. **Retención declarada:** no se borra ninguna fila ni columna — `userId`, `action`, `entity`, `entityId`, `ipAddress`, `userAgent` y `createdAt` quedan íntegros; lo único que se reemplaza es el valor sensible dentro de `changes`. Se hizo en TypeScript y no en SQL porque el enmascarado por clave a profundidad arbitraria en SQL es frágil, y así además es testeable sin Postgres.
+- **Se ajustó un test existente:** `audit-contract.e2e-spec.ts` esperaba el nombre en claro; ahora espera el enmascarado y además que el nombre completo no aparezca en el JSON.
+
 ### R13 🟡 🏗️ BE — `InscriptionsService.create` no es transaccional
 
-- [ ] **Descripción:** La creación toca varias tablas sin `$transaction`. Un fallo a mitad deja la inscripción sin sus registros asociados, y el estado parcial no es detectable después. Envolver en `prisma.$transaction`.
+- [x] **Descripción:** La creación toca varias tablas sin `$transaction`. Un fallo a mitad deja la inscripción sin sus registros asociados, y el estado parcial no es detectable después. Envolver en `prisma.$transaction`.
 - **DoD:** test que fuerce un fallo en el último paso y compruebe que no queda ninguna fila de la operación.
+
+- **✅ Evidencia (2026-08-24):** `backend/test/inscriptions-transaction.e2e-spec.ts`, **8 tests**. El doble modela `$transaction` con **rollback real** (snapshot de las tablas y restauración si el callback tira). Forzando el fallo en el último paso: **0 participantes y 0 inscripciones**. Se verifica además que el error se propague, que el reintento parta de base limpia, que el duplicado siga dando 409 y que las validaciones previas no abran transacción. **Contraprueba:** desarmando el `$transaction` fallan **2 de 8**, una de ellas la del DoD.
+- **Lo que no toca la base quedó afuera de la transacción** —validaciones de edad y sexo, generación del QR, render de la imagen— para no tenerla abierta de más. Efecto de yapa: la ventana de carrera del chequeo de duplicado ahora la cierra la unique `participantId_categoryId` **dentro** de la transacción.
+- **⏳ Pendiente:** el rollback contra Postgres real; el test modela la semántica, no la ejerce.
 
 ### R14 🟡 🏗️ BE — El tipo de archivo se valida contra el mimetype que manda el cliente
 
-- [ ] **Descripción:** La validación de subida confía en `file.mimetype`, que lo declara el cliente y se falsifica con un header. Validar por *magic bytes* del contenido y contrastar con la extensión sanitizada.
+- [x] **Descripción:** La validación de subida confía en `file.mimetype`, que lo declara el cliente y se falsifica con un header. Validar por *magic bytes* del contenido y contrastar con la extensión sanitizada.
 - **Archivos:** `backend/src/modules/documents/`
 - **DoD:** subir un ejecutable con `Content-Type: application/pdf` es rechazado con 400; un PDF legítimo sigue pasando.
 
+- **✅ Evidencia (2026-08-24):** `backend/test/upload-magic-bytes.e2e-spec.ts`, **14 tests**, con multipart real por HTTP. Un ejecutable declarado como PDF → **400** y `minio.uploadFile` **sin llamar**; PDF, PNG y JPEG legítimos → 201; script PHP con nombre `.jpg`, texto plano declarado PDF, archivo vacío y poliglota → 400; PNG con extensión `.pdf` → 400; el `mimeType` que se persiste es el **detectado**, no el declarado. **Contraprueba:** con el validador viejo fallan **13 de 14**.
+- **⚠️ Corrección al hallazgo, con evidencia.** La tarea afirmaba que `addFileTypeValidator` "confía en `file.mimetype`". **Eso no es cierto en `@nestjs/common` 11.1.28**: desde Nest 11 el validador detecta por magic numbers con el paquete `file-type`. Verificado con una sonda directa contra el validador viejo: ejecutable declarado PDF → inválido; poliglota HTML+PDF → inválido; PDF real → válido. El camino "mimetype del cliente" sólo se activa degradado: sin `buffer`, con `skipMagicNumbersValidation`, o si falla la carga ESM dinámica de `file-type` (bajo Jest falla **siempre**, y ahí rechaza todo). El agujero es real pero **condicional**, y depende de un `import()` dinámico que degrada en silencio hacia cualquiera de los dos extremos.
+- **Por qué el pipe propio se justifica igual:** es síncrono y determinístico (sin import dinámico por request), responde **400** como pide el DoD (el de Nest daba 422) y **contrasta contra la extensión**, que el de Nest no hace — comprobado que acepta un PDF real subido como `documento.exe`.
+- **🐛 Bug encontrado fuera de toda tarea, y grave:** `UploadDocumentDto` declaraba `file: any` sin decoradores. Con `target: ES2023` TypeScript emite los campos de clase como propiedades reales, así que el DTO instanciado tenía `file` en `undefined` y `forbidNonWhitelisted` respondía **400 "property file should not exist" a TODA subida**, incluida la de un PDF impecable. O sea que `POST /documents/upload` estaba **caído para todo el mundo**. Lo destapó el primer test que mandó un archivo legítimo. Cerrado con `@Allow()` y el mecanismo explicado en el código.
+- **⏳ Pendiente:** la subida real a MinIO de un ejecutable renombrado.
+
 ### R15 🟡 🏗️ BE — Inyección de fórmulas en la exportación CSV
 
-- [ ] **Descripción:** Un participante cuyo apellido empiece con `=`, `+`, `-` o `@` se convierte en fórmula al abrir el CSV en Excel. Prefijar esas celdas con `'` en la exportación.
+- [x] **Descripción:** Un participante cuyo apellido empiece con `=`, `+`, `-` o `@` se convierte en fórmula al abrir el CSV en Excel. Prefijar esas celdas con `'` en la exportación.
 - **Archivos:** `backend/src/modules/reports/reports.service.ts`
 - **DoD:** exportar con un registro sembrado cuyo nombre sea `=1+1` y verificar que la celda del archivo generado no arranca con `=`. Cubrir los cuatro caracteres y también el caso con espacios o tab por delante.
 
+- **✅ Evidencia (2026-08-24):** `backend/test/csv-formula-injection.e2e-spec.ts`, **18 tests**. Se genera el CSV completo con el `escribirCsv` real y se lee la celda del archivo: una fórmula queda prefijada con comilla simple; se cubren los cuatro caracteres y las variantes con espacio, doble espacio, tab y retorno de carro por delante, más el `HYPERLINK` que exfiltra la fila. **Contraprueba:** con el `aLineaCsv` viejo fallan **12 de 18**.
+- **Los números puros quedan intactos** para no romper las columnas numéricas, pero un `+1` precedido de tabs **sí** se prefija: ahí la interpretación depende del programa que abra el archivo. El `.xlsx` no lo necesita — ExcelJS escribe estos valores como celdas de tipo string.
+- **⏳ Pendiente:** abrir el CSV generado en Excel o LibreOffice y confirmar visualmente que la celda no evalúa.
+
 ### R16 🟡 🏗️ BE — Respuestas privadas sin `no-store`
 
-- [ ] **Descripción:** El `CacheControlInterceptor` de T18 es opt-in y se saltea los requests autenticados, pero no marca las respuestas privadas con `no-store`. Un proxy intermedio o el back/forward cache del navegador puede retener datos de una sesión.
+- [x] **Descripción:** El `CacheControlInterceptor` de T18 es opt-in y se saltea los requests autenticados, pero no marca las respuestas privadas con `no-store`. Un proxy intermedio o el back/forward cache del navegador puede retener datos de una sesión.
 - **DoD:** toda respuesta a un request con `Authorization` lleva `Cache-Control: no-store`; los endpoints públicos con `@CacheControl` conservan su `public, max-age` y su `Vary`.
+
+- **✅ Evidencia (2026-08-24):** `backend/test/private-no-store.e2e-spec.ts`, **10 tests**. Con token: listado privado, detalle, endpoint público consultado con credenciales, 404 del handler, 401 de token inválido y PATCH → todos con `no-store`. Sin token: `/disciplines` conserva su `public, max-age=600` y su `Vary`; un público sin decorador sigue sin encabezado. **Contraprueba:** revirtiendo interceptor y filtro fallan **6 de 10**. **`http-cache.e2e-spec.ts` sigue en verde (17/17).**
+- **La marca se pone *antes* de ejecutar el handler**, así sale también en sus errores; y como los guards corren antes que los interceptores, el `GlobalExceptionFilter` cubre el hueco de los 401 y 403 de guard, sin pisar un `Cache-Control` ya puesto.
+- **⚠️ Desviación registrada:** `http-cache.e2e-spec.ts` tenía un test que afirmaba `cache-control` **ausente** en el request autenticado — exactamente lo que R16 viene a corregir. Los dos criterios no pueden ser ciertos a la vez. Se cambió esa única assertion, con el motivo escrito en el propio test: ausencia de encabezado **no** es prohibición de cachear (un proxy puede aplicar su heurística de frescura); el espíritu del test es el mismo y lo que cambió es que ahora se dice explícitamente. El `public, max-age` y el `Vary` de los públicos no se tocaron.
 
 ### R17 🟡 🏗️ BE — `PATCH /participants/:id` permite a un DELEGADO cambiar el DNI
 
-- [ ] **Descripción:** El DNI es el identificador con el que se valida la identidad del participante y se cruzan padrones. Que un rol operativo lo edite sin traza diferenciada habilita sustitución de persona sobre una inscripción ya aprobada. Sacarlo del DTO de update para los roles operativos, o exigir un endpoint aparte con auditoría explícita.
+- [x] **Descripción:** El DNI es el identificador con el que se valida la identidad del participante y se cruzan padrones. Que un rol operativo lo edite sin traza diferenciada habilita sustitución de persona sobre una inscripción ya aprobada. Sacarlo del DTO de update para los roles operativos, o exigir un endpoint aparte con auditoría explícita.
 - **DoD:** un DELEGADO enviando `dni` en el PATCH recibe 400 (o el campo se ignora, con test que lo demuestre); el cambio por el rol habilitado queda auditado con valor anterior y nuevo.
+
+- **✅ Evidencia (2026-08-24):** `backend/test/participant-dni-change.e2e-spec.ts`, **15 tests**. Un DELEGADO recibe **400**, el DNI **no cambió en la tabla** del doble, y **tampoco se aplicó el resto del PATCH** (rechazo total, no parcial); puede seguir editando otros campos. ADMIN_DEPARTAMENTAL tampoco puede. SUPER_ADMIN y ADMIN_PROVINCIAL sí cambian el DNI y queda la fila `DNI_CHANGE` con anterior y nuevo distinguibles y **sin ningún documento en claro**. **Contraprueba:** sin el corte por rol ni la auditoría fallan **7 de 15**.
+- **400 explícito y no descarte mudo:** ignorar el campo en silencio deja al delegado convencido de que corrigió el documento.
+- **El corte sólo se dispara si el valor cambia.** Los formularios mandan el objeto completo, así que rechazar un PATCH que reenvía el mismo DNI rompería la edición de teléfono justo para el rol que hace la mayoría de las ediciones.
+- **Detalle que evita reintroducir el bug de R12:** el `changes` va anidado bajo la clave `dni` a propósito — el sanitizador clasifica por nombre de clave, así que un `dniAnterior` plano habría guardado el documento en claro.
 
 ### R18 🟡 🏗️ BE — `ensureBucketIsPrivate` se traga los fallos
 
-- [ ] **Descripción:** Si la llamada que quita la policy pública falla, el error se captura y la app arranca igual, con el bucket público. El endurecimiento de T02 se pierde en silencio justo cuando falla.
+- [x] **Descripción:** Si la llamada que quita la policy pública falla, el error se captura y la app arranca igual, con el bucket público. El endurecimiento de T02 se pierde en silencio justo cuando falla.
 - **Archivos:** `backend/src/modules/documents/minio.service.ts`
 - **DoD:** con MinIO respondiendo error a `setBucketPolicy`, el arranque **falla** con mensaje claro (o el módulo queda deshabilitado de forma explícita y visible en los logs), nunca continúa como si hubiera funcionado.
+
+- **✅ Evidencia (2026-08-24):** `backend/test/minio-bucket-private.e2e-spec.ts`, **13 tests**. Con `setBucketPolicy` fallando: `onModuleInit()` rechaza, `app.init()` tira y el log dice `ARRANQUE ABORTADO`. Con MinIO caído: la app levanta, el log dice `DESHABILITADO`, subir responde **503 sin llamar a `putObject`**, y cuando MinIO vuelve el módulo se rehabilita solo, sin redeploy. **Contraprueba:** con el `catch` que sólo logueaba fallan **7 de 13**.
+- **El caso se partió en dos desenlaces según qué se sabe del estado del bucket**, y el DoD admite las dos formas: si **sabemos que puede estar público** (había policy y falló al quitarla, o no se pudo ni leer) el arranque **falla**; si **el estado es desconocido** porque MinIO no contesta, la app arranca con el módulo explícitamente deshabilitado. Tumbar inscripciones, competencias y reportes porque el almacén de archivos está abajo es peor que degradarlo; un bucket que puede estar sirviendo documentos de menores, no.
+- **Se cerró de paso un `catch` pelado** en `removeBucketPolicy` que trataba **cualquier** error de `getBucketPolicy` como la buena noticia "ya es privado": ante un `AccessDenied` la app daba por verificado algo que no había podido mirar.
+- **Se ajustó `minio.service.spec.ts`:** su `beforeEach` deja el bucket verificado antes de los tests de retry y sanitizado, que no miran el bootstrap. Los dos tests de T02 que exigen que la app **no** se caiga con MinIO caído siguen tal cual y en verde.
 
 ### R19 🟡 ⚛️ FE — Puerta trasera en el single-flight del refresh
 
@@ -414,7 +454,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-24. Cada tarea tendrá su bloque de evidencia en
 > `PROCESO.md → sección 5` y su propio commit.
 
-**Progreso: 19 de 31 tareas completadas.**
+**Progreso: 28 de 31 tareas completadas.**
 Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es la única que requiere migración y decisión de negocio.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -428,15 +468,15 @@ Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es 
 | **R07** | 🔴 | ⚛️ FE + 🎨 UI | Error boundary y ruta 404 | ✅ Completada |
 | **R08** | 🔴 | ⚛️ FE | Sincronizar el Sidebar con `@/lib/roles` | ✅ Completada |
 | **R09** | 🔴 | ⚛️ FE | El wizard de inscripción se rompe con más de 100 categorías | ✅ Completada |
-| **R10** | 🟡 | 🏗️ BE | Filtros booleanos invertidos por `enableImplicitConversion` | ⬜ Pendiente |
-| **R11** | 🟡 | 🏗️ BE | `sortBy` sin validar filtra rutas y fuente en el 500 | ⬜ Pendiente |
-| **R12** | 🟡 | 🏗️ BE | El sanitizador de auditoría no clasifica varios campos de PII | ⬜ Pendiente |
-| **R13** | 🟡 | 🏗️ BE | `InscriptionsService.create` no es transaccional | ⬜ Pendiente |
-| **R14** | 🟡 | 🏗️ BE | Tipo de archivo validado contra el mimetype del cliente | ⬜ Pendiente |
-| **R15** | 🟡 | 🏗️ BE | Inyección de fórmulas en la exportación CSV | ⬜ Pendiente |
-| **R16** | 🟡 | 🏗️ BE | Respuestas privadas sin `no-store` | ⬜ Pendiente |
-| **R17** | 🟡 | 🏗️ BE | `PATCH /participants/:id` permite cambiar el DNI | ⬜ Pendiente |
-| **R18** | 🟡 | 🏗️ BE | `ensureBucketIsPrivate` se traga los fallos | ⬜ Pendiente |
+| **R10** | 🟡 | 🏗️ BE | Filtros booleanos invertidos por `enableImplicitConversion` | ✅ Completada |
+| **R11** | 🟡 | 🏗️ BE | `sortBy` sin validar filtra rutas y fuente en el 500 | ✅ Completada |
+| **R12** | 🟡 | 🏗️ BE | El sanitizador de auditoría no clasifica varios campos de PII | ✅ Completada |
+| **R13** | 🟡 | 🏗️ BE | `InscriptionsService.create` no es transaccional | ✅ Completada |
+| **R14** | 🟡 | 🏗️ BE | Tipo de archivo validado contra el mimetype del cliente | ✅ Completada |
+| **R15** | 🟡 | 🏗️ BE | Inyección de fórmulas en la exportación CSV | ✅ Completada |
+| **R16** | 🟡 | 🏗️ BE | Respuestas privadas sin `no-store` | ✅ Completada |
+| **R17** | 🟡 | 🏗️ BE | `PATCH /participants/:id` permite cambiar el DNI | ✅ Completada |
+| **R18** | 🟡 | 🏗️ BE | `ensureBucketIsPrivate` se traga los fallos | ✅ Completada |
 | **R19** | 🟡 | ⚛️ FE | Puerta trasera en el single-flight del refresh | ✅ Completada |
 | **R20** | 🟡 | ⚛️ FE | Debounce en los buscadores (regresión de `59e2b60`) | ✅ Completada |
 | **R21** | 🟡 | ⚛️ FE | Aplicar `getFriendlyError` en los 11 hooks que faltan | ✅ Completada |
@@ -456,7 +496,7 @@ Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es 
 | Severidad | Completadas | Total |
 |---|---|---|
 | 🔴 Blocker | 8 | 9 |
-| 🟡 Alto | 6 | 17 |
+| 🟡 Alto | 15 | 17 |
 | 🚀 Optimización alta | 2 | 2 |
 | 📈 Optimización media | 1 | 2 |
 | ✨ Polish | 2 | 2 |
