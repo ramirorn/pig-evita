@@ -10,8 +10,10 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { ReportsService, EspecificacionReporte } from './reports.service';
-import { Roles } from '../../common/decorators';
-import { Role, ADMIN_ROLES } from '../../common/constants';
+import { Roles, CurrentUser } from '../../common/decorators';
+import { ACCIONES } from '../../common/constants';
+import { ScopeService } from '../../common/scope';
+import type { JwtPayload } from '../auth/interfaces';
 
 const MIME_XLSX =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -20,7 +22,10 @@ const MIME_XLSX =
 @Controller('reports')
 @ApiBearerAuth('access-token')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly scope: ScopeService,
+  ) {}
 
   /**
    * Prepara los headers y arranca el streaming (T23).
@@ -68,7 +73,7 @@ export class ReportsController {
   }
 
   @Get('participants')
-  @Roles(...ADMIN_ROLES, Role.DELEGADO)
+  @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar lista de participantes a CSV o Excel' })
   @ApiQuery({ name: 'disciplineId', required: false })
   @ApiQuery({ name: 'categoryId', required: false })
@@ -82,13 +87,19 @@ export class ReportsController {
     @Query('department') department: string,
     @Query('format') format: string,
     @Res() res: Response,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    const espec = this.reportsService.especificacionParticipants({
-      disciplineId,
-      categoryId,
-      locality,
-      department,
-    });
+    // R05 — el reporte nunca devuelve 403 por pedir un departamento ajeno: sale
+    // recortado al alcance y lo declara en la primera fila del archivo.
+    const espec = this.reportsService.especificacionParticipants(
+      await this.scope.alcanceDe(actor),
+      {
+        disciplineId,
+        categoryId,
+        locality,
+        department,
+      },
+    );
     return this.enviar(
       res,
       espec,
@@ -98,7 +109,7 @@ export class ReportsController {
   }
 
   @Get('inscriptions')
-  @Roles(...ADMIN_ROLES, Role.DELEGADO)
+  @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar inscripciones a CSV o Excel' })
   @ApiQuery({ name: 'disciplineId', required: false })
   @ApiQuery({ name: 'categoryId', required: false })
@@ -110,8 +121,10 @@ export class ReportsController {
     @Query('status') status: string,
     @Query('format') format: string,
     @Res() res: Response,
+    @CurrentUser() actor: JwtPayload,
   ) {
     const espec = this.reportsService.especificacionInscriptions(
+      await this.scope.alcanceDe(actor),
       disciplineId,
       categoryId,
       status,
@@ -120,7 +133,7 @@ export class ReportsController {
   }
 
   @Get('teams')
-  @Roles(...ADMIN_ROLES, Role.DELEGADO)
+  @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar lista de equipos a CSV o Excel' })
   @ApiQuery({ name: 'disciplineId', required: false })
   @ApiQuery({ name: 'categoryId', required: false })
@@ -134,18 +147,22 @@ export class ReportsController {
     @Query('department') department: string,
     @Query('format') format: string,
     @Res() res: Response,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    const espec = this.reportsService.especificacionTeams({
-      disciplineId,
-      categoryId,
-      locality,
-      department,
-    });
+    const espec = this.reportsService.especificacionTeams(
+      await this.scope.alcanceDe(actor),
+      {
+        disciplineId,
+        categoryId,
+        locality,
+        department,
+      },
+    );
     return this.enviar(res, espec, this.esExcel(format), 'equipos');
   }
 
   @Get('results')
-  @Roles(...ADMIN_ROLES, Role.DELEGADO)
+  @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar resultados y partidos a CSV o Excel' })
   @ApiQuery({ name: 'competitionId', required: false })
   @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx'] })
@@ -153,8 +170,12 @@ export class ReportsController {
     @Query('competitionId') competitionId: string,
     @Query('format') format: string,
     @Res() res: Response,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    const espec = this.reportsService.especificacionResults(competitionId);
+    const espec = this.reportsService.especificacionResults(
+      await this.scope.alcanceDe(actor),
+      competitionId,
+    );
     return this.enviar(res, espec, this.esExcel(format), 'resultados');
   }
 }

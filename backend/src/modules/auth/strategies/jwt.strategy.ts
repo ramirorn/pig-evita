@@ -35,6 +35,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       sub: payload.sub,
       email: payload.email,
       role: payload.role,
+      // R05 — sin estos dos campos el alcance territorial no se puede derivar
+      // del request y todo rol acotado quedaría sin ver nada.
+      department: payload.department ?? null,
+      zone: payload.zone ?? null,
       type: payload.type,
     };
   }

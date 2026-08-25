@@ -21,6 +21,7 @@ import {
   neutralizarFormulaCsv,
 } from '../src/modules/reports/reports.service';
 import { PrismaService } from '../src/database/prisma.service';
+import { ALCANCE_PROVINCIAL, ScopeService } from '../src/common/scope';
 
 /** Destino que acumula lo escrito, como haría el `res` de Express. */
 class DestinoBuffer extends Writable {
@@ -86,7 +87,11 @@ describe('Exportación CSV — inyección de fórmulas (R15)', () => {
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      providers: [ReportsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ReportsService,
+        ScopeService,
+        { provide: PrismaService, useValue: prisma },
+      ],
     }).compile();
 
     service = moduleFixture.get(ReportsService);
@@ -96,15 +101,19 @@ describe('Exportación CSV — inyección de fórmulas (R15)', () => {
   async function generarCsv(...valores: string[]): Promise<string[]> {
     apellidos = valores;
     const destino = new DestinoBuffer();
-    await service.escribirCsv(destino, service.especificacionParticipants());
+    await service.escribirCsv(
+      destino,
+      service.especificacionParticipants(ALCANCE_PROVINCIAL),
+    );
     destino.end();
     await destino.terminado;
 
-    // Se descarta el BOM y la fila de encabezados.
+    // Se descartan el BOM, la fila de alcance territorial (R05) y la de
+    // encabezados.
     return destino.texto
       .replace(/^\uFEFF/, '')
       .split('\n')
-      .slice(1);
+      .slice(2);
   }
 
   /** Contenido de la columna "Apellido" (la tercera) de una fila del CSV. */
@@ -190,11 +199,17 @@ describe('Exportación CSV — inyección de fórmulas (R15)', () => {
   it('el CSV conserva el BOM y el encabezado', async () => {
     apellidos = ['Pérez'];
     const destino = new DestinoBuffer();
-    await service.escribirCsv(destino, service.especificacionParticipants());
+    await service.escribirCsv(
+      destino,
+      service.especificacionParticipants(ALCANCE_PROVINCIAL),
+    );
     destino.end();
     await destino.terminado;
 
-    expect(destino.texto.startsWith('\uFEFF"DNI"')).toBe(true);
+    // R05 — la primera fila declara el alcance; el encabezado quedó segundo.
+    const lineas = destino.texto.replace(/^\uFEFF/, '').split('\n');
+    expect(destino.texto.startsWith('\uFEFF"Alcance del reporte:')).toBe(true);
+    expect(lineas[1].startsWith('"DNI"')).toBe(true);
   });
 
   // -------------------------------------------------

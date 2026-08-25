@@ -34,6 +34,7 @@ import {
 } from '../src/modules/audit/audit.service';
 import { sanitizeAuditChanges } from '../src/modules/audit/audit-sanitizer';
 import { PrismaService } from '../src/database/prisma.service';
+import { ScopeService } from '../src/common/scope';
 import { AuditAction, Role } from '../src/common/constants';
 
 const ACCESS_SECRET = 'test-access-secret-de-mas-de-32-caracteres';
@@ -73,7 +74,12 @@ describe('PATCH /participants/:id — cambio de DNI (R17)', () => {
         findUnique: jest.fn(({ where }: { where: { id?: string } }) =>
           Promise.resolve(where.id === ID ? fila : null),
         ),
-        findFirst: jest.fn(() => Promise.resolve(null)),
+        // R05 — `findOne` consulta con `{ AND: [{ id }, filtroTerritorial] }`;
+        // el chequeo de DNI duplicado usa `{ dni, NOT }` y sigue dando null.
+        findFirst: jest.fn(
+          ({ where }: { where: { AND?: Array<{ id?: string }> } }) =>
+            Promise.resolve(where?.AND?.[0]?.id === ID ? fila : null),
+        ),
         update: jest.fn(({ data }: { data: Record<string, unknown> }) => {
           fila = { ...fila, ...data };
           return Promise.resolve(fila);
@@ -100,6 +106,8 @@ describe('PATCH /participants/:id — cambio de DNI (R17)', () => {
       ],
       controllers: [ParticipantsController],
       providers: [
+        // R05 — los services acotados por territorio inyectan ScopeService.
+        ScopeService,
         ParticipantsService,
         JwtStrategy,
         { provide: PrismaService, useValue: prisma },
@@ -135,6 +143,11 @@ describe('PATCH /participants/:id — cambio de DNI (R17)', () => {
       sub: `usuario-${role}`,
       email: `${role.toLowerCase()}@juegosevita.gob.ar`,
       role,
+      // R05 — el delegado y el admin departamental están acotados por
+      // departamento: sin este campo no verían al participante y el PATCH
+      // devolvería 404 antes de llegar a la regla del DNI, que es lo que este
+      // spec mide. Coincide con el departamento de la fila.
+      department: 'Pilcomayo',
       type: 'access',
     });
 

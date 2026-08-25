@@ -27,7 +27,7 @@ import {
   CACHE_TTL,
   PublicReadThrottle,
 } from '../../common/decorators';
-import { ADMIN_ROLES } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 
 @ApiTags('Venues')
 @Controller('venues')
@@ -36,7 +36,7 @@ export class VenuesController {
   constructor(private readonly venuesService: VenuesService) {}
 
   @Post()
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.VENUE_MANAGE)
   @ApiOperation({ summary: 'Crear sede' })
   @ApiResponse({ status: 201, description: 'Sede creada' })
   async create(@Body() createDto: CreateVenueDto) {
@@ -62,7 +62,7 @@ export class VenuesController {
   }
 
   @Patch(':id')
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.VENUE_MANAGE)
   @ApiOperation({ summary: 'Actualizar sede' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -72,7 +72,7 @@ export class VenuesController {
   }
 
   @Delete(':id')
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.VENUE_MANAGE)
   @ApiOperation({ summary: 'Eliminar sede' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.venuesService.remove(id);

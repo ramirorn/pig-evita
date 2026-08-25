@@ -18,7 +18,7 @@ import {
 import { ResultsService } from './results.service';
 import { MatchResultDto } from './dto';
 import { Roles, Public, PublicReadThrottle } from '../../common/decorators';
-import { Role, ADMIN_ROLES } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 
 @ApiTags('Results')
 @Controller('results')
@@ -27,7 +27,7 @@ export class ResultsController {
   constructor(private readonly resultsService: ResultsService) {}
 
   @Patch('match/:matchId')
-  @Roles(...ADMIN_ROLES, Role.ARBITRO)
+  @Roles(...ACCIONES.RESULT_LOAD)
   @ApiOperation({ summary: 'Cargar/Actualizar resultados de un partido' })
   @ApiResponse({
     status: 200,

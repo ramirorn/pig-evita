@@ -91,6 +91,10 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      // R05 — el alcance territorial se deriva del token, así que estos dos
+      // campos tienen que viajar en él.
+      department: user.department,
+      zone: user.zone,
     });
 
     // Guardar refresh token hasheado
@@ -197,6 +201,10 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      // R05 — el alcance territorial se deriva del token, así que estos dos
+      // campos tienen que viajar en él.
+      department: user.department,
+      zone: user.zone,
     });
 
     // Rotación **condicional sobre el estado leído** (R04).

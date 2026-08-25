@@ -26,6 +26,12 @@ interface ReportFiltersPanelProps {
    */
   disciplines: Discipline[];
   categories: Category[];
+  /**
+   * R05 — el reporte sale recortado al alcance territorial del usuario y lo
+   * declara en su primera fila. Para un rol acotado, este filtro no puede
+   * ampliar nada: pedir otro departamento devuelve un archivo vacío.
+   */
+  mostrarFiltroDepartamento: boolean;
 }
 
 export function ReportFiltersPanel({
@@ -34,6 +40,7 @@ export function ReportFiltersPanel({
   onReset,
   disciplines,
   categories,
+  mostrarFiltroDepartamento,
 }: ReportFiltersPanelProps) {
   const hasActiveFilters = hasActiveReportFilters(filters);
 
@@ -108,15 +115,17 @@ export function ReportFiltersPanel({
           </Select>
         </div>
 
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-primary-700">Departamento</label>
-          <Input
-            placeholder="Ej. Formosa, Pilcomayo..."
-            value={filters.department}
-            onChange={(e) => onChange({ department: e.target.value })}
-            className="bg-white"
-          />
-        </div>
+        {mostrarFiltroDepartamento && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-primary-700">Departamento</label>
+            <Input
+              placeholder="Ej. Formosa, Pilcomayo..."
+              value={filters.department}
+              onChange={(e) => onChange({ department: e.target.value })}
+              className="bg-white"
+            />
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-primary-700">Localidad</label>

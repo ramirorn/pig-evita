@@ -13,6 +13,11 @@
 // que consume el router. Este chequeo fija esa propiedad para que nadie la
 // deshaga agregando un `roles:` inline "por conveniencia".
 //
+// R22 lo extiende de la pantalla a la **acción**: `adminActions.ts` espeja el
+// mapa `ACCIONES` del backend y este chequeo compara los dos, bundleando el
+// archivo real del backend. Así, si allá cambia un `@Roles(...)` y acá no,
+// esto se pone en rojo antes de que un botón visible devuelva 403.
+//
 // Corre con: npm run check:nav
 // ===========================================
 import { execSync } from 'node:child_process';
@@ -52,6 +57,29 @@ execSync(
   { cwd: RAIZ, stdio: ['ignore', 'ignore', 'inherit'] },
 );
 
+// El espejo se compara contra el archivo REAL del backend, bundleado aparte.
+const ENTRADA_BACKEND = path.join(RAIZ, 'scripts', 'backend-actions.entry.ts');
+const SALIDA_BACKEND = path.join(
+  RAIZ,
+  'node_modules',
+  '.cache',
+  'check-nav-backend-actions.mjs',
+);
+
+execSync(
+  [
+    'npx esbuild',
+    `"${ENTRADA_BACKEND}"`,
+    `"--outfile=${SALIDA_BACKEND}"`,
+    '--bundle --format=esm --platform=node --log-level=error',
+  ].join(' '),
+  { cwd: RAIZ, stdio: ['ignore', 'ignore', 'inherit'] },
+);
+
+const { ACCIONES: ACCIONES_BACKEND } = await import(
+  pathToFileURL(SALIDA_BACKEND).href
+);
+
 const {
   navItemsParaRol,
   ADMIN_ROUTE_ROLES,
@@ -61,6 +89,10 @@ const {
   QUICK_ACTIONS,
   quickActionsParaRol,
   ADMIN_AREA_ROLES,
+  ACTION_ROLES,
+  ACCIONES_POR_PANTALLA,
+  puedeAccion,
+  ROLES_CON_ALCANCE_PROVINCIAL,
   ROUTES,
   UserRole,
 } = await import(pathToFileURL(SALIDA).href);
@@ -230,6 +262,129 @@ for (const role of ROLES) {
     visibles.length === 0 || visibles[0].showSeparator === false,
   );
 }
+
+
+// -------------------------------------------------
+// 7. R22 — el espejo de permisos no puede divergir del backend
+// -------------------------------------------------
+//
+// Ésta es la comparación que hace que `adminActions.ts` valga: se bundlea
+// `backend/src/common/constants/index.ts` y se compara acción por acción. Sin
+// esto, el espejo es un comentario que dice "acordate de actualizarlo".
+{
+  const normalizar = (roles) => [...roles].sort().join(',');
+  const accionesBackend = Object.keys(ACCIONES_BACKEND).sort();
+  const accionesFrontend = Object.keys(ACTION_ROLES).sort();
+
+  comprobar(
+    'el frontend espeja exactamente las mismas acciones que el backend',
+    accionesBackend.join('|') === accionesFrontend.join('|'),
+    `backend: ${accionesBackend.length} acciones, frontend: ${accionesFrontend.length}`,
+  );
+
+  for (const accion of accionesBackend) {
+    const enBackend = normalizar(ACCIONES_BACKEND[accion]);
+    const enFrontend = ACTION_ROLES[accion]
+      ? normalizar(ACTION_ROLES[accion])
+      : '(no existe en el frontend)';
+
+    comprobar(
+      `[${accion}] los roles del frontend coinciden con los del backend`,
+      enBackend === enFrontend,
+      `backend: [${enBackend}] · frontend: [${enFrontend}]`,
+    );
+  }
+}
+
+// -------------------------------------------------
+// 8. R22 — ninguna acción permitida queda inalcanzable
+// -------------------------------------------------
+//
+// La dirección que se olvida, igual que en el menú: un rol puede tener el
+// permiso y no tener ninguna pantalla donde ejercerlo. El permiso queda
+// decorativo y nadie se entera, porque no falla nada.
+for (const [pantalla, acciones] of Object.entries(ACCIONES_POR_PANTALLA)) {
+  for (const accion of acciones) {
+    for (const role of ROLES) {
+      if (!puedeAccion(role, accion)) continue;
+
+      verificaciones.push(
+        `[${role}] puede ${accion} y llega a ${pantalla}, donde está el botón`,
+      );
+      if (!puedeVerRuta(role, pantalla)) {
+        problemas.push(
+          `[${role}] puede ejecutar ${accion} pero no puede entrar a ${pantalla}, ` +
+            'que es donde vive ese botón',
+        );
+      }
+    }
+  }
+}
+
+// -------------------------------------------------
+// 9. R22 — las pantallas con acciones restringidas consultan el permiso
+// -------------------------------------------------
+//
+// El mapa puede estar perfecto y la pantalla pintar el botón igual. Se
+// verifica en el fuente, que es donde está el riesgo: son los archivos donde
+// el grupo de roles de la ruta es MÁS ANCHO que el de la acción, o sea los
+// que producían el 403.
+const PANTALLAS_QUE_FILTRAN = [
+  ['src/pages/admin/ParticipantsPage.tsx', ['PARTICIPANT_CREATE', 'PARTICIPANT_UPDATE']],
+  ['src/pages/admin/TeamsAdminPage.tsx', ['TEAM_CREATE', 'TEAM_UPDATE', 'TEAM_DELETE']],
+  ['src/pages/admin/UsersPage.tsx', ['USER_MANAGE']],
+  ['src/pages/admin/DocumentsPage.tsx', ['DOCUMENT_REVIEW']],
+  [
+    'src/pages/admin/inscription-detail/InscriptionReviewPanel.tsx',
+    ['INSCRIPTION_APPROVE'],
+  ],
+];
+
+for (const [archivo, acciones] of PANTALLAS_QUE_FILTRAN) {
+  const fuente = await readFile(path.join(RAIZ, archivo), 'utf8');
+
+  comprobar(
+    `${archivo} consulta los permisos con usePermisos`,
+    fuente.includes('usePermisos'),
+    'no importa el hook de permisos',
+  );
+
+  for (const accion of acciones) {
+    comprobar(
+      `${archivo} decide el botón de ${accion} por permiso`,
+      fuente.includes(`'${accion}'`),
+      `no aparece ${accion} en el fuente`,
+    );
+  }
+}
+
+// -------------------------------------------------
+// 10. R05 — la UI no ofrece filtros territoriales que el rol no puede usar
+// -------------------------------------------------
+{
+  const acotados = ROLES.filter(
+    (role) => !ROLES_CON_ALCANCE_PROVINCIAL.includes(role),
+  );
+  comprobar(
+    'hay roles acotados por territorio (red de seguridad del propio chequeo)',
+    acotados.length > 0,
+  );
+
+  for (const archivo of [
+    'src/pages/admin/participants/ParticipantsToolbar.tsx',
+    'src/pages/admin/teams/TeamsToolbar.tsx',
+    'src/pages/admin/reports/ReportFiltersPanel.tsx',
+  ]) {
+    const fuente = await readFile(path.join(RAIZ, archivo), 'utf8');
+    comprobar(
+      `${archivo} condiciona el filtro de departamento al alcance`,
+      fuente.includes('mostrarFiltroDepartamento'),
+      'el filtro de departamento se pinta siempre',
+    );
+  }
+}
+
+await rm(SALIDA_BACKEND, { force: true });
 
 await rm(SALIDA, { force: true });
 

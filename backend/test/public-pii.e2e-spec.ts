@@ -21,6 +21,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { IS_PUBLIC_KEY } from '../src/common/constants';
 import { PrismaService } from '../src/database/prisma.service';
+import { ScopeService } from '../src/common/scope';
 import { proyectar } from './mocks/prisma-projection';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
 
@@ -295,6 +296,8 @@ describe('Endpoints públicos — fuga de PII (e2e)', () => {
       imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
       controllers: CONTROLLERS,
       providers: [
+        // R05 — los services acotados por territorio inyectan ScopeService.
+        ScopeService,
         JwtStrategy,
         {
           provide: ConfigService,

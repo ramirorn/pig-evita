@@ -27,7 +27,7 @@ import {
   CACHE_TTL,
   PublicReadThrottle,
 } from '../../common/decorators';
-import { Role } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 
 @ApiTags('Categories')
 @Controller('categories')
@@ -35,7 +35,7 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @Roles(...ACCIONES.CATEGORY_MANAGE)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Crear categoría' })
   @ApiResponse({ status: 201, description: 'Categoría creada' })
@@ -68,7 +68,7 @@ export class CategoriesController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @Roles(...ACCIONES.CATEGORY_MANAGE)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Actualizar categoría' })
   @ApiResponse({ status: 200, description: 'Categoría actualizada' })
@@ -80,7 +80,7 @@ export class CategoriesController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @Roles(...ACCIONES.CATEGORY_MANAGE)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Eliminar categoría' })
   @ApiResponse({ status: 200, description: 'Categoría eliminada' })

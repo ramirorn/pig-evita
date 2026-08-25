@@ -34,21 +34,21 @@ import {
   PublicReadThrottle,
   Audit,
 } from '../../common/decorators';
-import {
-  INSCRIPTION_CREATORS,
-  INSCRIPTION_REVIEWERS,
-  INSCRIPTION_APPROVERS,
-  AuditAction,
-} from '../../common/constants';
+import { ACCIONES, AuditAction } from '../../common/constants';
+import { ScopeService } from '../../common/scope';
+import type { JwtPayload } from '../auth/interfaces';
 
 @ApiTags('Inscriptions')
 @Controller('inscriptions')
 export class InscriptionsController {
-  constructor(private readonly inscriptionsService: InscriptionsService) {}
+  constructor(
+    private readonly inscriptionsService: InscriptionsService,
+    private readonly scope: ScopeService,
+  ) {}
 
   // --- Endpoint AUTENTICADO: inscripción por delegado ---
   @Post()
-  @Roles(...INSCRIPTION_CREATORS)
+  @Roles(...ACCIONES.INSCRIPTION_CREATE)
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Inscribir participante (delegado)',
@@ -67,11 +67,20 @@ export class InscriptionsController {
     status: 409,
     description: 'Participante ya inscripto en esta categoría',
   })
+  @ApiResponse({
+    status: 403,
+    description: 'El departamento está fuera del alcance territorial (R05)',
+  })
   async create(
     @Body() createDto: CreateInscriptionDto,
     @CurrentUser('sub') userId: string,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    return this.inscriptionsService.create(createDto, userId);
+    return this.inscriptionsService.create(
+      createDto,
+      userId,
+      await this.scope.alcanceDe(actor),
+    );
   }
 
   // --- Endpoint PÚBLICO: consulta por QR ---
@@ -99,19 +108,25 @@ export class InscriptionsController {
 
   // --- Endpoints ADMINISTRATIVOS ---
   @Get()
-  @Roles(...INSCRIPTION_REVIEWERS)
+  @Roles(...ACCIONES.INSCRIPTION_READ)
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Listar inscripciones',
     description: 'Lista paginada con filtros.',
   })
   @ApiResponse({ status: 200, description: 'Lista de inscripciones' })
-  async findAll(@Query() filterDto: InscriptionFilterDto) {
-    return this.inscriptionsService.findAll(filterDto);
+  async findAll(
+    @Query() filterDto: InscriptionFilterDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.inscriptionsService.findAll(
+      filterDto,
+      await this.scope.alcanceDe(actor),
+    );
   }
 
   @Get(':id')
-  @Roles(...INSCRIPTION_REVIEWERS)
+  @Roles(...ACCIONES.INSCRIPTION_READ)
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Obtener inscripción',
@@ -122,8 +137,15 @@ export class InscriptionsController {
     description: 'Datos completos de la inscripción',
   })
   @ApiResponse({ status: 404, description: 'No encontrada' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.inscriptionsService.findOne(id);
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    // Fuera de alcance ⇒ 404, no 403.
+    return this.inscriptionsService.findOne(
+      id,
+      await this.scope.alcanceDe(actor),
+    );
   }
 
   @Patch(':id/review')
@@ -133,7 +155,7 @@ export class InscriptionsController {
   // sigue saliendo por la misma vía. Ver el contrato en
   // `common/decorators/audit.decorator.ts`.
   @Audit({ action: AuditAction.REVIEW_INSCRIPTION })
-  @Roles(...INSCRIPTION_REVIEWERS)
+  @Roles(...ACCIONES.INSCRIPTION_REVIEW)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -145,9 +167,15 @@ export class InscriptionsController {
   async review(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('sub') userId: string,
+    @CurrentUser() actor: JwtPayload,
     @Body() reviewDto: ReviewInscriptionDto,
   ) {
-    return this.inscriptionsService.review(id, userId, reviewDto);
+    return this.inscriptionsService.review(
+      id,
+      userId,
+      reviewDto,
+      await this.scope.alcanceDe(actor),
+    );
   }
 
   @Patch(':id/approve')
@@ -157,7 +185,7 @@ export class InscriptionsController {
   // sigue saliendo por la misma vía. Ver el contrato en
   // `common/decorators/audit.decorator.ts`.
   @Audit({ action: AuditAction.APPROVE_INSCRIPTION })
-  @Roles(...INSCRIPTION_APPROVERS)
+  @Roles(...ACCIONES.INSCRIPTION_APPROVE)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -169,8 +197,13 @@ export class InscriptionsController {
   async approve(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('sub') userId: string,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    return this.inscriptionsService.approve(id, userId);
+    return this.inscriptionsService.approve(
+      id,
+      userId,
+      await this.scope.alcanceDe(actor),
+    );
   }
 
   @Patch(':id/reject')
@@ -180,7 +213,7 @@ export class InscriptionsController {
   // sigue saliendo por la misma vía. Ver el contrato en
   // `common/decorators/audit.decorator.ts`.
   @Audit({ action: AuditAction.REJECT_INSCRIPTION })
-  @Roles(...INSCRIPTION_REVIEWERS)
+  @Roles(...ACCIONES.INSCRIPTION_REJECT)
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -192,8 +225,14 @@ export class InscriptionsController {
   async reject(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('sub') userId: string,
+    @CurrentUser() actor: JwtPayload,
     @Body() rejectDto: RejectInscriptionDto,
   ) {
-    return this.inscriptionsService.reject(id, userId, rejectDto);
+    return this.inscriptionsService.reject(
+      id,
+      userId,
+      rejectDto,
+      await this.scope.alcanceDe(actor),
+    );
   }
 }

@@ -31,7 +31,7 @@ import {
   CACHE_TTL,
   PublicReadThrottle,
 } from '../../common/decorators';
-import { Role } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 
 @ApiTags('Disciplines')
 @Controller('disciplines')
@@ -39,7 +39,7 @@ export class DisciplinesController {
   constructor(private readonly disciplinesService: DisciplinesService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @Roles(...ACCIONES.DISCIPLINE_MANAGE)
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Crear disciplina',
@@ -77,7 +77,7 @@ export class DisciplinesController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @Roles(...ACCIONES.DISCIPLINE_MANAGE)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Actualizar disciplina' })
   @ApiResponse({ status: 200, description: 'Disciplina actualizada' })
@@ -89,7 +89,7 @@ export class DisciplinesController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @Roles(...ACCIONES.DISCIPLINE_MANAGE)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Eliminar disciplina' })
   @ApiResponse({ status: 200, description: 'Disciplina eliminada' })

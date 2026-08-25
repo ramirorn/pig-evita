@@ -22,9 +22,20 @@ interface TeamsToolbarProps {
    */
   disciplines: Discipline[];
   categories: Category[];
+  /**
+   * R05 — un rol acotado por territorio no puede usar este filtro: el backend
+   * ya recortó el listado a su departamento.
+   */
+  mostrarFiltroDepartamento: boolean;
 }
 
-export function TeamsToolbar({ filters, onChange, disciplines, categories }: TeamsToolbarProps) {
+export function TeamsToolbar({
+  filters,
+  onChange,
+  disciplines,
+  categories,
+  mostrarFiltroDepartamento,
+}: TeamsToolbarProps) {
   return (
     <>
       <Select
@@ -64,13 +75,15 @@ export function TeamsToolbar({ filters, onChange, disciplines, categories }: Tea
         </SelectContent>
       </Select>
 
-      <Input
-        placeholder="Buscar por departamento..."
-        aria-label="Filtrar por departamento"
-        value={filters.department}
-        onChange={(e) => onChange({ department: e.target.value })}
-        className="w-full md:w-[200px]"
-      />
+      {mostrarFiltroDepartamento && (
+        <Input
+          placeholder="Buscar por departamento..."
+          aria-label="Filtrar por departamento"
+          value={filters.department}
+          onChange={(e) => onChange({ department: e.target.value })}
+          className="w-full md:w-[200px]"
+        />
+      )}
 
       <Input
         placeholder="Buscar por localidad..."

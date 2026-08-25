@@ -25,7 +25,7 @@ import {
   GenerateFixtureDto,
 } from './dto';
 import { Roles, Public, PublicReadThrottle } from '../../common/decorators';
-import { ADMIN_ROLES } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 
 @ApiTags('Competitions')
 @Controller('competitions')
@@ -34,7 +34,7 @@ export class CompetitionsController {
   constructor(private readonly competitionsService: CompetitionsService) {}
 
   @Post()
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.COMPETITION_MANAGE)
   @ApiOperation({ summary: 'Crear competencia' })
   @ApiResponse({ status: 201, description: 'Competencia creada' })
   async create(@Body() createDto: CreateCompetitionDto) {
@@ -60,7 +60,7 @@ export class CompetitionsController {
   }
 
   @Patch(':id')
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.COMPETITION_MANAGE)
   @ApiOperation({ summary: 'Actualizar competencia' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -70,7 +70,7 @@ export class CompetitionsController {
   }
 
   @Post(':id/fixture')
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.COMPETITION_MANAGE)
   @ApiOperation({
     summary: 'Generar fixture automáticamente (ej. Round Robin)',
   })

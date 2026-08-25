@@ -43,6 +43,7 @@ import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.se
 import { UsersController } from '../src/modules/users/users.controller';
 import { UsersService } from '../src/modules/users/users.service';
 import { PrismaService } from '../src/database/prisma.service';
+import { ScopeService } from '../src/common/scope';
 import { Audit, NoAudit, AUDIT_KEY } from '../src/common/decorators';
 import { AuditAction } from '../src/common/constants';
 import { REDACTED } from '../src/modules/audit/audit-sanitizer';
@@ -195,6 +196,8 @@ describe('Contrato de auditoría (e2e)', () => {
         AuthorsController,
       ],
       providers: [
+        // R05 — los services acotados por territorio inyectan ScopeService.
+        ScopeService,
         AuthService,
         AuditService,
         JwtStrategy,

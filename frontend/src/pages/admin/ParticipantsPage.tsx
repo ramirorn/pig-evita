@@ -7,6 +7,7 @@ import { useParticipants } from '@/hooks/useParticipants';
 import { useDisciplines } from '@/hooks/useDisciplines';
 import { useCategories } from '@/hooks/useCategories';
 import { useDebounce } from '@/hooks/useDebounce';
+import { usePermisos } from '@/hooks/usePermisos';
 import type { Participant } from '@/types';
 import { ParticipantForm } from './components/ParticipantForm';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
@@ -30,6 +31,9 @@ import {
 } from '@/components/ui/dialog';
 
 export function ParticipantsPage() {
+  // R22 — el alta excluye a COORDINADOR y la edición además a ADMIN_ZONAL,
+  // aunque los cuatro roles vean esta pantalla.
+  const { puede, puedeFiltrarPorDepartamento } = usePermisos();
   const [filters, setFilters] = useState<ParticipantListFilters>(EMPTY_PARTICIPANT_FILTERS);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
@@ -89,10 +93,15 @@ export function ParticipantsPage() {
   };
 
   const columns = createParticipantColumns({
-    onEdit: (participant) => {
-      setEditingParticipant(participant);
-      setIsModalOpen(true);
-    },
+    // Sin permiso no se pasa el handler: la columna directamente no arma el
+    // menú de acciones, en vez de mostrarlo deshabilitado. Un "Editar" gris con
+    // tooltip sigue insinuando que el rol podría llegar a poder.
+    onEdit: puede('PARTICIPANT_UPDATE')
+      ? (participant) => {
+          setEditingParticipant(participant);
+          setIsModalOpen(true);
+        }
+      : undefined,
   });
 
   return (
@@ -102,10 +111,12 @@ export function ParticipantsPage() {
         description="Padrón único de deportistas y entrenadores"
         icon={<Users className="w-5 h-5 text-white" />}
         actions={
-          <Button onClick={handleCreate} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Nuevo Participante
-          </Button>
+          puede('PARTICIPANT_CREATE') ? (
+            <Button onClick={handleCreate} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Nuevo Participante
+            </Button>
+          ) : undefined
         }
       />
 
@@ -136,14 +147,17 @@ export function ParticipantsPage() {
         emptyTitle="Todavía no hay participantes"
         emptyDescription="Registrá al primer deportista o entrenador para empezar a armar el padrón."
         emptyAction={
-          <Button onClick={handleCreate} className="gap-2">
-            <Plus className="w-4 h-4" /> Crear Participante
-          </Button>
+          puede('PARTICIPANT_CREATE') ? (
+            <Button onClick={handleCreate} className="gap-2">
+              <Plus className="w-4 h-4" /> Crear Participante
+            </Button>
+          ) : undefined
         }
         toolbar={
           <ParticipantsToolbar
             filters={filters}
             onChange={patchFilters}
+            mostrarFiltroDepartamento={puedeFiltrarPorDepartamento}
             disciplines={disciplines?.data ?? []}
             categories={categories?.data ?? []}
           />

@@ -5,6 +5,7 @@ import {
   Injectable,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -28,12 +29,16 @@ import {
   TEAM_SUMMARY,
   USER_SUMMARY,
 } from '../../common/prisma-selects';
+import { Alcance, ScopeService } from '../../common/scope';
 
 @Injectable()
 export class InscriptionsService {
   private readonly logger = new Logger(InscriptionsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scope: ScopeService,
+  ) {}
 
   /**
    * Crear inscripción (endpoint público via QR).
@@ -41,7 +46,11 @@ export class InscriptionsService {
    * - Valida edad vs categoría.
    * - Genera código QR único.
    */
-  async create(createDto: CreateInscriptionDto, createdById: string) {
+  async create(
+    createDto: CreateInscriptionDto,
+    createdById: string,
+    alcance: Alcance,
+  ) {
     const {
       dni,
       firstName,
@@ -56,6 +65,17 @@ export class InscriptionsService {
       categoryId,
       teamId,
     } = createDto;
+
+    // 0. R05 — el alta crea (o reutiliza) un participante con el departamento
+    // que viene en el body. Sin este corte, un delegado podía inscribir gente
+    // de cualquier departamento y después no volver a verla, y —peor— podía
+    // usar el alta para tocar el padrón ajeno.
+    if (!this.scope.permiteDepartamento(alcance, department)) {
+      throw new ForbiddenException(
+        `No podés inscribir participantes del departamento "${department}": ` +
+          'está fuera de tu alcance territorial.',
+      );
+    }
 
     // 1. Verificar que la categoría existe y obtener su disciplina
     const category = await this.prisma.category.findUnique({
@@ -191,7 +211,7 @@ export class InscriptionsService {
   /**
    * Listar inscripciones con paginación y filtros.
    */
-  async findAll(filterDto: InscriptionFilterDto) {
+  async findAll(filterDto: InscriptionFilterDto, alcance: Alcance) {
     const where: Prisma.InscriptionWhereInput = {};
 
     if (filterDto.status) {
@@ -225,9 +245,15 @@ export class InscriptionsService {
       ];
     }
 
+    // R05 — el departamento de una inscripción es el de su participante.
+    const whereConAlcance = ScopeService.conAlcance(
+      where,
+      this.scope.whereInscription(alcance),
+    );
+
     const [inscriptions, total] = await Promise.all([
       this.prisma.inscription.findMany({
-        where,
+        where: whereConAlcance,
         // `select` explícito: la tabla de inscripciones muestra código, estado,
         // nombre + DNI, categoría y equipo. Las notas internas y los timestamps
         // de revisión sólo se usan en el detalle, así que no viajan en la lista.
@@ -247,7 +273,7 @@ export class InscriptionsService {
         take: filterDto.take,
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.inscription.count({ where }),
+      this.prisma.inscription.count({ where: whereConAlcance }),
     ]);
 
     return buildPaginatedResponse(inscriptions, total, filterDto);
@@ -256,9 +282,12 @@ export class InscriptionsService {
   /**
    * Obtener inscripción por ID.
    */
-  async findOne(id: string) {
-    const inscription = await this.prisma.inscription.findUnique({
-      where: { id },
+  async findOne(id: string, alcance: Alcance) {
+    const inscription = await this.prisma.inscription.findFirst({
+      where: ScopeService.conAlcance(
+        { id },
+        this.scope.whereInscription(alcance),
+      ),
       // El detalle sí muestra datos de contacto, notas y trazabilidad. Los
       // documentos del participante no se usan en esta pantalla y se piden por
       // su propio endpoint (`GET /documents/participant/:id`).
@@ -287,6 +316,8 @@ export class InscriptionsService {
     });
 
     if (!inscription) {
+      // 404 y no 403 para la inscripción fuera de alcance: mismo mensaje que
+      // un id inexistente.
       throw new NotFoundException('Inscripción no encontrada');
     }
 
@@ -346,8 +377,15 @@ export class InscriptionsService {
    * Revisar inscripción (Delegado).
    * Estado: PENDIENTE → REVISADA
    */
-  async review(id: string, userId: string, reviewDto: ReviewInscriptionDto) {
-    const inscription = await this.findOne(id);
+  async review(
+    id: string,
+    userId: string,
+    reviewDto: ReviewInscriptionDto,
+    alcance: Alcance,
+  ) {
+    // `findOne` aplica el alcance: revisar una inscripción de otro
+    // departamento devuelve 404 antes de cambiar ningún estado.
+    const inscription = await this.findOne(id, alcance);
 
     if (inscription.status !== InscriptionStatus.PENDIENTE) {
       throw new BadRequestException(
@@ -379,8 +417,8 @@ export class InscriptionsService {
    * Aprobar inscripción (Administrador).
    * Estado: REVISADA → APROBADA
    */
-  async approve(id: string, userId: string) {
-    const inscription = await this.findOne(id);
+  async approve(id: string, userId: string, alcance: Alcance) {
+    const inscription = await this.findOne(id, alcance);
 
     if (inscription.status !== InscriptionStatus.REVISADA) {
       throw new BadRequestException(
@@ -411,8 +449,13 @@ export class InscriptionsService {
    * Rechazar inscripción.
    * Estado: PENDIENTE|REVISADA → RECHAZADA
    */
-  async reject(id: string, userId: string, rejectDto: RejectInscriptionDto) {
-    const inscription = await this.findOne(id);
+  async reject(
+    id: string,
+    userId: string,
+    rejectDto: RejectInscriptionDto,
+    alcance: Alcance,
+  ) {
+    const inscription = await this.findOne(id, alcance);
 
     if (inscription.status === InscriptionStatus.APROBADA) {
       throw new BadRequestException(

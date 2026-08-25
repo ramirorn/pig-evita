@@ -304,6 +304,16 @@ export interface Result {
   scoreData: Record<string, unknown>;
   ranking?: number | null;
   isWinner: boolean;
+  /**
+   * Localía (R23). `true` = local, `false` = visitante, `null`/ausente = no
+   * aplica (disciplinas individuales, o filas cargadas antes de que el campo
+   * existiera).
+   *
+   * Antes la pantalla infería la localía del **orden** de `results`, que el
+   * backend no garantizaba: el mismo partido podía leerse con los equipos
+   * invertidos entre un refetch y el siguiente.
+   */
+  isHome?: boolean | null;
   createdAt: string;
   updatedAt: string;
   // Relations

@@ -11,6 +11,7 @@ import { DocumentStatus, DocumentType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { MinioService } from './minio.service';
 import { ReviewDocumentDto } from './dto';
+import { Alcance, ScopeService } from '../../common/scope';
 
 @Injectable()
 export class DocumentsService {
@@ -19,19 +20,27 @@ export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly minioService: MinioService,
+    private readonly scope: ScopeService,
   ) {}
 
   async upload(
     participantId: string,
     type: DocumentType,
     file: Express.Multer.File,
+    alcance: Alcance,
   ) {
     if (!file) {
       throw new BadRequestException('No se adjuntó ningún archivo');
     }
 
-    const participant = await this.prisma.participant.findUnique({
-      where: { id: participantId },
+    // R05 — el participante tiene que estar dentro del alcance. Si no lo está,
+    // 404 con el mismo mensaje que un id inexistente: subir un archivo a un
+    // participante ajeno también sirve para confirmar que existe.
+    const participant = await this.prisma.participant.findFirst({
+      where: ScopeService.conAlcance(
+        { id: participantId },
+        this.scope.whereParticipant(alcance),
+      ),
     });
 
     if (!participant) {
@@ -79,9 +88,14 @@ export class DocumentsService {
     return document;
   }
 
-  async findByParticipant(participantId: string) {
+  async findByParticipant(participantId: string, alcance: Alcance) {
+    // El recorte va en el `where` y no como un chequeo previo del participante:
+    // una sola query, y sin forma de que un `documentId` suelto se escape.
     const documents = await this.prisma.document.findMany({
-      where: { participantId },
+      where: ScopeService.conAlcance(
+        { participantId },
+        this.scope.whereDocument(alcance),
+      ),
       orderBy: { createdAt: 'desc' },
     });
 
@@ -97,18 +111,24 @@ export class DocumentsService {
     );
   }
 
-  async review(id: string, userId: string, reviewDto: ReviewDocumentDto) {
+  async review(
+    id: string,
+    userId: string,
+    reviewDto: ReviewDocumentDto,
+    alcance: Alcance,
+  ) {
     if (reviewDto.status === DocumentStatus.RECHAZADO && !reviewDto.notes) {
       throw new BadRequestException(
         'Debe incluir observaciones si rechaza el documento',
       );
     }
 
-    const document = await this.prisma.document.findUnique({
-      where: { id },
+    const document = await this.prisma.document.findFirst({
+      where: ScopeService.conAlcance({ id }, this.scope.whereDocument(alcance)),
     });
 
     if (!document) {
+      // 404 y no 403 para el documento fuera de alcance.
       throw new NotFoundException('Documento no encontrado');
     }
 

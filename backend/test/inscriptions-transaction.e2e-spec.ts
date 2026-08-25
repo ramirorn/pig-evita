@@ -20,6 +20,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
 import { PrismaService } from '../src/database/prisma.service';
+import { ALCANCE_PROVINCIAL, ScopeService } from '../src/common/scope';
 import { CreateInscriptionDto } from '../src/modules/inscriptions/dto';
 import { Sex } from '@prisma/client';
 
@@ -147,6 +148,7 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       providers: [
         InscriptionsService,
+        ScopeService,
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
@@ -158,7 +160,7 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
     const prisma = crearPrismaFalso();
     const service = await construir(prisma);
 
-    const resultado = await service.create(ALTA, USUARIO);
+    const resultado = await service.create(ALTA, USUARIO, ALCANCE_PROVINCIAL);
 
     expect(resultado.qrCode).toMatch(/^EVITA-/);
     expect(resultado.qrImage).toMatch(/^data:image\/png;base64,/);
@@ -170,7 +172,7 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
     const prisma = crearPrismaFalso();
     const service = await construir(prisma);
 
-    await service.create(ALTA, USUARIO);
+    await service.create(ALTA, USUARIO, ALCANCE_PROVINCIAL);
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
@@ -188,7 +190,9 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
       const prisma = crearPrismaFalso({ fallarEnInscriptionCreate: FALLA });
       const service = await construir(prisma);
 
-      await expect(service.create(ALTA, USUARIO)).rejects.toThrow(FALLA);
+      await expect(
+        service.create(ALTA, USUARIO, ALCANCE_PROVINCIAL),
+      ).rejects.toThrow(FALLA);
 
       // Lo que R13 vino a cerrar: sin transacción, acá había 1 participante.
       expect(prisma._tablas().participants).toHaveLength(0);
@@ -199,7 +203,9 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
       const prisma = crearPrismaFalso({ fallarEnInscriptionCreate: FALLA });
       const service = await construir(prisma);
 
-      await expect(service.create(ALTA, USUARIO)).rejects.toMatchObject({
+      await expect(
+        service.create(ALTA, USUARIO, ALCANCE_PROVINCIAL),
+      ).rejects.toMatchObject({
         code: 'P2002',
       });
     });
@@ -210,11 +216,13 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
       // invisible. Con el rollback, el reintento parte de una base limpia.
       const fallando = crearPrismaFalso({ fallarEnInscriptionCreate: FALLA });
       const servicioQueFalla = await construir(fallando);
-      await expect(servicioQueFalla.create(ALTA, USUARIO)).rejects.toThrow();
+      await expect(
+        servicioQueFalla.create(ALTA, USUARIO, ALCANCE_PROVINCIAL),
+      ).rejects.toThrow();
 
       const sano = crearPrismaFalso();
       const servicioSano = await construir(sano);
-      await servicioSano.create(ALTA, USUARIO);
+      await servicioSano.create(ALTA, USUARIO, ALCANCE_PROVINCIAL);
 
       expect(sano._tablas().participants).toHaveLength(1);
       expect(sano._tablas().inscriptions).toHaveLength(1);
@@ -228,9 +236,13 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
     const prisma = crearPrismaFalso();
     const service = await construir(prisma);
 
-    await service.create(ALTA, USUARIO);
+    await service.create(ALTA, USUARIO, ALCANCE_PROVINCIAL);
     await service
-      .create({ ...ALTA, categoryId: CATEGORIA.id }, USUARIO)
+      .create(
+        { ...ALTA, categoryId: CATEGORIA.id },
+        USUARIO,
+        ALCANCE_PROVINCIAL,
+      )
       .catch(() => undefined);
 
     expect(prisma._tablas().participants).toHaveLength(1);
@@ -240,10 +252,10 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
     const prisma = crearPrismaFalso();
     const service = await construir(prisma);
 
-    await service.create(ALTA, USUARIO);
-    await expect(service.create(ALTA, USUARIO)).rejects.toThrow(
-      /ya está inscripto/,
-    );
+    await service.create(ALTA, USUARIO, ALCANCE_PROVINCIAL);
+    await expect(
+      service.create(ALTA, USUARIO, ALCANCE_PROVINCIAL),
+    ).rejects.toThrow(/ya está inscripto/);
 
     expect(prisma._tablas().participants).toHaveLength(1);
     expect(prisma._tablas().inscriptions).toHaveLength(1);
@@ -258,9 +270,9 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
     );
     const service = await construir(prisma);
 
-    await expect(service.create(ALTA, USUARIO)).rejects.toThrow(
-      /no está activa/,
-    );
+    await expect(
+      service.create(ALTA, USUARIO, ALCANCE_PROVINCIAL),
+    ).rejects.toThrow(/no está activa/);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

@@ -29,7 +29,7 @@ import {
   CACHE_TTL,
   PublicReadThrottle,
 } from '../../common/decorators';
-import { ADMIN_ROLES } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 import { OptionalJwtAuthGuard } from '../../common/guards';
 import { puedeVerBorradores } from '../../common/content-visibility';
 import type { UsuarioConRol } from '../../common/content-visibility';
@@ -41,7 +41,7 @@ export class NewsController {
   constructor(private readonly newsService: NewsService) {}
 
   @Post()
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.NEWS_MANAGE)
   @ApiOperation({ summary: 'Crear noticia' })
   @ApiResponse({ status: 201, description: 'Noticia creada' })
   async create(
@@ -96,7 +96,7 @@ export class NewsController {
   }
 
   @Patch(':id')
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.NEWS_MANAGE)
   @ApiOperation({ summary: 'Actualizar noticia' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -106,7 +106,7 @@ export class NewsController {
   }
 
   @Delete(':id')
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.NEWS_MANAGE)
   @ApiOperation({ summary: 'Eliminar noticia' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.newsService.remove(id);

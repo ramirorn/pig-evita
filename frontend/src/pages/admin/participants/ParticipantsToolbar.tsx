@@ -23,6 +23,12 @@ interface ParticipantsToolbarProps {
    */
   disciplines: Discipline[];
   categories: Category[];
+  /**
+   * R05 — un rol acotado por territorio no puede usar este filtro: el backend
+   * ya recortó el listado a su departamento y escribir otro sólo devuelve una
+   * tabla vacía.
+   */
+  mostrarFiltroDepartamento: boolean;
 }
 
 export function ParticipantsToolbar({
@@ -30,6 +36,7 @@ export function ParticipantsToolbar({
   onChange,
   disciplines,
   categories,
+  mostrarFiltroDepartamento,
 }: ParticipantsToolbarProps) {
   return (
     <>
@@ -84,13 +91,15 @@ export function ParticipantsToolbar({
         </SelectContent>
       </Select>
 
-      <Input
-        placeholder="Departamento..."
-        aria-label="Filtrar por departamento"
-        value={filters.department}
-        onChange={(e) => onChange({ department: e.target.value })}
-        className="w-full md:w-[180px]"
-      />
+      {mostrarFiltroDepartamento && (
+        <Input
+          placeholder="Departamento..."
+          aria-label="Filtrar por departamento"
+          value={filters.department}
+          onChange={(e) => onChange({ department: e.target.value })}
+          className="w-full md:w-[180px]"
+        />
+      )}
 
       <Input
         placeholder="Localidad..."

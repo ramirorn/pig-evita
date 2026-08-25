@@ -32,6 +32,7 @@ import {
   buildClearCookieOptions,
 } from './auth.cookies';
 import { Public, CurrentUser } from '../../common/decorators';
+import { ACCIONES, accionesDe } from '../../common/constants';
 import type { JwtPayload } from './interfaces';
 
 @ApiTags('Auth')
@@ -156,6 +157,29 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   async me(@CurrentUser('sub') userId: string) {
     return this.authService.getProfile(userId);
+  }
+
+  @Get('permissions')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Permisos por acción del usuario autenticado (R22)',
+    description:
+      'Publica qué acciones puede ejecutar el rol del usuario, derivadas de la ' +
+      'misma constante `ACCIONES` que usan los `@Roles(...)` de los ' +
+      'controllers. El frontend la espeja en `src/lib/adminActions.ts` para no ' +
+      'pagar un request antes de pintar cada botón; este endpoint existe para ' +
+      'que el permiso efectivo sea consultable y auditable sin leer el código.',
+  })
+  @ApiBearerAuth('access-token')
+  permissions(@CurrentUser() actor: JwtPayload) {
+    return {
+      role: actor?.role ?? null,
+      /** Acciones habilitadas para ese rol. */
+      actions: accionesDe(actor?.role),
+      /** La matriz completa, para diagnosticar diferencias con el frontend. */
+      matrix: ACCIONES,
+    };
   }
 
   /** Setea la cookie httpOnly con el refresh token recién emitido. */

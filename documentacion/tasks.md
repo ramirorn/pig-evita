@@ -11,7 +11,7 @@
 - Severidad: 🔴 blocker · 🟡 alto · 🟠 medio · 🚀 optimización alta · 📈 optimización media · ✨ polish
 - Los IDs usan el prefijo **R** (revisión) para no colisionar con T01–T28.
 
-**⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local. **Queda 1 abierta: R05.**
+**⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local. **✅ Se cumple: no queda ninguna.** Antes de exponer hay que aplicar las dos migraciones pendientes y cargar el mapeo de zonas.
 
 **Estado al 2026-08-24:** las mediciones de optimización del ciclo anterior se sostienen (payload de inscripciones −73,2 %; bundle de entrada −58,7 %; reportes de 20K filas a 162 MB de RSS contra 595 MB; dashboard 80 ms en frío / 5-8 ms cacheado). Pero la revisión final encontró **9 blockers**: 6 en el backend y 3 en el frontend. El patrón es uniforme y conviene tenerlo presente al planificar: **el plan de 28 tareas cubría los módulos que la auditoría original había mirado, y los módulos vecinos quedaron con los mismos agujeros.** R01 es literalmente el bug de T01 en el controller de al lado; R23 es el bug de `matchScore.ts` una capa más abajo; R20 es una regresión introducida por el propio fix del buscador.
 
@@ -97,7 +97,7 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R05 🔴 🔀 FS — Scoping por zona y departamento en datos y reportes
 
-- [ ] **Descripción:** No hay scoping territorial en ninguna parte. Un `DELEGADO` exporta el padrón provincial completo por `/reports/participants`: 110 filas, 10 columnas, con fechas de nacimiento de menores. `ADMIN_ZONAL` tiene en la práctica el mismo alcance que `ADMIN_PROVINCIAL`. Los campos `zone` y `department` existen en `User` pero no se consultan en ninguna query.
+- [x] **Descripción:** No hay scoping territorial en ninguna parte. Un `DELEGADO` exporta el padrón provincial completo por `/reports/participants`: 110 filas, 10 columnas, con fechas de nacimiento de menores. `ADMIN_ZONAL` tiene en la práctica el mismo alcance que `ADMIN_PROVINCIAL`. Los campos `zone` y `department` existen en `User` pero no se consultan en ninguna query.
 - **✅ Definición de negocio (resuelta el 2026-08-24, primer entregable de la tarea):**
   1. **DELEGADO y roles operativos (COORDINADOR, ENTRENADOR) se acotan por departamento.** `User.department` contra `Participant.department` / `Team.department`. Se eligió el departamento y no la localidad porque `User` **no tiene** campo `locality` y agregarlo exigía migración más backfill; y no se acotó por `createdById` porque rompería el trabajo compartido entre dos delegados del mismo departamento.
   2. **ADMIN_ZONAL se acota por zona, con una tabla de mapeo zona → departamentos.** Hoy `User.zone` existe pero `Participant` y `Team` **no tienen** zona, así que no hay forma de cruzarlos: el mapeo es la pieza que falta y sin ella el campo `zone` no significa nada. Una zona agrupa varios departamentos.
@@ -112,6 +112,13 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
   - Matriz de tests por rol × endpoint: para cada rol con alcance limitado, una fila de otra zona **no** aparece en el listado, **no** se puede leer por id directo y **no** aparece en la exportación.
   - Un DELEGADO exportando `/reports/participants` obtiene sólo su alcance, verificado por conteo contra la base.
   - El intento de leer una entidad fuera de alcance devuelve **404**, no 403 (no confirmar la existencia del registro).
+
+- **✅ Evidencia (2026-08-24):** `backend/test/territorial-scope.e2e-spec.ts`, **51 tests**. La matriz rol × endpoint cubre los seis roles sobre `/participants`, `/teams`, `/inscriptions` y `/documents`. Leer una entidad de otro departamento devuelve **404 con el mismo `message`** que un uuid inexistente —comparación explícita entre las dos respuestas, igual que en R06— para no confirmarle a nadie que el registro existe. El conteo de la exportación se hace **contra la base** y no contra un número escrito a mano. El doble de Prisma **evalúa el `where`** (`AND`, `OR`, `equals` con `mode`, `in` incluida la lista vacía, relaciones anidadas).
+- **Dos contrapruebas, y la segunda es la que importa:** neutralizando el recorte entero fallan **41 de 51**; sacando **sólo** la regla de fallar cerrado —rol acotado sin departamento pasa a alcance provincial, con el resto del scoping intacto— fallan **5 de 51**. Un test grueso no distingue ese agujero, que es justo el que la tarea pide cerrar.
+- **Decisiones de diseño:** `findFirst` con el alcance **dentro** del `where` y no `findUnique` + chequeo en JS, así la fila ajena no sale de Postgres y no depende de que el `select` de mañana siga trayendo `department`. **404 en lecturas, 403 en altas**: leer una entidad ajena es una pregunta por su existencia y se responde como un id inexistente, pero crear un participante en otro departamento no revela ninguna fila, así que ahí el delegado merece saber por qué no puede. `OR` de `equals` con `mode: 'insensitive'` en vez de `in`, porque los departamentos se cargan a mano y "PILCOMAYO" es el mismo lugar que "Pilcomayo". `AND` y no merge campo a campo: el filtro del cliente y el del alcance pueden traer los dos un `OR` y un `Object.assign` haría ganar al último, o sea mostrar de más.
+- **El alcance viaja en el JWT**, con la misma ventana de staleness que `role`. Contrapartida honesta y anotada en el código: mover a un delegado de departamento surte efecto recién cuando su token se renueva.
+- **⏳ Pendiente 1 — la migración no se aplicó.** Se generó con `prisma migrate diff` sin base (Docker caído) y quedó en `prisma/migrations/20260825120000_add_zone_departments/`, con la advertencia escrita en el propio archivo. Falta `prisma migrate deploy`. Tampoco se pudo verificar contra Postgres que el `OR` insensitive y el `in: []` generen el SQL esperado: eso se verificó contra el evaluador del test, no contra el motor.
+- **⏳ Pendiente 2 — faltan los datos de las zonas de Formosa.** `ZONE_DEPARTMENTS` en `prisma/seed.ts` está **vacío a propósito**, con el hueco señalado y el formato esperado; no se inventaron departamentos. Consecuencia directa y buscada: hoy **ningún `ADMIN_ZONAL` ve una sola fila** hasta que se cargue el mapeo, por seed o por `PUT /zones/:zone`. El seed lo avisa por consola cuando la lista está vacía.
 
 ### R06 🔴 🏗️ BE — Borradores de noticias y eventos legibles sin autenticación
 
@@ -309,17 +316,32 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 
 ### R22 🟡 🔀 FS — Las acciones dentro de las páginas no filtran por rol
 
-- [ ] **Descripción:** `grep -rn "hasRole|user.role" src/pages src/components` devuelve **sólo el Sidebar**. Las rutas usan grupos más anchos que los endpoints: la ruta `PARTICIPANTS` exige `PARTICIPANT_MANAGERS`, pero `participants.controller.ts:35-42` restringe `POST` a admins + DELEGADO (sin COORDINADOR) y `@Patch(':id')` (`:82-88`) excluye COORDINADOR **y** ADMIN_ZONAL; `teams.controller.ts:69-70,79-80` limita PATCH y DELETE a admins + DELEGADO. Un ADMIN_ZONAL ve "Editar", abre el diálogo, corrige un domicilio, guarda, y recibe "Error al actualizar el participante" sin que nada le diga que jamás iba a poder.
+- [x] **Descripción:** `grep -rn "hasRole|user.role" src/pages src/components` devuelve **sólo el Sidebar**. Las rutas usan grupos más anchos que los endpoints: la ruta `PARTICIPANTS` exige `PARTICIPANT_MANAGERS`, pero `participants.controller.ts:35-42` restringe `POST` a admins + DELEGADO (sin COORDINADOR) y `@Patch(':id')` (`:82-88`) excluye COORDINADOR **y** ADMIN_ZONAL; `teams.controller.ts:69-70,79-80` limita PATCH y DELETE a admins + DELEGADO. Un ADMIN_ZONAL ve "Editar", abre el diálogo, corrige un domicilio, guarda, y recibe "Error al actualizar el participante" sin que nada le diga que jamás iba a poder.
 - **Contracara de R08:** lo que se muestra tiene que coincidir con lo que el backend acepta, en las dos direcciones.
 - **Reparto:** **🏗️ BE** publica los permisos por acción de forma consultable (o se derivan de una constante compartida); **⚛️ FE** los consume en los botones de acción.
 - **DoD:** matriz rol × acción; ningún botón visible produce un 403; ninguna acción permitida queda oculta. Se cierra después de R05, que puede cambiar los grupos.
 
+- **✅ Evidencia (2026-08-24):** `backend/test/action-permissions.e2e-spec.ts`, **213 tests**: 18 acciones × 9 roles = 162 chequeos contra HTTP real verificando que el endpoint responda 403 **exactamente** cuando el permiso dice que no, y no-403 cuando dice que sí —las dos direcciones—, más 46 chequeos por reflexión de que ningún handler declara roles inline, con una red de seguridad que falla si el barrido deja de encontrar handlers.
+- **Fuente de verdad única:** `ACCIONES` en las constantes del backend, y los 15 controllers declaran `@Roles(...ACCIONES.X)`. El permiso que se aplica y el que se publica son el **mismo objeto**, no dos listas parecidas. `GET /auth/permissions` lo hace consultable.
+- **El chequeo del frontend se extendió en vez de duplicarse:** `npm run check:nav` pasó de 260 a **402 chequeos**, y ahora **bundlea el archivo real del backend** para comparar acción por acción. No es "acordate de actualizar el espejo": es un chequeo que falla.
+- **Cuatro contrapruebas, cada una aislando un chequeo distinto:** un `@Roles` inline en un controller → 6 de 213 en rojo; el espejo del frontend desincronizado → `check:nav` en rojo con el diff exacto de roles; la página volviendo a pintar los botones sin filtrar (el bug original) → 2 divergencias; un permiso de acción sobre una pantalla que el rol no puede abrir → detectado.
+- **🐛 Dos bugs encontrados fuera del enunciado:** el alta de usuarios mostraba el botón a `ADMIN_PROVINCIAL` cuando el endpoint es sólo del `SUPER_ADMIN`; y `RESULT_LOADERS` **ya estaba desincronizado** —listaba COORDINADOR y OPERADOR_MESA, que el `@Roles` real de `results.controller.ts` nunca tuvo—, o sea exactamente la trampa que R22 viene a cerrar.
+- **Decisión:** el frontend deriva de la constante espejada y **no** consulta el endpoint, porque pintar un botón no puede depender de un request en vuelo; el endpoint queda para que el permiso efectivo sea auditable sin leer código. Se mantuvieron separados los dos niveles —`adminRoutes` decide pantallas, `adminActions` decide acciones— porque un COORDINADOR tiene que seguir viendo el padrón sin poder editarlo.
+- **Donde no queda ninguna acción se omite la columna entera** en vez de mostrar el ítem deshabilitado: un "Editar" gris sigue insinuando que el rol podría llegar a poder.
+
 ### R23 🟡 🔀 FS — `results[0]`/`results[1]` como local y visitante, sin orden garantizado
 
-- [ ] **Descripción:** `MatchCard.tsx:21-23` toma `results[0]` como local y `results[1]` como visitante. `model Result` (`schema.prisma:360-379`) **no tiene ningún campo que distinga localía** —ni `isHome`, ni `side`, ni `order`— y la consulta del fixture (`competitions.service.ts:112-120`) no lleva `orderBy`. Postgres no garantiza orden sin `ORDER BY` y Prisma no lo impone en la relación anidada.
+- [x] **Descripción:** `MatchCard.tsx:21-23` toma `results[0]` como local y `results[1]` como visitante. `model Result` (`schema.prisma:360-379`) **no tiene ningún campo que distinga localía** —ni `isHome`, ni `side`, ni `order`— y la consulta del fixture (`competitions.service.ts:112-120`) no lleva `orderBy`. Postgres no garantiza orden sin `ORDER BY` y Prisma no lo impone en la relación anidada.
 - **Es el mismo modo de falla que `59e2b60` arregló en `matchScore.ts`**, una capa más abajo: ahí era el orden de las claves de un JSON, acá el de las filas de una relación. Severidad matizada con honestidad: el nombre y el marcador salen del *mismo* índice, así que el par nombre↔puntaje siempre es coherente y no se muestra un marcador equivocado. Lo que se invierte es qué equipo va a la izquierda: el mismo partido puede leerse "San Martín 3 : 1 Belgrano" en un refetch y "Belgrano 1 : 3 San Martín" en el siguiente. Y los fallbacks "Equipo Local"/"Equipo Visitante" (`:43`, `:53`) **mienten sobre un dato que el sistema no tiene**.
 - **Reparto:** **🏗️ BE** agrega el campo al modelo con su migración y un `orderBy` determinista; **⚛️ FE** lee por el campo, no por índice.
 - **DoD:** el fixture muestra el mismo orden en 10 refetchs consecutivos; con localía cargada, el local siempre a la izquierda; sin el dato, los textos por defecto dicen "Equipo A"/"Equipo B" y no afirman una localía inexistente.
+
+- **✅ Evidencia (2026-08-24):** 11 chequeos sobre `ordenarLados` y 5 más renderizando el `MatchCard` real con `react-dom/server`. El mismo partido rinde **markup byte a byte idéntico** venga el arreglo en el orden que venga; el local queda a la izquierda; el marcador acompaña al equipo correcto; y sin el dato la tarjeta usa "Equipo A"/"Equipo B" en vez de afirmar una localía inexistente.
+- **Contraprueba:** volviendo a `results[0]`/`results[1]`, el mismo partido rinde **distinto** según el orden del arreglo, los equipos se invierten y la tarjeta dice "Equipo Local" sin tener el dato.
+- **El campo es `isHome Boolean?`, nullable a propósito:** en las disciplinas individuales un partido tiene N resultados y la localía no significa nada. `null` es "no aplica", y las filas que ya existen quedan así — es lo correcto, porque de ellas no se puede deducir quién era local.
+- **La localía sólo se rotula si están las dos puntas.** Un partido con el dato a medias no alcanza para nombrar los lados, y hay un test que lo fija.
+- **El `orderBy` pasó a ser parte del contrato del select**, no un detalle: `isHome` desc con desempate por `createdAt` e `id`, para que las disciplinas individuales —donde `isHome` es null en todas las filas— también tengan orden estable entre refetchs.
+- **⏳ Pendiente:** la migración `20260825130000_add_is_home_to_results` se generó con `prisma migrate diff` sin base y **no se aplicó**; lleva la advertencia en el propio archivo. Y falta que el motor de competencia **escriba** `isHome` al generar fixtures: hoy el campo existe y la UI lo respeta, pero nadie lo carga todavía, así que en la práctica los partidos siguen mostrándose con etiquetas neutras hasta que se complete esa parte.
 
 ### R24 🟡 ⚛️ FE — `setAccessToken` puede quedar envenenado con `undefined`
 
@@ -454,8 +476,8 @@ Cada tarea lleva un tag de responsable. El **Code Reviewer** valida la tarea al 
 > Actualizado el 2026-08-24. Cada tarea tendrá su bloque de evidencia en
 > `PROCESO.md → sección 5` y su propio commit.
 
-**Progreso: 28 de 31 tareas completadas.**
-Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es la única que requiere migración y decisión de negocio.
+**Progreso: 31 de 31 tareas completadas.**
+Blockers 🔴: **9 de 9** — la regla dura se cumple. Quedan dos migraciones sin aplicar (R05 y R23) y la carga de las zonas de Formosa, ambas anotadas en su tarea.
 
 | Tarea | Sev. | Agente | Título | Estado |
 |---|---|---|---|---|
@@ -463,7 +485,7 @@ Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es 
 | **R02** | 🔴 | 🏗️ BE | Cerrar el bypass de auditoría por querystring | ✅ Completada |
 | **R03** | 🔴 | 🏗️ BE | `GET /audit` ignora la paginación y devuelve la tabla entera | ✅ Completada |
 | **R04** | 🔴 | 🏗️ BE | Rotación atómica del refresh token (TOCTOU) | ✅ Completada |
-| **R05** | 🔴 | 🔀 FS | Scoping por zona y departamento en datos y reportes | ⬜ Pendiente |
+| **R05** | 🔴 | 🔀 FS | Scoping por zona y departamento en datos y reportes | ✅ Completada |
 | **R06** | 🔴 | 🏗️ BE | Borradores de noticias y eventos legibles sin autenticación | ✅ Completada |
 | **R07** | 🔴 | ⚛️ FE + 🎨 UI | Error boundary y ruta 404 | ✅ Completada |
 | **R08** | 🔴 | ⚛️ FE | Sincronizar el Sidebar con `@/lib/roles` | ✅ Completada |
@@ -480,8 +502,8 @@ Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es 
 | **R19** | 🟡 | ⚛️ FE | Puerta trasera en el single-flight del refresh | ✅ Completada |
 | **R20** | 🟡 | ⚛️ FE | Debounce en los buscadores (regresión de `59e2b60`) | ✅ Completada |
 | **R21** | 🟡 | ⚛️ FE | Aplicar `getFriendlyError` en los 11 hooks que faltan | ✅ Completada |
-| **R22** | 🟡 | 🔀 FS | Las acciones dentro de las páginas no filtran por rol | ⬜ Pendiente |
-| **R23** | 🟡 | 🔀 FS | `results[0]`/`results[1]` como local y visitante | ⬜ Pendiente |
+| **R22** | 🟡 | 🔀 FS | Las acciones dentro de las páginas no filtran por rol | ✅ Completada |
+| **R23** | 🟡 | 🔀 FS | `results[0]`/`results[1]` como local y visitante | ✅ Completada |
 | **R24** | 🟡 | ⚛️ FE | `setAccessToken` puede quedar envenenado con `undefined` | ✅ Completada |
 | **R25** | 🟡 | ⚛️ FE | `handleSessionExpired` deja estado inconsistente fuera de `/admin` | ✅ Completada |
 | **R26** | 🟡 | ⚛️ FE | `clipboard.writeText` sin `catch`, y el toast miente | ✅ Completada |
@@ -495,10 +517,10 @@ Blockers 🔴: **8 de 9** — sólo queda **R05** (scoping territorial), que es 
 
 | Severidad | Completadas | Total |
 |---|---|---|
-| 🔴 Blocker | 8 | 9 |
-| 🟡 Alto | 15 | 17 |
+| 🔴 Blocker | 9 | 9 |
+| 🟡 Alto | 17 | 17 |
 | 🚀 Optimización alta | 2 | 2 |
-| 📈 Optimización media | 1 | 2 |
+| 📈 Optimización media | 2 | 2 |
 | ✨ Polish | 2 | 2 |
 
 ### Distribución de carga por agente

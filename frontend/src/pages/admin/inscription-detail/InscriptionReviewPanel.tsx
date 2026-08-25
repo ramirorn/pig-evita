@@ -6,6 +6,7 @@ import { InscriptionStatus, type Inscription } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import type { InscriptionReviewApi } from './useInscriptionReview';
+import { usePermisos } from '@/hooks/usePermisos';
 
 interface InscriptionReviewPanelProps {
   inscription: Inscription;
@@ -27,6 +28,12 @@ interface InscriptionReviewPanelProps {
  * bloque completo sale de la página como una unidad.
  */
 export function InscriptionReviewPanel({ inscription, review }: InscriptionReviewPanelProps) {
+  // R22 — aprobar es el único acto de este panel que ADMIN_ZONAL no puede
+  // hacer: `INSCRIPTION_APPROVE` es sólo de la línea provincial. Revisar y
+  // rechazar sí los tiene, así que el panel se muestra igual, sin ese botón.
+  const { puede } = usePermisos();
+  const puedeAprobar = puede('INSCRIPTION_APPROVE');
+
   return (
     <div className="card p-6 bg-primary-50/50">
       <h3 className="font-semibold text-primary-900 flex items-center gap-2 mb-4">
@@ -94,21 +101,27 @@ export function InscriptionReviewPanel({ inscription, review }: InscriptionRevie
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2 pt-4 border-t border-primary-200">
+            <div
+              className={`grid gap-2 pt-4 border-t border-primary-200 ${
+                puedeAprobar ? 'grid-cols-2' : 'grid-cols-1'
+              }`}
+            >
               <Button 
                 variant="destructive" 
                 onClick={() => review.setIsRejecting(true)}
               >
                 Rechazar
               </Button>
-              <Button 
-                className="bg-green-600 hover:bg-green-700" 
-                onClick={review.handleApprove}
-                disabled={review.isApprovePending}
-              >
-                {review.isApprovePending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Aprobar
-              </Button>
+              {puedeAprobar && (
+                <Button 
+                  className="bg-green-600 hover:bg-green-700" 
+                  onClick={review.handleApprove}
+                  disabled={review.isApprovePending}
+                >
+                  {review.isApprovePending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Aprobar
+                </Button>
+              )}
             </div>
           )}
         </div>

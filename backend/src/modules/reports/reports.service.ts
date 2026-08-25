@@ -16,6 +16,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { Alcance, descripcionAlcance, ScopeService } from '../../common/scope';
 import * as ExcelJS from 'exceljs';
 import { Readable, pipeline } from 'stream';
 import { promisify } from 'util';
@@ -68,6 +69,20 @@ export interface DestinoReporte {
 export interface EspecificacionReporte {
   nombreHoja: string;
   headers: string[];
+  /**
+   * Línea que declara el alcance territorial aplicado (R05).
+   *
+   * Va **adentro del archivo**, como primera fila, y no en un header HTTP ni en
+   * el nombre del archivo: el CSV se abre tres semanas después, ya renombrado y
+   * reenviado por mail, y para entonces lo único que sobrevive es el contenido.
+   * Sin esta línea, un delegado abre un padrón de 12 filas y no tiene forma de
+   * saber si su departamento tiene 12 chicos inscriptos o si el reporte se
+   * recortó.
+   *
+   * Es también el motivo por el que un filtro fuera de alcance no devuelve 403:
+   * el reporte sale siempre, recortado y diciendo hasta dónde llega.
+   */
+  alcance: string;
   lotes: () => AsyncGenerator<unknown[][], void, undefined>;
 }
 
@@ -136,7 +151,10 @@ export function neutralizarFormulaCsv(celda: unknown): string {
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scope: ScopeService,
+  ) {}
 
   // ===========================================
   // Paginación
@@ -260,9 +278,13 @@ export class ReportsService {
     const aLinea = (fila: unknown[]) => this.aLineaCsv(fila);
     const headers = espec.headers;
 
+    const alcance = espec.alcance;
+
     async function* generar(): AsyncGenerator<string> {
       // El BOM lo necesita Excel en Windows para leer los acentos como UTF-8.
-      yield '﻿' + aLinea(headers);
+      // R05 — antes de los encabezados va la línea de alcance: primera fila del
+      // archivo, imposible de perder al reenviarlo.
+      yield '﻿' + aLinea([alcance]) + '\n' + aLinea(headers);
 
       let lote = primero;
       while (!lote.done) {
@@ -348,7 +370,9 @@ export class ReportsService {
     workbook.created = new Date();
 
     const worksheet = workbook.addWorksheet(espec.nombreHoja, {
-      views: [{ state: 'frozen', ySplit: 1 }],
+      // ySplit 2 y no 1: ahora las filas fijas son la del alcance (R05) y la de
+      // encabezados.
+      views: [{ state: 'frozen', ySplit: 2 }],
     });
 
     try {
@@ -357,6 +381,7 @@ export class ReportsService {
       const primerLote: unknown[][] = primero.done ? [] : primero.value;
 
       this.ajustarAnchos(worksheet, espec.headers, primerLote);
+      this.escribirAlcance(worksheet, espec.alcance);
       this.escribirEncabezado(worksheet, espec.headers);
 
       // `indice` es global (no por lote) para que el cebrado de filas quede
@@ -394,6 +419,26 @@ export class ReportsService {
     worksheet.columns = anchos.map((ancho) => ({
       width: Math.min(Math.max(ancho + 4, 12), 40),
     }));
+  }
+
+  /**
+   * Fila 1: el alcance territorial aplicado (R05).
+   *
+   * Sin `mergeCells`: el `WorkbookWriter` serializa y descarta cada fila apenas
+   * se hace `commit()`, y las celdas combinadas necesitan que la fila siga viva
+   * cuando se cierra la hoja. El texto en A1 se lee igual y no arriesga el
+   * streaming, que es lo que T23 vino a arreglar.
+   */
+  private escribirAlcance(worksheet: ExcelJS.Worksheet, alcance: string): void {
+    const fila = worksheet.addRow([alcance]);
+    fila.height = 20;
+    fila.getCell(1).font = {
+      italic: true,
+      size: 10,
+      name: 'Calibri',
+      color: { argb: 'FF334155' },
+    };
+    fila.commit();
   }
 
   private escribirEncabezado(
@@ -516,6 +561,7 @@ export class ReportsService {
   // PARTICIPANTS
   // ===========================================
   especificacionParticipants(
+    alcance: Alcance,
     filters?: ParticipantReportFilters,
   ): EspecificacionReporte {
     const where: Prisma.ParticipantWhereInput = {};
@@ -552,14 +598,24 @@ export class ReportsService {
       'Categorías',
     ];
 
+    // R05 — el recorte territorial se aplica acá, sobre el mismo `where` que
+    // usa el listado. El filtro `department=` que mande el cliente no lo
+    // ensancha: los dos van bajo `AND`, así que pedir un departamento ajeno
+    // devuelve cero filas y no un 403.
+    const whereConAlcance = ScopeService.conAlcance(
+      where,
+      this.scope.whereParticipant(alcance),
+    );
+
     return {
       nombreHoja: 'Padrón Participantes',
       headers,
+      alcance: descripcionAlcance(alcance),
       lotes: () =>
         this.mapearLotes(
           this.paginarPorCursor((cursorId) =>
             this.prisma.participant.findMany({
-              where,
+              where: whereConAlcance,
               include: {
                 inscriptions: {
                   include: { category: { include: { discipline: true } } },
@@ -598,6 +654,7 @@ export class ReportsService {
   // INSCRIPTIONS
   // ===========================================
   especificacionInscriptions(
+    alcance: Alcance,
     disciplineId?: string,
     categoryId?: string,
     status?: string,
@@ -624,14 +681,20 @@ export class ReportsService {
       'Fecha Inscripción',
     ];
 
+    const whereConAlcance = ScopeService.conAlcance(
+      where as Prisma.InscriptionWhereInput,
+      this.scope.whereInscription(alcance),
+    );
+
     return {
       nombreHoja: 'Inscripciones',
       headers,
+      alcance: descripcionAlcance(alcance),
       lotes: () =>
         this.mapearLotes(
           this.paginarPorCursor((cursorId) =>
             this.prisma.inscription.findMany({
-              where,
+              where: whereConAlcance,
               include: {
                 participant: true,
                 category: { include: { discipline: true } },
@@ -663,7 +726,10 @@ export class ReportsService {
   // ===========================================
   // TEAMS
   // ===========================================
-  especificacionTeams(filters?: TeamReportFilters): EspecificacionReporte {
+  especificacionTeams(
+    alcance: Alcance,
+    filters?: TeamReportFilters,
+  ): EspecificacionReporte {
     const where: Prisma.TeamWhereInput = {};
 
     if (filters?.disciplineId) {
@@ -692,14 +758,20 @@ export class ReportsService {
       'Cantidad Miembros',
     ];
 
+    const whereConAlcance = ScopeService.conAlcance(
+      where,
+      this.scope.whereTeam(alcance),
+    );
+
     return {
       nombreHoja: 'Equipos',
       headers,
+      alcance: descripcionAlcance(alcance),
       lotes: () =>
         this.mapearLotes(
           this.paginarPorCursor((cursorId) =>
             this.prisma.team.findMany({
-              where,
+              where: whereConAlcance,
               include: {
                 category: { include: { discipline: true } },
                 _count: { select: { members: true } },
@@ -725,7 +797,10 @@ export class ReportsService {
   // ===========================================
   // RESULTS & FIXTURE
   // ===========================================
-  especificacionResults(competitionId?: string): EspecificacionReporte {
+  especificacionResults(
+    alcance: Alcance,
+    competitionId?: string,
+  ): EspecificacionReporte {
     const where: any = {};
     if (competitionId) where.competitionId = competitionId;
 
@@ -748,6 +823,10 @@ export class ReportsService {
     return {
       nombreHoja: 'Resultados y Partidos',
       headers,
+      // Los partidos son de una competencia provincial y no tienen departamento
+      // propio: no hay recorte que aplicar, pero la línea sale igual para que el
+      // archivo diga con qué alcance se pidió.
+      alcance: descripcionAlcance(alcance),
       lotes: () =>
         this.mapearLotes(
           // OFFSET y no cursor: ver `paginarPorOffset`. El orden por

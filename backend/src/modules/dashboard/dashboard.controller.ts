@@ -11,7 +11,7 @@ import {
 import { DashboardService } from './dashboard.service';
 import { DashboardStatsDto } from './dto';
 import { Roles } from '../../common/decorators';
-import { Role, ADMIN_ROLES } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 
 @ApiTags('Dashboard')
 @Controller('dashboard')
@@ -20,7 +20,7 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('stats')
-  @Roles(...ADMIN_ROLES, Role.COORDINADOR)
+  @Roles(...ACCIONES.DASHBOARD_READ)
   @ApiOperation({
     summary: 'Obtener estadísticas globales del sistema (cacheadas 60s)',
     description:

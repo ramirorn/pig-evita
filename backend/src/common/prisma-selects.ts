@@ -136,6 +136,9 @@ export const RESULT_PUBLIC = {
   scoreData: true,
   ranking: true,
   isWinner: true,
+  // R23 — sin este campo la UI infería la localía del orden de las filas, que
+  // Postgres no garantiza.
+  isHome: true,
   team: { select: TEAM_SUMMARY },
   participant: { select: PARTICIPANT_NAME },
 } satisfies Prisma.ResultSelect;
@@ -158,7 +161,16 @@ export const MATCH_PUBLIC = {
   startedAt: true,
   finishedAt: true,
   venue: { select: VENUE_PUBLIC_SUMMARY },
-  results: { select: RESULT_PUBLIC },
+  // El `orderBy` es parte del contrato, no un detalle (R23): sin él, dos
+  // refetchs del mismo partido pueden devolver las filas en distinto orden y la
+  // pantalla invierte los lados. `isHome` desc pone al local primero —Postgres
+  // ordena NULLS FIRST en desc, así que se desempata por `createdAt` para que
+  // las disciplinas individuales, donde `isHome` es null en todas las filas,
+  // también tengan un orden estable.
+  results: {
+    select: RESULT_PUBLIC,
+    orderBy: [{ isHome: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
+  },
 } satisfies Prisma.MatchSelect;
 
 /**

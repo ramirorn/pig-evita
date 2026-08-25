@@ -10,7 +10,7 @@ import {
 } from '@nestjs/swagger';
 import { AuditService } from './audit.service';
 import { Roles } from '../../common/decorators';
-import { Role } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 import { AuditFilterDto } from './dto';
 
 @ApiTags('Audit')
@@ -20,7 +20,7 @@ export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @Roles(...ACCIONES.AUDIT_READ)
   @ApiOperation({
     summary: 'Consultar log de auditoría',
     description: 'Lista paginada de acciones registradas.',

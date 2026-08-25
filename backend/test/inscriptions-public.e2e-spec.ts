@@ -9,6 +9,7 @@ import { App } from 'supertest/types';
 import { InscriptionsController } from '../src/modules/inscriptions/inscriptions.controller';
 import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
 import { PrismaService } from '../src/database/prisma.service';
+import { ScopeService } from '../src/common/scope';
 
 /** Campos de PII que jamás pueden salir por el endpoint público. */
 const FORBIDDEN_FIELDS = [
@@ -61,6 +62,8 @@ describe('Inscriptions público — GET /inscriptions/qr/:qrCode (e2e)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [InscriptionsController],
       providers: [
+        // R05 — los services acotados por territorio inyectan ScopeService.
+        ScopeService,
         InscriptionsService,
         {
           provide: PrismaService,

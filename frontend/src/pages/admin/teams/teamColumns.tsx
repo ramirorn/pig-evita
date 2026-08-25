@@ -14,8 +14,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 interface TeamColumnActions {
-  onEdit: (team: Team) => void;
-  onDelete: (team: Team) => void;
+  /**
+   * Handlers **opcionales** (R22): `TEAM_UPDATE` y `TEAM_DELETE` excluyen a
+   * `COORDINADOR`, que sí ve esta pantalla. Si la página no los pasa, el ítem
+   * correspondiente no se dibuja; si no queda ninguno, tampoco la columna.
+   */
+  onEdit?: (team: Team) => void;
+  onDelete?: (team: Team) => void;
 }
 
 /**
@@ -23,8 +28,11 @@ interface TeamColumnActions {
  * lo único que necesita de ella es qué hacer al editar o eliminar, así que se
  * define acá y la página queda con el layout y el estado de filtros.
  */
-export function createTeamColumns({ onEdit, onDelete }: TeamColumnActions): DataTableColumn<Team>[] {
-  return [
+export function createTeamColumns({
+  onEdit,
+  onDelete,
+}: TeamColumnActions): DataTableColumn<Team>[] {
+  const columnas: DataTableColumn<Team>[] = [
     {
       id: 'name',
       header: 'Nombre',
@@ -66,7 +74,11 @@ export function createTeamColumns({ onEdit, onDelete }: TeamColumnActions): Data
         </Badge>
       ),
     },
-    {
+  ];
+
+  // R22 — el menú de acciones sólo existe si hay al menos una acción permitida.
+  if (onEdit || onDelete) {
+    columnas.push({
       id: 'actions',
       header: 'Acciones',
       hideHeader: true,
@@ -85,21 +97,27 @@ export function createTeamColumns({ onEdit, onDelete }: TeamColumnActions): Data
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEdit(team)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onDelete(team)}
-              // `red-*` está fuera de la paleta institucional; `destructive-*` sí existe.
-              className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar
-            </DropdownMenuItem>
+            {onEdit && (
+              <DropdownMenuItem onClick={() => onEdit(team)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <DropdownMenuItem
+                onClick={() => onDelete(team)}
+                // `red-*` está fuera de la paleta institucional; `destructive-*` sí existe.
+                className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       ),
-    },
-  ];
+    });
+  }
+
+  return columnas;
 }

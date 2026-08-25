@@ -152,6 +152,39 @@ async function main() {
   }
   console.log(`  ✅ Catálogo geográfico cargado`);
 
+  // --- 2.b Mapeo zona → departamentos (R05) ---
+  //
+  // ⚠️⚠️ HUECO A COMPLETAR: acá va la composición real de las zonas de Formosa.
+  //
+  // La lista está VACÍA a propósito y no con datos inventados. `ADMIN_ZONAL` se
+  // acota por `User.zone`, pero ni `Participant` ni `Team` tienen columna de
+  // zona: la traducción zona → departamentos es esta tabla. Con la regla de
+  // fallar cerrado, mientras esté vacía un ADMIN_ZONAL **no ve ninguna fila**,
+  // que es el comportamiento seguro y el que preferimos frente a habilitar un
+  // alcance adivinado.
+  //
+  // Para completarlo: agregar acá los pares { zone, department } —los nombres de
+  // departamento tienen que coincidir con las claves de `FORMOSA_GEOGRAPHY`— y
+  // volver a correr el seed. También se puede cargar en caliente por
+  // `PUT /zones/:zone` (SUPER_ADMIN / ADMIN_PROVINCIAL), sin redeploy.
+  //
+  //   Ejemplo de la forma esperada (NO son las zonas reales):
+  //   { zone: 'Zona 1', department: 'Formosa' },
+  const ZONE_DEPARTMENTS: Array<{ zone: string; department: string }> = [];
+
+  for (const { zone, department } of ZONE_DEPARTMENTS) {
+    await prisma.zoneDepartment.upsert({
+      where: { zone_department: { zone, department } },
+      update: {},
+      create: { zone, department },
+    });
+  }
+  console.log(
+    ZONE_DEPARTMENTS.length > 0
+      ? `  ✅ ${ZONE_DEPARTMENTS.length} pares zona → departamento cargados`
+      : '  ⚠️  Mapeo zona → departamento VACÍO: ningún ADMIN_ZONAL verá datos hasta cargarlo (ver R05)',
+  );
+
   // --- 3. Mock Disciplines and Categories ---
   const disciplinesData = [
     {

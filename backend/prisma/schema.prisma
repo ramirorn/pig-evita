@@ -118,6 +118,30 @@ model User {
   @@map("users")
 }
 
+/// Mapeo zona → departamentos (R05)
+///
+/// `User.zone` existía desde el principio, pero `Participant` y `Team` no
+/// tienen columna de zona: no había forma de cruzarlos y el campo no
+/// significaba nada. Esta tabla es esa pieza faltante. Una zona agrupa varios
+/// departamentos y un departamento podría pertenecer a más de una zona, así que
+/// la unicidad es del par, no de la columna.
+///
+/// Arranca **vacía** a propósito (ver `prisma/seed.ts`): con la regla de fallar
+/// cerrado, un ADMIN_ZONAL no ve nada hasta que se cargue el mapeo real de
+/// Formosa. Es el comportamiento seguro: preferimos que no vea nada a que vea
+/// la provincia entera.
+model ZoneDepartment {
+  id         String   @id @default(uuid()) @db.Uuid
+  zone       String   /// Nombre de la zona, tal como se carga en `User.zone`
+  department String   /// Departamento de Formosa, tal como se carga en `Participant.department`
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([zone, department])
+  @@index([zone])
+  @@map("zone_departments")
+}
+
 /// Participantes (jugadores) - no tienen login
 model Participant {
   id          String   @id @default(uuid()) @db.Uuid
@@ -365,6 +389,19 @@ model Result {
   scoreData     Json    @map("score_data") /// { goals: 3 } | { time: "10.52" } | { sets: [25, 20, 25] } ...
   ranking       Int?    /// Posición final en el partido
   isWinner      Boolean @default(false) @map("is_winner")
+  /// Localía (R23). `true` = local, `false` = visitante, `null` = no aplica.
+  ///
+  /// Hasta R23 la pantalla del fixture tomaba `results[0]` como local y
+  /// `results[1]` como visitante, pero el modelo no tenía **ningún** campo que
+  /// distinguiera localía y la consulta no llevaba `orderBy`: Postgres no
+  /// garantiza orden sin `ORDER BY`, así que el mismo partido podía leerse
+  /// "San Martín 3 : 1 Belgrano" en un refetch y al revés en el siguiente.
+  ///
+  /// Es nullable a propósito: en las disciplinas individuales un partido tiene
+  /// N resultados y la localía no significa nada. `null` es "no aplica", y la
+  /// UI muestra entonces etiquetas neutras en vez de afirmar una localía que el
+  /// sistema no conoce.
+  isHome        Boolean? @map("is_home")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

@@ -33,6 +33,7 @@ import { CacheControlInterceptor } from '../src/common/interceptors';
 import { GlobalExceptionFilter } from '../src/common/filters';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { PrismaService } from '../src/database/prisma.service';
+import { ScopeService } from '../src/common/scope';
 import { Role } from '../src/common/constants';
 
 const ACCESS_SECRET = 'test-access-secret-de-mas-de-32-caracteres';
@@ -78,7 +79,15 @@ describe('Cache-Control en respuestas privadas (R16)', () => {
         findUnique: jest.fn(({ where }: { where: { id?: string } }) =>
           Promise.resolve(where.id === PARTICIPANTE.id ? PARTICIPANTE : null),
         ),
-        findFirst: jest.fn(() => Promise.resolve(null)),
+        // R05 — `findOne` consulta con `{ AND: [{ id }, filtroTerritorial] }`.
+        // El chequeo de DNI duplicado usa el mismo método con otra forma de
+        // `where` (sin `AND`), y por eso sigue devolviendo null.
+        findFirst: jest.fn(
+          ({ where }: { where: { AND?: Array<{ id?: string }> } }) =>
+            Promise.resolve(
+              where?.AND?.[0]?.id === PARTICIPANTE.id ? PARTICIPANTE : null,
+            ),
+        ),
         update: jest.fn(({ data }: { data: Record<string, unknown> }) =>
           Promise.resolve({ ...PARTICIPANTE, ...data }),
         ),
@@ -92,6 +101,8 @@ describe('Cache-Control en respuestas privadas (R16)', () => {
       ],
       controllers: [DisciplinesController, ParticipantsController],
       providers: [
+        // R05 — los services acotados por territorio inyectan ScopeService.
+        ScopeService,
         DisciplinesService,
         ParticipantsService,
         JwtStrategy,

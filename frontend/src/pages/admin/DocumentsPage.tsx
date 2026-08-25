@@ -15,8 +15,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { usePermisos } from '@/hooks/usePermisos';
 
 export function DocumentsPage() {
+  // R22 — validar o rechazar un documento es acto administrativo
+  // (`DOCUMENT_REVIEW`): DELEGADO y COORDINADOR ven la pantalla pero no revisan.
+  const { puede } = usePermisos();
+  const puedeRevisar = puede('DOCUMENT_REVIEW');
   const [search, setSearch] = useState('');
 
   const pendingReviews = [
@@ -100,10 +105,12 @@ export function DocumentsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Eye className="w-4 h-4" />
-                    Revisar
-                  </Button>
+                  {puedeRevisar && (
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Eye className="w-4 h-4" />
+                      Revisar
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

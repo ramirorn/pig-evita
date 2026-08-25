@@ -14,7 +14,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 interface ParticipantColumnActions {
-  onEdit: (participant: Participant) => void;
+  /**
+   * Qué hacer al editar. **Opcional**: si el rol no tiene
+   * `PARTICIPANT_UPDATE`, la página no lo pasa y la columna de acciones no se
+   * dibuja (R22).
+   */
+  onEdit?: (participant: Participant) => void;
 }
 
 /**
@@ -25,7 +30,7 @@ interface ParticipantColumnActions {
 export function createParticipantColumns({
   onEdit,
 }: ParticipantColumnActions): DataTableColumn<Participant>[] {
-  return [
+  const columnas: DataTableColumn<Participant>[] = [
     {
       id: 'dni',
       header: 'DNI',
@@ -69,7 +74,13 @@ export function createParticipantColumns({
         </div>
       ),
     },
-    {
+  ];
+
+  // R22 — sin `PARTICIPANT_UPDATE` no hay menú de acciones. Se omite la columna
+  // entera en vez de dejar un "Editar" que termina en 403: el rol no tiene por
+  // qué enterarse de su límite recién después de completar el formulario.
+  if (onEdit) {
+    columnas.push({
       id: 'actions',
       header: 'Acciones',
       hideHeader: true,
@@ -97,6 +108,8 @@ export function createParticipantColumns({
           </DropdownMenuContent>
         </DropdownMenu>
       ),
-    },
-  ];
+    });
+  }
+
+  return columnas;
 }

@@ -6,6 +6,7 @@ import { BarChart3 } from 'lucide-react';
 import { useDisciplines } from '@/hooks/useDisciplines';
 import { useCategories } from '@/hooks/useCategories';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { usePermisos } from '@/hooks/usePermisos';
 
 import { REPORT_CARDS } from './reports/reportCards';
 import { ReportCard } from './reports/ReportCard';
@@ -14,6 +15,7 @@ import { useReportExport } from './reports/useReportExport';
 import { EMPTY_REPORT_FILTERS, type ReportFilters } from './reports/reportFilters';
 
 export function ReportsPage() {
+  const { puedeFiltrarPorDepartamento } = usePermisos();
   const [filters, setFilters] = useState<ReportFilters>(EMPTY_REPORT_FILTERS);
 
   const { data: disciplines } = useDisciplines();
@@ -27,7 +29,13 @@ export function ReportsPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Reportes y Exportación"
-        description="Descarga información del sistema en formatos CSV y Excel (.xlsx) con filtros por disciplina, categoría, departamento y localidad"
+        description={
+          puedeFiltrarPorDepartamento
+            ? 'Descarga información del sistema en formatos CSV y Excel (.xlsx) con filtros por disciplina, categoría, departamento y localidad'
+            : // R05 — el archivo sale recortado al alcance del usuario y lo dice en
+              // su primera fila; conviene que la pantalla lo anticipe.
+              'Descarga información en CSV y Excel (.xlsx). Los reportes incluyen únicamente tu alcance territorial, y el archivo lo declara en su primera fila.'
+        }
         icon={<BarChart3 className="w-5 h-5 text-white" />}
       />
 
@@ -38,6 +46,7 @@ export function ReportsPage() {
         onReset={() => setFilters(EMPTY_REPORT_FILTERS)}
         disciplines={disciplines?.data ?? []}
         categories={categories?.data ?? []}
+        mostrarFiltroDepartamento={puedeFiltrarPorDepartamento}
       />
 
       {/* Report Cards Grid */}

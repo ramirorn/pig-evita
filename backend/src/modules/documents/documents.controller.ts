@@ -27,16 +27,21 @@ import { DocumentsService } from './documents.service';
 import { UploadDocumentDto, ReviewDocumentDto } from './dto';
 import { FileSignaturePipe } from './file-signature.pipe';
 import { Roles, CurrentUser } from '../../common/decorators';
-import { Role, ADMIN_ROLES } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
+import { ScopeService } from '../../common/scope';
+import type { JwtPayload } from '../auth/interfaces';
 
 @ApiTags('Documents')
 @Controller('documents')
 @ApiBearerAuth('access-token')
 export class DocumentsController {
-  constructor(private readonly documentsService: DocumentsService) {}
+  constructor(
+    private readonly documentsService: DocumentsService,
+    private readonly scope: ScopeService,
+  ) {}
 
   @Post('upload')
-  @Roles(...ADMIN_ROLES, Role.DELEGADO)
+  @Roles(...ACCIONES.DOCUMENT_UPLOAD)
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Subir documento' })
   @ApiConsumes('multipart/form-data')
@@ -64,12 +69,18 @@ export class DocumentsController {
       FileSignaturePipe,
     )
     file: Express.Multer.File,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    return this.documentsService.upload(body.participantId, body.type, file);
+    return this.documentsService.upload(
+      body.participantId,
+      body.type,
+      file,
+      await this.scope.alcanceDe(actor),
+    );
   }
 
   @Get('participant/:participantId')
-  @Roles(...ADMIN_ROLES, Role.DELEGADO, Role.COORDINADOR)
+  @Roles(...ACCIONES.DOCUMENT_READ)
   @ApiOperation({ summary: 'Listar documentos del participante' })
   @ApiResponse({
     status: 200,
@@ -77,18 +88,30 @@ export class DocumentsController {
   })
   async findByParticipant(
     @Param('participantId', ParseUUIDPipe) participantId: string,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    return this.documentsService.findByParticipant(participantId);
+    // Fuera de alcance devuelve lista vacía, igual que un participante sin
+    // documentos: no hay forma de distinguir "no tiene" de "no es tuyo".
+    return this.documentsService.findByParticipant(
+      participantId,
+      await this.scope.alcanceDe(actor),
+    );
   }
 
   @Patch(':id/review')
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.DOCUMENT_REVIEW)
   @ApiOperation({ summary: 'Validar/Rechazar documento' })
   async review(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() reviewDto: ReviewDocumentDto,
     @CurrentUser('sub') userId: string,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    return this.documentsService.review(id, userId, reviewDto);
+    return this.documentsService.review(
+      id,
+      userId,
+      reviewDto,
+      await this.scope.alcanceDe(actor),
+    );
   }
 }

@@ -23,7 +23,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, UserFilterDto } from './dto';
 import { Roles } from '../../common/decorators';
-import { Role } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 
 @ApiTags('Users')
 @Controller('users')
@@ -32,7 +32,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(...ACCIONES.USER_MANAGE)
   @ApiOperation({
     summary: 'Crear usuario',
     description: 'Crea un nuevo usuario administrativo. Solo Super Admin.',
@@ -44,7 +44,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @Roles(...ACCIONES.USER_READ)
   @ApiOperation({
     summary: 'Listar usuarios',
     description: 'Lista paginada de usuarios con filtros.',
@@ -55,7 +55,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL)
+  @Roles(...ACCIONES.USER_READ)
   @ApiOperation({
     summary: 'Obtener usuario',
     description: 'Obtiene un usuario por ID.',
@@ -67,7 +67,7 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(...ACCIONES.USER_MANAGE)
   @ApiOperation({
     summary: 'Actualizar usuario',
     description: 'Actualiza datos de un usuario. Solo Super Admin.',
@@ -83,7 +83,7 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(...ACCIONES.USER_MANAGE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Desactivar usuario',

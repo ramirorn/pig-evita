@@ -9,3 +9,4 @@ export * from './guards';
 export * from './interceptors';
 export * from './transformers';
 export * from './validators';
+export * from './scope';

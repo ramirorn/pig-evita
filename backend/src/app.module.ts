@@ -28,6 +28,7 @@ import {
   CacheControlInterceptor,
 } from './common/interceptors';
 import { RolesGuard } from './common/guards';
+import { ScopeModule } from './common/scope';
 
 // Feature Modules
 import { HealthModule } from './modules/health/health.module';
@@ -47,6 +48,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { NewsModule } from './modules/news/news.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ZonesModule } from './modules/zones/zones.module';
 
 // Auth Guards
 import { JwtAuthGuard } from './modules/auth/guards';
@@ -99,6 +101,9 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     // Database
     DatabaseModule,
 
+    // Alcance territorial (R05): global, igual que DatabaseModule.
+    ScopeModule,
+
     // Feature Modules
     HealthModule,
     AuthModule,
@@ -117,6 +122,7 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     NewsModule,
     CalendarModule,
     DashboardModule,
+    ZonesModule,
   ],
   providers: [
     // Global Exception Filter

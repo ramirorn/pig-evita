@@ -31,7 +31,7 @@ import {
   CurrentUser,
   PublicReadThrottle,
 } from '../../common/decorators';
-import { ADMIN_ROLES } from '../../common/constants';
+import { ACCIONES } from '../../common/constants';
 import { OptionalJwtAuthGuard } from '../../common/guards';
 import { puedeVerBorradores } from '../../common/content-visibility';
 import type { UsuarioConRol } from '../../common/content-visibility';
@@ -43,7 +43,7 @@ export class CalendarController {
   constructor(private readonly calendarService: CalendarService) {}
 
   @Post()
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Crear evento en el calendario' })
   @ApiResponse({ status: 201, description: 'Evento creado' })
   async create(@Body() createDto: CreateCalendarEventDto) {
@@ -81,7 +81,7 @@ export class CalendarController {
   }
 
   @Patch(':id')
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Actualizar evento' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -91,7 +91,7 @@ export class CalendarController {
   }
 
   @Delete(':id')
-  @Roles(...ADMIN_ROLES)
+  @Roles(...ACCIONES.CALENDAR_MANAGE)
   @ApiOperation({ summary: 'Eliminar evento' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.calendarService.remove(id);

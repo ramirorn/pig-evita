@@ -14,12 +14,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { usePermisos } from '@/hooks/usePermisos';
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { UserForm } from './components/UserForm';
 import { ROLE_LABELS } from '@/lib/constants';
 import type { User } from '@/types';
 
 export function UsersPage() {
+  // R22 — la pantalla la ven SUPER_ADMIN y ADMIN_PROVINCIAL, pero el alta, la
+  // edición y la baja de usuarios son sólo del SUPER_ADMIN. Sin esto, el
+  // ADMIN_PROVINCIAL veía "Nuevo Usuario", completaba el formulario y recibía
+  // un 403 al guardar.
+  const { puede } = usePermisos();
+  const puedeGestionar = puede('USER_MANAGE');
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>();
@@ -111,7 +118,10 @@ export function UsersPage() {
           </Badge>
         ),
     },
-    {
+  ];
+
+  if (puedeGestionar) {
+    columns.push({
       id: 'actions',
       header: 'Acciones',
       hideHeader: true,
@@ -130,8 +140,8 @@ export function UsersPage() {
           <Pencil className="w-4 h-4" />
         </Button>
       ),
-    },
-  ];
+    });
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -140,10 +150,12 @@ export function UsersPage() {
         description="Gestión de usuarios y administradores del sistema"
         icon={<UserCog className="w-5 h-5 text-white" />}
         actions={
-          <Button onClick={handleCreate} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Nuevo Usuario
-          </Button>
+          puedeGestionar ? (
+            <Button onClick={handleCreate} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Nuevo Usuario
+            </Button>
+          ) : undefined
         }
       />
 
@@ -163,9 +175,11 @@ export function UsersPage() {
         emptyTitle="Todavía no hay usuarios"
         emptyDescription="Registrá el primer usuario para empezar a operar el sistema."
         emptyAction={
-          <Button onClick={handleCreate} className="gap-2">
-            <Plus className="w-4 h-4" /> Crear Usuario
-          </Button>
+          puedeGestionar ? (
+            <Button onClick={handleCreate} className="gap-2">
+              <Plus className="w-4 h-4" /> Crear Usuario
+            </Button>
+          ) : undefined
         }
         toolbar={
           <div className="relative flex-1 max-w-sm">

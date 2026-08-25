@@ -15,6 +15,7 @@ import {
   TAMANIO_LOTE,
 } from '../src/modules/reports/reports.service';
 import { PrismaService } from '../src/database/prisma.service';
+import { ALCANCE_PROVINCIAL, ScopeService } from '../src/common/scope';
 
 // ===========================================
 // Doble de Prisma
@@ -159,6 +160,7 @@ describe('Reportes en streaming (e2e)', () => {
       controllers: [ReportsController],
       providers: [
         ReportsService,
+        ScopeService,
         {
           provide: PrismaService,
           useValue: crearPrismaFalso(total, contador),
@@ -167,6 +169,20 @@ describe('Reportes en streaming (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    // R05 — este módulo de prueba no monta los guards de auth, así que
+    // `request.user` llegaría vacío y el alcance territorial recortaría el
+    // reporte a cero filas. Se inyecta un usuario provincial para que este test
+    // siga midiendo lo suyo (streaming, memoria, backpressure); el scoping
+    // tiene su propio spec (`territorial-scope.e2e-spec.ts`).
+    app.use((req: { user?: unknown }, _res: unknown, next: () => void) => {
+      req.user = {
+        sub: 'u-reportes',
+        email: 'admin@juegosevita.gob.ar',
+        role: 'ADMIN_PROVINCIAL',
+        type: 'access',
+      };
+      next();
+    });
     // Mismo middleware global que monta `main.ts` en T18: los reportes tienen
     // que atravesarlo sin romperse ni bufferizar.
     if (conCompresion) app.use(compression());
@@ -207,13 +223,18 @@ describe('Reportes en streaming (e2e)', () => {
 
       const texto = cuerpo.toString('utf8');
       const lineas = texto.replace('﻿', '').split('\n');
-      expect(lineas).toHaveLength(4); // encabezado + 3 filas, sin salto final
+      // R05 — la primera fila declara el alcance aplicado; el encabezado de
+      // columnas pasó a ser la segunda.
+      expect(lineas).toHaveLength(5); // alcance + encabezado + 3 filas
       expect(lineas[0]).toBe(
+        '"Alcance del reporte: provincial (todos los departamentos)"',
+      );
+      expect(lineas[1]).toBe(
         '"DNI","Nombre","Apellido","Sexo","Fecha Nacimiento","Departamento",' +
           '"Localidad","Teléfono","Email","Categorías"',
       );
-      expect(lineas[1]).toContain('"Pérez 000000"');
-      expect(lineas[1]).toContain('"Fútbol - Sub-14 Masculino"');
+      expect(lineas[2]).toContain('"Pérez 000000"');
+      expect(lineas[2]).toContain('"Fútbol - Sub-14 Masculino"');
       expect(texto.endsWith('\n')).toBe(false);
     });
 
@@ -223,13 +244,15 @@ describe('Reportes en streaming (e2e)', () => {
       await service.escribirCsv(destino, {
         nombreHoja: 'X',
         headers: ['a'],
+        alcance: 'Alcance del reporte: provincial (todos los departamentos)',
 
         lotes: async function* () {
           yield [['dice "hola"'], [null], [7]];
         },
       });
       expect(destino.contenido.toString('utf8')).toBe(
-        '﻿"a"\n"dice ""hola"""\n"null"\n"7"',
+        '﻿"Alcance del reporte: provincial (todos los departamentos)"\n' +
+          '"a"\n"dice ""hola"""\n"null"\n"7"',
       );
     });
 
@@ -260,7 +283,7 @@ describe('Reportes en streaming (e2e)', () => {
       const destino = new DestinoNulo({ guardar: true });
       await service.escribirExcel(
         destino,
-        service.especificacionParticipants(),
+        service.especificacionParticipants(ALCANCE_PROVINCIAL),
       );
       await destino.terminado;
 
@@ -268,36 +291,40 @@ describe('Reportes en streaming (e2e)', () => {
       await libro.xlsx.load(destino.contenido as any);
       const hoja = libro.getWorksheet('Padrón Participantes');
       expect(hoja).toBeDefined();
-      expect(hoja!.rowCount).toBe(6); // encabezado + 5 filas
-      expect(hoja!.getRow(1).getCell(1).value).toBe('DNI');
-      expect(hoja!.getRow(2).getCell(3).value).toBe('Pérez 000000');
+      // R05 — fila 1: alcance; fila 2: encabezado; de la 3 en adelante, datos.
+      expect(hoja!.rowCount).toBe(7); // alcance + encabezado + 5 filas
+      expect(String(hoja!.getRow(1).getCell(1).value)).toContain(
+        'Alcance del reporte',
+      );
+      expect(hoja!.getRow(2).getCell(1).value).toBe('DNI');
+      expect(hoja!.getRow(3).getCell(3).value).toBe('Pérez 000000');
 
       // El estilo sobrevive al WorkbookWriter (`useStyles: true`).
-      const celdaEncabezado = hoja!.getRow(1).getCell(1);
+      const celdaEncabezado = hoja!.getRow(2).getCell(1);
       expect(celdaEncabezado.font?.bold).toBe(true);
       expect((celdaEncabezado.fill as any)?.fgColor?.argb).toBe('FF0F4C81');
-      expect(hoja!.getRow(1).height).toBe(28);
-      expect(hoja!.views[0]).toMatchObject({ state: 'frozen', ySplit: 1 });
+      expect(hoja!.getRow(2).height).toBe(28);
+      expect(hoja!.views[0]).toMatchObject({ state: 'frozen', ySplit: 2 });
       // Cebrado: la 2da fila de datos (índice 1) va gris.
-      expect((hoja!.getRow(3).getCell(1).fill as any)?.fgColor?.argb).toBe(
+      expect((hoja!.getRow(4).getCell(1).fill as any)?.fgColor?.argb).toBe(
         'FFF8FAFC',
       );
       // El ancho se calcula con el primer lote, no queda en el default.
       expect(hoja!.getColumn(3).width).toBeGreaterThan(12);
     });
 
-    it('un reporte vacío devuelve sólo el encabezado', async () => {
+    it('un reporte vacío devuelve sólo el alcance y el encabezado', async () => {
       await levantar(0);
       const destino = new DestinoNulo({ guardar: true });
       await service.escribirExcel(
         destino,
-        service.especificacionParticipants(),
+        service.especificacionParticipants(ALCANCE_PROVINCIAL),
       );
       await destino.terminado;
 
       const libro = new ExcelJS.Workbook();
       await libro.xlsx.load(destino.contenido as any);
-      expect(libro.getWorksheet('Padrón Participantes')!.rowCount).toBe(1);
+      expect(libro.getWorksheet('Padrón Participantes')!.rowCount).toBe(2);
     });
   });
 
@@ -332,8 +359,8 @@ describe('Reportes en streaming (e2e)', () => {
       // entero (un chunk perdido rompería el CRC final).
       const texto = (res.body as Buffer).toString('utf8');
       const lineas = texto.replace('﻿', '').split('\n');
-      expect(lineas).toHaveLength(2001);
-      expect(lineas[2000]).toContain('"Pérez 001999"');
+      expect(lineas).toHaveLength(2002); // + la fila de alcance (R05)
+      expect(lineas[2001]).toContain('"Pérez 001999"');
     });
 
     it('el .xlsx no se re-comprime (ya es un zip)', async () => {
@@ -353,7 +380,7 @@ describe('Reportes en streaming (e2e)', () => {
 
       const libro = new ExcelJS.Workbook();
       await libro.xlsx.load(res.body as any);
-      expect(libro.getWorksheet('Padrón Participantes')!.rowCount).toBe(501);
+      expect(libro.getWorksheet('Padrón Participantes')!.rowCount).toBe(502);
     });
 
     it('no deja listeners colgados en el gzip al esperar backpressure', async () => {
@@ -388,7 +415,10 @@ describe('Reportes en streaming (e2e)', () => {
     it('trae de a 1000 y encadena por cursor, sin OFFSET', async () => {
       await levantar(2500);
       const destino = new DestinoNulo();
-      await service.escribirCsv(destino, service.especificacionParticipants());
+      await service.escribirCsv(
+        destino,
+        service.especificacionParticipants(ALCANCE_PROVINCIAL),
+      );
 
       // 2500 filas → 1000 + 1000 + 500. El tercer lote viene incompleto, así
       // que no se dispara una cuarta query.
@@ -407,7 +437,10 @@ describe('Reportes en streaming (e2e)', () => {
     it('el orden termina en `id` para que el cursor sea determinista', async () => {
       await levantar(1);
       const destino = new DestinoNulo();
-      await service.escribirCsv(destino, service.especificacionParticipants());
+      await service.escribirCsv(
+        destino,
+        service.especificacionParticipants(ALCANCE_PROVINCIAL),
+      );
 
       expect(contador.llamadas[0].orderBy).toEqual([
         { lastName: 'asc' },
@@ -419,13 +452,16 @@ describe('Reportes en streaming (e2e)', () => {
     it('un total múltiplo exacto del lote no pierde ni repite filas', async () => {
       await levantar(2000);
       const destino = new DestinoNulo({ guardar: true });
-      await service.escribirCsv(destino, service.especificacionParticipants());
+      await service.escribirCsv(
+        destino,
+        service.especificacionParticipants(ALCANCE_PROVINCIAL),
+      );
 
       const lineas = destino.contenido.toString('utf8').split('\n');
-      expect(lineas).toHaveLength(2001);
-      expect(new Set(lineas).size).toBe(2001);
-      expect(lineas[1]).toContain('"Pérez 000000"');
-      expect(lineas[2000]).toContain('"Pérez 001999"');
+      expect(lineas).toHaveLength(2002); // + la fila de alcance (R05)
+      expect(new Set(lineas).size).toBe(2002);
+      expect(lineas[2]).toContain('"Pérez 000000"');
+      expect(lineas[2001]).toContain('"Pérez 001999"');
       // 2 lotes llenos + 1 vacío para saber que se terminó.
       expect(contador.llamadas).toHaveLength(3);
     });
@@ -440,6 +476,7 @@ describe('Reportes en streaming (e2e)', () => {
       return {
         nombreHoja: 'Prueba',
         headers: ['a', 'b'],
+        alcance: 'Alcance del reporte: provincial (todos los departamentos)',
 
         lotes: async function* () {
           for (let l = 0; l < lotesOk; l++) {
@@ -531,7 +568,10 @@ describe('Reportes en streaming (e2e)', () => {
       const bytesPorConsulta: number[] = [];
       contador.alConsultar = () => bytesPorConsulta.push(destino.bytes);
 
-      await service.escribirCsv(destino, service.especificacionParticipants());
+      await service.escribirCsv(
+        destino,
+        service.especificacionParticipants(ALCANCE_PROVINCIAL),
+      );
       await destino.terminado;
 
       return { bytesPorConsulta, total: destino.bytes };
@@ -615,7 +655,7 @@ describe('Reportes en streaming (e2e)', () => {
       try {
         await service.escribirExcel(
           destino,
-          service.especificacionParticipants(),
+          service.especificacionParticipants(ALCANCE_PROVINCIAL),
         );
         await destino.terminado;
       } finally {
@@ -656,7 +696,10 @@ describe('Reportes en streaming (e2e)', () => {
         if (adelanto > maxAdelanto) maxAdelanto = adelanto;
       };
 
-      await service.escribirCsv(destino, service.especificacionParticipants());
+      await service.escribirCsv(
+        destino,
+        service.especificacionParticipants(ALCANCE_PROVINCIAL),
+      );
 
       console.log(
         `[T23] adelanto máximo de la paginación: ${maxAdelanto} lote(s)`,

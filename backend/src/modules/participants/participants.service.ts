@@ -5,6 +5,7 @@ import {
   Injectable,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import {
 import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction, DNI_EDITORS, Role } from '../../common/constants';
+import { Alcance, ScopeService } from '../../common/scope';
 import type { JwtPayload } from '../auth/interfaces';
 
 @Injectable()
@@ -28,12 +30,27 @@ export class ParticipantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly scope: ScopeService,
   ) {}
 
   /**
    * Crear un nuevo participante.
    */
-  async create(createDto: CreateParticipantDto) {
+  async create(createDto: CreateParticipantDto, alcance: Alcance) {
+    // R05 — el alta también se acota: si no, un delegado no podría *ver* los
+    // participantes de otro departamento pero sí crearlos ahí, y el padrón
+    // terminaría con altas que su propio autor no puede volver a abrir.
+    //
+    // Acá sí va 403 y no 404: no se está preguntando por ninguna fila
+    // existente, así que no hay nada que ocultar, y el delegado necesita
+    // entender por qué no puede cargar al chico.
+    if (!this.scope.permiteDepartamento(alcance, createDto.department)) {
+      throw new ForbiddenException(
+        `No podés cargar participantes del departamento "${createDto.department}": ` +
+          'está fuera de tu alcance territorial.',
+      );
+    }
+
     // Verificar DNI único
     const existing = await this.prisma.participant.findUnique({
       where: { dni: createDto.dni },
@@ -61,7 +78,7 @@ export class ParticipantsService {
   /**
    * Listar participantes con paginación y filtros.
    */
-  async findAll(filterDto: ParticipantFilterDto) {
+  async findAll(filterDto: ParticipantFilterDto, alcance: Alcance) {
     const where: Prisma.ParticipantWhereInput = {};
 
     if (filterDto.dni) {
@@ -103,9 +120,18 @@ export class ParticipantsService {
       ];
     }
 
+    // R05 — el filtro del cliente y el recorte territorial se combinan con
+    // `AND`: los dos pueden traer `OR` (el buscador de un lado, la lista de
+    // departamentos del otro) y fusionarlos campo a campo haría que el último
+    // gane, que en este caso significa mostrar de más.
+    const whereConAlcance = ScopeService.conAlcance(
+      where,
+      this.scope.whereParticipant(alcance),
+    );
+
     const [participants, total] = await Promise.all([
       this.prisma.participant.findMany({
-        where,
+        where: whereConAlcance,
         skip: filterDto.skip,
         take: filterDto.take,
         // R11 — el campo de orden se valida contra la whitelist antes de
@@ -117,7 +143,7 @@ export class ParticipantsService {
           filterDto.sortOrder,
         ),
       }),
-      this.prisma.participant.count({ where }),
+      this.prisma.participant.count({ where: whereConAlcance }),
     ]);
 
     return buildPaginatedResponse(participants, total, filterDto);
@@ -126,9 +152,16 @@ export class ParticipantsService {
   /**
    * Buscar por ID.
    */
-  async findOne(id: string) {
-    const participant = await this.prisma.participant.findUnique({
-      where: { id },
+  async findOne(id: string, alcance: Alcance) {
+    // `findFirst` con el alcance adentro del `where`, y no `findUnique` + un
+    // chequeo posterior en JS: así la fila fuera de alcance ni siquiera sale de
+    // Postgres, y no depende de que el `select` de mañana siga trayendo
+    // `department`.
+    const participant = await this.prisma.participant.findFirst({
+      where: ScopeService.conAlcance(
+        { id },
+        this.scope.whereParticipant(alcance),
+      ),
       include: {
         inscriptions: {
           include: { category: { include: { discipline: true } } },
@@ -141,6 +174,9 @@ export class ParticipantsService {
     });
 
     if (!participant) {
+      // 404 y no 403, con el mismo mensaje que un id inexistente: un 403 le
+      // confirmaría a quien prueba ids que ese participante existe, y de qué
+      // departamento no es. Mismo criterio que R06.
       throw new NotFoundException('Participante no encontrado');
     }
 
@@ -150,9 +186,12 @@ export class ParticipantsService {
   /**
    * Buscar por DNI.
    */
-  async findByDni(dni: string) {
-    const participant = await this.prisma.participant.findUnique({
-      where: { dni },
+  async findByDni(dni: string, alcance: Alcance) {
+    const participant = await this.prisma.participant.findFirst({
+      where: ScopeService.conAlcance(
+        { dni },
+        this.scope.whereParticipant(alcance),
+      ),
     });
 
     if (!participant) {
@@ -173,9 +212,12 @@ export class ParticipantsService {
   async update(
     id: string,
     updateDto: UpdateParticipantDto,
+    alcance: Alcance,
     actor?: JwtPayload,
   ) {
-    const actual = await this.findOne(id);
+    // `findOne` ya aplica el alcance: editar un participante de otro
+    // departamento devuelve 404 antes de tocar nada.
+    const actual = await this.findOne(id, alcance);
 
     // -------------------------------------------------
     // R17 — el DNI no es un campo más del PATCH

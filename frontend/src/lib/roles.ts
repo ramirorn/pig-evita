@@ -14,6 +14,13 @@ import { UserRole } from '@/types';
  *
  * ⚠️ Si cambia un `@Roles(...)` en el backend, hay que actualizar la constante
  * correspondiente acá.
+ *
+ * 📌 Estos grupos deciden **pantallas** (qué rutas es capaz de abrir un rol).
+ * Los permisos por **acción** —qué botones de adentro de esa pantalla puede
+ * apretar— viven en `@/lib/adminActions`, que espeja el mapa `ACCIONES` del
+ * backend y lo verifica `npm run check:nav`. Los dos niveles no coinciden y ésa
+ * era justamente la causa de R22: la ruta de Participantes admite al
+ * COORDINADOR, el `POST /participants` no.
  */
 
 /** `ADMIN_ROLES` del backend. */

@@ -4,6 +4,7 @@
 import {
   Injectable,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   BadRequestException,
   Logger,
@@ -23,14 +24,28 @@ import {
   DISCIPLINE_SUMMARY,
   TEAM_MEMBER_WITH_PARTICIPANT,
 } from '../../common/prisma-selects';
+import { Alcance, ScopeService } from '../../common/scope';
 
 @Injectable()
 export class TeamsService {
   private readonly logger = new Logger(TeamsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scope: ScopeService,
+  ) {}
 
-  async create(createDto: CreateTeamDto) {
+  async create(createDto: CreateTeamDto, alcance: Alcance) {
+    // R05 — mismo criterio que en participantes: el alta se acota, y acá va
+    // 403 porque el departamento viene en el body y no hay ninguna fila cuya
+    // existencia se pueda deducir de la respuesta.
+    if (!this.scope.permiteDepartamento(alcance, createDto.department)) {
+      throw new ForbiddenException(
+        `No podés crear equipos del departamento "${createDto.department}": ` +
+          'está fuera de tu alcance territorial.',
+      );
+    }
+
     // 1. Verificar categoría y que sea de equipo
     const category = await this.prisma.category.findUnique({
       where: { id: createDto.categoryId },
@@ -60,7 +75,7 @@ export class TeamsService {
     return team;
   }
 
-  async findAll(filterDto: TeamFilterDto) {
+  async findAll(filterDto: TeamFilterDto, alcance: Alcance) {
     const where: Prisma.TeamWhereInput = {};
 
     if (filterDto.disciplineId) {
@@ -95,9 +110,15 @@ export class TeamsService {
       ];
     }
 
+    // R05 — filtro del cliente AND recorte territorial (ver ScopeService).
+    const whereConAlcance = ScopeService.conAlcance(
+      where,
+      this.scope.whereTeam(alcance),
+    );
+
     const [teams, total] = await Promise.all([
       this.prisma.team.findMany({
-        where,
+        where: whereConAlcance,
         // La tabla muestra nombre, disciplina, categoría, zona y cantidad de
         // integrantes. La disciplina faltaba en la proyección anterior, así que
         // la columna "Disciplina" venía vacía; se agrega junto con el `select`.
@@ -123,15 +144,15 @@ export class TeamsService {
           filterDto.sortOrder,
         ),
       }),
-      this.prisma.team.count({ where }),
+      this.prisma.team.count({ where: whereConAlcance }),
     ]);
 
     return buildPaginatedResponse(teams, total, filterDto);
   }
 
-  async findOne(id: string) {
-    const team = await this.prisma.team.findUnique({
-      where: { id },
+  async findOne(id: string, alcance: Alcance) {
+    const team = await this.prisma.team.findFirst({
+      where: ScopeService.conAlcance({ id }, this.scope.whereTeam(alcance)),
       select: {
         id: true,
         name: true,
@@ -150,14 +171,16 @@ export class TeamsService {
     });
 
     if (!team) {
+      // 404 y no 403 para el equipo fuera de alcance: mismo mensaje que un id
+      // inexistente, así la respuesta no confirma que el equipo existe.
       throw new NotFoundException('Equipo no encontrado');
     }
 
     return team;
   }
 
-  async update(id: string, updateDto: UpdateTeamDto) {
-    await this.findOne(id); // verifica existencia
+  async update(id: string, updateDto: UpdateTeamDto, alcance: Alcance) {
+    await this.findOne(id, alcance); // verifica existencia y alcance
 
     if (updateDto.categoryId) {
       const category = await this.prisma.category.findUnique({
@@ -178,8 +201,12 @@ export class TeamsService {
     return team;
   }
 
-  async addMember(teamId: string, addMemberDto: AddTeamMemberDto) {
-    const team = await this.findOne(teamId);
+  async addMember(
+    teamId: string,
+    addMemberDto: AddTeamMemberDto,
+    alcance: Alcance,
+  ) {
+    const team = await this.findOne(teamId, alcance);
 
     // 1. Validar tamaño máximo del equipo
     const currentMembers = team.members.length;
@@ -190,9 +217,14 @@ export class TeamsService {
       );
     }
 
-    // 2. Verificar que el participante existe
-    const participant = await this.prisma.participant.findUnique({
-      where: { id: addMemberDto.participantId },
+    // 2. Verificar que el participante existe **y está dentro del alcance**:
+    // si no, sumar gente de otro departamento a un equipo propio sería la forma
+    // más cómoda de leer un padrón ajeno (el plantel devuelve DNI y nombre).
+    const participant = await this.prisma.participant.findFirst({
+      where: ScopeService.conAlcance(
+        { id: addMemberDto.participantId },
+        this.scope.whereParticipant(alcance),
+      ),
     });
     if (!participant) {
       throw new NotFoundException('Participante no encontrado');
@@ -238,8 +270,8 @@ export class TeamsService {
     return member;
   }
 
-  async removeMember(teamId: string, participantId: string) {
-    await this.findOne(teamId); // Verifica equipo
+  async removeMember(teamId: string, participantId: string, alcance: Alcance) {
+    await this.findOne(teamId, alcance); // Verifica equipo y alcance
 
     const member = await this.prisma.teamMember.findUnique({
       where: {
@@ -261,8 +293,8 @@ export class TeamsService {
     return { message: 'Miembro removido exitosamente' };
   }
 
-  async remove(id: string) {
-    const team = await this.findOne(id);
+  async remove(id: string, alcance: Alcance) {
+    const team = await this.findOne(id, alcance);
 
     const counts = await this.prisma.team.findUnique({
       where: { id },
