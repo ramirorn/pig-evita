@@ -73,6 +73,10 @@ export class NewsService {
       where.isPublished = true;
     }
 
+    if (filterDto.isExternal !== undefined) {
+      where.isExternal = filterDto.isExternal;
+    }
+
     if (filterDto.search) {
       where.OR = [
         { title: { contains: filterDto.search, mode: 'insensitive' } },

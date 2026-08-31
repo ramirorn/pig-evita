@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { CalendarDays, Loader2 } from 'lucide-react';
 import { useAllCalendarEvents } from '@/hooks/useCalendar';
 import { useAllDisciplines } from '@/hooks/useDisciplines';
-import { PageHero } from '@/components/shared/PageHero';
+import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { CalendarFiltersPanel } from './calendar/CalendarFiltersPanel';
 import { CalendarEventCard } from './calendar/CalendarEventCard';
@@ -46,14 +46,13 @@ export function CalendarPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
-      <PageHero
-        title="Calendario de Eventos"
-        description="Conocé las fechas, horarios y sedes de las próximas competencias de los Juegos Evita Formosa."
-        icon={<CalendarDays className="w-8 h-8 text-white" />}
-        variant="secondary"
-      />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10">
+        <PublicPageHeader
+          title="Calendario de Eventos"
+          description="Fechas, horarios y sedes de las próximas competencias de los Juegos Evita Formoseños."
+          icon={<CalendarDays className="h-6 w-6" aria-hidden="true" />}
+        />
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* Panel de Filtros Moderno */}
         <CalendarFiltersPanel
           filters={filters}

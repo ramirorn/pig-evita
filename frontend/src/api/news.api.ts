@@ -14,6 +14,13 @@ export interface NewsFilters {
    * sobre las primeras 50 noticias: la 51 no aparecía nunca (R29).
    */
   search?: string;
+  /**
+   * Origen: `true` las que vienen del portal oficial (S19), `false` las propias.
+   *
+   * Es la única distinción real entre noticias — el modelo no tiene categorías
+   * temáticas—, y por eso es lo que filtran los chips del listado público.
+   */
+  isExternal?: boolean;
 }
 
 export interface CreateNewsPayload {

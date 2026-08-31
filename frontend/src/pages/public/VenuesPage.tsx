@@ -3,7 +3,7 @@
 // ===========================================
 import { MapPin, Loader2, Navigation, Building2 } from 'lucide-react';
 import { useVenues } from '@/hooks/useVenues';
-import { PageHero } from '@/components/shared/PageHero';
+import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { safeExternalUrl } from '@/lib/utils';
 
@@ -16,21 +16,23 @@ export function VenuesPage() {
 
   return (
     <div>
-      <PageHero
-        title="Sedes de Competencia"
-        description="Descubrí todos los polideportivos, clubes y espacios donde se desarrollan los Juegos Evita Formosa."
-        icon={<MapPin className="w-8 h-8 text-white" />}
-        variant="celeste"
-      >
-        {venueCount > 0 && (
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/15 backdrop-blur-md border border-white/20 rounded-full text-sm font-semibold text-white">
-            <Building2 className="w-4 h-4 text-accent-400" />
-            {venueCount} sede{venueCount !== 1 ? 's' : ''} activa{venueCount !== 1 ? 's' : ''}
-          </div>
-        )}
-      </PageHero>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
+        <PublicPageHeader
+          title="Sedes de Competencia"
+          description="Polideportivos, clubes y espacios donde se desarrollan los Juegos Evita Formoseños."
+          icon={<MapPin className="h-6 w-6" aria-hidden="true" />}
+          actions={
+            venueCount > 0 ? (
+              // Sobre fondo claro el contador pasa a la paleta institucional:
+              // el `bg-white/15` de antes sólo se leía sobre el hero oscuro.
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-white px-4 py-2 text-sm font-semibold text-primary-700 shadow-sm">
+                <Building2 className="h-4 w-4 text-accent-500" />
+                {venueCount} sede{venueCount !== 1 ? 's' : ''} activa{venueCount !== 1 ? 's' : ''}
+              </div>
+            ) : undefined
+          }
+        />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
             <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
@@ -64,7 +66,7 @@ export function VenuesPage() {
                   </div>
                 </div>
 
-                <h3 className="text-xl font-bold text-primary-900 mb-2">{venue.name}</h3>
+                <h2 className="text-xl font-bold text-primary-900 mb-2">{venue.name}</h2>
                 <p className="text-primary-600 text-sm mb-6 flex-1">
                   {venue.address}
                 </p>

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useDisciplines } from '@/hooks/useDisciplines';
 import { Link } from 'react-router';
-import { PageHero } from '@/components/shared/PageHero';
+import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { DisciplineType } from '@/types';
 import { cn } from '@/lib/utils';
@@ -69,32 +69,40 @@ export function DisciplinesPage() {
 
   return (
     <div>
-      <PageHero
-        title="Disciplinas Deportivas"
-        description="Conocé todas las disciplinas disponibles en los Juegos Evita Formosa. Encontrá el deporte que te apasiona y sumate a competir."
-        icon={<Trophy className="w-8 h-8 text-white" />}
-        variant="primary"
-      >
-        {/* Filter tabs */}
-        <div className="flex items-center justify-center gap-2 bg-white/10 backdrop-blur-md rounded-xl p-1 border border-white/15">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
+        <PublicPageHeader
+          title="Disciplinas Deportivas"
+          description="Todas las disciplinas disponibles en los Juegos Evita Formoseños. Encontrá el deporte que te apasiona y sumate a competir."
+          icon={<Trophy className="h-6 w-6" aria-hidden="true" />}
+        />
+
+        {/* Los filtros van debajo del encabezado y no como `actions`:
+            pertenecen al listado, no al título. Mismo lenguaje visual que los
+            chips de noticias — sobre fondo claro, el `bg-white/10` del hero no
+            se veía. */}
+        <div
+          role="group"
+          aria-label="Filtrar disciplinas"
+          className="mb-8 flex flex-wrap gap-2"
+        >
           {FILTERS.map((f) => (
             <button
               key={f.value}
+              type="button"
+              aria-pressed={filter === f.value}
               onClick={() => setFilter(f.value)}
               className={cn(
-                'px-5 py-2 rounded-lg text-sm font-semibold transition-all',
+                'rounded-full px-5 py-2 text-sm font-semibold shadow-sm transition-colors',
                 filter === f.value
-                  ? 'bg-white text-primary-800 shadow-sm'
-                  : 'text-white/80 hover:text-white hover:bg-white/10',
+                  ? 'bg-primary-800 text-white'
+                  : 'border border-primary-200 bg-white text-primary-600 hover:bg-primary-50',
               )}
             >
               {f.label}
             </button>
           ))}
         </div>
-      </PageHero>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
             <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
@@ -121,7 +129,7 @@ export function DisciplinesPage() {
                       {getDisciplineIcon(discipline.name)}
                     </div>
                   </div>
-                  <h3 className="font-bold text-primary-900 text-lg mb-2">{discipline.name}</h3>
+                  <h2 className="font-bold text-primary-900 text-lg mb-2">{discipline.name}</h2>
                   <span
                     className={cn(
                       'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide mb-3',

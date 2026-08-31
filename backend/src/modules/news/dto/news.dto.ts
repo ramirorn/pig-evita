@@ -56,6 +56,22 @@ export class NewsFilterDto extends PaginationQueryDto {
   @IsBoolean()
   isPublished?: boolean;
 
+  /**
+   * Origen de la noticia: `true` las que vienen del portal oficial (S19),
+   * `false` las propias de la plataforma.
+   *
+   * Es la **única** distinción real que existe entre noticias: el modelo no
+   * tiene categorías temáticas. Cualquier filtro de "Oficial / Sedes /
+   * Resultados" sería una etiqueta inventada sobre datos que no la respaldan.
+   */
+  @ApiPropertyOptional({
+    description: 'Filtrar por origen: true = del portal oficial, false = propias',
+  })
+  @IsOptional()
+  @ToBoolean()
+  @IsBoolean()
+  isExternal?: boolean;
+
   // R11 — whitelist de orden. Sin esto el string del cliente entra crudo al
   // `orderBy` de Prisma y una columna inexistente termina en un 500 con la
   // ruta del archivo y el fragmento de la consulta adentro del mensaje.

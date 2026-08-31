@@ -6,7 +6,7 @@ import { useCompetitions } from '@/hooks/useCompetitions';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router';
-import { PageHero } from '@/components/shared/PageHero';
+import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { cn } from '@/lib/utils';
 import { STAGE_LABELS, COMPETITION_STATUS_LABELS } from '@/lib/constants';
@@ -31,25 +31,30 @@ export function RankingsPage() {
 
   return (
     <div>
-      <PageHero
-        title="Rankings y Resultados"
-        description="Tablas de posiciones, fixtures y resultados actualizados de todas las competencias activas en Formosa."
-        icon={<Medal className="w-8 h-8 text-primary-950" />}
-        variant="accent"
-      >
-        {/* Search bar inside hero */}
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-400" />
-          <Input
-            className="pl-12 h-12 text-base rounded-2xl border-white/20 bg-white/95 text-primary-900 placeholder:text-primary-400 focus-visible:ring-accent-500 shadow-lg"
-            placeholder="Buscar torneo, disciplina o categoría..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-      </PageHero>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
+        <PublicPageHeader
+          title="Rankings y Resultados"
+          description="Tablas de posiciones, fixtures y resultados de las competencias activas."
+          icon={<Medal className="h-6 w-6" aria-hidden="true" />}
+          actions={
+            <div className="relative w-full md:w-96">
+              <Search
+                className="absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-primary-400"
+                aria-hidden="true"
+              />
+              <Input
+                // El borde blanco translúcido de antes era para el hero oscuro;
+                // sobre fondo claro no se veía.
+                className="h-11 rounded-full border-primary-200 bg-white/80 pl-11 text-sm shadow-[0_10px_40px_-10px_rgba(0,45,108,0.08)] backdrop-blur-xl focus-visible:ring-primary-500"
+                placeholder="Buscar torneo, disciplina o categoría..."
+                aria-label="Buscar competencias"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          }
+        />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
             <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
@@ -75,9 +80,9 @@ export function RankingsPage() {
                         {COMPETITION_STATUS_LABELS[competition.status as CompetitionStatus] || competition.status}
                       </span>
                     </div>
-                    <h3 className="text-xl font-bold text-primary-900 mb-3">
+                    <h2 className="text-xl font-bold text-primary-900 mb-3">
                       {competition.name || `${competition.discipline?.name} - ${competition.category?.name}`}
-                    </h3>
+                    </h2>
                     <div className="space-y-1.5 text-sm">
                       <div className="flex justify-between text-primary-600">
                         <span>Disciplina:</span>
