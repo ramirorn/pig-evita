@@ -3,8 +3,8 @@
 // ===========================================
 import { useState } from 'react';
 import { BarChart3 } from 'lucide-react';
-import { useDisciplines } from '@/hooks/useDisciplines';
-import { useCategories } from '@/hooks/useCategories';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
+import { useAllCategories } from '@/hooks/useCategories';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { usePermisos } from '@/hooks/usePermisos';
 
@@ -18,8 +18,10 @@ export function ReportsPage() {
   const { puedeFiltrarPorDepartamento } = usePermisos();
   const [filters, setFilters] = useState<ReportFilters>(EMPTY_REPORT_FILTERS);
 
-  const { data: disciplines } = useDisciplines();
-  const { data: categories } = useCategories({
+  // El selector recorre la paginación hasta el final (S06): con el hook
+  // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
+  const { data: disciplines } = useAllDisciplines();
+  const { data: categories } = useAllCategories({
     disciplineId: filters.disciplineId !== 'all' ? filters.disciplineId : undefined,
   });
 
@@ -44,8 +46,8 @@ export function ReportsPage() {
         filters={filters}
         onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
         onReset={() => setFilters(EMPTY_REPORT_FILTERS)}
-        disciplines={disciplines?.data ?? []}
-        categories={categories?.data ?? []}
+        disciplines={disciplines ?? []}
+        categories={categories ?? []}
         mostrarFiltroDepartamento={puedeFiltrarPorDepartamento}
       />
 

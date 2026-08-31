@@ -44,6 +44,9 @@ jest.mock('ioredis', () => ({
 }));
 
 import { DashboardController } from '../src/modules/dashboard/dashboard.controller';
+// S02 — el service pasó a recortar por alcance territorial, así que necesita el
+// ScopeService igual que en producción.
+import { ScopeService } from '../src/common/scope';
 import { DashboardService } from '../src/modules/dashboard/dashboard.service';
 import { PrismaService } from '../src/database/prisma.service';
 import { TransformInterceptor } from '../src/common/interceptors';
@@ -159,6 +162,7 @@ describe('GET /dashboard/stats (e2e)', () => {
       controllers: [DashboardController],
       providers: [
         DashboardService,
+        ScopeService,
         { provide: PrismaService, useValue: prisma },
         {
           provide: ConfigService,
@@ -334,7 +338,13 @@ describe('GET /dashboard/stats (e2e)', () => {
       expect(prisma.inscription.groupBy).toHaveBeenCalledTimes(1);
       // El bug original: 4 `count` con filtro de status, uno por estado.
       expect(prisma.inscription.count).toHaveBeenCalledTimes(1);
-      expect(prisma.inscription.count).toHaveBeenCalledWith();
+      // Antes de S02 este `count` salía sin argumentos. Ahora lleva el `where`
+      // del alcance: el conteo del dashboard es el del territorio de quien
+      // pregunta, no el de la provincia. Sigue siendo **un solo** count, que es
+      // lo que este test cuida.
+      expect(prisma.inscription.count).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.any(Object) }),
+      );
     });
   });
 
@@ -432,13 +442,20 @@ describe('GET /dashboard/stats (e2e)', () => {
       expect(segunda.body.data).toEqual(primera.body.data);
     });
 
-    it('guarda con TTL de 60s bajo una única clave global', async () => {
+    it('guarda con TTL de 60s bajo una clave derivada del alcance', async () => {
       await levantarApp();
       const redis = conectarRedis();
       await request(app.getHttpServer()).get('/dashboard/stats').expect(200);
 
+      // Hasta S02 esta assertion esperaba la clave global `dashboard:stats`, y
+      // el propio comentario del service advertía que el día que se
+      // implementara el recorte territorial la clave iba a tener que incluirlo.
+      // Ese día llegó: con una clave única, el primero que pide el dashboard le
+      // deja su vista cacheada a todos los demás, y el recorte se evapora en el
+      // segundo request. El request de este test va sin token, así que su
+      // alcance es "ninguno" — de ahí el sufijo.
       expect(redis.setex).toHaveBeenCalledWith(
-        'dashboard:stats',
+        'dashboard:stats:sin-alcance',
         60,
         expect.any(String),
       );

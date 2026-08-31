@@ -9,8 +9,8 @@ import { competitionSchema } from '@/schemas';
 import type { Competition } from '@/types';
 import { CompetitionStage, CompetitionFormat } from '@/types';
 import { useCreateCompetition, useUpdateCompetition } from '@/hooks/useCompetitions';
-import { useDisciplines } from '@/hooks/useDisciplines';
-import { useCategories } from '@/hooks/useCategories';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
+import { useAllCategories } from '@/hooks/useCategories';
 import type { CreateCompetitionPayload, UpdateCompetitionPayload } from '@/api/competitions.api';
 import { logError } from '@/lib/logger';
 
@@ -62,7 +62,9 @@ export function useCompetitionForm({ initialData, onSuccess }: UseCompetitionFor
   const createMutation = useCreateCompetition();
   const updateMutation = useUpdateCompetition();
 
-  const { data: disciplinesData } = useDisciplines({ isActive: true });
+  // El selector recorre la paginación hasta el final (S06): con el hook
+  // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
+  const { data: disciplinesData } = useAllDisciplines({ isActive: true });
 
   const form = useForm<CompetitionFormValues>({
     // El schema cierra con `.refine()`, así que los tipos de entrada y salida de
@@ -72,10 +74,10 @@ export function useCompetitionForm({ initialData, onSuccess }: UseCompetitionFor
   });
 
   const selectedDiscipline = form.watch('disciplineId');
-  const { data: categoriesData } = useCategories({
-    disciplineId: selectedDiscipline || undefined,
-    isActive: true,
-  });
+  const { data: categoriesData } = useAllCategories(
+    { disciplineId: selectedDiscipline || undefined, isActive: true },
+    { enabled: Boolean(selectedDiscipline) },
+  );
 
   useEffect(() => {
     if (initialData) {
@@ -122,7 +124,7 @@ export function useCompetitionForm({ initialData, onSuccess }: UseCompetitionFor
     isPending: createMutation.isPending || updateMutation.isPending,
     isEditing: Boolean(initialData),
     selectedDiscipline,
-    disciplines: disciplinesData?.data,
-    categories: categoriesData?.data,
+    disciplines: disciplinesData,
+    categories: categoriesData,
   };
 }

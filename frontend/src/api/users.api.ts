@@ -9,6 +9,12 @@ export interface UserFilters {
   limit?: number;
   role?: string;
   isActive?: boolean;
+  department?: string;
+  /**
+   * Búsqueda server-side sobre nombre, apellido y email (`UserFilterDto` →
+   * `search`). El buscador de la pantalla filtraba en memoria sobre la primera
+   * página: con 25 usuarios, el 23 no aparecía nunca (S06).
+   */
   search?: string;
 }
 

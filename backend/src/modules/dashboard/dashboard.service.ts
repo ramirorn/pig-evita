@@ -9,8 +9,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InscriptionStatus } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { PARTICIPANT_NAME, CATEGORY_NAME } from '../../common/prisma-selects';
+import { Alcance, ScopeService } from '../../common/scope';
 import { DashboardStatsDto } from './dto';
 import Redis from 'ioredis';
 
@@ -38,16 +40,23 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   private redisClient: Redis | null = null;
 
   /**
-   * Clave única y global: el payload no depende del usuario ni de su rol.
+   * Prefijo de la clave de cache. **Nunca se usa sola** (S02).
    *
-   * Hoy ningún service filtra inscripciones/participantes por `department` o
-   * `zone` del usuario, así que un ADMIN_ZONAL ve exactamente los mismos
-   * números que un SUPER_ADMIN. Si algún día se implementa ese recorte, esta
-   * clave tiene que pasar a incluir el scope (p. ej. `dashboard:stats:zona:X`),
-   * porque si no el primero que pida el dashboard le deja su vista cacheada a
-   * todos los demás.
+   * El comentario que había acá decía que la clave era global "porque hoy
+   * ningún service filtra por department o zone" y anticipaba, textual, que
+   * cuando ese recorte existiera la clave tendría que incluir el scope "porque
+   * si no el primero que pida el dashboard le deja su vista cacheada a todos
+   * los demás". El recorte llegó con R05 y el comentario quedó viejo: durante
+   * toda esa ventana el dashboard fue el único endpoint sin `where` **y**
+   * además repartía la primera respuesta calculada a cualquier rol.
+   *
+   * Por eso arreglar las queries no alcanzaba. Son dos bugs encadenados y el
+   * segundo sobrevive al primero: con las queries recortadas pero la clave
+   * global, un COORDINADOR de Pilcomayo que entra después de un SUPER_ADMIN
+   * sigue viendo los 110 participantes de la provincia, servidos del cache.
+   * La clave la arma `claveDeCache()` a partir del alcance.
    */
-  private readonly CACHE_KEY = 'dashboard:stats';
+  private readonly PREFIJO_CACHE = 'dashboard:stats';
 
   /**
    * 60s. Antes eran 300s: durante una jornada de competencia, contadores con 5
@@ -60,7 +69,41 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly scope: ScopeService,
   ) {}
+
+  /**
+   * Clave de cache derivada del alcance.
+   *
+   * Dos usuarios comparten entrada si y sólo si ven exactamente el mismo
+   * conjunto de departamentos. La lista se normaliza (trim + minúsculas) y se
+   * ordena antes de resumirse: "Pilcomayo,Formosa" y "formosa, pilcomayo" son
+   * el mismo alcance y tienen que pegarle a la misma clave, o el cache pierde
+   * su razón de ser sin dejar de ser correcto.
+   *
+   * Se resume con un hash y no se pega la lista entera porque un ADMIN_ZONAL de
+   * una zona grande generaría claves de cientos de caracteres. El prefijo
+   * conserva el tipo y la cantidad para que la clave siga siendo legible desde
+   * `redis-cli KEYS 'dashboard:stats:*'` cuando haya que diagnosticar algo.
+   */
+  private claveDeCache(alcance: Alcance): string {
+    if (alcance.tipo === 'PROVINCIAL') {
+      return `${this.PREFIJO_CACHE}:provincial`;
+    }
+    if (alcance.departamentos.length === 0) {
+      // Alcance vacío: ve ceros. Tiene su propia entrada y no comparte con
+      // nadie — es justamente el caso que no puede heredar la vista de otro.
+      return `${this.PREFIJO_CACHE}:sin-alcance`;
+    }
+
+    const canonico = [...alcance.departamentos]
+      .map((d) => d.trim().toLowerCase())
+      .sort()
+      .join('|');
+    const huella = createHash('sha1').update(canonico).digest('hex').slice(0, 16);
+
+    return `${this.PREFIJO_CACHE}:deps:${alcance.departamentos.length}:${huella}`;
+  }
 
   onModuleInit() {
     try {
@@ -96,9 +139,18 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async getGlobalStats(): Promise<DashboardStatsDto> {
-    // 1. Intentar obtener de caché
-    const cacheado = await this.leerCache();
+  async getGlobalStats(alcance: Alcance): Promise<DashboardStatsDto> {
+    // Los tres `where` del recorte, calculados una sola vez. Salen de
+    // `ScopeService` y no de un `if` local: la regla que decide qué ve cada rol
+    // tiene que ser la misma que aplican participants, teams e inscriptions, o
+    // el dashboard vuelve a contar distinto que las pantallas que resume.
+    const whereParticipant = this.scope.whereParticipant(alcance);
+    const whereTeam = this.scope.whereTeam(alcance);
+    const whereInscription = this.scope.whereInscription(alcance);
+
+    // 1. Intentar obtener de caché — con la clave del alcance, no la global.
+    const clave = this.claveDeCache(alcance);
+    const cacheado = await this.leerCache(clave);
     if (cacheado) {
       return cacheado;
     }
@@ -116,19 +168,26 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       inscriptionsByStatusRaw,
       recentInscriptionsRaw,
     ] = await Promise.all([
-      this.prisma.participant.count(),
-      this.prisma.team.count(),
-      this.prisma.inscription.count(),
+      this.prisma.participant.count({ where: whereParticipant }),
+      this.prisma.team.count({ where: whereTeam }),
+      this.prisma.inscription.count({ where: whereInscription }),
+      // Las competencias NO llevan recorte y es una decisión, no un olvido:
+      // `Competition` no tiene columna territorial —la disputa es provincial— y
+      // el fixture ya se publica por endpoints `@Public()`. Contar todas no
+      // agrega ninguna información que el usuario no pueda ver sin loguearse.
       this.prisma.competition.count(),
       this.prisma.participant.groupBy({
         by: ['sex'],
+        where: whereParticipant,
         _count: { sex: true },
       }),
       this.prisma.inscription.groupBy({
         by: ['status'],
+        where: whereInscription,
         _count: { status: true },
       }),
       this.prisma.inscription.findMany({
+        where: whereInscription,
         take: ULTIMAS_INSCRIPCIONES,
         orderBy: { createdAt: 'desc' },
         // `select` explícito, no `include`: el widget muestra nombre, categoría,
@@ -172,8 +231,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       lastUpdated: new Date().toISOString(),
     };
 
-    // 3. Guardar en caché
-    await this.escribirCache(stats);
+    // 3. Guardar en caché, bajo la clave del alcance
+    await this.escribirCache(clave, stats);
 
     return stats;
   }
@@ -183,12 +242,12 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
    * se degrada a "no hay cache": el dashboard es una lectura, no vale la pena
    * devolver un 500 porque un cache opcional no responde.
    */
-  private async leerCache(): Promise<DashboardStatsDto | null> {
+  private async leerCache(clave: string): Promise<DashboardStatsDto | null> {
     if (!this.redisClient || this.redisClient.status !== 'ready') {
       return null;
     }
     try {
-      const cached = await this.redisClient.get(this.CACHE_KEY);
+      const cached = await this.redisClient.get(clave);
       return cached ? (JSON.parse(cached) as DashboardStatsDto) : null;
     } catch (e) {
       this.logger.error(
@@ -198,13 +257,16 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async escribirCache(stats: DashboardStatsDto): Promise<void> {
+  private async escribirCache(
+    clave: string,
+    stats: DashboardStatsDto,
+  ): Promise<void> {
     if (!this.redisClient || this.redisClient.status !== 'ready') {
       return;
     }
     try {
       await this.redisClient.setex(
-        this.CACHE_KEY,
+        clave,
         this.CACHE_TTL_SECONDS,
         JSON.stringify(stats),
       );

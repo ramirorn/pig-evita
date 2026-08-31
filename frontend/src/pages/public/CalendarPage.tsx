@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { CalendarDays, Loader2 } from 'lucide-react';
 import { useAllCalendarEvents } from '@/hooks/useCalendar';
-import { useDisciplines } from '@/hooks/useDisciplines';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { PageHero } from '@/components/shared/PageHero';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { CalendarFiltersPanel } from './calendar/CalendarFiltersPanel';
@@ -25,9 +25,11 @@ export function CalendarPage() {
   // `limit: 100` que había acá era el tope duro del backend disfrazado de
   // "traeme todo", y los filtros de abajo corren en memoria (R29).
   const { data: calendarEvents, isLoading } = useAllCalendarEvents({ isPublished: true });
-  const { data: disciplinesData } = useDisciplines({ isActive: true });
+  // El selector recorre la paginación hasta el final (S06): con el hook
+  // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
+  const { data: disciplinesData } = useAllDisciplines({ isActive: true });
 
-  const disciplines = disciplinesData?.data || [];
+  const disciplines = disciplinesData ?? [];
 
   // Filtrado reactivo en el cliente
   const allEvents = useMemo(() => calendarEvents ?? [], [calendarEvents]);

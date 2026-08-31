@@ -238,6 +238,37 @@ export class ParticipantsService {
     // el objeto completo, y rechazar un PATCH que reenvía el mismo DNI sería
     // romper la edición de teléfono para el rol que hace la mayoría de las
     // ediciones.
+    // -------------------------------------------------
+    // S03 — el departamento tampoco es un campo más del PATCH
+    // -------------------------------------------------
+    //
+    // El alta valida el departamento del body con `permiteDepartamento()`; la
+    // edición no lo hacía, y `UpdateParticipantDto` hereda `department` vía
+    // `PartialType`. Un delegado podía abrir un participante suyo —el `findOne`
+    // de arriba lo deja pasar, es de su departamento— y escribirle otro:
+    // la fila se mudaba al padrón ajeno con un 200.
+    //
+    // Es peor que el caso del alta que ya estaba cubierto: **saca** una fila de
+    // una jurisdicción, y es de un solo sentido para quien lo hace, porque
+    // después el `findOne` le devuelve 404 sobre la fila que acaba de mover y
+    // no puede deshacerlo.
+    //
+    // Mismo criterio que el DNI: sólo se corta si el valor **cambia**, porque
+    // los formularios mandan el objeto completo y rechazar un PATCH que reenvía
+    // el mismo departamento rompería la edición de cualquier otro campo.
+    const cambiaDepartamento =
+      updateDto.department !== undefined &&
+      updateDto.department !== actual.department;
+
+    if (
+      cambiaDepartamento &&
+      !this.scope.permiteDepartamento(alcance, updateDto.department)
+    ) {
+      throw new ForbiddenException(
+        'No podés mover un participante a un departamento fuera de tu alcance.',
+      );
+    }
+
     const cambiaDni =
       updateDto.dni !== undefined && updateDto.dni !== actual.dni;
 

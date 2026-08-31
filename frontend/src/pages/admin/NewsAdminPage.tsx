@@ -1,9 +1,11 @@
 // ===========================================
 // News Admin Page
 // ===========================================
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Newspaper, Search, Plus, Pencil, Trash2, MoreVertical, Calendar } from 'lucide-react';
 import { useNewsList, useDeleteNews } from '@/hooks/useNews';
+import { useDebounce } from '@/hooks/useDebounce';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import type { News } from '@/types';
 import { NewsForm } from './components/NewsForm';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -29,24 +31,36 @@ import { logError } from '@/lib/logger';
 
 export function NewsAdminPage() {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNews, setEditingNews] = useState<News | undefined>();
   const [deletingNews, setDeletingNews] = useState<News | null>(null);
 
-  const { data: newsData, isLoading, isFetching, isError, refetch } = useNewsList();
+  // S06 — el listado NO venía completo: venían las primeras 20 (el default de
+  // `pagination.dto.ts`) y el filtrado en memoria sólo alcanzaba a esas. Es el
+  // mismo bug que R29 corrigió en las noticias públicas, acá con 20 en vez de
+  // 50. Ahora busca el backend, sobre `title` y `excerpt`, y la pantalla pagina.
+  const debouncedSearch = useDebounce(search);
+
+  const { data: newsData, isLoading, isFetching, isError, refetch } = useNewsList({
+    search: debouncedSearch.trim() || undefined,
+    page,
+    limit,
+  });
   const deleteMutation = useDeleteNews();
 
-  // El listado viene completo del backend: el filtrado por título/copete es
-  // local y se memoiza para no recorrerlo en renders ajenos a la búsqueda.
-  const filtered = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return newsData?.data ?? [];
-    return (newsData?.data ?? []).filter(
-      (item) =>
-        item.title.toLowerCase().includes(needle) ||
-        (item.excerpt ?? '').toLowerCase().includes(needle),
-    );
-  }, [newsData, search]);
+  // Tocar el filtro vuelve a la primera página: el resultado es otro y la
+  // página en la que estabas puede ya no existir.
+  const patchSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setPage(1);
+  };
 
   const handleCreate = () => {
     setEditingNews(undefined);
@@ -171,14 +185,20 @@ export function NewsAdminPage() {
       <DataTable
         entityName="noticias"
         columns={columns}
-        rows={filtered}
+        rows={newsData?.data ?? []}
         getRowId={(item) => item.id}
         isLoading={isLoading}
         isFetching={isFetching && !isLoading}
         isError={isError}
         onRetry={() => void refetch()}
+        meta={newsData?.meta}
+        onPageChange={setPage}
+        onLimitChange={(newLimit) => {
+          setLimit(newLimit);
+          setPage(1);
+        }}
         hasActiveFilters={search.trim().length > 0}
-        onClearFilters={() => setSearch('')}
+        onClearFilters={clearFilters}
         emptyIcon={<Newspaper className="w-10 h-10" />}
         emptyTitle="Todavía no hay noticias"
         emptyDescription="Publicá la primera novedad para que aparezca en el sitio público."
@@ -197,7 +217,7 @@ export function NewsAdminPage() {
               placeholder="Buscar noticias por título..."
               aria-label="Buscar noticias"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => patchSearch(e.target.value)}
               className="pl-9"
             />
           </div>

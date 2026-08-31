@@ -150,6 +150,103 @@ for (const role of ROLES) {
 }
 
 // -------------------------------------------------
+// 1.b S05 — el router APLICA el mapa (no alcanza con que el mapa esté bien)
+// -------------------------------------------------
+//
+// Todo lo de arriba razona sobre `ADMIN_ROUTE_ROLES`, que es el *mapa*. Nada
+// comprobaba que el router lo use: borrando el `conRoles(...)` de la ruta de
+// Usuarios, `tsc` quedaba limpio y este chequeo seguía en verde, con cualquier
+// rol del área admin entrando a `/admin/usuarios`. Es exactamente la
+// divergencia que el script existe para impedir, y pasaba muda.
+//
+// Se lee el fuente de `router.tsx` con una regex —igual que las secciones 2, 9
+// y 10 leen `navItems.tsx`, `Sidebar.tsx` y las toolbars— porque montar el
+// router pediría un DOM, react-router y los 30 chunks lazy para verificar una
+// propiedad puramente sintáctica.
+{
+  const fuenteRouter = await readFile(
+    path.join(RAIZ, 'src', 'router.tsx'),
+    'utf8',
+  );
+
+  // El router escribe las rutas como `ROUTES.USERS`, no como '/admin/usuarios':
+  // hace falta el camino inverso del mapa de constantes.
+  const claveDeRuta = new Map(
+    Object.entries(ROUTES).map(([clave, valor]) => [valor, clave]),
+  );
+
+  const rutasAdmin = Object.keys(ADMIN_ROUTE_ROLES);
+  let rutasHalladas = 0;
+
+  for (const ruta of rutasAdmin) {
+    const clave = claveDeRuta.get(ruta);
+
+    comprobar(
+      `${ruta} sale de una constante de ROUTES (el router la nombra así)`,
+      clave !== undefined,
+      'la ruta está en ADMIN_ROUTE_ROLES pero no en ROUTES',
+    );
+    if (clave === undefined) continue;
+
+    // Cada ruta del router es un objeto de una línea:
+    //   { path: ROUTES.X, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.X], <Y />) }
+    // El `\s*,` después de la clave evita que ROUTES.ADMIN matchee ROUTES.ADMIN_*.
+    const declaracion = new RegExp(
+      String.raw`path:\s*ROUTES\.${clave}\s*,\s*element:\s*([^\n]*)`,
+    ).exec(fuenteRouter);
+
+    comprobar(
+      `el router declara la ruta ${ruta}`,
+      declaracion !== null,
+      'está en ADMIN_ROUTE_ROLES pero el router no la monta',
+    );
+    if (declaracion === null) continue;
+
+    rutasHalladas += 1;
+    const elemento = declaracion[1];
+
+    comprobar(
+      `[router] ${ruta} se monta envuelta en conRoles(ADMIN_ROUTE_ROLES[ROUTES.${clave}])`,
+      elemento.includes(`conRoles(ADMIN_ROUTE_ROLES[ROUTES.${clave}]`),
+      `el router monta \`${elemento.trim()}\`: cualquier rol del área admin entra`,
+    );
+  }
+
+  // Red de seguridad del propio barrido: si un refactor cambia la forma de las
+  // rutas, la regex deja de matchear y todas las comprobaciones de arriba se
+  // vuelven vacías **sin fallar**. Es el mismo modo de falla que este chequeo
+  // persigue, un nivel más arriba.
+  comprobar(
+    'el barrido del router encontró todas las rutas admin (la regex sigue matcheando)',
+    rutasHalladas === rutasAdmin.length && rutasAdmin.length > 0,
+    `halladas ${rutasHalladas} de ${rutasAdmin.length}`,
+  );
+
+  // Nadie puede esquivar el mapa escribiendo la lista a mano en el router.
+  comprobar(
+    'ninguna ruta admin declara sus roles inline: todas pasan por ADMIN_ROUTE_ROLES',
+    !/conRoles\(\s*\[/.test(fuenteRouter),
+    'apareció un `conRoles([...])` con la lista escrita a mano',
+  );
+
+  const envolturas = [...fuenteRouter.matchAll(/conRoles\(ADMIN_ROUTE_ROLES\[ROUTES\.(\w+)\]/g)];
+  comprobar(
+    'no hay un conRoles de más apuntando a una ruta que no está en el mapa',
+    envolturas.every(([, clave]) =>
+      Object.hasOwn(ADMIN_ROUTE_ROLES, ROUTES[clave] ?? '\0'),
+    ),
+    'un conRoles usa una clave de ROUTES que ADMIN_ROUTE_ROLES no declara',
+  );
+
+  // El primer filtro del área: sin esto, las rutas admin quedan detrás de nada.
+  comprobar(
+    'el área admin entera está detrás de un ProtectedRoute con ADMIN_AREA_ROLES',
+    /<ProtectedRoute\s+allowedRoles=\{ADMIN_AREA_ROLES\}>/.test(fuenteRouter),
+    'el gate del área admin ya no usa ADMIN_AREA_ROLES',
+  );
+}
+
+// -------------------------------------------------
 // 2. Que no vuelva a existir una segunda fuente de verdad
 // -------------------------------------------------
 const fuenteNavItems = await readFile(

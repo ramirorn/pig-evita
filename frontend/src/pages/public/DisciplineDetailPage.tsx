@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router';
 import { Trophy, ArrowLeft, Loader2, Users, FileText } from 'lucide-react';
 import { useDiscipline } from '@/hooks/useDisciplines';
-import { useCategories } from '@/hooks/useCategories';
+import { useAllCategories } from '@/hooks/useCategories';
 import { Button } from '@/components/ui/button';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
 import { Link } from 'react-router';
@@ -11,7 +11,12 @@ export function DisciplineDetailPage() {
   const navigate = useNavigate();
 
   const { data: discipline, isLoading: isLoadingDiscipline } = useDiscipline(id || '');
-  const { data: categoriesData, isLoading: isLoadingCategories } = useCategories({ disciplineId: id, isActive: true });
+  // El listado de categorías de la disciplina se recorre entero (S06): con el
+  // hook paginado se cortaba en 20 sin decirlo.
+  const { data: categoriesData, isLoading: isLoadingCategories } = useAllCategories({
+    disciplineId: id,
+    isActive: true,
+  });
 
   if (isLoadingDiscipline) {
     return (
@@ -87,11 +92,11 @@ export function DisciplineDetailPage() {
             
             {isLoadingCategories ? (
               <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary-500" /></div>
-            ) : categoriesData?.data.length === 0 ? (
+            ) : categoriesData?.length === 0 ? (
               <p className="text-primary-500 italic">No hay categorías habilitadas para esta disciplina.</p>
             ) : (
               <div className="grid sm:grid-cols-2 gap-4">
-                {categoriesData?.data.map((category) => (
+                {categoriesData?.map((category) => (
                   <div key={category.id} className="p-4 border border-primary-200 rounded-xl bg-primary-50/50 hover:bg-primary-50 transition-colors">
                     <h3 className="font-bold text-primary-800 text-lg">{category.name}</h3>
                     <div className="mt-2 space-y-1 text-sm text-primary-600">

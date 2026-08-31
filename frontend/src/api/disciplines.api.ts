@@ -7,9 +7,14 @@ import type { Discipline, PaginatedResponse } from '@/types';
 export interface DisciplineFilters {
   page?: number;
   limit?: number;
-  name?: string;
   type?: string;
   isActive?: boolean;
+  /**
+   * Búsqueda server-side sobre el nombre (`DisciplineFilterDto` → `search`, con
+   * `mode: 'insensitive'` en Prisma). Reemplaza al viejo `name`, que el backend
+   * nunca leyó: viajaba en la query y se descartaba en el `ValidationPipe`.
+   */
+  search?: string;
 }
 
 export interface CreateDisciplinePayload {

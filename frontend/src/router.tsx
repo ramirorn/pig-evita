@@ -16,6 +16,7 @@ import { disciplinesApi } from '@/api/disciplines.api';
 import { categoriesApi } from '@/api/categories.api';
 import { DISCIPLINE_KEYS } from '@/hooks/useDisciplines';
 import { CATEGORY_KEYS } from '@/hooks/useCategories';
+import { fetchAllPages } from '@/lib/fetchAllPages';
 
 // Layouts
 import { PublicLayout } from '@/components/layout/PublicLayout';
@@ -88,22 +89,27 @@ function prefetchCatalogosAdmin() {
   // Sin sesión, la ruta admin va a redirigir al login: no vale la pena pedir nada.
   if (!getAccessToken()) return null;
 
+  // Se precargan las claves `listAll`, que son las que consumen los selectores
+  // desde S06: precargar `list({})` dejó de servir de nada el día que los
+  // combos pasaron a recorrer la paginación entera, y era un prefetch que
+  // nadie leía.
   void queryClient.prefetchQuery({
-    queryKey: DISCIPLINE_KEYS.list({}),
-    queryFn: () => disciplinesApi.findAll({}),
+    queryKey: DISCIPLINE_KEYS.listAll({}),
+    queryFn: () => fetchAllPages((page, limit) => disciplinesApi.findAll({ page, limit })),
     staleTime: STALE_TIME.CATALOG,
   });
 
   // Variante que usan los formularios (CategoryForm, TeamForm, CompetitionForm).
   void queryClient.prefetchQuery({
-    queryKey: DISCIPLINE_KEYS.list({ isActive: true }),
-    queryFn: () => disciplinesApi.findAll({ isActive: true }),
+    queryKey: DISCIPLINE_KEYS.listAll({ isActive: true }),
+    queryFn: () =>
+      fetchAllPages((page, limit) => disciplinesApi.findAll({ isActive: true, page, limit })),
     staleTime: STALE_TIME.CATALOG,
   });
 
   void queryClient.prefetchQuery({
-    queryKey: CATEGORY_KEYS.list({}),
-    queryFn: () => categoriesApi.findAll({}),
+    queryKey: CATEGORY_KEYS.listAll({}),
+    queryFn: () => fetchAllPages((page, limit) => categoriesApi.findAll({ page, limit })),
     staleTime: STALE_TIME.CATALOG,
   });
 

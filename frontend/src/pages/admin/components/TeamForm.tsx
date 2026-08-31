@@ -8,8 +8,8 @@ import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
 import { teamSchema } from '@/schemas';
 import { useCreateTeam, useUpdateTeam } from '@/hooks/useTeams';
-import { useDisciplines } from '@/hooks/useDisciplines';
-import { useCategories } from '@/hooks/useCategories';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
+import { useAllCategories } from '@/hooks/useCategories';
 import { type Team } from '@/types';
 
 import {
@@ -43,7 +43,9 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
   const createMutation = useCreateTeam();
   const updateMutation = useUpdateTeam();
   
-  const { data: disciplinesData } = useDisciplines({ isActive: true });
+  // El selector recorre la paginación hasta el final (S06): con el hook
+  // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
+  const { data: disciplinesData } = useAllDisciplines({ isActive: true });
   
   const form = useForm<TeamFormValues>({
     resolver: zodResolver(teamSchema) as any,
@@ -57,10 +59,11 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
   });
 
   const selectedDiscipline = form.watch('disciplineId');
-  const { data: categoriesData } = useCategories({ 
-    disciplineId: selectedDiscipline,
-    isActive: true 
-  });
+  const { data: categoriesData } = useAllCategories(
+    { disciplineId: selectedDiscipline || undefined, isActive: true },
+    // Sin disciplina elegida el select está deshabilitado: no hay nada que pedir.
+    { enabled: Boolean(selectedDiscipline) },
+  );
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -127,7 +130,7 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {disciplinesData?.data.map((discipline) => (
+                    {(disciplinesData ?? []).map((discipline) => (
                       <SelectItem key={discipline.id} value={discipline.id}>
                         {discipline.name}
                       </SelectItem>
@@ -152,7 +155,7 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {categoriesData?.data.map((category) => (
+                    {(categoriesData ?? []).map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
                       </SelectItem>

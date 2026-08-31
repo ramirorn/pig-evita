@@ -1,9 +1,10 @@
 // ===========================================
 // Users Admin Page
 // ===========================================
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { UserCog, Search, Plus, Pencil } from 'lucide-react';
 import { useUsers } from '@/hooks/useUsers';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +18,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { usePermisos } from '@/hooks/usePermisos';
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { UserForm } from './components/UserForm';
-import { ROLE_LABELS } from '@/lib/constants';
+import { ROLE_LABELS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import type { User } from '@/types';
 
 export function UsersPage() {
@@ -28,21 +29,34 @@ export function UsersPage() {
   const { puede } = usePermisos();
   const puedeGestionar = puede('USER_MANAGE');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>();
 
-  const { data: usersData, isLoading, isFetching, isError, refetch } = useUsers();
+  // S06 — el buscador filtraba con `.includes()` sobre las 20 filas que trae el
+  // backend por defecto (`pagination.dto.ts`, `limit = 20`): con 25 usuarios,
+  // buscar el apellido del 23 decía "no hay coincidencias". Ahora busca el
+  // backend, sobre el padrón entero, y la pantalla pagina.
+  const debouncedSearch = useDebounce(search);
 
-  const filtered = useMemo(
-    () =>
-      (usersData?.data ?? []).filter((user) =>
-        [user.email, user.firstName, user.lastName, user.department ?? '']
-          .join(' ')
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-      ),
-    [usersData, search],
-  );
+  const { data: usersData, isLoading, isFetching, isError, refetch } = useUsers({
+    search: debouncedSearch.trim() || undefined,
+    page,
+    limit,
+  });
+
+  // Tocar el filtro vuelve a la primera página: el resultado es otro y la
+  // página en la que estabas puede ya no existir.
+  const patchSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setPage(1);
+  };
 
   const handleCreate = () => {
     setEditingUser(undefined);
@@ -162,15 +176,21 @@ export function UsersPage() {
       <DataTable
         entityName="usuarios"
         columns={columns}
-        rows={filtered}
+        rows={usersData?.data ?? []}
         getRowId={(user) => user.id}
         isLoading={isLoading}
         isFetching={isFetching && !isLoading}
         isError={isError}
         onRetry={() => void refetch()}
         isRowInactive={(user) => !user.isActive}
+        meta={usersData?.meta}
+        onPageChange={setPage}
+        onLimitChange={(newLimit) => {
+          setLimit(newLimit);
+          setPage(1);
+        }}
         hasActiveFilters={search.trim().length > 0}
-        onClearFilters={() => setSearch('')}
+        onClearFilters={clearFilters}
         emptyIcon={<UserCog className="w-10 h-10" />}
         emptyTitle="Todavía no hay usuarios"
         emptyDescription="Registrá el primer usuario para empezar a operar el sistema."
@@ -188,10 +208,10 @@ export function UsersPage() {
               aria-hidden="true"
             />
             <Input
-              placeholder="Buscar por nombre, email o depto..."
+              placeholder="Buscar por nombre, apellido o email..."
               aria-label="Buscar usuarios"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => patchSearch(e.target.value)}
               className="pl-9"
             />
           </div>

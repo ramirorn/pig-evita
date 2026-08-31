@@ -136,26 +136,71 @@ export class InscriptionsService {
     // más tiempo del necesario.
     const inscription = await this.prisma.$transaction(async (tx) => {
       // 4. Crear o encontrar participante por DNI
-      let participant = await tx.participant.findUnique({
-        where: { dni },
+      //
+      // S04 — la búsqueda va **con el alcance adentro del `where`**.
+      //
+      // Con un `findUnique({ where: { dni } })` pelado, el corte del paso 0 no
+      // servía de nada: valida el `department` del *body*, así que un delegado
+      // que mandaba el DNI de un chico de otro departamento declarando el suyo
+      // pasaba el chequeo, reutilizaba la fila ajena y se llevaba de vuelta su
+      // ficha entera —justo la que su propio `GET /participants/:id` le niega
+      // con 404—. El DNI no es una barrera: figura en cualquier planilla de
+      // escuela.
+      //
+      // Al usar `findFirst` con el filtro territorial, un DNI que existe fuera
+      // del alcance responde **igual** que uno que no existe: cae en la rama de
+      // creación de abajo, donde la unique de `dni` lo corta con el mismo 409
+      // que cualquier duplicado. Es deliberado que no se pueda distinguir
+      // "existe pero no es tuyo" de "no existe", por la misma razón por la que
+      // R06 devuelve 404 y no 403.
+      let participant = await tx.participant.findFirst({
+        where: {
+          dni,
+          ...this.scope.whereParticipant(alcance),
+        },
       });
 
       if (!participant) {
-        participant = await tx.participant.create({
-          data: {
-            dni,
-            firstName,
-            lastName,
-            birthDate: birthDateObj,
-            sex,
-            phone,
-            email,
-            locality,
-            department,
-            address,
-          },
-        });
-        this.logger.log(`New participant created: ${dni}`);
+        try {
+          participant = await tx.participant.create({
+            data: {
+              dni,
+              firstName,
+              lastName,
+              birthDate: birthDateObj,
+              sex,
+              phone,
+              email,
+              locality,
+              department,
+              address,
+            },
+          });
+          this.logger.log(`New participant created: ${dni}`);
+        } catch (error) {
+          // S04 — el DNI existe, pero fuera del alcance de quien pregunta.
+          //
+          // La búsqueda de arriba va acotada al territorio, así que un
+          // participante ajeno "no aparece" y se cae en esta rama; ahí la unique
+          // de `dni` corta. Sin este `catch`, el alta terminaba en un 500 con el
+          // error crudo de Prisma: cambiar una fuga de datos por un 500 no es
+          // arreglarla.
+          //
+          // El mensaje es **deliberadamente neutro**: no dice en qué
+          // departamento está ni si existe, porque eso reintroduciría por texto
+          // la distinción que el `findFirst` acotado vino a borrar. Dice qué
+          // hacer, que es lo que el delegado necesita.
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            throw new ConflictException(
+              'Ya existe un participante con ese DNI. Si es de tu departamento, ' +
+                'buscalo en el padrón; si no, pedí el alta a un administrador.',
+            );
+          }
+          throw error;
+        }
       }
 
       // 5. Verificar que no esté ya inscripto en esta categoría
@@ -185,7 +230,11 @@ export class InscriptionsService {
           status: InscriptionStatus.PENDIENTE,
         },
         include: {
-          participant: true,
+          // S04/S10 — antes bajaba `participant: true`, la fila entera
+          // (domicilio incluido, que ni `PARTICIPANT_CONTACT` expone). Es el
+          // mecanismo que `prisma-selects.ts` describe como el motivo de existir
+          // del archivo: un `include` arrastra las columnas nuevas solo.
+          participant: { select: PARTICIPANT_CONTACT },
           category: { include: { discipline: true } },
         },
       });

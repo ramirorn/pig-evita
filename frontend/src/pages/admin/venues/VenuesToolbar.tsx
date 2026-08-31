@@ -38,8 +38,14 @@ export function VenuesToolbar({ filters, onChange }: VenuesToolbarProps) {
           className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400"
           aria-hidden="true"
         />
+        {/*
+          S06 — el placeholder prometía dirección y localidad porque el filtrado
+          era local sobre la página traída. Ahora busca el backend
+          (`VenueFilterDto` → `search`), que compara contra el nombre: el texto
+          dice lo que la búsqueda hace, y alcanza a todas las sedes, no a 20.
+        */}
         <Input
-          placeholder="Buscar por sede, dirección o localidad..."
+          placeholder="Buscar por nombre de sede..."
           aria-label="Buscar sedes"
           value={filters.search}
           onChange={(e) => onChange({ search: e.target.value })}

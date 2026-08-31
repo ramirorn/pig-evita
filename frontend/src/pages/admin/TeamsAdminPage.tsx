@@ -6,8 +6,8 @@ import { UsersRound, Plus } from 'lucide-react';
 import { useTeams, useDeleteTeam } from '@/hooks/useTeams';
 import type { Team } from '@/types';
 import { TeamForm } from './components/TeamForm';
-import { useDisciplines } from '@/hooks/useDisciplines';
-import { useCategories } from '@/hooks/useCategories';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
+import { useAllCategories } from '@/hooks/useCategories';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePermisos } from '@/hooks/usePermisos';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
@@ -44,8 +44,10 @@ export function TeamsAdminPage() {
   const [editingTeam, setEditingTeam] = useState<Team | undefined>();
   const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
 
-  const { data: disciplines } = useDisciplines();
-  const { data: categories } = useCategories({
+  // Los selectores del toolbar recorren la paginación hasta el final (S06):
+  // con el hook paginado ofrecían como mucho 20 opciones.
+  const { data: disciplines } = useAllDisciplines();
+  const { data: categories } = useAllCategories({
     disciplineId: filters.disciplineId !== 'all' ? filters.disciplineId : undefined,
   });
 
@@ -163,8 +165,8 @@ export function TeamsAdminPage() {
             filters={filters}
             onChange={patchFilters}
             mostrarFiltroDepartamento={puedeFiltrarPorDepartamento}
-            disciplines={disciplines?.data ?? []}
-            categories={categories?.data ?? []}
+            disciplines={disciplines ?? []}
+            categories={categories ?? []}
           />
         }
       />

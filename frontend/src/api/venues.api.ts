@@ -8,7 +8,14 @@ export interface VenueFilters {
   page?: number;
   limit?: number;
   department?: string;
+  locality?: string;
   isActive?: boolean;
+  /**
+   * Búsqueda server-side sobre el nombre de la sede (`VenueFilterDto` →
+   * `search`). El filtrado local también miraba dirección y localidad, pero lo
+   * hacía sólo sobre las 20 sedes de la primera página (S06).
+   */
+  search?: string;
 }
 
 export interface CreateVenuePayload {

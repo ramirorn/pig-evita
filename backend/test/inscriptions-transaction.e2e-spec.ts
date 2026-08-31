@@ -71,6 +71,26 @@ function crearPrismaFalso(
           t.participants.find((p) => p.dni === where.dni) ?? null,
         ),
       ),
+      // S04 — la búsqueda por DNI pasó a `findFirst` con el filtro territorial
+      // adentro del `where`. El doble evalúa ese filtro además del DNI: si sólo
+      // matcheara por DNI, encontraría al participante ajeno y este spec
+      // seguiría en verde con la fuga puesta.
+      findFirst: jest.fn(({ where }: { where: Record<string, any> }) =>
+        Promise.resolve(
+          t.participants.find((p: any) => {
+            if (where.dni !== undefined && p.dni !== where.dni) return false;
+            const dep = where.department;
+            if (dep === undefined) return true;
+            if (Array.isArray(dep?.in)) return dep.in.includes(p.department);
+            if (Array.isArray(where.OR)) {
+              return where.OR.some(
+                (c: any) => c.department?.equals === p.department,
+              );
+            }
+            return true;
+          }) ?? null,
+        ),
+      ),
       create: jest.fn(({ data }: { data: Record<string, unknown> }) => {
         const fila = { id: `p${t.participants.length + 1}`, ...data };
         t.participants.push(fila);

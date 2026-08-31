@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
 import { categorySchema } from '@/schemas';
 import { useCreateCategory, useUpdateCategory } from '@/hooks/useCategories';
-import { useDisciplines } from '@/hooks/useDisciplines';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { Sex, type Category } from '@/types';
 import { SEX_LABELS } from '@/lib/constants';
 
@@ -42,7 +42,9 @@ interface CategoryFormProps {
 export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormProps) {
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
-  const { data: disciplinesData } = useDisciplines({ isActive: true });
+  // El selector recorre la paginación hasta el final (S06): con el hook
+  // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
+  const { data: disciplinesData } = useAllDisciplines({ isActive: true });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -100,7 +102,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {disciplinesData?.data.map((discipline) => (
+                  {(disciplinesData ?? []).map((discipline) => (
                     <SelectItem key={discipline.id} value={discipline.id}>
                       {discipline.name}
                     </SelectItem>

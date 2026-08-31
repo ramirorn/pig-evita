@@ -10,6 +10,11 @@ export interface CategoryFilters {
   disciplineId?: string;
   sex?: string;
   isActive?: boolean;
+  /**
+   * Búsqueda server-side sobre el nombre (`CategoryFilterDto` → `search`, con
+   * `mode: 'insensitive'` en Prisma).
+   */
+  search?: string;
 }
 
 export interface CreateCategoryPayload {

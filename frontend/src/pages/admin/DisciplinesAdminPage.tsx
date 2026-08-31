@@ -1,13 +1,14 @@
 // ===========================================
 // Disciplines Admin Page
 // ===========================================
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Trophy, Plus, Pencil, Trash2, MoreVertical, Search } from 'lucide-react';
 import { useDisciplines, useDeleteDiscipline } from '@/hooks/useDisciplines';
+import { useDebounce } from '@/hooks/useDebounce';
 import type { Discipline } from '@/types';
 import { DisciplineType } from '@/types';
 import { DisciplineForm } from './components/DisciplineForm';
-import { DISCIPLINE_TYPE_LABELS, RESULT_TYPE_LABELS } from '@/lib/constants';
+import { DISCIPLINE_TYPE_LABELS, RESULT_TYPE_LABELS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
@@ -31,22 +32,36 @@ import { logError } from '@/lib/logger';
 
 export function DisciplinesAdminPage() {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDiscipline, setEditingDiscipline] = useState<Discipline | undefined>();
   const [deletingDiscipline, setDeletingDiscipline] = useState<Discipline | null>(null);
 
-  const { data, isLoading, isFetching, isError, refetch } = useDisciplines();
+  // S06 — el endpoint NO devolvía el catálogo completo: devolvía las primeras
+  // 20 (el default de `pagination.dto.ts`) y el filtrado local sólo alcanzaba a
+  // esas. Ahora busca el backend (`DisciplineFilterDto` → `search`, sobre el
+  // nombre) y la pantalla pagina.
+  const debouncedSearch = useDebounce(search);
+
+  const { data, isLoading, isFetching, isError, refetch } = useDisciplines({
+    search: debouncedSearch.trim() || undefined,
+    page,
+    limit,
+  });
   const deleteMutation = useDeleteDiscipline();
 
-  // El endpoint devuelve el catálogo completo: el filtrado es local, y se
-  // memoiza para no recalcularlo en renders que no tocan ni datos ni búsqueda.
-  const filteredDisciplines = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    if (!needle) return data?.data ?? [];
-    return (data?.data ?? []).filter(
-      (d) => d.name.toLowerCase().includes(needle) || d.type.toLowerCase().includes(needle),
-    );
-  }, [data, search]);
+  // Tocar el filtro vuelve a la primera página: el resultado es otro y la
+  // página en la que estabas puede ya no existir.
+  const patchSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setPage(1);
+  };
 
   const handleCreate = () => {
     setEditingDiscipline(undefined);
@@ -176,15 +191,21 @@ export function DisciplinesAdminPage() {
       <DataTable
         entityName="disciplinas"
         columns={columns}
-        rows={filteredDisciplines}
+        rows={data?.data ?? []}
         getRowId={(discipline) => discipline.id}
         isLoading={isLoading}
         isFetching={isFetching && !isLoading}
         isError={isError}
         onRetry={() => void refetch()}
         isRowInactive={(discipline) => !discipline.isActive}
+        meta={data?.meta}
+        onPageChange={setPage}
+        onLimitChange={(newLimit) => {
+          setLimit(newLimit);
+          setPage(1);
+        }}
         hasActiveFilters={search.trim().length > 0}
-        onClearFilters={() => setSearch('')}
+        onClearFilters={clearFilters}
         emptyIcon={<Trophy className="w-10 h-10" />}
         emptyTitle="Todavía no hay disciplinas"
         emptyDescription="Registrá la primera disciplina para empezar a organizar torneos y categorías."
@@ -203,7 +224,7 @@ export function DisciplinesAdminPage() {
               placeholder="Buscar por nombre..."
               aria-label="Buscar disciplinas"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => patchSearch(e.target.value)}
               className="pl-9"
             />
           </div>

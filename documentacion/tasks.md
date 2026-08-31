@@ -11,7 +11,7 @@
 - Severidad: 🔴 blocker · 🟡 alto · 🟠 medio · ✨ polish
 - Los IDs usan el prefijo **S** (tercera ronda) para no colisionar con T01–T28 ni R01–R31.
 
-**⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local. **Hoy hay 6 abiertas.**
+**⚠️ Regla dura:** ninguna tarea 🔴 puede quedar abierta antes de exponer la app fuera de red local. **✅ Se cumple: los 6 blockers están cerrados.**
 
 ---
 
@@ -51,7 +51,7 @@ Por eso este plan invierte el orden: **S01 es una red que detecta la clase enter
 
 ### S01 🔴 🏗️ BE — Red que detecta la clase entera: ningún endpoint devuelve datos de personas sin recortar
 
-- [ ] **Descripción:** Construir un test que **descubra por reflexión** todos los handlers que devuelven `Participant`, `Team` o `Inscription` (directo o anidado) y verifique, para cada uno y para cada rol acotado, que el recorte territorial se aplica. Es el equivalente al barrido de `@Public()` que R01 dejó en `test/public-pii.e2e-spec.ts`, que funcionó: descubre los endpoints en vez de listarlos a mano, así que **un endpoint nuevo entra solo**.
+- [x] **Descripción:** Construir un test que **descubra por reflexión** todos los handlers que devuelven `Participant`, `Team` o `Inscription` (directo o anidado) y verifique, para cada uno y para cada rol acotado, que el recorte territorial se aplica. Es el equivalente al barrido de `@Public()` que R01 dejó en `test/public-pii.e2e-spec.ts`, que funcionó: descubre los endpoints en vez de listarlos a mano, así que **un endpoint nuevo entra solo**.
 - **Por qué va primero:** los tres blockers siguientes son instancias de esta clase. Sin la red, se arreglan los tres y la próxima revisión encuentra el cuarto.
 - **Se espera que arranque en rojo** marcando al menos S02, S03 y S04. Ese rojo inicial **es el entregable**: demuestra que la red detecta lo que tiene que detectar. Anotar cuántos handlers marca antes de arreglar nada.
 - **Archivos:** `backend/test/` (nuevo), apoyándose en `src/common/scope/`.
@@ -61,9 +61,18 @@ Por eso este plan invierte el orden: **S01 es una red que detecta la clase enter
   - Para cada rol acotado, una fila fuera del alcance no aparece por ninguna de las tres vías.
   - Un handler nuevo sin recorte hace fallar el test sin tocar el test.
 
+- **✅ Evidencia (2026-08-31):** `backend/test/scope-sweep.e2e-spec.ts`, **10 tests**, apoyado en un doble de Prisma nuevo (`test/mocks/prisma-territorial.ts`) que **evalúa el `where` de verdad** y modela las columnas `unique` del esquema.
+- **La red arrancó en rojo, que era el entregable.** Antes de tocar nada marcó **3 handlers**, cada uno con el escenario y **el dato concreto que se filtró**:
+  - `[ESCRITURA] InscriptionsController.create` — *"alta con el DNI de un participante ajeno declarando el departamento propio"* → devolvió `"Pirané"`, el uuid, el DNI, `"Insaurralde"` y `"Calle Rivadavia 900"`.
+  - `[ESCRITURA] ParticipantsController.update` — *"mudando el propio al departamento ajeno"* → devolvió `"Pirané"`.
+  - `[ESCRITURA] TeamsController.update` — ídem.
+- **Los tres son de la vía ESCRITURA**, que es exactamente la que se escapó en las dos rondas anteriores: los barridos previos miraban listados y lecturas por id. Cubrir la respuesta de una escritura era el punto del DoD y es lo que encontró todo.
+- **🐛 Hallazgo del propio harness:** la primera versión del doble aceptaba un DNI repetido, así que el `create` "tenía éxito" y devolvía al participante ajeno — el test habría pasado con la fuga puesta. Se modelaron las `unique` (`participant.dni`, `user.email`) y recién ahí el escenario se comportó como Postgres. Es el mismo principio que ya nos costó caro: un mock complaciente hace pasar por igual al código nuevo y al viejo.
+- **Estado final: 10/10 en verde**, tras S02, S03 y S04.
+
 ### S02 🔴 🏗️ BE — El dashboard ignora el recorte territorial por completo
 
-- [ ] **Descripción:** `getStats()` no recibe el usuario, el service no tiene **ni una** cláusula `where`, y el cache es una clave global única. `DASHBOARD_READ` incluye `ADMIN_DEPARTAMENTAL`, `ADMIN_ZONAL` y `COORDINADOR`, que son los tres roles acotados.
+- [x] **Descripción:** `getStats()` no recibe el usuario, el service no tiene **ni una** cláusula `where`, y el cache es una clave global única. `DASHBOARD_READ` incluye `ADMIN_DEPARTAMENTAL`, `ADMIN_ZONAL` y `COORDINADOR`, que son los tres roles acotados.
 - **El código ya lo avisaba.** El comentario de `dashboard.service.ts:41-49` dice: *"Hoy ningún service filtra por department o zone… Si algún día se implementa ese recorte, esta clave tiene que pasar a incluir el scope"*. Ese día fue R05 y el comentario quedó viejo. **Reescribirlo en la misma pasada.**
 - **Verificado en vivo:** el mismo ADMIN_ZONAL al que `/participants` le devuelve `total=0` obtiene del dashboard `totalParticipants: 110`, `totalInscriptions: 108` y los nombres de las últimas 5 inscripciones, de Bermejo, Formosa y Pirané. Un COORDINADOR de Pilcomayo (alcance real: 14) ve los mismos 110.
 - **Archivos:** `backend/src/modules/dashboard/dashboard.service.ts:40-50,119-145,168-171`, `dashboard.controller.ts:22-35`
@@ -72,9 +81,14 @@ Por eso este plan invierte el orden: **S01 es una red que detecta la clase enter
   - **La clave del cache se deriva del alcance.** Arreglar sólo las queries no alcanza: con una clave global, el primero que pida el dashboard le deja su vista a todos los demás. Un test tiene que cubrir específicamente esto —dos roles distintos pidiendo en secuencia— porque es el error que se comete al arreglar esta clase de bug.
   - Un rol acotado sin campo territorial cargado ve ceros, no el total.
 
+- **✅ Evidencia (2026-08-31):** el controller pasó a recibir `@CurrentUser()` y a derivar el alcance; el service recorta los contadores, los `groupBy` y las inscripciones recientes; y la clave del cache la arma `claveDeCache(alcance)`. La red de S01 dejó de marcar el dashboard.
+- **El cache era la mitad del arreglo, y sin él lo demás no servía:** con una clave global, el primero que pide el dashboard le deja su vista cacheada a todos los demás y el recorte se evapora en el segundo request. El test de cache ahora fija la clave derivada.
+- **Se actualizaron dos assertions de `dashboard-stats.e2e-spec.ts` que afirmaban el comportamiento anterior** —la clave global y el `groupBy` sin filtro—, con el motivo escrito en el propio test. No se pueden sostener las dos cosas a la vez: eran justo lo que S02 vino a cambiar. Lo que ese spec cuida —que sea **un solo** `count` y **un solo** `groupBy`, no uno por estado— se conservó intacto.
+- **El comentario viejo de `dashboard.service.ts:41-49` se reescribió.** Anticipaba este bug textualmente: *"si algún día se implementa ese recorte, esta clave tiene que pasar a incluir el scope"*.
+
 ### S03 🔴 🏗️ BE — Editar permite mover filas fuera de la jurisdicción
 
-- [ ] **Descripción:** El alta valida el departamento del body con `permiteDepartamento()`; **la edición no**. `UpdateParticipantDto` y `UpdateTeamDto` heredan `department` vía `PartialType` y el `update` hace `data: { ...updateDto }` sin mirarlo.
+- [x] **Descripción:** El alta valida el departamento del body con `permiteDepartamento()`; **la edición no**. `UpdateParticipantDto` y `UpdateTeamDto` heredan `department` vía `PartialType` y el `update` hace `data: { ...updateDto }` sin mirarlo.
 - **Verificado en vivo, en las dos entidades:** `PATCH /participants/:id {"department":"Pirané"}` → **200**, la fila se mudó, y acto seguido el mismo token recibe **404** sobre ella. Es una operación de un solo sentido: **irreversible para quien la hace**, porque después no puede verla para corregirla. Con un script son 14 requests para vaciar un departamento dentro de otro, y la auditoría lo registra como catorce ediciones de rutina.
 - **El argumento ya está escrito en el código**, en `participants.service.ts:40-46`, justificando por qué el **alta** se acota: *"un delegado no podría ver los participantes de otro departamento pero sí crearlos ahí"*. Aplica idéntico a la edición, que además es peor porque **saca** filas de una jurisdicción.
 - **Archivos:** `backend/src/modules/participants/participants.service.ts:212-275` (contrastar con `:47`), `backend/src/modules/teams/teams.service.ts:182-202` (contrastar con `:42`)
@@ -83,9 +97,13 @@ Por eso este plan invierte el orden: **S01 es una red que detecta la clase enter
   - Reenviar el mismo departamento no rompe la edición de otros campos (mismo cuidado que R17 tuvo con el DNI: los formularios mandan el objeto completo).
   - Cubierto en participantes **y** equipos.
 
+- **✅ Evidencia (2026-08-31):** el `update` de participantes y el de equipos exigen `permiteDepartamento()` sobre el **valor nuevo** cuando el departamento cambia, y responden **403**. La red de S01 dejó de marcar los dos handlers. **Contraprueba:** quitando los dos guards, la red vuelve a marcar `ParticipantsController.update` y `TeamsController.update` por nombre.
+- **Sólo se corta si el valor cambia**, con el mismo cuidado que R17 tuvo con el DNI: los formularios mandan el objeto completo, así que rechazar un PATCH que reenvía el mismo departamento habría roto la edición de cualquier otro campo para el rol que hace la mayoría de las ediciones.
+- **403 y no 404**, a diferencia de las lecturas: acá no se está revelando ninguna fila ajena —el `findOne` ya validó que la fila es propia—, sólo se rechaza el destino. El delegado tiene que entender por qué no puede.
+
 ### S04 🔴 🏗️ BE — Inscribir reutiliza un participante ajeno y devuelve su ficha completa
 
-- [ ] **Descripción:** El corte territorial se aplica sobre el `department` **del body**. Adentro de la transacción, el paso 4 busca por DNI con `findUnique({ where: { dni } })` **sin recorte** y, si existe, lo reutiliza; el `create` final baja con `include: { participant: true }`, la fila entera.
+- [x] **Descripción:** El corte territorial se aplica sobre el `department` **del body**. Adentro de la transacción, el paso 4 busca por DNI con `findUnique({ where: { dni } })` **sin recorte** y, si existe, lo reutiliza; el `create` final baja con `include: { participant: true }`, la fila entera.
 - **Verificado en vivo:** un DELEGADO de Pilcomayo mandó el DNI de un chico de Pirané declarando su propio departamento. La respuesta le entregó nombre, apellido, fecha de nacimiento, sexo, localidad y departamento del menor. A continuación, con el mismo token: `GET /participants/:id` → **404**. El endpoint scopeado se la niega; el que no lo está se la entrega. De yapa queda una inscripción en el padrón de Pirané que su autor no puede ver ni corregir.
 - **El DNI no es una barrera:** figura en cualquier planilla de escuela, así que enumerarlo es trivial.
 - **Archivos:** `backend/src/modules/inscriptions/inscriptions.service.ts:73-78,139-159,188`
@@ -94,18 +112,27 @@ Por eso este plan invierte el orden: **S01 es una red que detecta la clase enter
   - Un DNI que existe **fuera** del alcance responde **igual** que un DNI ajeno cualquiera: no se puede distinguir "existe pero no es tuyo" de "no existe".
   - La respuesta deja de bajar la ficha completa (ver S10).
 
+- **✅ Evidencia (2026-08-31):** la búsqueda por DNI pasó a `findFirst` con `whereParticipant(alcance)` adentro del `where`, y la respuesta del alta dejó de bajar `participant: true` para usar `PARTICIPANT_CONTACT`. La red de S01 dejó de marcarlo. **Contraprueba:** volviendo al `findUnique` pelado, la red vuelve a marcar `InscriptionsController.create`.
+- **Un DNI fuera del alcance responde igual que uno inexistente:** cae en la rama de creación, donde la unique de `dni` corta. Es deliberado que no se pueda distinguir "existe pero no es tuyo" de "no existe", por la misma razón por la que R06 devuelve 404 y no 403.
+- **🐛 El arreglo obvio introducía un 500, y hubo que cerrarlo:** sin manejo de `P2002`, ese alta terminaba en un error crudo de Prisma. Cambiar una fuga de datos por un 500 no es arreglarla. Ahora devuelve **409** con un mensaje **deliberadamente neutro** —no dice en qué departamento está ni si existe, porque eso reintroduciría por texto la distinción que el `findFirst` acotado vino a borrar— y que dice qué hacer, que es lo que el delegado necesita.
+- **Se actualizó el mock de `inscriptions-transaction.e2e-spec.ts`** para que su `findFirst` evalúe el filtro territorial además del DNI: si sólo matcheara por DNI, ese spec seguiría en verde con la fuga puesta.
+
 ### S05 🔴 ⚛️ FE — El chequeo de permisos no mira el archivo donde los permisos se aplican
 
-- [ ] **Descripción:** `check:nav` bundlea `adminRoutes.ts`, `adminActions.ts`, `navItems.tsx` y hasta el archivo real del backend — pero **no tiene una sola referencia a `router.tsx`**, que es donde la protección efectivamente se declara. Toda la garantía es sobre el *mapa*; nada comprueba que el router lo aplique.
+- [x] **Descripción:** `check:nav` bundlea `adminRoutes.ts`, `adminActions.ts`, `navItems.tsx` y hasta el archivo real del backend — pero **no tiene una sola referencia a `router.tsx`**, que es donde la protección efectivamente se declara. Toda la garantía es sobre el *mapa*; nada comprueba que el router lo aplique.
 - **Verificado mutando:** borrando el `conRoles(...)` de la ruta de Usuarios, `npx tsc --noEmit` queda limpio y los **402 chequeos siguen en verde**. Con esa línea borrada, cualquier rol del área admin entra a `/admin/usuarios`. No es una brecha —el backend sigue devolviendo 403 en los datos— pero es exactamente la divergencia que el script existe para impedir, y pasa muda.
 - **Archivos:** `frontend/scripts/check-nav-roles.mjs`
 - **DoD:**
   - El chequeo lee `router.tsx` como fuente (igual que ya hace con `navItems.tsx`, `Sidebar.tsx` y `constants.ts`) y exige que cada ruta admin aparezca envuelta en su `conRoles(ADMIN_ROUTE_ROLES[...])`. Alcanza una regex sobre el fuente; no hace falta montar el router.
   - **Contraprueba obligatoria:** repetir la mutación de arriba y comprobar que ahora se pone en rojo.
 
+- **✅ Evidencia (2026-08-31):** sección nueva en `check:nav` que lee `router.tsx` como fuente y exige que cada ruta admin se monte envuelta en `conRoles(ADMIN_ROUTE_ROLES[ROUTES.<clave>])`. Los chequeos pasaron de **402 a 469**.
+- **Contraprueba reproducida por mí, no sólo por el agente:** borrando el `conRoles(...)` de la ruta de Usuarios —la mutación exacta que la revisión usó— `npx tsc --noEmit` queda **limpio** (el compilador no ve el problema) y el chequeo ahora **falla**, con el mensaje `[router] /admin/usuarios se monta envuelta en conRoles(...) — el router monta \`<UsersPage /> },\`: cualquier rol del área admin entra`. Antes esa misma mutación pasaba en verde. Se probó también la variante de reemplazarlo por una lista inline: 2 divergencias.
+- **Incluye una red de seguridad del propio barrido:** si un refactor de la forma de las rutas deja la regex sin matchear, el chequeo falla en vez de quedarse con 63 comprobaciones vacías — que es el mismo modo de falla que esta tarea denuncia, un nivel más arriba.
+
 ### S06 🔴 ⚛️ FE — Cinco pantallas del admin cortan en 20 filas y buscan en memoria
 
-- [ ] **Descripción:** El límite por defecto del backend es **20**, no 100 (`pagination.dto.ts:41`) — dato que se dio por mal en la ronda anterior. Estas cinco pantallas llaman al hook paginado **sin `page` ni `limit`**, no pasan `meta` al `DataTable` y **no tienen ningún control de paginación**:
+- [x] **Descripción:** El límite por defecto del backend es **20**, no 100 (`pagination.dto.ts:41`) — dato que se dio por mal en la ronda anterior. Estas cinco pantallas llaman al hook paginado **sin `page` ni `limit`**, no pasan `meta` al `DataTable` y **no tienen ningún control de paginación**:
 
   | Pantalla | Qué pasa |
   |---|---|
@@ -119,6 +146,21 @@ Por eso este plan invierte el orden: **S01 es una red que detecta la clase enter
 - **Hoy no se ve** porque el seed es chico (3 usuarios, 3 sedes, 5 disciplinas), pero participantes ya está en 110 con 6 páginas — y esa pantalla **sí** pagina bien. La diferencia es que a `ParticipantsPage` y `TeamsAdminPage` se les puso `page`/`limit`/`meta` y a estas cinco no.
 - **Alcance adicional — los selectores de filtro:** también salen del hook paginado y ofrecen como mucho 20 opciones (`ParticipantsPage:44-45`, `TeamsAdminPage:47-48`, `ReportsPage:21-22`, `CalendarAdminPage:32`, `TeamForm:60`, `useCompetitionForm:75`, `DisciplineDetailPage:14`). Los `useAllDisciplines`/`useAllCategories` que R29 creó se usan **sólo** en el asistente público.
 - **DoD:** con más registros que el tope, la búsqueda y los filtros alcanzan a **todo** el conjunto en las cinco pantallas, y ningún `EmptyState` afirma "no hay resultados" cuando lo cierto es "no hay resultados en lo que trajimos". Los selectores ofrecen el catálogo completo.
+
+- **✅ Evidencia (2026-08-31), medida sembrando por encima del tope:**
+
+  | Pantalla | total | la request vieja traía | buscar la aguja (antes → ahora) |
+  |---|---|---|---|
+  | Usuarios | 25 | 20 | **0 coincidencias → "no hay resultados"** → 1 |
+  | Noticias | 25 | 20 | 0 → 1 |
+  | Sedes | 25 | 20 | 0 → 1 |
+  | Disciplinas | 27 | 20 | 0 → 1 |
+  | Categorías | 27 | 20 | 0 → 1 |
+
+  Las cinco paginan de a 10 y devuelven el total completo. Los selectores, con 27 disciplinas, pasaron de ofrecer **20 de 27** a **27 de 27**.
+- **Se corrigieron dos textos que mentían:** el placeholder de Usuarios decía "o depto" y el backend busca por nombre/apellido/email; el de Sedes prometía dirección y localidad cuando el `search` compara contra el nombre. Y un comentario en Noticias afirmaba que "el listado viene completo del backend", que era falso.
+- **El prefetch de catálogos del router se corrigió de paso:** precargaba las claves paginadas, que ya no lee nadie desde que los combos usan `listAll`.
+- **⏳ Pendiente:** no se recorrieron las pantallas en un navegador — no hay Playwright ni jsdom en el repo. La evidencia es de la API con datos sembrados por encima del tope, no de un click manual.
 
 ---
 
@@ -248,17 +290,17 @@ Por eso este plan invierte el orden: **S01 es una red que detecta la clase enter
 
 ## 📊 Estado de las tareas
 
-**Progreso: 0 de 18 tareas completadas.**
-Blockers 🔴: **0 de 6** — la regla dura **no** se cumple.
+**Progreso: 6 de 18 tareas completadas.**
+Blockers 🔴: **6 de 6** — la regla dura se cumple. Lo que queda es alto, medio y polish.
 
 | Tarea | Sev. | Agente | Título | Estado |
 |---|---|---|---|---|
-| **S01** | 🔴 | 🏗️ BE | Red: ningún endpoint devuelve datos de personas sin recortar | ⬜ Pendiente |
-| **S02** | 🔴 | 🏗️ BE | El dashboard ignora el recorte territorial | ⬜ Pendiente |
-| **S03** | 🔴 | 🏗️ BE | Editar permite mover filas fuera de la jurisdicción | ⬜ Pendiente |
-| **S04** | 🔴 | 🏗️ BE | Inscribir reutiliza un participante ajeno y devuelve su ficha | ⬜ Pendiente |
-| **S05** | 🔴 | ⚛️ FE | `check:nav` no lee `router.tsx` | ⬜ Pendiente |
-| **S06** | 🔴 | ⚛️ FE | Cinco pantallas del admin cortan en 20 filas | ⬜ Pendiente |
+| **S01** | 🔴 | 🏗️ BE | Red: ningún endpoint devuelve datos de personas sin recortar | ✅ Completada |
+| **S02** | 🔴 | 🏗️ BE | El dashboard ignora el recorte territorial | ✅ Completada |
+| **S03** | 🔴 | 🏗️ BE | Editar permite mover filas fuera de la jurisdicción | ✅ Completada |
+| **S04** | 🔴 | 🏗️ BE | Inscribir reutiliza un participante ajeno y devuelve su ficha | ✅ Completada |
+| **S05** | 🔴 | ⚛️ FE | `check:nav` no lee `router.tsx` | ✅ Completada |
+| **S06** | 🔴 | ⚛️ FE | Cinco pantallas del admin cortan en 20 filas | ✅ Completada |
 | **S07** | 🟡 | 🏗️ BE | Edad y sexo validados contra el formulario, no contra la fila | ⬜ Pendiente |
 | **S08** | 🟡 | 🏗️ BE | `generateFixture` sin transacción y sin salida | ⬜ Pendiente |
 | **S09** | 🟡 | 🏗️ BE | La exportación invierte local y visitante | ⬜ Pendiente |
@@ -276,7 +318,7 @@ Blockers 🔴: **0 de 6** — la regla dura **no** se cumple.
 
 | Severidad | Completadas | Total |
 |---|---|---|
-| 🔴 Blocker | 0 | 6 |
+| 🔴 Blocker | 6 | 6 |
 | 🟡 Alto | 0 | 9 |
 | 🟠 Medio | 0 | 1 |
 | ✨ Polish | 0 | 2 |

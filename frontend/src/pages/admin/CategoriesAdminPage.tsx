@@ -5,9 +5,9 @@ import { useState } from 'react';
 import { Tag, Plus, Pencil, Trash2, MoreVertical } from 'lucide-react';
 import { useCategories, useDeleteCategory } from '@/hooks/useCategories';
 import type { Category } from '@/types';
-import { SEX_LABELS } from '@/lib/constants';
+import { SEX_LABELS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { CategoryForm } from './components/CategoryForm';
-import { useDisciplines } from '@/hooks/useDisciplines';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
@@ -37,15 +37,33 @@ import { logError } from '@/lib/logger';
 
 export function CategoriesAdminPage() {
   const [disciplineId, setDisciplineId] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | undefined>();
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
 
-  const { data: disciplines } = useDisciplines();
+  // El selector de disciplinas recorre la paginación hasta el final (S06): con
+  // el hook paginado ofrecía como mucho 20 opciones y la 21 era infiltrable.
+  const { data: disciplines } = useAllDisciplines();
   const { data: categoriesData, isLoading, isFetching, isError, refetch } = useCategories({
     disciplineId: disciplineId !== 'all' ? disciplineId : undefined,
+    page,
+    limit,
   });
   const deleteMutation = useDeleteCategory();
+
+  // Tocar el filtro vuelve a la primera página: el resultado es otro y la
+  // página en la que estabas puede ya no existir.
+  const patchDiscipline = (value: string) => {
+    setDisciplineId(value);
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setDisciplineId('all');
+    setPage(1);
+  };
 
   const handleCreate = () => {
     setEditingCategory(undefined);
@@ -179,8 +197,14 @@ export function CategoriesAdminPage() {
         isError={isError}
         onRetry={() => void refetch()}
         isRowInactive={(category) => !category.isActive}
+        meta={categoriesData?.meta}
+        onPageChange={setPage}
+        onLimitChange={(newLimit) => {
+          setLimit(newLimit);
+          setPage(1);
+        }}
         hasActiveFilters={disciplineId !== 'all'}
-        onClearFilters={() => setDisciplineId('all')}
+        onClearFilters={clearFilters}
         emptyIcon={<Tag className="w-10 h-10" />}
         emptyTitle="Todavía no hay categorías"
         emptyDescription="Registrá la primera categoría para empezar a clasificar a los participantes por edad y sexo."
@@ -191,13 +215,13 @@ export function CategoriesAdminPage() {
         }
         toolbar={
           <div className="w-full md:max-w-sm">
-            <Select value={disciplineId} onValueChange={setDisciplineId}>
+            <Select value={disciplineId} onValueChange={patchDiscipline}>
               <SelectTrigger aria-label="Filtrar por disciplina">
                 <SelectValue placeholder="Filtrar por disciplina" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las disciplinas</SelectItem>
-                {disciplines?.data.map((d) => (
+                {(disciplines ?? []).map((d) => (
                   <SelectItem key={d.id} value={d.id}>
                     {d.name}
                   </SelectItem>

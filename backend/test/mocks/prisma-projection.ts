@@ -28,6 +28,10 @@ export const RELACIONES: Record<string, string[]> = {
   news: ['author'],
   calendarEvent: ['venue', 'discipline'],
   inscription: ['participant', 'team', 'category', 'discipline', 'documents'],
+  // Faltaba: sin esta entrada, `document.findMany()` sin `select` devolvía
+  // también el participante anidado del fixture (y con él, una referencia
+  // circular que rompía la serialización). S01.
+  document: ['participant', 'reviewedBy'],
   user: ['auditLogs'],
 };
 

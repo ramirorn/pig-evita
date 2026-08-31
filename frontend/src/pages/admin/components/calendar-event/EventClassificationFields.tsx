@@ -2,7 +2,7 @@
 // EventClassificationFields — disciplina, etapa y sede del evento
 // ===========================================
 import type { CalendarEventFormApi } from './useCalendarEventForm';
-import { useDisciplines } from '@/hooks/useDisciplines';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { useVenues } from '@/hooks/useVenues';
 import { STAGE_LABELS } from '@/lib/constants';
 
@@ -23,7 +23,9 @@ import {
  * que las consumen en vez de colgar del formulario entero.
  */
 export function EventClassificationFields({ form }: { form: CalendarEventFormApi }) {
-  const { data: disciplinesData } = useDisciplines({ isActive: true });
+  // El selector recorre la paginación hasta el final (S06): con el hook
+  // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
+  const { data: disciplinesData } = useAllDisciplines({ isActive: true });
   const { data: venuesData } = useVenues({ isActive: true });
 
   return (
@@ -47,7 +49,7 @@ export function EventClassificationFields({ form }: { form: CalendarEventFormApi
                 </FormControl>
                 <SelectContent>
                   <SelectItem value="none">General / Sin disciplina</SelectItem>
-                  {(disciplinesData?.data || []).map((d) => (
+                  {(disciplinesData ?? []).map((d) => (
                     <SelectItem key={d.id} value={d.id}>
                       {d.name}
                     </SelectItem>

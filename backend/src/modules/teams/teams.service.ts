@@ -180,7 +180,33 @@ export class TeamsService {
   }
 
   async update(id: string, updateDto: UpdateTeamDto, alcance: Alcance) {
-    await this.findOne(id, alcance); // verifica existencia y alcance
+    const actual = await this.findOne(id, alcance); // verifica existencia y alcance
+
+    // -------------------------------------------------
+    // S03 — el departamento no es un campo más del PATCH
+    // -------------------------------------------------
+    //
+    // El alta valida el departamento del body con `permiteDepartamento()`; la
+    // edición no lo hacía, y `UpdateTeamDto` hereda `department` vía
+    // `PartialType`. Un delegado podía abrir un equipo suyo y mudarlo al
+    // departamento ajeno con un 200 — y quedar sin poder verlo después, porque
+    // el `findOne` le devuelve 404 sobre la fila que acaba de mover.
+    //
+    // Sólo se corta si el valor **cambia**: los formularios mandan el objeto
+    // completo, así que rechazar un PATCH que reenvía el mismo departamento
+    // rompería la edición del resto de los campos.
+    const cambiaDepartamento =
+      updateDto.department !== undefined &&
+      updateDto.department !== actual.department;
+
+    if (
+      cambiaDepartamento &&
+      !this.scope.permiteDepartamento(alcance, updateDto.department)
+    ) {
+      throw new ForbiddenException(
+        'No podés mover un equipo a un departamento fuera de tu alcance.',
+      );
+    }
 
     if (updateDto.categoryId) {
       const category = await this.prisma.category.findUnique({

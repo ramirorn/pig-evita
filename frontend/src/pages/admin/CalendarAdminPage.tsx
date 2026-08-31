@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { CalendarDays, Search, Plus } from 'lucide-react';
 import { useCalendarEvents, useDeleteCalendarEvent } from '@/hooks/useCalendar';
-import { useDisciplines } from '@/hooks/useDisciplines';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { useVenues } from '@/hooks/useVenues';
 import type { CalendarEvent } from '@/types';
 import { CalendarEventForm } from './components/CalendarEventForm';
@@ -29,7 +29,9 @@ export function CalendarAdminPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const { data: calendarData, isLoading } = useCalendarEvents();
-  const { data: disciplinesData } = useDisciplines();
+  // El selector recorre la paginación hasta el final (S06): con el hook
+  // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
+  const { data: disciplinesData } = useAllDisciplines();
   const { data: venuesData } = useVenues();
   const deleteMutation = useDeleteCalendarEvent();
 
@@ -41,7 +43,7 @@ export function CalendarAdminPage() {
   // vienen del cache de React Query y son referencialmente estables. Sin
   // `useMemo` se reconstruían dos `Map` completos por cada letra tipeada.
   const disciplinesMap = useMemo(
-    () => new Map((disciplinesData?.data ?? []).map((d) => [d.id, d.name])),
+    () => new Map((disciplinesData ?? []).map((d) => [d.id, d.name])),
     [disciplinesData],
   );
   const venuesMap = useMemo(

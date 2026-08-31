@@ -4,8 +4,8 @@
 import { useState } from 'react';
 import { Users, Plus } from 'lucide-react';
 import { useParticipants } from '@/hooks/useParticipants';
-import { useDisciplines } from '@/hooks/useDisciplines';
-import { useCategories } from '@/hooks/useCategories';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
+import { useAllCategories } from '@/hooks/useCategories';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePermisos } from '@/hooks/usePermisos';
 import type { Participant } from '@/types';
@@ -41,8 +41,10 @@ export function ParticipantsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingParticipant, setEditingParticipant] = useState<Participant | undefined>();
 
-  const { data: disciplines } = useDisciplines();
-  const { data: categories } = useCategories({
+  // Los selectores del toolbar recorren la paginación hasta el final (S06):
+  // con el hook paginado ofrecían como mucho 20 opciones.
+  const { data: disciplines } = useAllDisciplines();
+  const { data: categories } = useAllCategories({
     disciplineId: filters.disciplineId !== 'all' ? filters.disciplineId : undefined,
   });
 
@@ -158,8 +160,8 @@ export function ParticipantsPage() {
             filters={filters}
             onChange={patchFilters}
             mostrarFiltroDepartamento={puedeFiltrarPorDepartamento}
-            disciplines={disciplines?.data ?? []}
-            categories={categories?.data ?? []}
+            disciplines={disciplines ?? []}
+            categories={categories ?? []}
           />
         }
       />

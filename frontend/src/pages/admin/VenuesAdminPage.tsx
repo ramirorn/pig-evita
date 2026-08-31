@@ -1,17 +1,19 @@
 // ===========================================
 // Venues Admin Page
 // ===========================================
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Building2, MapPin, Plus } from 'lucide-react';
 import { useVenues, useDeleteVenue } from '@/hooks/useVenues';
+import { useDebounce } from '@/hooks/useDebounce';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import type { Venue } from '@/types';
 import { createVenueColumns } from './venues/venueColumns';
 import { VenueFormDialog } from './venues/VenueFormDialog';
 import { VenuesToolbar } from './venues/VenuesToolbar';
 import {
   EMPTY_VENUE_FILTERS,
-  filterVenues,
   hasActiveVenueFilters,
+  toVenueQuery,
   type VenueListFilters,
 } from './venues/venueFilters';
 
@@ -23,16 +25,40 @@ import { logError } from '@/lib/logger';
 
 export function VenuesAdminPage() {
   const [filters, setFilters] = useState<VenueListFilters>(EMPTY_VENUE_FILTERS);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
   const [deletingVenue, setDeletingVenue] = useState<Venue | null>(null);
 
-  const { data: venuesData, isLoading, isFetching, isError, refetch } = useVenues();
+  // El buscador se amortigua antes de entrar a la `queryKey` (R20); los
+  // `Select` no, porque un click es una intención completa y no una ráfaga.
+  const debouncedSearch = useDebounce(filters.search);
+
+  const { data: venuesData, isLoading, isFetching, isError, refetch } = useVenues({
+    ...toVenueQuery({ ...filters, search: debouncedSearch }),
+    page,
+    limit,
+  });
   const deleteMutation = useDeleteVenue();
 
+  // El backend resuelve el filtrado, así que "hay filtros activos" es lo único
+  // que el DataTable necesita para distinguir el vacío-por-filtro del
+  // vacío-sin-datos.
   const hasActiveFilters = hasActiveVenueFilters(filters);
-  const filtered = useMemo(() => filterVenues(venuesData?.data ?? [], filters), [venuesData, filters]);
+
+  // Tocar cualquier filtro vuelve a la primera página: el resultado es otro y
+  // la página en la que estabas puede ya no existir.
+  const patchFilters = (patch: Partial<VenueListFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilters(EMPTY_VENUE_FILTERS);
+    setPage(1);
+  };
 
   const handleConfirmDelete = async () => {
     if (!deletingVenue) return;
@@ -63,15 +89,21 @@ export function VenuesAdminPage() {
       <DataTable
         entityName="sedes"
         columns={columns}
-        rows={filtered}
+        rows={venuesData?.data ?? []}
         getRowId={(venue) => venue.id}
         isLoading={isLoading}
         isFetching={isFetching && !isLoading}
         isError={isError}
         onRetry={() => void refetch()}
         isRowInactive={(venue) => !venue.isActive}
+        meta={venuesData?.meta}
+        onPageChange={setPage}
+        onLimitChange={(newLimit) => {
+          setLimit(newLimit);
+          setPage(1);
+        }}
         hasActiveFilters={hasActiveFilters}
-        onClearFilters={() => setFilters(EMPTY_VENUE_FILTERS)}
+        onClearFilters={clearFilters}
         emptyIcon={<Building2 className="w-10 h-10" />}
         emptyTitle="Todavía no hay sedes"
         emptyDescription="Registrá la primera sede deportiva para empezar a programar partidos y eventos."
@@ -81,10 +113,7 @@ export function VenuesAdminPage() {
           </Button>
         }
         toolbar={
-          <VenuesToolbar
-            filters={filters}
-            onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
-          />
+          <VenuesToolbar filters={filters} onChange={patchFilters} />
         }
       />
 
