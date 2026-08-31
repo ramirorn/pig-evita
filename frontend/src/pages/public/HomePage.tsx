@@ -18,11 +18,14 @@ export function HomePage() {
       {/* Hero Section */}
       <HomeHero />
 
+      {/* Cifras de la edición.
+          Va inmediatamente después del hero **por diseño**: se monta sobre él
+          con un margen negativo que depende del `pb` del hero. Meter una sección
+          en el medio rompe el solapamiento. */}
+      <StatsSection />
+
       {/* Quick Links Grid */}
       <QuickLinksSection />
-
-      {/* Stats Section */}
-      <StatsSection />
 
       {/* Latest News Section */}
       <LatestNewsSection />

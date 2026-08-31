@@ -93,6 +93,11 @@
 
   /* Font family */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Familia de titulares. Inter queda para el texto corrido; los títulos de la
+     landing usan Montserrat, que es la que da el peso institucional del diseño.
+     El fallback es la misma pila de `--font-sans`: si la fuente no carga, la
+     página se lee igual y sólo pierde el carácter. */
+  --font-display: 'Montserrat', 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 /* ===========================================
@@ -352,3 +357,40 @@
 .stagger-6 { animation-delay: 0.3s; }
 
 
+
+
+/* ===========================================
+   Utilidades de la landing pública
+   =========================================== */
+
+/**
+ * Grano sutil sobre los fondos oscuros del hero.
+ *
+ * Va como data-URI y no como archivo: son ~300 bytes inline contra un request
+ * más, y al ser SVG no pixela en pantallas de alta densidad.
+ */
+.noise-bg {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/**
+ * Borde superior curvo de la franja de cierre.
+ *
+ * Reemplaza al `<svg>` de onda que separaba las secciones: una sola propiedad
+ * en vez de un nodo con su path.
+ */
+.curved-top {
+  clip-path: ellipse(150% 100% at 50% 100%);
+}
+
+/**
+ * Respeta a quien pidió menos movimiento.
+ *
+ * La landing tiene bastante animación de entrada y de hover; con esta
+ * preferencia activa el contenido aparece igual, sin desplazamientos.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .noise-bg {
+    background-image: none;
+  }
+}

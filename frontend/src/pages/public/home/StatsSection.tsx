@@ -1,33 +1,68 @@
 // ===========================================
-// StatsSection — franja de cifras institucionales
+// StatsSection — cifras de la edición, montadas sobre el hero
 // ===========================================
-import { MapPin, Medal, Trophy, Users } from 'lucide-react';
+import { Trophy, Medal, Users } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-// Cifras fijas de la edición: no vienen del backend todavía.
-const STATS = [
-  { icon: <Trophy className="w-8 h-8" />, value: '+40', label: 'Disciplinas' },
-  { icon: <Users className="w-8 h-8" />, value: '3', label: 'Etapas' },
-  { icon: <MapPin className="w-8 h-8" />, value: '9', label: 'Departamentos' },
-  { icon: <Medal className="w-8 h-8" />, value: '∞', label: 'Oportunidades' },
+interface Cifra {
+  Icono: LucideIcon;
+  valor: string;
+  etiqueta: string;
+  /** La del medio se eleva un poco en escritorio, para romper la fila recta. */
+  elevada?: boolean;
+}
+
+/**
+ * Cifras fijas de la edición: **no vienen del backend**.
+ *
+ * ⚠️ Son afirmaciones institucionales que se muestran a cualquier visitante, así
+ * que conviene confirmarlas con la Secretaría antes de publicar y actualizarlas
+ * cada edición. Si mañana salen de la API, este arreglo se reemplaza por el hook
+ * y el resto del componente no cambia.
+ */
+const CIFRAS: Cifra[] = [
+  { Icono: Trophy, valor: '+40', etiqueta: 'Disciplinas' },
+  {
+    Icono: Medal,
+    valor: '3 Etapas',
+    etiqueta: 'Local, Departamental, Provincial',
+    elevada: true,
+  },
+  { Icono: Users, valor: '+15.000', etiqueta: 'Atletas' },
 ];
 
+/**
+ * Franja de cifras que se solapa con el hero.
+ *
+ * El margen negativo depende del `pb` del hero: van juntas y en ese orden. En
+ * mobile se apilan sin solaparse, porque tres tarjetas montadas sobre el texto
+ * en una pantalla angosta lo taparían.
+ */
 export function StatsSection() {
   return (
-    <section className="bg-primary-800 text-white py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {STATS.map((stat, idx) => (
-            <div key={idx} className={`animate-fade-in stagger-${idx + 1}`}>
-              <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-white/10 flex items-center justify-center text-accent-500 shadow-inner">
-                {stat.icon}
-              </div>
-              <p className="text-3xl md:text-4xl font-extrabold mb-1 animate-count-up" style={{ animationDelay: `${idx * 0.12}s` }}>
-                {stat.value}
-              </p>
-              <p className="text-celeste-200 text-sm font-medium">{stat.label}</p>
+    <section className="relative z-20 mx-auto mb-24 max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="grid -mt-32 grid-cols-1 gap-8 md:grid-cols-3">
+        {CIFRAS.map(({ Icono, valor, etiqueta, elevada }) => (
+          <article
+            key={etiqueta}
+            className={[
+              'group flex transform flex-col items-center justify-center rounded-3xl border border-white/50',
+              'bg-white/90 p-10 text-center shadow-[0_20px_40px_-15px_rgba(0,45,108,0.15)] backdrop-blur-xl',
+              'transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_30px_50px_-15px_rgba(0,45,108,0.25)]',
+              elevada ? 'md:-translate-y-8' : '',
+            ].join(' ')}
+          >
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-primary-800 transition-colors duration-300 group-hover:bg-accent-500 group-hover:text-primary-900">
+              <Icono className="h-8 w-8" aria-hidden="true" />
             </div>
-          ))}
-        </div>
+            <p className="font-display mb-2 text-3xl font-black text-primary-800">
+              {valor}
+            </p>
+            <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
+              {etiqueta}
+            </p>
+          </article>
+        ))}
       </div>
     </section>
   );
