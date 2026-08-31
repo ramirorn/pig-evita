@@ -29,9 +29,15 @@ export function HomeHero() {
         <div className="pt-6 text-center md:w-[55%] md:pt-0 md:text-left">
           <h1 className="font-display mb-8 text-4xl leading-[1.1] font-extrabold tracking-tight text-white md:text-6xl">
             Juegos Evita <br className="hidden md:block" />
-            <span className="pr-2 font-black text-accent-500 italic drop-shadow-sm">
+            {/* El espacio explícito no es opcional: JSX descarta el salto de
+                línea entre dos elementos adyacentes, así que sin él el titular
+                se lee y se copia como "Formoseños2026". El `pr` en `em` suma
+                encima la compensación óptica de la itálica —que se inclina
+                hacia el 2— y escala con el tamaño de fuente, que cambia entre
+                mobile y escritorio. */}
+            <span className="pr-[0.08em] font-black text-accent-500 italic drop-shadow-sm">
               Formoseños
-            </span>
+            </span>{' '}
             <span className="font-light text-celeste-200">2026</span>
           </h1>
 
