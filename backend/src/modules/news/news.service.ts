@@ -1,7 +1,12 @@
 // ===========================================
 // News Service
 // ===========================================
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
@@ -132,9 +137,37 @@ export class NewsService {
     return news;
   }
 
+  /**
+   * S19 — una noticia externa no se edita ni se despublica como una propia.
+   *
+   * Lo que se ve aca es un **reflejo** de una nota que vive en
+   * formosa.gob.ar: el titulo, la bajada y la imagen son los de alla, y el
+   * link lleva alla. Dejar editarlos produciria una tarjeta que dice una cosa
+   * y un destino que dice otra, con el agregado de que la proxima corrida del
+   * sync pisaria la edicion sin avisar (el `upsert` es por `sourceUrl`).
+   *
+   * El borrado esta cerrado por el mismo motivo, y es el que menos se ve venir:
+   * borrar la fila **no** saca la noticia, porque el sync la vuelve a crear en
+   * la corrida siguiente. Un boton que promete "eliminar" y no elimina es peor
+   * que no tener el boton. Si hay que dejar de mostrar una nota del portal, se
+   * saca del portal, o se acota lo que el sync trae.
+   */
+  private rechazarSiEsExterna(
+    news: { isExternal: boolean; sourceUrl: string | null },
+    verbo: string,
+  ): void {
+    if (!news.isExternal) return;
+
+    throw new ForbiddenException(
+      `Esta noticia viene del portal oficial (${news.sourceUrl ?? 'formosa.gob.ar'}) y no se puede ${verbo} desde acá. ` +
+        'Se sincroniza automáticamente: lo que se publique allá se refleja acá.',
+    );
+  }
+
   async update(id: string, updateDto: UpdateNewsDto) {
     // `true`: el camino administrativo tiene que poder editar un borrador.
     const news = await this.findOne(id, true);
+    this.rechazarSiEsExterna(news, 'editar');
 
     const updateData: Prisma.NewsUpdateInput = { ...updateDto };
 
@@ -167,7 +200,8 @@ export class NewsService {
   }
 
   async remove(id: string) {
-    await this.findOne(id, true);
+    const existente = await this.findOne(id, true);
+    this.rechazarSiEsExterna(existente, 'eliminar');
 
     const news = await this.prisma.news.delete({
       where: { id },

@@ -74,6 +74,33 @@ export const envSchema = z
     // CORS
     CORS_ORIGINS: z.string().default('http://localhost:5173'),
 
+    // Sync de noticias del portal oficial (S19)
+    //
+    // Apagado por defecto: el timer diario sale a Internet, y eso se enciende a
+    // conciencia en el entorno donde corresponde. El disparo manual del panel
+    // funciona igual con esto en `false`.
+    NEWS_SYNC_ENABLED: z.string().default('false'),
+    /** Hora local del server para la corrida diaria. */
+    NEWS_SYNC_HORA: z.coerce.number().min(0).max(23).default(6),
+    /** Tope de IDs por corrida: el sync no barre el portal entero. */
+    NEWS_SYNC_MAX_IDS: z.coerce.number().min(1).max(500).default(60),
+    /** IDs inexistentes seguidos que alcanzan para asumir que llegamos al final. */
+    NEWS_SYNC_MAX_FALLOS: z.coerce.number().min(1).max(100).default(10),
+    /** Pausa entre requests al sitio ajeno, en ms. */
+    NEWS_SYNC_DELAY_MS: z.coerce.number().min(0).max(60000).default(1000),
+    NEWS_SYNC_TIMEOUT_MS: z.coerce
+      .number()
+      .min(1000)
+      .max(120000)
+      .default(15000),
+    /** Desde donde arranca la primera corrida (la 34709 es la siguiente). */
+    NEWS_SYNC_START_ID: z.coerce.number().min(1).default(34708),
+    /** Nota de control: si deja de parsear, el portal cambio y el sync grita. */
+    NEWS_SYNC_CANARY_ID: z.coerce.number().min(1).default(34709),
+    /** Dias sin una nota nueva antes de que la corrida termine en alerta. */
+    NEWS_SYNC_MAX_DIAS_SIN_NOTAS: z.coerce.number().min(1).default(30),
+    NEWS_SYNC_USER_AGENT: z.string().optional(),
+
     // Seed
     SEED_ADMIN_EMAIL: z.string().email().optional(),
     SEED_ADMIN_PASSWORD: z.string().min(12).optional(),

@@ -6,7 +6,8 @@ import {
   newsApi, 
   type NewsFilters, 
   type CreateNewsPayload,
-  type UpdateNewsPayload
+  type UpdateNewsPayload,
+  type ReporteSyncNoticias,
 } from '@/api/news.api';
 import { STALE_TIME } from '@/lib/queryClient';
 import { getFriendlyError } from '@/lib/utils';
@@ -92,6 +93,59 @@ export function useDeleteNews() {
     },
     onError: (error: unknown) => {
       toast.error(getFriendlyError(error, 'Error al eliminar la noticia'));
+    },
+  });
+}
+
+/**
+ * Disparo manual del sync con el portal oficial (S19).
+ *
+ * El toast informa **el resultado real**, con números, y no un "listo" fijo: si
+ * la corrida miró 60 IDs y no había nada nuevo, eso es lo que tiene que decir.
+ * La alternativa —un mensaje de éxito idéntico traiga lo que traiga— es
+ * exactamente el modo de falla silenciosa que esta tarea viene a cerrar.
+ */
+export function useSyncNews() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => newsApi.sync(),
+    onSuccess: (reporte: ReporteSyncNoticias) => {
+      queryClient.invalidateQueries({ queryKey: NEWS_KEYS.lists() });
+
+      const nuevas = reporte.creadas;
+      const detalle =
+        `Se revisaron ${reporte.paginasLeidas} noticias del portal ` +
+        `(IDs ${reporte.desdeId}-${reporte.hastaId}).`;
+
+      if (reporte.estado === 'alerta') {
+        toast.warning(
+          nuevas > 0
+            ? `${nuevas} noticia(s) nueva(s), con advertencias.`
+            : 'La sincronización terminó con advertencias.',
+          { description: reporte.alertas.join(' · ') || detalle },
+        );
+        return;
+      }
+
+      if (nuevas === 0 && reporte.actualizadas === 0) {
+        toast.info('No había noticias nuevas de Juegos Evita.', {
+          description: `${detalle} ${reporte.descartadasPorSeccion} eran de otras secciones.`,
+        });
+        return;
+      }
+
+      toast.success(
+        `${nuevas} noticia(s) nueva(s) y ${reporte.actualizadas} actualizada(s).`,
+        { description: detalle },
+      );
+    },
+    onError: (error: unknown) => {
+      // El 503 del backend (portal caído o markup cambiado) llega acá: se
+      // muestra el motivo, no un "error al sincronizar" genérico.
+      toast.error(
+        getFriendlyError(error, 'No se pudo sincronizar con el portal oficial'),
+      );
     },
   });
 }

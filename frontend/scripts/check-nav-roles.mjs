@@ -431,6 +431,10 @@ const PANTALLAS_QUE_FILTRAN = [
   ['src/pages/admin/TeamsAdminPage.tsx', ['TEAM_CREATE', 'TEAM_UPDATE', 'TEAM_DELETE']],
   ['src/pages/admin/UsersPage.tsx', ['USER_MANAGE']],
   ['src/pages/admin/DocumentsPage.tsx', ['DOCUMENT_REVIEW']],
+  // S19 — `NEWS_SYNC` es mas acotada que `NEWS_MANAGE`: un ADMIN_ZONAL entra a
+  // Noticias y NO puede sincronizar con el portal. Si el boton se pintara para
+  // todos los que ven la pantalla, seria el 403 de R22 otra vez.
+  ['src/pages/admin/NewsAdminPage.tsx', ['NEWS_SYNC']],
   [
     'src/pages/admin/inscription-detail/InscriptionReviewPanel.tsx',
     ['INSCRIPTION_APPROVE'],

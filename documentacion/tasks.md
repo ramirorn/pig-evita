@@ -230,6 +230,66 @@ Por eso este plan invierte el orden: **S01 es una red que detecta la clase enter
 
 ---
 
+### S19 🟠 🔀 FS — Sincronizar las noticias de Juegos Evita desde formosa.gob.ar
+
+- [x] **Descripción:** El portal oficial publica las noticias de los Juegos Evita y hoy hay que copiarlas a mano. Traerlas automáticamente al listado propio, **enlazando al original en vez de republicar el contenido**.
+- **✅ Autorización:** la Secretaría de Deportes dio permiso (es la misma fuente que figura en las notas).
+
+#### Lo que se investigó antes de diseñar — y por qué el camino obvio no sirve
+
+Tres vías que parecían razonables y **no funcionan**, verificadas contra el sitio real el 2026-08-31:
+
+1. **El sitemap de noticias está muerto.** `sitemap_formosa_noticias_gov.xml` tiene 23.912 URLs, **todas con fecha `2019-09-09`** y IDs hasta 24358, cuando las noticias actuales van por el 34700. Lleva siete años sin actualizarse. Un sync apoyado ahí correría a diario sin traer nada **y sin avisar**.
+2. **El número del medio de la URL no es la categoría.** `/noticia/33163/671/dia_de_la_escarapela` y `/noticia/34709/671/las_chicas_de_belgrano_campeonas` comparten el `671`, pero la primera declara "Información Pública" y la segunda "Juegos Evita Formoseños".
+3. **El listado por categoría no filtra.** `/noticias/{N}/pagina/1` acepta **cualquier** número —probado con `999` y `4242` inventados— y devuelve resultados estables pero sin relación con la sección real. El enlace de categoría que la propia nota genera (`/noticias/categoria///juegos_evita_formosenos`) responde **302 a error**.
+
+**No hay RSS, Atom ni JSON.**
+
+#### Los dos hallazgos que sí habilitan la solución
+
+1. **Sólo el ID importa en la URL.** `/noticia/34709/0/x` devuelve la nota correcta: los otros dos segmentos son cosméticos. Eso convierte el descubrimiento en **recorrer IDs secuenciales**, que es determinista, en vez de depender de un listado roto.
+2. **La nota trae Open Graph y un slug de sección.** `og:title`, `og:description` y `og:image` —la imagen sale por **https** desde `archivos.formosa.gob.ar`, así que pasa el `safeImageSrc` de T17—. Y el "Cargada en" enlaza a un href que contiene **`juegos_evita_formosenos`**: ese slug es la señal de clasificación, más estable que el texto visible con acentos.
+
+#### Diseño
+
+- **Descubrimiento:** desde el último ID sincronizado hacia adelante, hasta N fallos consecutivos.
+- **Clasificación:** se queda sólo con las notas cuyo "Cargada en" apunte al slug `juegos_evita_formosenos`.
+- **Extracción:** de los tags Open Graph, no del DOM.
+- **Almacenamiento — enlaza, no republica.** Título, bajada, imagen, fecha y **link al original**. Dos motivos: el legal (republicar contenido ajeno es otra cosa que enlazarlo, aun con permiso) y uno técnico — **T11 sacó `dangerouslySetInnerHTML` de todo el proyecto** tras confirmar que las noticias son texto plano; traer el cuerpo HTML de otro sitio reabriría justo esa superficie.
+- **Frecuencia:** una corrida diaria, más un botón en el panel para forzarla cuando alguien acaba de publicar algo.
+- **Modelo:** `News` necesita `sourceUrl` y un marcador de externa — una nota que enlaza afuera no se edita ni se despublica como una propia, y en la tarjeta tiene que notarse de dónde viene.
+
+- **DoD:**
+  - El sync trae la nota `34709` ("Las chicas de Belgrano, campeonas") y **descarta** una de otra sección con el mismo número en la URL, como la `33163`.
+  - Correr el sync dos veces seguidas no duplica filas (idempotente).
+  - **Falla ruidosamente:** si el sitio cambia y deja de haber notas clasificables, o si los tags OG desaparecen, el sync **registra el problema**; no puede terminar en verde trayendo cero. Es el modo de falla que este proyecto ya cometió tres veces.
+  - Las noticias externas se distinguen de las propias en el listado público y llevan al portal oficial.
+  - Un test cubre el parseo contra **HTML real guardado como fixture**, no contra un string inventado: si cambian el markup, el test lo dice.
+
+
+- **✅ Evidencia (2026-08-31):** módulo nuevo en `backend/src/modules/news/sync/`, con el parseo separado de la red y de la base para poder testearlo contra HTML real. **32 tests nuevos** (unitarios 99 → **131**); e2e 640 con la única falla conocida, en dos corridas.
+- **Verificado en vivo contra el portal:** recorriendo los IDs 34701–34712 encontró 9 notas reales, clasificó **1** (la 34709) y **descartó 8** por sección, sin errores de red. Segunda corrida sobre los mismos IDs: `creadas: 0, actualizadas: 1` — idempotente de verdad.
+- **Falla ruidosamente por tres vías**, y la que importa es el **canario**: antes de recorrer, baja la nota 34709 y verifica que siga parseando y clasificando. Eso mata el caso "cero noticias para siempre y en verde", porque dispara aunque no haya nada nuevo que traer. Las otras dos son markup inesperado (páginas sin OG o sin "Cargada en") y vejez (más de 30 días sin una nota clasificable).
+- **Contraprueba:** con un clasificador ingenuo que mira el número del medio de la URL —el error que la investigación había descartado— fallan **5 tests**, incluido el del canario. Con la detección de ID inexistente por status code, fallan **4**.
+
+#### 🐛 Tres cosas del sitio ajeno que sólo aparecen implementando
+
+1. **Un ID inexistente devuelve HTTP 200**, no 404: sirve la plantilla sin rellenar, con `og:title` = "Portal Oficial del Gobierno de la Provincia de Formosa". **Verificado de forma independiente:** la 34709 pesa 40.872 bytes y la 34710 y la 99999 pesan exactamente 35.396 cada una. Confiar en el status code habría insertado el título del portal como noticia **una vez por cada ID recorrido**.
+2. **Una nota real también trae marcadores del CMS sin rellenar** (`{sysnoti02_titulo_alt}`). La primera versión usó el patrón genérico `{...}` para detectar la plantilla vacía y **descartó todas las notas, la 34709 incluida**. Lo cazó el test contra fixture real en el primer intento — que es exactamente para lo que se pidió el fixture y no un string inventado.
+3. **El sitio declara ISO-8859-1 y lo cumple, incluso dentro de los tags Open Graph.** `response.text()` de fetch asume UTF-8 y deja el título lleno de caracteres de reemplazo; hay que decodificar desde los bytes.
+
+- **✅ Migración aplicada y sync verificado de punta a punta (2026-08-31).** `prisma migrate deploy` contra el Postgres real; las tres columnas y la tabla `sync_state` confirmadas en la base.
+- **Corrida real contra el portal:** recorrió los IDs 34709–34720 en 11 páginas, encontró 2 notas, **clasificó 1 y descartó 1 por sección**, y persistió el cursor en 34714. La fila quedó con título, fuente ("Secretaría de Deportes y Recreación Comunitaria"), URL original, imagen `https`, fecha y bajada.
+- **Los acentos salen bien** ("Juárez", "campeón"): la decodificación ISO-8859-1 funciona contra el sitio real, no sólo contra el fixture.
+- **Enlaza y no republica, comprobado en la API pública:** la nota externa viaja con **190 caracteres** de contenido y **sin una sola etiqueta HTML**, marcada con `isExternal` y su `sourceUrl`.
+- **La falla ruidosa se disparó sola en la primera corrida real:** un ID no se pudo leer por un error de red y el sync devolvió `estado: "alerta"` con el motivo escrito —*"el cursor no avanzó sobre ellos y se vuelven a intentar"*— en vez de terminar en verde. Es exactamente el comportamiento que la tarea pedía, y no hubo que provocarlo.
+- **Dos decisiones que conviene revisar:**
+  - **Las externas no se pueden eliminar, ni sólo editar.** Borrar la fila no saca la noticia: la corrida siguiente la recrea por el `upsert`. Se cerró el botón en vez de dejar uno que promete y no cumple. Ocultar una nota puntual va a necesitar una lista de exclusión propia.
+  - **El permiso `NEWS_SYNC` es más acotado que `NEWS_MANAGE`** (sólo SUPER_ADMIN y ADMIN_PROVINCIAL), porque la acción sale a golpear un sitio ajeno.
+  - **No se agregó `@nestjs/schedule`** por una sola tarea programada, teniendo S15 abierta por deuda de dependencias.
+
+---
+
 ## Fase 3 — Mantenimiento
 
 ### S15 🟡 🔀 FS — Dependencias con vulnerabilidades conocidas
@@ -290,7 +350,7 @@ Por eso este plan invierte el orden: **S01 es una red que detecta la clase enter
 
 ## 📊 Estado de las tareas
 
-**Progreso: 6 de 18 tareas completadas.**
+**Progreso: 7 de 19 tareas completadas.**
 Blockers 🔴: **6 de 6** — la regla dura se cumple. Lo que queda es alto, medio y polish.
 
 | Tarea | Sev. | Agente | Título | Estado |
@@ -311,6 +371,7 @@ Blockers 🔴: **6 de 6** — la regla dura se cumple. Lo que queda es alto, med
 | **S14** | 🟡 | 🔀 FS | Consumir la matriz de permisos en vez de duplicarla | ⬜ Pendiente |
 | **S15** | 🟡 | 🔀 FS | Dependencias con vulnerabilidades conocidas | ⬜ Pendiente |
 | **S16** | 🟠 | ⚛️ FE | `DocumentsPage` es una maqueta en el menú | ⬜ Pendiente |
+| **S19** | 🟠 | 🔀 FS | Sincronizar las noticias de Juegos Evita desde formosa.gob.ar | ✅ Completada |
 | **S17** | ✨ | 🏗️ BE | Nits del backend agrupados | ⬜ Pendiente |
 | **S18** | ✨ | ⚛️ FE | Nits del frontend agrupados | ⬜ Pendiente |
 
@@ -320,7 +381,7 @@ Blockers 🔴: **6 de 6** — la regla dura se cumple. Lo que queda es alto, med
 |---|---|---|
 | 🔴 Blocker | 6 | 6 |
 | 🟡 Alto | 0 | 9 |
-| 🟠 Medio | 0 | 1 |
+| 🟠 Medio | 1 | 2 |
 | ✨ Polish | 0 | 2 |
 
 ### Reparto por agente

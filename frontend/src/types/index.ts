@@ -331,6 +331,17 @@ export interface News {
   isPublished: boolean;
   publishedAt?: string | null;
   authorId?: string | null;
+  /**
+   * S19 — noticias traídas del portal oficial (formosa.gob.ar).
+   *
+   * `isExternal` cambia dos cosas en la UI y ninguna es cosmética: la tarjeta
+   * lleva a `sourceUrl` en vez de al detalle propio (de la nota ajena no
+   * tenemos el cuerpo, sólo la bajada), y en el panel no se ofrece editarla ni
+   * eliminarla, porque el backend lo rechaza y el sync la volvería a crear.
+   */
+  sourceUrl?: string | null;
+  sourceName?: string | null;
+  isExternal?: boolean;
   createdAt: string;
   updatedAt: string;
 }

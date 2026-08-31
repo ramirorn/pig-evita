@@ -1,11 +1,12 @@
 // ===========================================
 // FeaturedNewsCard — tarjeta hero de la noticia destacada
 // ===========================================
-import { Link } from "react-router";
-import { ArrowRight, Calendar, Clock, Sparkles } from "lucide-react";
+import { ArrowRight, Calendar, Clock, ExternalLink, Sparkles } from "lucide-react";
 import type { News } from "@/types";
 import { formatDate } from "@/lib/utils";
 import { SafeNewsImage } from "./SafeNewsImage";
+import { BadgeNoticiaExterna, NewsLink } from "./NewsLink";
+import { esNoticiaExterna } from "./newsSource";
 
 /**
  * La primera noticia del listado se muestra con un layout propio (imagen
@@ -13,11 +14,11 @@ import { SafeNewsImage } from "./SafeNewsImage";
  * markup: unificarlas terminaría en un solo componente lleno de `isLarge`.
  */
 export function FeaturedNewsCard({ news }: { news: News }) {
+  // S19 — la destacada también puede venir del portal oficial.
+  const externa = esNoticiaExterna(news);
+
   return (
-    <Link
-      to={`/noticias/${news.slug}`}
-      className="block group animate-fade-in"
-    >
+    <NewsLink news={news} className="block group animate-fade-in">
       <div className="bg-white rounded-3xl border border-primary-100 shadow-sm hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 overflow-hidden">
         <div className="grid md:grid-cols-12 items-stretch">
           {/* Contenedor de Imagen (5 columnas en desktop) */}
@@ -43,6 +44,7 @@ export function FeaturedNewsCard({ news }: { news: News }) {
                   <Calendar className="w-3.5 h-3.5" />
                   {formatDate(news.createdAt)}
                 </span>
+                <BadgeNoticiaExterna news={news} />
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary-400 ml-auto hidden sm:inline-flex">
                   <Clock className="w-3.5 h-3.5" />3 min de lectura
                 </span>
@@ -63,15 +65,19 @@ export function FeaturedNewsCard({ news }: { news: News }) {
             {/* Botón de llamada a la acción */}
             <div className="pt-4 border-t border-primary-50 flex items-center justify-between">
               <span className="text-primary-700 font-bold text-sm inline-flex items-center gap-2 group-hover:text-primary-900 transition-colors">
-                Leer artículo completo
+                {externa ? "Leer en el portal oficial" : "Leer artículo completo"}
                 <div className="w-7 h-7 rounded-full bg-primary-50 group-hover:bg-primary-600 group-hover:text-white flex items-center justify-center transition-all">
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  {externa ? (
+                    <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                  ) : (
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  )}
                 </div>
               </span>
             </div>
           </div>
         </div>
       </div>
-    </Link>
+    </NewsLink>
   );
 }

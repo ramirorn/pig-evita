@@ -274,6 +274,16 @@ export const ACCIONES = {
     Role.ADMIN_DEPARTAMENTAL,
     Role.ADMIN_ZONAL,
   ],
+  /**
+   * Forzar la sincronización de noticias con el portal oficial (S19).
+   *
+   * Más acotada que `NEWS_MANAGE` a propósito: no edita contenido propio, sale
+   * a golpear un **sitio ajeno** y trae contenido institucional de la
+   * Provincia. Es un acto de la línea provincial, no de cada administración
+   * territorial, y además mantiene bajo el número de personas que pueden
+   * generar tráfico contra formosa.gob.ar.
+   */
+  NEWS_SYNC: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
   CALENDAR_MANAGE: [
     Role.SUPER_ADMIN,
     Role.ADMIN_PROVINCIAL,

@@ -6,6 +6,7 @@ import { ArrowRight, Newspaper } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
 import { useNewsList } from '@/hooks/useNews';
 import { formatDate, safeImageSrc } from '@/lib/utils';
+import { BadgeNoticiaExterna, NewsLink } from '@/pages/public/news/NewsLink';
 
 /**
  * La sección se trae sus propios datos porque es la única consumidora de
@@ -42,9 +43,11 @@ export function LatestNewsSection() {
           const imageSrc = safeImageSrc(news.imageKey);
 
           return (
-          <Link
+          // S19 — las traídas del portal oficial llevan al original, no a un
+          // detalle propio que no tiene el cuerpo del artículo.
+          <NewsLink
             key={news.id}
-            to={`/noticias/${news.slug}`}
+            news={news}
             className={`card group overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all animate-fade-in stagger-${idx + 1}`}
           >
             <div className="h-44 bg-primary-100 flex items-center justify-center overflow-hidden">
@@ -62,8 +65,9 @@ export function LatestNewsSection() {
             </div>
             <div className="p-5">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-accent-600">
+                <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-accent-600">
                   Actualidad
+                  <BadgeNoticiaExterna news={news} />
                 </span>
                 <span className="text-xs text-primary-400">
                   {formatDate(news.createdAt)}
@@ -76,7 +80,7 @@ export function LatestNewsSection() {
                 {news.excerpt || news.content.substring(0, 100) + '...'}
               </p>
             </div>
-          </Link>
+          </NewsLink>
           );
         })}
       </div>

@@ -26,6 +26,31 @@ export interface CreateNewsPayload {
 
 export type UpdateNewsPayload = Partial<CreateNewsPayload>;
 
+/**
+ * Reporte de una corrida del sync con el portal oficial (S19).
+ *
+ * Trae los números y no sólo un "listo" a propósito: si la corrida no encontró
+ * nada, la pantalla tiene que poder decir **por qué** —cuántos IDs miró,
+ * cuántas notas eran de otra sección, cuántos errores de red hubo—. Un éxito
+ * sin números es el modo de falla que la tarea viene a cerrar.
+ */
+export interface ReporteSyncNoticias {
+  estado: 'ok' | 'alerta';
+  motivo: 'manual' | 'programada';
+  desdeId: number;
+  hastaId: number;
+  paginasLeidas: number;
+  notasEncontradas: number;
+  clasificadas: number;
+  creadas: number;
+  actualizadas: number;
+  descartadasPorSeccion: number;
+  erroresDeRed: number;
+  markupInesperado: number;
+  alertas: string[];
+  duracionMs: number;
+}
+
 export const newsApi = {
   async findAll(filters?: NewsFilters): Promise<PaginatedResponse<News>> {
     const { data } = await apiClient.get<PaginatedResponse<News>>('/news', { params: filters });
@@ -54,5 +79,17 @@ export const newsApi = {
 
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/news/${id}`);
+  },
+
+  /**
+   * Fuerza la sincronización con formosa.gob.ar. Requiere la acción `NEWS_SYNC`.
+   *
+   * Puede tardar: recorre IDs del portal con una pausa entre requests para no
+   * castigar un sitio ajeno. El backend responde 503 si el portal no contesta o
+   * si cambió el markup, en vez de informar "0 noticias nuevas".
+   */
+  async sync(): Promise<ReporteSyncNoticias> {
+    const { data } = await apiClient.post<ReporteSyncNoticias>('/news/sync');
+    return data;
   },
 };

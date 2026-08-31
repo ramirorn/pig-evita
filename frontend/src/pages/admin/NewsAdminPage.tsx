@@ -2,8 +2,19 @@
 // News Admin Page
 // ===========================================
 import { useState } from 'react';
-import { Newspaper, Search, Plus, Pencil, Trash2, MoreVertical, Calendar } from 'lucide-react';
-import { useNewsList, useDeleteNews } from '@/hooks/useNews';
+import {
+  Newspaper,
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  MoreVertical,
+  Calendar,
+  RefreshCw,
+  ExternalLink,
+} from 'lucide-react';
+import { useNewsList, useDeleteNews, useSyncNews } from '@/hooks/useNews';
+import { usePermisos } from '@/hooks/usePermisos';
 import { useDebounce } from '@/hooks/useDebounce';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import type { News } from '@/types';
@@ -50,6 +61,12 @@ export function NewsAdminPage() {
   });
   const deleteMutation = useDeleteNews();
 
+  // R22 — la pantalla no ofrece caminos que el backend va a cerrar. `NEWS_SYNC`
+  // es más acotada que `NEWS_MANAGE` (sólo la línea provincial), así que el
+  // botón de sincronizar no se pinta para todos los que ven esta pantalla.
+  const { puede } = usePermisos();
+  const syncMutation = useSyncNews();
+
   // Tocar el filtro vuelve a la primera página: el resultado es otro y la
   // página en la que estabas puede ya no existir.
   const patchSearch = (value: string) => {
@@ -95,7 +112,15 @@ export function NewsAdminPage() {
       headClassName: 'min-w-[280px]',
       cell: (item) => (
         <div className="max-w-md">
-          <p className="font-semibold text-primary-900 line-clamp-1">{item.title}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-primary-900 line-clamp-1">{item.title}</p>
+            {item.isExternal && (
+              <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-celeste-50 text-celeste-900 border border-celeste-200">
+                <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                Portal
+              </span>
+            )}
+          </div>
           {item.excerpt && (
             <p className="text-xs text-primary-500 line-clamp-2 mt-0.5">{item.excerpt}</p>
           )}
@@ -143,28 +168,44 @@ export function NewsAdminPage() {
       hideHeader: true,
       interactive: true,
       headClassName: 'w-[80px]',
-      cell: (item) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={`Más acciones para ${item.title}`}>
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEdit(item)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setDeletingNews(item)}
-              className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      cell: (item) =>
+        // S19 — una noticia del portal no se edita ni se elimina, y el backend
+        // lo rechaza con 403. Peor todavía sería el borrado: la fila se iría y
+        // la próxima corrida del sync la volvería a crear. En vez de pintar dos
+        // botones que mienten, se explica de dónde viene la noticia.
+        item.isExternal ? (
+          <a
+            href={item.sourceUrl ?? '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 hover:text-primary-900 underline underline-offset-2"
+            title="Se administra en el portal oficial: acá es un reflejo"
+          >
+            Ver en el portal
+            <ExternalLink className="w-3 h-3" aria-hidden="true" />
+          </a>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label={`Más acciones para ${item.title}`}>
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleEdit(item)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setDeletingNews(item)}
+                className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ),
     },
   ];
 
@@ -175,10 +216,27 @@ export function NewsAdminPage() {
         description="Gestión de novedades y artículos públicos"
         icon={<Newspaper className="w-5 h-5 text-white" />}
         actions={
-          <Button onClick={handleCreate} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Nueva Noticia
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {puede('NEWS_SYNC') && (
+              <Button
+                variant="outline"
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending}
+                className="gap-2"
+                title="Trae las noticias de Juegos Evita publicadas en formosa.gob.ar"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
+                {syncMutation.isPending ? 'Sincronizando…' : 'Sincronizar portal'}
+              </Button>
+            )}
+            <Button onClick={handleCreate} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Nueva Noticia
+            </Button>
+          </div>
         }
       />
 

@@ -182,6 +182,13 @@ export const ACTION_ROLES = {
     UserRole.ADMIN_DEPARTAMENTAL,
     UserRole.ADMIN_ZONAL,
   ],
+  /**
+   * S19 — forzar la sincronización con el portal oficial.
+   *
+   * Más acotada que `NEWS_MANAGE` a propósito: no edita contenido propio, sale
+   * a golpear un sitio ajeno y trae contenido institucional de la Provincia.
+   */
+  NEWS_SYNC: [UserRole.SUPER_ADMIN, UserRole.ADMIN_PROVINCIAL],
   CALENDAR_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
@@ -261,7 +268,7 @@ export const ACCIONES_POR_PANTALLA: Partial<
   [ROUTES.COMPETITION_DETAIL]: ['COMPETITION_MANAGE'],
   [ROUTES.DISCIPLINES_ADMIN]: ['DISCIPLINE_MANAGE'],
   [ROUTES.CATEGORIES_ADMIN]: ['CATEGORY_MANAGE'],
-  [ROUTES.NEWS_ADMIN]: ['NEWS_MANAGE'],
+  [ROUTES.NEWS_ADMIN]: ['NEWS_MANAGE', 'NEWS_SYNC'],
   [ROUTES.CALENDAR_ADMIN]: ['CALENDAR_MANAGE'],
   [ROUTES.VENUES_ADMIN]: ['VENUE_MANAGE'],
   [ROUTES.USERS]: ['USER_MANAGE'],

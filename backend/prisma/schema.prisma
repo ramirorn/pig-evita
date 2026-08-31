@@ -426,11 +426,57 @@ model News {
   isPublished Boolean   @default(false) @map("is_published")
   publishedAt DateTime? @map("published_at")
   authorId    String?   @map("author_id") @db.Uuid
+
+  /// S19 — noticias traídas del portal oficial (formosa.gob.ar).
+  ///
+  /// **Enlaza, no republica.** De la nota ajena se guardan título, bajada,
+  /// imagen y fecha, y `sourceUrl` apunta al original: el cuerpo del artículo
+  /// **no** se copia. Los dos motivos están atados: el legal (republicar
+  /// contenido ajeno es otra cosa que enlazarlo, aun con permiso de la
+  /// Secretaría) y el técnico — T11 sacó `dangerouslySetInnerHTML` de todo el
+  /// proyecto tras confirmar que las noticias son texto plano, y traer HTML de
+  /// otro sitio reabriría justo esa superficie.
+  ///
+  /// `sourceUrl` es único y es la clave de idempotencia del sync: la corrida
+  /// hace `upsert` por esta columna, así que correrla dos veces no duplica.
+  sourceUrl   String?   @unique @map("source_url")
+  /// Quién publicó el original, para poder atribuirlo en la tarjeta.
+  sourceName  String?   @map("source_name")
+  /// Marcador de externa. Una nota externa **no se edita ni se despublica**
+  /// como una propia (`news.service.ts` lo rechaza): lo que se ve acá es un
+  /// reflejo de lo que hay allá, y editarlo sería mentir sobre la fuente.
+  isExternal  Boolean   @default(false) @map("is_external")
+
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@index([isPublished, publishedAt])
+  @@index([isExternal])
   @@map("news")
+}
+
+/// Cursor de los sincronizadores con fuentes externas (S19).
+///
+/// Existe porque el descubrimiento de noticias del portal recorre IDs y **tiene
+/// tope por corrida**: sin un cursor persistido, una corrida que se queda sin
+/// presupuesto de IDs vuelve a empezar en el mismo lugar al día siguiente y no
+/// avanza nunca. Tampoco sirve derivarlo de la última noticia guardada: entre
+/// dos notas de Juegos Evita hay decenas de IDs de otras secciones, y todos
+/// esos se volverían a recorrer todos los días.
+model SyncState {
+  /// Identificador del sincronizador (por ahora "formosa-news").
+  key           String    @id
+  /// Último ID del portal efectivamente inspeccionado.
+  lastScannedId Int       @map("last_scanned_id")
+  /// Cuándo corrió por última vez, haya traído algo o no.
+  lastRunAt     DateTime? @map("last_run_at")
+  /// Cuándo entró por última vez una nota clasificable. Es lo que permite
+  /// gritar cuando el sync lleva semanas "exitoso" trayendo cero.
+  lastFoundAt   DateTime? @map("last_found_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("sync_state")
 }
 
 /// Eventos del calendario

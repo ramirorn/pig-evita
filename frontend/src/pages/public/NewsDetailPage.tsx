@@ -1,11 +1,21 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Newspaper, ArrowLeft, Loader2, Calendar, Share2, Clock, Check } from 'lucide-react';
+import {
+  Newspaper,
+  ArrowLeft,
+  Loader2,
+  Calendar,
+  Share2,
+  Clock,
+  Check,
+  ExternalLink,
+} from 'lucide-react';
 import { useNewsBySlug } from '@/hooks/useNews';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { formatDate, safeImageSrc } from '@/lib/utils';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
+import { esNoticiaExterna, hostDeLaFuente } from './news/newsSource';
 import { logError } from '@/lib/logger';
 import { copiarAlPortapapeles, MENSAJE_COPIA_FALLIDA } from '@/lib/clipboard';
 import { toast } from 'sonner';
@@ -72,6 +82,13 @@ export function NewsDetailPage() {
 
   const coverSrc = safeImageSrc(news.imageKey);
 
+  // S19 — a esta pantalla se puede llegar por URL directa con el slug de una
+  // noticia del portal. De esas **no tenemos el cuerpo del artículo**: lo que
+  // hay es la bajada. Mostrarla dentro del layout de "artículo completo" haría
+  // parecer que la nota se termina en dos renglones; lo honesto es decir de
+  // dónde viene y mandar al original.
+  const externa = esNoticiaExterna(news);
+
   return (
     <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-fade-in">
       <Button
@@ -87,16 +104,18 @@ export function NewsDetailPage() {
       <div className="mb-8">
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <Badge className="bg-primary-50 text-primary-800 border-primary-200 uppercase tracking-wider font-bold text-xs">
-            Actualidad
+            {externa ? 'Portal Oficial de Formosa' : 'Actualidad'}
           </Badge>
           <span className="flex items-center gap-1.5 text-xs font-semibold text-primary-500">
             <Calendar className="w-3.5 h-3.5" />
             {formatDate(news.createdAt)}
           </span>
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-primary-400">
-            <Clock className="w-3.5 h-3.5" />
-            Lectura de 3 min
-          </span>
+          {!externa && (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-primary-400">
+              <Clock className="w-3.5 h-3.5" />
+              Lectura de 3 min
+            </span>
+          )}
         </div>
 
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-primary-950 mb-6 leading-tight">
@@ -152,9 +171,33 @@ export function NewsDetailPage() {
       )}
 
       {/* Cuerpo del Artículo */}
-      <div className="prose prose-lg prose-primary max-w-none text-primary-900 leading-relaxed font-normal bg-white p-6 sm:p-10 rounded-3xl border border-primary-100 shadow-xs">
-        <PlainTextContent text={news.content} />
-      </div>
+      {externa ? (
+        <div className="bg-white p-6 sm:p-10 rounded-3xl border border-primary-100 shadow-xs">
+          <p className="text-primary-900 leading-relaxed mb-6">{news.excerpt}</p>
+          <div className="border-t border-primary-100 pt-6">
+            <p className="text-sm text-primary-600 mb-4">
+              Esta noticia fue publicada por{' '}
+              <strong className="text-primary-800">
+                {news.sourceName || 'el Portal Oficial de la Provincia de Formosa'}
+              </strong>
+              . La nota completa se lee en {hostDeLaFuente(news.sourceUrl) || 'formosa.gob.ar'}.
+            </p>
+            <a
+              href={news.sourceUrl as string}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-bold hover:bg-primary-700 transition-colors"
+            >
+              Leer la nota completa en el portal oficial
+              <ExternalLink className="w-4 h-4" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div className="prose prose-lg prose-primary max-w-none text-primary-900 leading-relaxed font-normal bg-white p-6 sm:p-10 rounded-3xl border border-primary-100 shadow-xs">
+          <PlainTextContent text={news.content} />
+        </div>
+      )}
     </article>
   );
 }
