@@ -1,162 +1,99 @@
 // ===========================================
 // Disciplines Page — Public
 // ===========================================
-import { useState } from 'react';
-import {
-  Trophy, Loader2, ArrowRight,
-  Dumbbell, Bike, Target, Swords, Volleyball,
-  Footprints, Waves, Wind, Flame, CircleDot, Gamepad2,
-} from 'lucide-react';
-import { useDisciplines } from '@/hooks/useDisciplines';
-import { Link } from 'react-router';
+import { useMemo, useState } from 'react';
+import { Trophy } from 'lucide-react';
+import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { DisciplineType } from '@/types';
+import { PublicListState } from '@/components/shared/PublicListState';
+import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
+import { DisciplineCard } from './disciplines/DisciplineCard';
 import { cn } from '@/lib/utils';
-
-// Map discipline names to specific icons for visual variety
-const DISCIPLINE_ICONS: Record<string, React.ReactNode> = {
-  'Fútbol 11': <CircleDot className="w-6 h-6" />,
-  'Fútbol': <CircleDot className="w-6 h-6" />,
-  'Atletismo': <Footprints className="w-6 h-6" />,
-  'Natación': <Waves className="w-6 h-6" />,
-  'Ciclismo': <Bike className="w-6 h-6" />,
-  'Tiro': <Target className="w-6 h-6" />,
-  'Esgrima': <Swords className="w-6 h-6" />,
-  'Vóley': <Volleyball className="w-6 h-6" />,
-  'Volleyball': <Volleyball className="w-6 h-6" />,
-  'Pesas': <Dumbbell className="w-6 h-6" />,
-  'Halterofilia': <Dumbbell className="w-6 h-6" />,
-  'Karate': <Wind className="w-6 h-6" />,
-  'Taekwondo': <Flame className="w-6 h-6" />,
-  'Ajedrez': <Gamepad2 className="w-6 h-6" />,
-};
-
-function getDisciplineIcon(name: string): React.ReactNode {
-  // Try exact match first, then partial match
-  if (DISCIPLINE_ICONS[name]) return DISCIPLINE_ICONS[name];
-  const key = Object.keys(DISCIPLINE_ICONS).find((k) =>
-    name.toLowerCase().includes(k.toLowerCase()),
-  );
-  return key ? DISCIPLINE_ICONS[key] : <Trophy className="w-6 h-6" />;
-}
-
-// Alternating gradient backgrounds for cards
-const CARD_GRADIENTS = [
-  'from-primary-500 to-primary-700',
-  'from-secondary-500 to-secondary-600',
-  'from-accent-500 to-accent-600',
-  'from-celeste-500 to-celeste-600',
-  'from-primary-600 to-primary-800',
-  'from-secondary-600 to-secondary-700',
-];
+import { columnasSegunVolumen } from '@/lib/gridVolumen';
 
 type FilterType = 'ALL' | 'INDIVIDUAL' | 'EQUIPO';
 
+const FILTERS: { label: string; value: FilterType }[] = [
+  { label: 'Todas', value: 'ALL' },
+  { label: 'Individual', value: 'INDIVIDUAL' },
+  { label: 'Equipo', value: 'EQUIPO' },
+];
+
 export function DisciplinesPage() {
-  const { data: disciplinesData, isLoading } = useDisciplines({ isActive: true });
+  // Recorre la paginación hasta el final (R29/S06/S13): antes era
+  // `useDisciplines({ isActive: true })` sin `limit`, o sea las 20 filas del
+  // default del backend, y los chips de abajo filtraban **en memoria** sobre
+  // esas 20. Con 21 disciplinas la última no existía para esta página y nada
+  // lo indicaba.
+  const { data: disciplines, isLoading } = useAllDisciplines({ isActive: true });
   const [filter, setFilter] = useState<FilterType>('ALL');
 
-  const filtered = disciplinesData?.data.filter((d) =>
-    filter === 'ALL' ? true : d.type === filter,
+  const filtered = useMemo(
+    () => (disciplines ?? []).filter((d) => (filter === 'ALL' ? true : d.type === filter)),
+    [disciplines, filter],
   );
 
-  const FILTERS: { label: string; value: FilterType }[] = [
-    { label: 'Todas', value: 'ALL' },
-    { label: 'Individual', value: 'INDIVIDUAL' },
-    { label: 'Equipo', value: 'EQUIPO' },
-  ];
-
   return (
-    <div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
-        <PublicPageHeader
-          title="Disciplinas Deportivas"
-          description="Todas las disciplinas disponibles en los Juegos Evita Formoseños. Encontrá el deporte que te apasiona y sumate a competir."
-          icon={<Trophy className="h-6 w-6" aria-hidden="true" />}
-        />
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16">
+      <PublicPageHeader
+        title="Disciplinas Deportivas"
+        description="Todas las disciplinas disponibles en los Juegos Evita Formoseños. Encontrá el deporte que te apasiona y sumate a competir."
+        icon={<Trophy className="h-6 w-6" aria-hidden="true" />}
+      />
 
-        {/* Los filtros van debajo del encabezado y no como `actions`:
-            pertenecen al listado, no al título. Mismo lenguaje visual que los
-            chips de noticias — sobre fondo claro, el `bg-white/10` del hero no
-            se veía. */}
-        <div
-          role="group"
-          aria-label="Filtrar disciplinas"
-          className="mb-8 flex flex-wrap gap-2"
-        >
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              aria-pressed={filter === f.value}
-              onClick={() => setFilter(f.value)}
-              className={cn(
-                'rounded-full px-5 py-2 text-sm font-semibold shadow-sm transition-colors',
-                filter === f.value
-                  ? 'bg-primary-800 text-white'
-                  : 'border border-primary-200 bg-white text-primary-600 hover:bg-primary-50',
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+      {/* Los filtros van debajo del encabezado y no como `actions`:
+          pertenecen al listado, no al título. */}
+      <div role="group" aria-label="Filtrar disciplinas" className="mb-8 flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            aria-pressed={filter === f.value}
+            onClick={() => setFilter(f.value)}
+            className={cn(
+              // `min-h-11` = 44 px, el blanco de toque de WCAG 2.5.5. Con
+              // `py-2` quedaban en 36, y este sitio se consume sobre todo
+              // desde el celular.
+              'inline-flex min-h-11 items-center rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors',
+              filter === f.value
+                ? 'bg-primary-800 text-white'
+                // El borde es la única señal de dónde termina el control:
+                // `primary-200` sobre blanco da 1.73:1 y `primary-300` 2.48:1,
+                // los dos por debajo del 3:1 que AA pide para el borde de un
+                // control. `primary-400` da 3.75:1.
+                : 'border border-primary-400 bg-white text-primary-600 hover:bg-primary-50',
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
-        {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
-          </div>
-        ) : filtered && filtered.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filtered.map((discipline, idx) => (
-              <Link key={discipline.id} to={`/disciplinas/${discipline.id}`}>
-                <div
-                  className={`card h-full p-6 hover:shadow-xl hover:-translate-y-1 transition-all group flex flex-col items-center text-center animate-fade-in`}
-                  style={{ animationDelay: `${idx * 0.05}s` }}
-                >
-                  <div
-                    className={cn(
-                      'w-14 h-14 rounded-full flex items-center justify-center mb-4 transition-all duration-300',
-                      'bg-primary-100 text-primary-600 group-hover:text-white',
-                      `group-hover:bg-gradient-to-br group-hover:${CARD_GRADIENTS[idx % CARD_GRADIENTS.length]}`,
-                    )}
-                    style={{
-                      // Using inline style for dynamic group-hover gradient since TW can't do it dynamically
-                    }}
-                  >
-                    <div className="group-hover:scale-110 transition-transform">
-                      {getDisciplineIcon(discipline.name)}
-                    </div>
-                  </div>
-                  <h2 className="font-bold text-primary-900 text-lg mb-2">{discipline.name}</h2>
-                  <span
-                    className={cn(
-                      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide mb-3',
-                      discipline.type === DisciplineType.INDIVIDUAL
-                        ? 'bg-celeste-50 text-celeste-700 border border-celeste-200'
-                        : 'bg-secondary-50 text-secondary-700 border border-secondary-200',
-                    )}
-                  >
-                    {discipline.type === DisciplineType.INDIVIDUAL ? 'Individual' : 'Equipo'}
-                  </span>
-                  <div className="mt-auto pt-2">
-                    <span className="text-primary-600 font-medium text-sm flex items-center justify-center gap-1 group-hover:text-primary-800 transition-colors">
-                      Ver reglamento y categorías <ArrowRight className="w-4 h-4" />
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
+      <PublicListState
+        isLoading={isLoading}
+        isEmpty={filtered.length === 0}
+        skeleton={<CardGridSkeleton cantidad={6} alto="h-64" />}
+        empty={
           <EmptyState
             icon={<Trophy className="w-10 h-10" />}
             title="Sin disciplinas"
-            description="No hay disciplinas activas en este momento."
+            description={
+              filter === 'ALL'
+                ? 'No hay disciplinas activas en este momento.'
+                : 'No hay disciplinas activas de ese tipo.'
+            }
           />
-        )}
-      </div>
+        }
+      >
+        {/* El reparto de columnas es función del volumen: con las 5 disciplinas
+            cargadas, `xl:grid-cols-4` dejaba una fila de 4 y una huérfana. */}
+        <div className={columnasSegunVolumen(filtered.length)}>
+          {filtered.map((discipline, idx) => (
+            <DisciplineCard key={discipline.id} discipline={discipline} index={idx} />
+          ))}
+        </div>
+      </PublicListState>
     </div>
   );
 }

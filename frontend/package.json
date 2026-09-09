@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "check:nav": "node scripts/check-nav-roles.mjs",
+    "check:cards": "node scripts/check-public-cards.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

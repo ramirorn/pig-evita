@@ -9,6 +9,7 @@ import {
   type UpdateVenuePayload
 } from '@/api/venues.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { fetchAllPages } from '@/lib/fetchAllPages';
 import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -16,6 +17,7 @@ export const VENUE_KEYS = {
   all: ['venues'] as const,
   lists: () => [...VENUE_KEYS.all, 'list'] as const,
   list: (filters?: VenueFilters) => [...VENUE_KEYS.lists(), { filters }] as const,
+  listAll: (filters: VenueFilters) => [...VENUE_KEYS.lists(), 'all', filters] as const,
   details: () => [...VENUE_KEYS.all, 'detail'] as const,
   detail: (id: string) => [...VENUE_KEYS.details(), id] as const,
 };
@@ -24,6 +26,26 @@ export function useVenues(filters?: VenueFilters) {
   return useQuery({
     queryKey: VENUE_KEYS.list(filters),
     queryFn: () => venuesApi.findAll(filters),
+    staleTime: STALE_TIME.CATALOG,
+  });
+}
+
+/**
+ * Todas las sedes que matchean el filtro, recorriendo la paginación hasta el
+ * final.
+ *
+ * Cierra el mismo bug que `useAllDisciplines` (R29/S06/S13): la página pública
+ * de sedes llamaba a `useVenues({ isActive: true })` sin `limit`, o sea las 20
+ * del default del backend, y encima derivaba de ahí el chip contador y —desde
+ * U08— las opciones del filtro por departamento. Con 21 sedes la última no
+ * existía para la pantalla y nada lo indicaba. Devuelve el arreglo directo
+ * porque no queda paginación de la que hablar.
+ */
+export function useAllVenues(filters: VenueFilters = {}) {
+  return useQuery({
+    queryKey: VENUE_KEYS.listAll(filters),
+    queryFn: () =>
+      fetchAllPages((page, limit) => venuesApi.findAll({ ...filters, page, limit })),
     staleTime: STALE_TIME.CATALOG,
   });
 }

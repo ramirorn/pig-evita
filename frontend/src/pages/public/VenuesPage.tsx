@@ -1,110 +1,174 @@
 // ===========================================
 // Venues Page — Public
 // ===========================================
-import { MapPin, Loader2, Navigation, Building2 } from 'lucide-react';
-import { useVenues } from '@/hooks/useVenues';
+import { useMemo, useState } from 'react';
+import { MapPin, Building2 } from 'lucide-react';
+import { useAllVenues } from '@/hooks/useVenues';
+import { useAllCalendarEvents } from '@/hooks/useCalendar';
 import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { safeExternalUrl } from '@/lib/utils';
+import { PublicListState } from '@/components/shared/PublicListState';
+import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
+import { VenueCard } from './venues/VenueCard';
+import { cn } from '@/lib/utils';
+import { columnasSegunVolumen } from '@/lib/gridVolumen';
 
-/** Base fija de Google Maps: nunca se arma con datos del backend. */
-const MAPS_SEARCH_BASE = 'https://maps.google.com/';
+const TODOS = 'TODOS';
+
+/**
+ * Tope del cruce en el cliente para contar eventos por sede.
+ *
+ * El conteo se deriva trayendo **todos** los eventos publicados y agrupándolos
+ * por `venueId`. Con los 3 eventos cargados eso es gratis y se sirve del cache
+ * que ya llenó `CalendarPage` (misma clave de query). Con 5.000 es un
+ * despropósito: serían 50 requests para pintar un número.
+ *
+ * La salida correcta es que `/venues` devuelva el conteo en su `_count`, y eso
+ * **no se puede hoy**: `CalendarEvent` no tiene `@relation` con `Venue` en
+ * `schema.prisma`, así que Prisma no tiene por dónde contar. Está anotado como
+ * U13 y es trabajo de backend.
+ *
+ * Mientras tanto, por encima de este tope la sección simplemente no se pinta.
+ * Es una curita y se sabe que lo es: la alternativa era no mostrar nunca la
+ * conexión entre una sede y lo que pasa en ella hasta que exista la migración.
+ */
+const TOPE_DE_CRUCE_EN_CLIENTE = 200;
 
 export function VenuesPage() {
-  const { data: venuesData, isLoading } = useVenues({ isActive: true });
-  const venueCount = venuesData?.data.length || 0;
+  // Recorre la paginación hasta el final (R29/S06/S13): antes era `useVenues`
+  // sin `limit` —20 filas— y de ahí salían el chip contador y las opciones del
+  // filtro por departamento.
+  const { data: venues, isLoading } = useAllVenues({ isActive: true });
+  const { data: eventos } = useAllCalendarEvents({ isPublished: true });
+
+  const [departamento, setDepartamento] = useState<string>(TODOS);
+
+  const todasLasSedes = useMemo(() => venues ?? [], [venues]);
+
+  /**
+   * El contador del encabezado.
+   *
+   * Antes salía de `venuesData?.data.length`, que es **la cantidad de la página
+   * actual**, no el total: con 25 sedes el chip decía "20 sedes activas". Acá
+   * el hook recorre todas las páginas, así que la longitud del arreglo *es* el
+   * total (`meta.total`) y no la primera página de él.
+   */
+  const totalDeSedes = todasLasSedes.length;
+
+  /**
+   * Eventos futuros por sede.
+   *
+   * `null` cuando no se pudo calcular —todavía no llegaron los eventos, o hay
+   * demasiados—, que es distinto de un cero: un cero afirmaría que en esa sede
+   * no hay nada programado, y eso no se sabe.
+   */
+  const eventosPorSede = useMemo<Map<string, number> | null>(() => {
+    if (!eventos) return null;
+    if (eventos.length > TOPE_DE_CRUCE_EN_CLIENTE) return null;
+
+    const hoy = new Date();
+    const corte = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime();
+
+    const conteo = new Map<string, number>();
+    for (const evento of eventos) {
+      if (!evento.venueId) continue;
+      const inicio = new Date(evento.startDate).getTime();
+      if (Number.isNaN(inicio) || inicio < corte) continue;
+      conteo.set(evento.venueId, (conteo.get(evento.venueId) ?? 0) + 1);
+    }
+    return conteo;
+  }, [eventos]);
+
+  /**
+   * Los departamentos que **de verdad** tienen sedes, derivados de los datos —
+   * mismo criterio que `opcionesDeMes` en el calendario.
+   *
+   * Hoy las tres sedes son del departamento Formosa, así que hay una sola
+   * opción y el filtro no se pinta: un filtro con una opción es decoración.
+   */
+  const departamentos = useMemo(
+    () => [...new Set(todasLasSedes.map((v) => v.department).filter(Boolean))].sort(),
+    [todasLasSedes],
+  );
+
+  const sedes = useMemo(
+    () =>
+      departamento === TODOS
+        ? todasLasSedes
+        : todasLasSedes.filter((v) => v.department === departamento),
+    [todasLasSedes, departamento],
+  );
 
   return (
-    <div>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
-        <PublicPageHeader
-          title="Sedes de Competencia"
-          description="Polideportivos, clubes y espacios donde se desarrollan los Juegos Evita Formoseños."
-          icon={<MapPin className="h-6 w-6" aria-hidden="true" />}
-          actions={
-            venueCount > 0 ? (
-              // Sobre fondo claro el contador pasa a la paleta institucional:
-              // el `bg-white/15` de antes sólo se leía sobre el hero oscuro.
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-white px-4 py-2 text-sm font-semibold text-primary-700 shadow-sm">
-                <Building2 className="h-4 w-4 text-accent-500" />
-                {venueCount} sede{venueCount !== 1 ? 's' : ''} activa{venueCount !== 1 ? 's' : ''}
-              </div>
-            ) : undefined
-          }
-        />
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16">
+      <PublicPageHeader
+        title="Sedes de Competencia"
+        description="Polideportivos, clubes y espacios donde se desarrollan los Juegos Evita Formoseños."
+        icon={<MapPin className="h-6 w-6" aria-hidden="true" />}
+        actions={
+          totalDeSedes > 0 ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary-200 bg-white px-4 py-2 text-sm font-semibold text-primary-700 shadow-sm">
+              {/* `accent-500` sobre blanco da 2.05:1: como icono portador de
+                  significado no llegaría al 3:1 de AA. Acá es puramente
+                  decorativo —el significado está en el texto de al lado— y por
+                  eso va con `aria-hidden`. */}
+              <Building2 className="h-4 w-4 text-accent-700" aria-hidden="true" />
+              {totalDeSedes} sede{totalDeSedes !== 1 ? 's' : ''} activa{totalDeSedes !== 1 ? 's' : ''}
+            </div>
+          ) : undefined
+        }
+      />
 
-        {isLoading ? (
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
-          </div>
-        ) : venuesData?.data && venuesData.data.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {venuesData.data.map((venue, idx) => {
-              // `address` y `locality` son texto libre del backend: si el helper
-              // no puede armar una URL https limpia, no se muestra el link.
-              const mapsUrl = safeExternalUrl(MAPS_SEARCH_BASE, {
-                q: `${venue.address ?? ''} ${venue.locality ?? ''} Formosa`,
-              });
+      {departamentos.length > 1 && (
+        <div role="group" aria-label="Filtrar sedes por departamento" className="mb-8 flex flex-wrap gap-2">
+          {[TODOS, ...departamentos].map((opcion) => (
+            <button
+              key={opcion}
+              type="button"
+              aria-pressed={departamento === opcion}
+              onClick={() => setDepartamento(opcion)}
+              className={cn(
+                'inline-flex min-h-11 items-center rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors',
+                departamento === opcion
+                  ? 'bg-primary-800 text-white'
+                  : 'border border-primary-400 bg-white text-primary-600 hover:bg-primary-50',
+              )}
+            >
+              {opcion === TODOS ? 'Todos los departamentos' : opcion}
+            </button>
+          ))}
+        </div>
+      )}
 
-              return (
-              <div
-                key={venue.id}
-                className="card p-6 flex flex-col h-full hover:shadow-lg transition-all hover:-translate-y-0.5 animate-fade-in"
-                style={{ animationDelay: `${idx * 0.06}s` }}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-celeste-100 to-primary-100 flex items-center justify-center">
-                    <MapPin className="w-6 h-6 text-primary-600" />
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-primary-500 block">
-                      {venue.department}
-                    </span>
-                    <span className="text-sm text-primary-400 block">
-                      {venue.locality}
-                    </span>
-                  </div>
-                </div>
-
-                <h2 className="text-xl font-bold text-primary-900 mb-2">{venue.name}</h2>
-                <p className="text-primary-600 text-sm mb-6 flex-1">
-                  {venue.address}
-                </p>
-
-                <div className="mt-auto pt-4 border-t border-primary-100 flex justify-between items-center">
-                  <span className="text-sm font-medium text-primary-700">
-                    {venue.capacity ? `Capacidad: ${venue.capacity}` : 'Sede Oficial'}
-                  </span>
-                  {mapsUrl ? (
-                    <a
-                      href={mapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-primary-600 hover:text-primary-800 text-sm font-medium transition-colors"
-                    >
-                      <Navigation className="w-4 h-4" /> Cómo llegar
-                    </a>
-                  ) : (
-                    // Sin link, pero la dirección sigue arriba como texto plano:
-                    // el dato no desaparece de la pantalla, sólo deja de ser
-                    // clickeable.
-                    <span className="flex items-center gap-1 text-primary-400 text-sm font-medium">
-                      <Navigation className="w-4 h-4" /> Sin mapa disponible
-                    </span>
-                  )}
-                </div>
-              </div>
-              );
-            })}
-          </div>
-        ) : (
+      <PublicListState
+        isLoading={isLoading}
+        isEmpty={sedes.length === 0}
+        skeleton={<CardGridSkeleton cantidad={3} alto="h-64" />}
+        empty={
           <EmptyState
             icon={<MapPin className="w-10 h-10" />}
             title="Sin sedes"
-            description="No hay sedes cargadas en el sistema."
+            description={
+              departamento === TODOS
+                ? 'No hay sedes cargadas en el sistema.'
+                : 'No hay sedes activas en ese departamento.'
+            }
           />
-        )}
-      </div>
+        }
+      >
+        <div className={columnasSegunVolumen(sedes.length)}>
+          {sedes.map((venue, idx) => (
+            <VenueCard
+              key={venue.id}
+              venue={venue}
+              index={idx}
+              eventosProgramados={
+                eventosPorSede === null ? null : eventosPorSede.get(venue.id) ?? 0
+              }
+            />
+          ))}
+        </div>
+      </PublicListState>
     </div>
   );
 }

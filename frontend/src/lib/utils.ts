@@ -20,6 +20,40 @@ export function formatDate(dateStr: string | null | undefined): string {
 }
 
 /** Format ISO date string to localized datetime */
+/**
+ * Antigüedad en lenguaje corriente: "hace 5 min", "hace 3 h", "hace 2 d".
+ *
+ * Es lo que usan los lectores de noticias, y comunica algo que la fecha
+ * absoluta no: si la nota es de hoy o de hace un mes. Pasada la semana vuelve a
+ * la fecha, porque "hace 43 d" no le dice nada a nadie.
+ *
+ * Devuelve cadena vacía ante una fecha ausente o inválida en vez de "Invalid
+ * Date" o "hace NaN d": si no se sabe cuándo fue, no se dice nada.
+ */
+export function tiempoRelativo(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+
+  const fecha = new Date(dateStr);
+  if (Number.isNaN(fecha.getTime())) return '';
+
+  const segundos = Math.floor((Date.now() - fecha.getTime()) / 1000);
+
+  // Una fecha futura —un desfase de reloj, una nota programada— no se muestra
+  // como "hace -3 h".
+  if (segundos < 60) return 'recién';
+
+  const minutos = Math.floor(segundos / 60);
+  if (minutos < 60) return `hace ${minutos} min`;
+
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `hace ${horas} h`;
+
+  const dias = Math.floor(horas / 24);
+  if (dias <= 7) return dias === 1 ? 'ayer' : `hace ${dias} d`;
+
+  return formatDate(dateStr);
+}
+
 export function formatDateTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleString('es-AR', {

@@ -133,6 +133,14 @@ export interface Discipline {
   updatedAt: string;
   // Relations
   categories?: Category[];
+  /**
+   * Sólo en el **listado**: `GET /disciplines` devuelve `_count.categories`
+   * (verificado contra la API en vivo, 2026-08-31). El detalle por id devuelve
+   * `categories[]` en su lugar y **no** trae `_count`, por eso es opcional.
+   * Mismo patrón que `Team._count`. No requiere cambio del modelo Prisma: el
+   * dato ya viajaba y era el tipo del cliente el que no lo declaraba.
+   */
+  _count?: { categories: number };
 }
 
 export interface Category {
@@ -276,6 +284,13 @@ export interface Competition {
   discipline?: Discipline;
   category?: Category;
   matches?: Match[];
+  /**
+   * Sólo en el **listado**: `GET /competitions` devuelve `_count.matches`
+   * (verificado contra la API en vivo, 2026-08-31). Es lo que permite decir si
+   * hay fixture generado sin traerse los partidos. Opcional porque el detalle
+   * por id devuelve `matches[]` y no el conteo.
+   */
+  _count?: { matches: number };
 }
 
 export interface Match {

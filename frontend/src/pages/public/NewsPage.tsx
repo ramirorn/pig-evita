@@ -2,7 +2,7 @@
 // News Page — Public
 // ===========================================
 import { useEffect, useState } from 'react';
-import { Newspaper, Search, X, Star, LayoutGrid, Clock } from 'lucide-react';
+import { Newspaper, Search, X, LayoutGrid, Clock } from 'lucide-react';
 import { useNewsList } from '@/hooks/useNews';
 import { useDebounce } from '@/hooks/useDebounce';
 import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
@@ -10,8 +10,9 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { Pagination } from '@/components/shared/Pagination';
 import { Input } from '@/components/ui/input';
 import { NewsListSkeleton } from './news/NewsListSkeleton';
-import { FeaturedNewsCard } from './news/FeaturedNewsCard';
 import { NewsCard } from './news/NewsCard';
+import { NewsMosaicCard } from './news/NewsMosaicCard';
+import { repartir } from './news/newsLayout';
 import { NewsSidebarList } from './news/NewsSidebarList';
 import {
   NewsOriginFilter,
@@ -26,8 +27,6 @@ import {
  */
 const NOTICIAS_POR_PAGINA = 12;
 
-/** Cuántas acompañan a la destacada en la columna lateral. */
-const EN_LA_COLUMNA = 3;
 
 export function NewsPage() {
   const [search, setSearch] = useState('');
@@ -58,12 +57,14 @@ export function NewsPage() {
   const pageNews = newsData?.data ?? [];
   const meta = newsData?.meta;
 
-  // La portada —destacada + columna— es de la primera página. En las siguientes
-  // va todo a la grilla, que es donde el usuario ya viene leyendo en lista.
-  const esPortada = page === 1;
-  const featured = esPortada ? pageNews[0] : undefined;
-  const enLaColumna = esPortada ? pageNews.slice(1, 1 + EN_LA_COLUMNA) : [];
-  const enLaGrilla = esPortada ? pageNews.slice(1 + EN_LA_COLUMNA) : pageNews;
+  // El reparto de piezas del mosaico depende de **cuántas noticias hay**.
+  //
+  // Un mosaico denso está pensado para decenas de artículos: con tres o cuatro
+  // deja huecos grandes y tarjetas gigantes, y se ve peor que una lista simple.
+  // `repartir` decide qué formato aguanta el volumen del momento, así que la
+  // portada se ve bien hoy con 4 noticias y también cuando el archivo tenga 60,
+  // sin que nadie vuelva a tocar el layout.
+  const mosaico = repartir(pageNews, page === 1);
 
   const hayFiltro = Boolean(busqueda) || origen !== undefined;
 
@@ -119,51 +120,71 @@ export function NewsPage() {
             }
           />
         ) : (
-          <div className="space-y-12">
-            {/* Portada: destacada + columna lateral */}
-            {esPortada && featured && (
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
-                <div className="md:col-span-8">
-                  <div className="mb-4 flex items-center gap-2 text-primary-800">
-                    <Star className="h-5 w-5 fill-accent-500 text-accent-500" />
-                    <h2 className="text-sm font-bold tracking-wider uppercase">
-                      Destacado
-                    </h2>
-                  </div>
-                  <FeaturedNewsCard news={featured} />
+          <div className="space-y-10">
+            {/* Mosaico: una grande y dos medias arriba, el resto en grilla.
+                El reparto **se adapta al volumen**: con pocas noticias un
+                mosaico denso deja huecos y se ve roto, así que sólo se arma
+                cuando hay piezas para llenarlo (ver `repartir`). */}
+            {mosaico.grande && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+                <div
+                  className={
+                    mosaico.medias.length > 0
+                      ? 'md:col-span-7 lg:col-span-8'
+                      : 'md:col-span-12'
+                  }
+                >
+                  <NewsMosaicCard news={mosaico.grande} tamano="grande" />
                 </div>
 
-                {enLaColumna.length > 0 && (
-                  <div className="md:col-span-4">
-                    <div className="mb-4 flex items-center gap-2 text-primary-800">
-                      <Clock className="h-5 w-5" />
-                      {/* Dice "recientes" y no "lo más leído": no hay contador
-                          de visitas que respalde un ranking. */}
-                      <h2 className="text-sm font-bold tracking-wider uppercase">
-                        Más recientes
-                      </h2>
-                    </div>
-                    <NewsSidebarList news={enLaColumna} />
+                {mosaico.medias.length > 0 && (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:col-span-5 md:grid-cols-1 lg:col-span-4">
+                    {mosaico.medias.map((n, idx) => (
+                      <NewsMosaicCard key={n.id} news={n} index={idx + 1} />
+                    ))}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Grilla */}
-            {enLaGrilla.length > 0 && (
-              <div>
-                <div className="mb-6 flex items-center gap-2 text-primary-800">
-                  <LayoutGrid className="h-5 w-5" />
-                  <h2 className="font-display text-xl font-bold">
-                    Más artículos
-                  </h2>
-                </div>
+            {/* Segunda franja: lista compacta de texto + tarjetas. */}
+            {(mosaico.enLista.length > 0 || mosaico.enGrilla.length > 0) && (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                {mosaico.enLista.length > 0 && (
+                  <div className="lg:col-span-4">
+                    <div className="mb-4 flex items-center gap-2 text-primary-800">
+                      <Clock className="h-5 w-5" aria-hidden="true" />
+                      {/* "Recientes" y no "lo más leído": no hay contador de
+                          visitas que respalde un ranking. */}
+                      <h2 className="text-sm font-bold tracking-wider uppercase">
+                        Más recientes
+                      </h2>
+                    </div>
+                    <NewsSidebarList news={mosaico.enLista} />
+                  </div>
+                )}
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {enLaGrilla.map((news, idx) => (
-                    <NewsCard key={news.id} news={news} index={idx} />
-                  ))}
-                </div>
+                {mosaico.enGrilla.length > 0 && (
+                  <div
+                    className={
+                      mosaico.enLista.length > 0
+                        ? 'lg:col-span-8'
+                        : 'lg:col-span-12'
+                    }
+                  >
+                    <div className="mb-4 flex items-center gap-2 text-primary-800">
+                      <LayoutGrid className="h-5 w-5" aria-hidden="true" />
+                      <h2 className="font-display text-xl font-bold">
+                        Más artículos
+                      </h2>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {mosaico.enGrilla.map((n, idx) => (
+                        <NewsCard key={n.id} news={n} index={idx} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

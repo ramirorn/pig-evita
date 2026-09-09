@@ -393,4 +393,42 @@
   .noise-bg {
     background-image: none;
   }
+
+  /*
+   * El bloque de arriba apagaba **sólo** el grano del hero. Todo lo demás
+   * seguía moviéndose: las cuatro páginas públicas de listado entran con
+   * `animate-fade-in` y un `animationDelay` escalonado por tarjeta, y
+   * `fade-in` incluye un `translateY(8px)`. Con 20 tarjetas, la última entraba
+   * un segundo tarde desplazándose hacia arriba — justo lo que la preferencia
+   * pide que no pase. El anillo punteado de `EmptyState` giraba indefinidamente
+   * con `animate-spin-slow`, y el shimmer de los esqueletos latía sin parar.
+   *
+   * `animation: none` sobre una animación declarada con `both` deja al elemento
+   * en su **estado final**, no en el inicial: el contenido queda visible y en su
+   * lugar, sólo que sin el recorrido. Es la diferencia entre "menos movimiento"
+   * y "contenido invisible", y es la razón por la que acá no se toca `opacity`.
+   */
+  .animate-fade-in,
+  .animate-slide-in,
+  .animate-scale-in,
+  .animate-shimmer,
+  .animate-float,
+  .animate-float-delayed,
+  .animate-spin-slow,
+  .animate-count-up {
+    animation: none !important;
+  }
+
+  /*
+   * Las transiciones de hover se acortan a un valor imperceptible en vez de
+   * eliminarse: con `transition: none` el cambio de estado igual ocurre, pero
+   * como un salto duro. Un milisegundo lo vuelve instantáneo sin romper nada
+   * que dependa del evento `transitionend`.
+   */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
