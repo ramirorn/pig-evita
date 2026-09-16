@@ -100,3 +100,6 @@ pgadmin-data/
 tmp/
 temp/
 *.tmp
+
+# graphify knowledge graph output (local, regenerable)
+graphify-out/

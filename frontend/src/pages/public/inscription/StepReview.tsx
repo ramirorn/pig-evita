@@ -15,6 +15,8 @@ interface StepReviewProps {
   isSubmitting: boolean;
   onBack: () => void;
   onSubmit: () => void;
+  /** A dónde vuelve el botón de atrás: al paso 2 o, sin él, al paso 1. */
+  backLabel?: string;
 }
 
 export function StepReview({
@@ -27,6 +29,7 @@ export function StepReview({
   isSubmitting,
   onBack,
   onSubmit,
+  backLabel = 'Volver a Disciplina',
 }: StepReviewProps) {
   return (
     <div className="card p-6 md:p-8 space-y-6 animate-fade-in shadow-md">
@@ -100,7 +103,7 @@ export function StepReview({
           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-primary-600 hover:text-primary-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Volver a Disciplina
+          {backLabel}
         </button>
 
         <button

@@ -48,6 +48,10 @@ export const ADMIN_ROUTE_ROLES = {
   [ROUTES.NEWS_ADMIN]: ADMIN_ROLES,
   [ROUTES.CALENDAR_ADMIN]: ADMIN_ROLES,
   [ROUTES.VENUES_ADMIN]: ADMIN_ROLES,
+  // S20 — la encuesta. Mismo grupo que `SURVEY_MANAGE` en `adminActions.ts`:
+  // la pantalla entera es la acción, no hay una lectura sin gestión.
+  [ROUTES.SURVEY_ADMIN]: ADMIN_ROLES,
+  [ROUTES.SURVEY_CAMPAIGN_DETAIL]: ADMIN_ROLES,
   [ROUTES.USERS]: SYSTEM_MANAGERS,
   [ROUTES.REPORTS]: REPORT_VIEWERS,
   [ROUTES.AUDIT]: SYSTEM_MANAGERS,

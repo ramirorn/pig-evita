@@ -23,6 +23,7 @@ import {
   CreateDisciplineDto,
   UpdateDisciplineDto,
   DisciplineFilterDto,
+  DisciplineResponseDto,
 } from './dto';
 import {
   Roles,
@@ -45,7 +46,16 @@ export class DisciplinesController {
     summary: 'Crear disciplina',
     description: 'Solo Super Admin y Admin Provincial.',
   })
-  @ApiResponse({ status: 201, description: 'Disciplina creada' })
+  @ApiResponse({
+    status: 201,
+    description: 'Disciplina creada',
+    type: DisciplineResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'titulares / maxSuplentes cargados en una disciplina INDIVIDUAL (S21)',
+  })
   async create(@Body() createDto: CreateDisciplineDto) {
     return this.disciplinesService.create(createDto);
   }
@@ -70,7 +80,11 @@ export class DisciplinesController {
     summary: 'Obtener disciplina',
     description: 'Incluye sus categorías asociadas.',
   })
-  @ApiResponse({ status: 200, description: 'Datos de la disciplina' })
+  @ApiResponse({
+    status: 200,
+    description: 'Datos de la disciplina (incluye sus categorías)',
+    type: DisciplineResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'No encontrada' })
   async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.disciplinesService.findOne(id);
@@ -80,7 +94,11 @@ export class DisciplinesController {
   @Roles(...ACCIONES.DISCIPLINE_MANAGE)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Actualizar disciplina' })
-  @ApiResponse({ status: 200, description: 'Disciplina actualizada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Disciplina actualizada',
+    type: DisciplineResponseDto,
+  })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateDto: UpdateDisciplineDto,

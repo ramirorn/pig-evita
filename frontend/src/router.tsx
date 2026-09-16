@@ -39,6 +39,8 @@ import {
   VenuesPage,
   RankingsPage,
   CompetitionPublicPage,
+  SurveyLandingPage,
+  SurveyFormPage,
   DashboardPage,
   ParticipantsPage,
   ParticipantDetailPage,
@@ -56,6 +58,8 @@ import {
   NewsAdminPage,
   CalendarAdminPage,
   VenuesAdminPage,
+  SurveyAdminPage,
+  SurveyCampaignPage,
   UsersPage,
   ReportsPage,
   AuditPage,
@@ -157,6 +161,15 @@ export const router = createBrowserRouter([
       { path: ROUTES.VENUES, element: <VenuesPage /> },
       { path: ROUTES.RANKINGS, element: <RankingsPage /> },
       { path: ROUTES.COMPETITION_PUBLIC, element: <CompetitionPublicPage /> },
+      // La landing de la encuesta no sabe nada del formulario: se le pasa la
+      // ruta y su CTA —arriba y abajo— se engancha solo (ver `surveyCta.ts`).
+      // Sin esta prop el botón se pinta deshabilitado, que es lo que pasaba
+      // hasta ahora porque la página ni siquiera estaba ruteada.
+      {
+        path: ROUTES.SURVEY,
+        element: <SurveyLandingPage encuestaHref={ROUTES.SURVEY_FORM} />,
+      },
+      { path: ROUTES.SURVEY_FORM, element: <SurveyFormPage /> },
       // Comodín: cualquier URL que no matchee arriba muestra el 404 propio con
       // el header y el footer del sitio. Va último a propósito.
       { path: '*', element: <ErrorScreen variant="not-found" fullScreen={false} /> },
@@ -206,6 +219,8 @@ export const router = createBrowserRouter([
       { path: ROUTES.NEWS_ADMIN, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.NEWS_ADMIN], <NewsAdminPage />) },
       { path: ROUTES.CALENDAR_ADMIN, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.CALENDAR_ADMIN], <CalendarAdminPage />) },
       { path: ROUTES.VENUES_ADMIN, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.VENUES_ADMIN], <VenuesAdminPage />) },
+      { path: ROUTES.SURVEY_ADMIN, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.SURVEY_ADMIN], <SurveyAdminPage />) },
+      { path: ROUTES.SURVEY_CAMPAIGN_DETAIL, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.SURVEY_CAMPAIGN_DETAIL], <SurveyCampaignPage />) },
       { path: ROUTES.USERS, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.USERS], <UsersPage />) },
       { path: ROUTES.REPORTS, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.REPORTS], <ReportsPage />) },
       { path: ROUTES.AUDIT, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.AUDIT], <AuditPage />) },

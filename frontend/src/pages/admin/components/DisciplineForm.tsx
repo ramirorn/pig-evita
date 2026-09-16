@@ -67,18 +67,33 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
         rules: initialData.rules || '',
         minPlayers: initialData.minPlayers || undefined,
         maxPlayers: initialData.maxPlayers || undefined,
+        // `?? undefined` y no `|| undefined`: `maxSuplentes: 0` es un valor
+        // legítimo ("no admite suplentes") y con `||` se perdería en cada
+        // edición, obligando a volver a cargarlo.
+        titulares: initialData.titulares ?? undefined,
+        maxSuplentes: initialData.maxSuplentes ?? undefined,
         sortOrder: initialData.sortOrder,
         isActive: initialData.isActive,
       });
     }
   }, [initialData, form]);
 
+  // Los campos de plantel sólo existen para las disciplinas de equipo; el
+  // formulario los muestra u oculta según el tipo elegido en vivo.
+  const tipoElegido = form.watch('type');
+  const esEquipo = tipoElegido === DisciplineType.EQUIPO;
+
   const onSubmit = async (values: DisciplineFormValues) => {
+    // Una disciplina que dejó de ser de equipo no puede seguir arrastrando un
+    // plantel: se manda `null` para que el backend lo limpie, no `undefined`,
+    // que con un PATCH significa "no toques este campo".
+    const payload = esEquipo ? values : { ...values, titulares: null, maxSuplentes: null };
+
     try {
       if (initialData) {
-        await updateMutation.mutateAsync({ id: initialData.id, payload: values });
+        await updateMutation.mutateAsync({ id: initialData.id, payload });
       } else {
-        await createMutation.mutateAsync(values);
+        await createMutation.mutateAsync(payload);
       }
       onSuccess?.();
     } catch (error) {
@@ -192,6 +207,72 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
             )}
           />
         </div>
+
+        {/*
+          Sin estos dos datos, el alta de plantel completo no se puede usar con
+          la disciplina: la pantalla de inscripción no tiene contra qué contar
+          los titulares y corta el flujo en el primer paso. Por eso el schema
+          los exige cuando el tipo es EQUIPO, en vez de dejarlos opcionales.
+        */}
+        {esEquipo && (
+          <div className="rounded-lg border border-primary-200 bg-primary-50/50 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-primary-900">Plantel reglamentario</p>
+              <p className="text-xs text-muted-foreground">
+                Cuántos jugadores entran a la cancha y cuántos suplentes se pueden inscribir.
+                Es lo que la inscripción por plantel usa para ir contando.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control as any}
+                name="titulares"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Titulares</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="Ej. 11"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control as any}
+                name="maxSuplentes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Suplentes máximos</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="Ej. 5"
+                        {...field}
+                        value={field.value ?? ''}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        )}
 
         <FormField
           control={form.control as any}

@@ -90,30 +90,61 @@ enum MatchStatus {
   SUSPENDIDO
 }
 
+/// Momento de la competencia en que se toma la encuesta (S20).
+/// La misma campaña se repite en las tres ventanas para poder mirar cómo cambia
+/// la respuesta del chico antes, durante y después de competir.
+enum SurveyWindow {
+  PRE
+  DURANTE
+  POST
+}
+
+enum SurveyCampaignStatus {
+  BORRADOR
+  ACTIVA
+  CERRADA
+}
+
+/// Tipo de pregunta: `UNICA` admite exactamente una opción, `MULTIPLE` una o más.
+enum SurveyQuestionKind {
+  UNICA
+  MULTIPLE
+}
+
+/// A quién le corresponde la pregunta. `TODOS` va siempre; `INDIVIDUAL` y
+/// `EQUIPO` se muestran según el `DisciplineType` de quien responde — no tiene
+/// sentido preguntarle "cuando el equipo pierde" a un ajedrecista.
+enum SurveyAudience {
+  TODOS
+  INDIVIDUAL
+  EQUIPO
+}
+
 // ============ MODELS ============
 
 /// Usuarios administrativos del sistema
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  firstName    String   @map("first_name")
-  lastName     String   @map("last_name")
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
   role         UserRole
-  isActive     Boolean  @default(true) @map("is_active")
-  department   String?  /// Departamento asignado (para roles zonales/departamentales)
-  zone         String?  /// Zona asignada (para roles zonales)
-  refreshToken String?  @map("refresh_token")
+  isActive     Boolean   @default(true) @map("is_active")
+  department   String? /// Departamento asignado (para roles zonales/departamentales)
+  zone         String? /// Zona asignada (para roles zonales)
+  refreshToken String?   @map("refresh_token")
   lastLoginAt  DateTime? @map("last_login_at")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  auditLogs            AuditLog[]
-  createdInscriptions  Inscription[] @relation("CreatedBy")
-  reviewedInscriptions Inscription[] @relation("ReviewedBy")
-  approvedInscriptions Inscription[] @relation("ApprovedBy")
-  reviewedDocuments    Document[]    @relation("DocumentReviewedBy")
+  auditLogs              AuditLog[]
+  createdInscriptions    Inscription[]    @relation("CreatedBy")
+  reviewedInscriptions   Inscription[]    @relation("ReviewedBy")
+  approvedInscriptions   Inscription[]    @relation("ApprovedBy")
+  reviewedDocuments      Document[]       @relation("DocumentReviewedBy")
+  createdSurveyCampaigns SurveyCampaign[] @relation("SurveyCampaignCreatedBy")
 
   @@map("users")
 }
@@ -132,8 +163,8 @@ model User {
 /// la provincia entera.
 model ZoneDepartment {
   id         String   @id @default(uuid()) @db.Uuid
-  zone       String   /// Nombre de la zona, tal como se carga en `User.zone`
-  department String   /// Departamento de Formosa, tal como se carga en `Participant.department`
+  zone       String /// Nombre de la zona, tal como se carga en `User.zone`
+  department String /// Departamento de Formosa, tal como se carga en `Participant.department`
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
@@ -144,19 +175,19 @@ model ZoneDepartment {
 
 /// Participantes (jugadores) - no tienen login
 model Participant {
-  id          String   @id @default(uuid()) @db.Uuid
-  dni         String   @unique
-  firstName   String   @map("first_name")
-  lastName    String   @map("last_name")
-  birthDate   DateTime @map("birth_date") @db.Date
-  sex         Sex
-  phone       String?
-  email       String?
-  locality    String   /// Localidad del participante
-  department  String   /// Departamento de Formosa
-  address     String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(uuid()) @db.Uuid
+  dni        String   @unique
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  birthDate  DateTime @map("birth_date") @db.Date
+  sex        Sex
+  phone      String?
+  email      String?
+  locality   String /// Localidad del participante
+  department String /// Departamento de Formosa
+  address    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   // Relations
   inscriptions Inscription[]
@@ -172,22 +203,39 @@ model Participant {
 
 /// Disciplinas deportivas (más de 40)
 model Discipline {
-  id         String         @id @default(uuid()) @db.Uuid
-  name       String         @unique
-  type       DisciplineType
-  resultType ResultType     @map("result_type")
-  rules      String?        @db.Text /// Reglamento de la disciplina
-  minPlayers Int?           @map("min_players") /// Para deportes de equipo
-  maxPlayers Int?           @map("max_players") /// Para deportes de equipo
-  isActive   Boolean        @default(true) @map("is_active")
-  sortOrder  Int            @default(0) @map("sort_order")
-  createdAt  DateTime       @default(now()) @map("created_at")
-  updatedAt  DateTime       @updatedAt @map("updated_at")
+  id           String         @id @default(uuid()) @db.Uuid
+  name         String         @unique
+  type         DisciplineType
+  resultType   ResultType     @map("result_type")
+  rules        String?        @db.Text /// Reglamento de la disciplina
+  minPlayers   Int?           @map("min_players") /// Para deportes de equipo
+  maxPlayers   Int?           @map("max_players") /// Para deportes de equipo
+  /// Titulares que componen el plantel que se carga en la inscripción por equipo.
+  ///
+  /// ⚠️ NO reemplaza a `minPlayers`/`maxPlayers` y no se deriva de ellos. Ese par
+  /// responde a "con cuánta gente se puede competir" (el reglamento en la cancha:
+  /// fútbol 11 no arranca con 6). Este par responde a "qué plantel hay que cargar
+  /// en la inscripción" (11 titulares + hasta 5 suplentes). Son preguntas
+  /// distintas y en varias disciplinas dan números distintos: unificarlos
+  /// rompería una de las dos validaciones sin que ningún test lo note.
+  ///
+  /// Opcional porque sólo tiene sentido en `type = EQUIPO`. Si está en `null`,
+  /// `POST /inscriptions/team` rechaza con 400 pidiendo configurar la disciplina:
+  /// adivinar un tamaño de plantel es peor que no dejar inscribir.
+  titulares    Int?
+  /// Suplentes como máximo en el plantel de la inscripción. Ver la advertencia de
+  /// `titulares`: tampoco se deriva de `maxPlayers`.
+  maxSuplentes Int?           @map("max_suplentes")
+  isActive     Boolean        @default(true) @map("is_active")
+  sortOrder    Int            @default(0) @map("sort_order")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
 
   // Relations
-  categories   Category[]
-  teams        Team[]
-  competitions Competition[]
+  categories      Category[]
+  teams           Team[]
+  competitions    Competition[]
+  surveyResponses SurveyResponse[]
 
   @@map("disciplines")
 }
@@ -196,7 +244,7 @@ model Discipline {
 model Category {
   id           String   @id @default(uuid()) @db.Uuid
   disciplineId String   @map("discipline_id") @db.Uuid
-  name         String   /// e.g., "Sub-14 Masculino"
+  name         String /// e.g., "Sub-14 Masculino"
   minAge       Int      @map("min_age")
   maxAge       Int      @map("max_age")
   sex          Sex
@@ -205,10 +253,11 @@ model Category {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  discipline   Discipline    @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
-  inscriptions Inscription[]
-  teams        Team[]
-  competitions Competition[]
+  discipline      Discipline       @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
+  inscriptions    Inscription[]
+  teams           Team[]
+  competitions    Competition[]
+  surveyResponses SurveyResponse[]
 
   @@unique([disciplineId, name])
   @@map("categories")
@@ -227,8 +276,8 @@ model Team {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relations
-  discipline   Discipline   @relation(fields: [disciplineId], references: [id])
-  category     Category     @relation(fields: [categoryId], references: [id])
+  discipline   Discipline    @relation(fields: [disciplineId], references: [id])
+  category     Category      @relation(fields: [categoryId], references: [id])
   members      TeamMember[]
   inscriptions Inscription[]
   results      Result[]
@@ -243,9 +292,16 @@ model TeamMember {
   id            String   @id @default(uuid()) @db.Uuid
   teamId        String   @map("team_id") @db.Uuid
   participantId String   @map("participant_id") @db.Uuid
-  position      String?  /// Posición en el equipo
+  position      String? /// Posición en el equipo
   shirtNumber   Int?     @map("shirt_number")
   isCaptain     Boolean  @default(false) @map("is_captain")
+  /// Titular o suplente dentro del plantel.
+  ///
+  /// Hasta ahora un `TeamMember` no distinguía entre los dos: el plantel entraba
+  /// como una bolsa plana y la planilla de partido no podía reconstruirse desde
+  /// la base. `false` por defecto para que las filas existentes queden como
+  /// titulares, que es lo que de hecho son.
+  isSubstitute  Boolean  @default(false) @map("is_substitute")
   createdAt     DateTime @default(now()) @map("created_at")
 
   // Relations
@@ -340,10 +396,10 @@ model Competition {
   stage        CompetitionStage
   format       CompetitionFormat
   status       CompetitionStatus @default(BORRADOR)
-  name         String?           /// Nombre descriptivo opcional
+  name         String? /// Nombre descriptivo opcional
   startDate    DateTime?         @map("start_date") @db.Date
   endDate      DateTime?         @map("end_date") @db.Date
-  config       Json?             /// Configuración adicional del motor
+  config       Json? /// Configuración adicional del motor
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
 
@@ -361,7 +417,7 @@ model Match {
   id            String      @id @default(uuid()) @db.Uuid
   competitionId String      @map("competition_id") @db.Uuid
   venueId       String?     @map("venue_id") @db.Uuid
-  round         Int         /// Ronda o jornada
+  round         Int /// Ronda o jornada
   matchNumber   Int         @map("match_number") /// Número de partido en la ronda
   status        MatchStatus @default(PROGRAMADO)
   scheduledAt   DateTime?   @map("scheduled_at")
@@ -382,13 +438,13 @@ model Match {
 
 /// Resultados por partido
 model Result {
-  id            String  @id @default(uuid()) @db.Uuid
-  matchId       String  @map("match_id") @db.Uuid
-  participantId String? @map("participant_id") @db.Uuid /// Para deportes individuales
-  teamId        String? @map("team_id") @db.Uuid /// Para deportes de equipo
-  scoreData     Json    @map("score_data") /// { goals: 3 } | { time: "10.52" } | { sets: [25, 20, 25] } ...
-  ranking       Int?    /// Posición final en el partido
-  isWinner      Boolean @default(false) @map("is_winner")
+  id            String   @id @default(uuid()) @db.Uuid
+  matchId       String   @map("match_id") @db.Uuid
+  participantId String?  @map("participant_id") @db.Uuid /// Para deportes individuales
+  teamId        String?  @map("team_id") @db.Uuid /// Para deportes de equipo
+  scoreData     Json     @map("score_data") /// { goals: 3 } | { time: "10.52" } | { sets: [25, 20, 25] } ...
+  ranking       Int? /// Posición final en el partido
+  isWinner      Boolean  @default(false) @map("is_winner")
   /// Localía (R23). `true` = local, `false` = visitante, `null` = no aplica.
   ///
   /// Hasta R23 la pantalla del fixture tomaba `results[0]` como local y
@@ -439,16 +495,16 @@ model News {
   ///
   /// `sourceUrl` es único y es la clave de idempotencia del sync: la corrida
   /// hace `upsert` por esta columna, así que correrla dos veces no duplica.
-  sourceUrl   String?   @unique @map("source_url")
+  sourceUrl  String? @unique @map("source_url")
   /// Quién publicó el original, para poder atribuirlo en la tarjeta.
-  sourceName  String?   @map("source_name")
+  sourceName String? @map("source_name")
   /// Marcador de externa. Una nota externa **no se edita ni se despublica**
   /// como una propia (`news.service.ts` lo rechaza): lo que se ve acá es un
   /// reflejo de lo que hay allá, y editarlo sería mentir sobre la fuente.
-  isExternal  Boolean   @default(false) @map("is_external")
+  isExternal Boolean @default(false) @map("is_external")
 
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([isPublished, publishedAt])
   @@index([isExternal])
@@ -481,17 +537,17 @@ model SyncState {
 
 /// Eventos del calendario
 model CalendarEvent {
-  id            String           @id @default(uuid()) @db.Uuid
-  title         String
-  description   String?          @db.Text
-  startDate     DateTime         @map("start_date")
-  endDate       DateTime?        @map("end_date")
-  stage         CompetitionStage?
-  venueId       String?          @map("venue_id") @db.Uuid
-  disciplineId  String?          @map("discipline_id") @db.Uuid
-  isPublished   Boolean          @default(false) @map("is_published")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @updatedAt @map("updated_at")
+  id           String            @id @default(uuid()) @db.Uuid
+  title        String
+  description  String?           @db.Text
+  startDate    DateTime          @map("start_date")
+  endDate      DateTime?         @map("end_date")
+  stage        CompetitionStage?
+  venueId      String?           @map("venue_id") @db.Uuid
+  disciplineId String?           @map("discipline_id") @db.Uuid
+  isPublished  Boolean           @default(false) @map("is_published")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
 
   @@index([startDate, endDate])
   @@map("calendar_events")
@@ -499,9 +555,9 @@ model CalendarEvent {
 
 /// Catálogo de departamentos de Formosa
 model Department {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
   localities Locality[]
@@ -517,7 +573,8 @@ model Locality {
   createdAt    DateTime @default(now()) @map("created_at")
 
   // Relations
-  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  department      Department       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  surveyResponses SurveyResponse[]
 
   @@unique([name, departmentId])
   @@map("localities")
@@ -527,10 +584,10 @@ model Locality {
 model AuditLog {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String?  @map("user_id") @db.Uuid
-  action    String   /// CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
-  entity    String   /// Nombre de la entidad afectada
+  action    String /// CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  entity    String /// Nombre de la entidad afectada
   entityId  String?  @map("entity_id") @db.Uuid
-  changes   Json?    /// JSON diff de los cambios
+  changes   Json? /// JSON diff de los cambios
   ipAddress String?  @map("ip_address")
   userAgent String?  @map("user_agent")
   createdAt DateTime @default(now()) @map("created_at")
@@ -542,4 +599,163 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ===========================================
+// Encuesta psicológica anónima (S20)
+// ===========================================
+//
+// Los nombres de campo de este bloque están en español, a diferencia del resto
+// del esquema. Es deliberado: el cuestionario lo escribe y lo edita la
+// psicóloga desde el panel, y `texto` / `ayuda` / `valor` / `obligatoria` son
+// los mismos nombres que aparecen en la pantalla de administración. Traducir
+// sólo acá agregaría una capa de mapeo entre lo que se ve y lo que se guarda,
+// sin ganar nada.
+
+/// Campaña de encuesta: un cuestionario versionado por año y por ventana.
+///
+/// Que las preguntas vivan en la base y no en el código es el punto de todo el
+/// módulo: la edición anterior perdió la mitad de la muestra y el cuestionario
+/// hay que poder corregirlo entre etapa y etapa, sin esperar un deploy.
+model SurveyCampaign {
+  id          String               @id @default(uuid()) @db.Uuid
+  titulo      String
+  descripcion String?              @db.Text
+  anio        Int /// Edición de los Juegos a la que pertenece
+  status      SurveyCampaignStatus @default(BORRADOR)
+  ventana     SurveyWindow
+  /// Etapa a la que aplica. `null` = sirve para cualquier etapa.
+  etapa       CompetitionStage?
+  abreEn      DateTime?            @map("abre_en")
+  cierraEn    DateTime?            @map("cierra_en")
+  /// Queda en `null` si se borra el usuario que la creó: la campaña y sus
+  /// respuestas son el dato valioso, el autor es metadato administrativo.
+  createdById String?              @map("created_by_id") @db.Uuid
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy User?            @relation("SurveyCampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  questions SurveyQuestion[]
+  responses SurveyResponse[]
+
+  @@index([status, ventana, etapa])
+  @@index([anio])
+  @@map("survey_campaigns")
+}
+
+/// Pregunta del cuestionario.
+model SurveyQuestion {
+  id          String             @id @default(uuid()) @db.Uuid
+  campaignId  String             @map("campaign_id") @db.Uuid
+  orden       Int
+  texto       String             @db.Text
+  ayuda       String?            @db.Text /// Aclaración opcional debajo del enunciado
+  kind        SurveyQuestionKind @default(UNICA)
+  audiencia   SurveyAudience     @default(TODOS)
+  obligatoria Boolean            @default(true)
+  activa      Boolean            @default(true)
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  campaign SurveyCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  options  SurveyOption[]
+  answers  SurveyAnswer[]
+
+  @@index([campaignId, orden])
+  @@map("survey_questions")
+}
+
+/// Opción de respuesta.
+///
+/// `valor` es un slug estable y es la clave con la que se agregan las métricas.
+/// El `texto` puede reescribirse todas las veces que haga falta —"No sé qué es"
+/// → "No sé qué significa"— sin partir la serie histórica; cambiar `valor` sí
+/// la parte, y por eso es único dentro de la pregunta.
+model SurveyOption {
+  id         String   @id @default(uuid()) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  orden      Int
+  texto      String   @db.Text
+  valor      String /// Slug snake_case: `si`, `no`, `no_se_que_es`
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  question SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers  SurveyAnswer[]
+
+  @@unique([questionId, valor])
+  @@index([questionId, orden])
+  @@map("survey_options")
+}
+
+/// Respuesta enviada por un deportista. **ANÓNIMA, sin excepciones.**
+///
+/// ⚠️ Esta tabla NO tiene —y no debe tener nunca— `participantId`, `userId`,
+/// `inscriptionId`, `ip` ni `userAgent`. No es una omisión ni un pendiente:
+///
+///   · quienes responden son menores de edad y el cuestionario indaga sobre su
+///     salud mental. Una fila que diga "este chico contestó que no tiene con
+///     quién hablar" es un dato sensible con nombre y apellido, y esta
+///     plataforma no tiene ningún motivo para poder producirla;
+///   · el anonimato es lo que hace que la respuesta sirva. Si el chico sospecha
+///     que su entrenador puede terminar leyendo lo que puso, contesta lo que
+///     queda bien, y el dato no vale nada.
+///
+/// El análisis entre etapas se hace por **conteos agregados** (ver
+/// `GET /survey/campaigns/:id/flow`), nunca siguiendo a un individuo de una
+/// ventana a la otra. Tampoco se deduplica: sin identidad no hay forma de saber
+/// si dos respuestas son de la misma persona, y el único freno al duplicado es
+/// el rate limit del endpoint público. Es el precio aceptado del anonimato.
+///
+/// Los cortes demográficos que sí se guardan (disciplina, localidad, categoría,
+/// sexo) son gruesos a propósito, y el umbral de k-anonimato del endpoint de
+/// métricas existe justamente porque cruzando los cuatro en una muestra chica
+/// se podría llegar a una sola persona.
+model SurveyResponse {
+  id             String           @id @default(uuid()) @db.Uuid
+  campaignId     String           @map("campaign_id") @db.Uuid
+  ventana        SurveyWindow
+  etapa          CompetitionStage
+  /// `SetNull`: si se borra la disciplina, la respuesta sigue contando en el
+  /// total. Nunca se borra una respuesta por un cambio de catálogo.
+  disciplineId   String?          @map("discipline_id") @db.Uuid
+  disciplineType DisciplineType   @map("discipline_type")
+  localityId     String?          @map("locality_id") @db.Uuid
+  categoryId     String?          @map("category_id") @db.Uuid
+  sexo           Sex?
+  enviadaEn      DateTime         @default(now()) @map("enviada_en")
+
+  // Relations
+  campaign   SurveyCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  discipline Discipline?    @relation(fields: [disciplineId], references: [id], onDelete: SetNull)
+  locality   Locality?      @relation(fields: [localityId], references: [id], onDelete: SetNull)
+  category   Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  answers    SurveyAnswer[]
+
+  @@index([campaignId, etapa, ventana])
+  @@index([campaignId, disciplineId])
+  @@index([campaignId, localityId])
+  @@index([campaignId, disciplineType])
+  @@map("survey_responses")
+}
+
+/// Opción elegida dentro de una respuesta. Es la unidad que se cuenta.
+model SurveyAnswer {
+  id         String @id @default(uuid()) @db.Uuid
+  responseId String @map("response_id") @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  optionId   String @map("option_id") @db.Uuid
+
+  // Relations
+  response SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  option   SurveyOption   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, optionId])
+  @@index([questionId, optionId])
+  @@index([responseId])
+  @@map("survey_answers")
 }

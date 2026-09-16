@@ -16,6 +16,7 @@ import {
   Newspaper,
   CalendarDays,
   MapPin,
+  HeartPulse,
   UserCog,
   BarChart3,
   Shield,
@@ -63,6 +64,9 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Noticias', path: ROUTES.NEWS_ADMIN, icon: <Newspaper className="w-5 h-5" />, separator: true },
   { label: 'Calendario', path: ROUTES.CALENDAR_ADMIN, icon: <CalendarDays className="w-5 h-5" /> },
   { label: 'Sedes', path: ROUTES.VENUES_ADMIN, icon: <MapPin className="w-5 h-5" /> },
+  // La encuesta es contenido: se redacta, se publica y se lee, igual que una
+  // noticia. El detalle de campaña no va al menú (se llega desde el listado).
+  { label: 'Encuesta', path: ROUTES.SURVEY_ADMIN, icon: <HeartPulse className="w-5 h-5" /> },
   // Sistema
   { label: 'Usuarios', path: ROUTES.USERS, icon: <UserCog className="w-5 h-5" />, separator: true },
   { label: 'Reportes', path: ROUTES.REPORTS, icon: <BarChart3 className="w-5 h-5" /> },

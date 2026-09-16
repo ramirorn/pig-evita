@@ -12,6 +12,10 @@ import {
   DisciplineType,
   ResultType,
   Sex,
+  SurveyAudience,
+  SurveyCampaignStatus,
+  SurveyQuestionKind,
+  SurveyWindow,
 } from '@/types';
 
 // ============ ROUTES ============
@@ -28,6 +32,17 @@ export const ROUTES = {
   RANKINGS: '/rankings',
   COMPETITION_PUBLIC: '/competencias/:id',
   INSCRIPTION: '/inscripcion',
+  /** Landing informativa de la encuesta de salud mental (S20). */
+  SURVEY: '/encuesta',
+  /**
+   * El cuestionario, como **ruta propia** y no como modal sobre la landing.
+   *
+   * Es el formulario que se difunde por QR en las canchas: una URL que se puede
+   * imprimir, mandar por WhatsApp y volver a abrir después de que se corte la
+   * señal. Un modal no tiene URL, se pierde con el primer refresh y obliga a
+   * releer la landing entera para volver a la pregunta 6.
+   */
+  SURVEY_FORM: '/encuesta/responder',
 
   // Auth
   LOGIN: '/admin/login',
@@ -51,6 +66,16 @@ export const ROUTES = {
   NEWS_ADMIN: '/admin/noticias',
   CALENDAR_ADMIN: '/admin/calendario',
   VENUES_ADMIN: '/admin/sedes',
+  /** Listado de campañas de la encuesta de salud mental (S20). */
+  SURVEY_ADMIN: '/admin/encuesta',
+  /**
+   * Editor de una campaña: cuestionario y tablero de resultados.
+   *
+   * Es una ruta propia y no un modal sobre el listado porque acá se trabaja
+   * largo —se redacta un cuestionario entero— y porque el tablero de una
+   * campaña es algo que se comparte por link dentro del equipo.
+   */
+  SURVEY_CAMPAIGN_DETAIL: '/admin/encuesta/:id',
   USERS: '/admin/usuarios',
   REPORTS: '/admin/reportes',
   AUDIT: '/admin/auditoria',
@@ -136,6 +161,31 @@ export const SEX_LABELS: Record<Sex, string> = {
   [Sex.MASCULINO]: 'Masculino',
   [Sex.FEMENINO]: 'Femenino',
   [Sex.MIXTO]: 'Mixto',
+};
+
+// ============ ENCUESTA (S20) ============
+
+export const SURVEY_WINDOW_LABELS: Record<SurveyWindow, string> = {
+  [SurveyWindow.PRE]: 'Antes de competir',
+  [SurveyWindow.DURANTE]: 'Durante la competencia',
+  [SurveyWindow.POST]: 'Después de competir',
+};
+
+export const SURVEY_CAMPAIGN_STATUS_LABELS: Record<SurveyCampaignStatus, string> = {
+  [SurveyCampaignStatus.BORRADOR]: 'Borrador',
+  [SurveyCampaignStatus.ACTIVA]: 'Activa',
+  [SurveyCampaignStatus.CERRADA]: 'Cerrada',
+};
+
+export const SURVEY_QUESTION_KIND_LABELS: Record<SurveyQuestionKind, string> = {
+  [SurveyQuestionKind.UNICA]: 'Una sola opción',
+  [SurveyQuestionKind.MULTIPLE]: 'Varias opciones',
+};
+
+export const SURVEY_AUDIENCE_LABELS: Record<SurveyAudience, string> = {
+  [SurveyAudience.TODOS]: 'Todos',
+  [SurveyAudience.INDIVIDUAL]: 'Deportes individuales',
+  [SurveyAudience.EQUIPO]: 'Deportes de equipo',
 };
 
 // ============ PAGINATION ============

@@ -9,6 +9,8 @@
     "lint": "oxlint",
     "check:nav": "node scripts/check-nav-roles.mjs",
     "check:cards": "node scripts/check-public-cards.mjs",
+    "check:survey": "node scripts/check-survey.mjs",
+    "check:roster": "node scripts/check-roster.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

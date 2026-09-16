@@ -28,6 +28,7 @@ export function InscriptionSteps({ wizard }: { wizard: InscriptionWizard }) {
           setFormData={wizard.setFormData}
           calculatedAge={wizard.calculatedAge}
           onNext={wizard.handleNextToSport}
+          nextLabel={wizard.labels.nextFromPersonalData}
         />
       )}
 
@@ -58,8 +59,9 @@ export function InscriptionSteps({ wizard }: { wizard: InscriptionWizard }) {
           termsAccepted={wizard.termsAccepted}
           setTermsAccepted={wizard.setTermsAccepted}
           isSubmitting={wizard.isSubmitting}
-          onBack={() => setStep(2)}
+          onBack={wizard.handleBackFromReview}
           onSubmit={wizard.handleSubmitInscription}
+          backLabel={wizard.labels.backFromReview}
         />
       )}
 

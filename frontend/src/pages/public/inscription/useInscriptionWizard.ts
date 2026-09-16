@@ -31,6 +31,17 @@ const EMPTY_FORM: InscriptionFormData = {
   categoryId: '',
 };
 
+/** Disciplina y categoría ya elegidas antes de abrir el asistente. */
+export interface InscriptionPreselection {
+  disciplineId: string;
+  categoryId: string;
+}
+
+function formularioInicial(preselection?: InscriptionPreselection): InscriptionFormData {
+  if (!preselection) return EMPTY_FORM;
+  return { ...EMPTY_FORM, ...preselection };
+}
+
 interface InscriptionWizardOptions {
   /**
    * Cómo se nombra al inscripto en los mensajes de error de compatibilidad.
@@ -41,6 +52,16 @@ interface InscriptionWizardOptions {
   ageSubject?: string;
   /** Prefijo con el que se identifica el origen en los logs de error. */
   logScope?: string;
+  /**
+   * Disciplina y categoría ya elegidas afuera del asistente.
+   *
+   * Cuando viene, el **paso 2 desaparece**: la selección deportiva ya está
+   * hecha y el asistente va del paso 1 (datos de la persona) directo al 3
+   * (confirmación). Es lo que usa el panel de administración, donde ahora se
+   * elige primero el deporte —para poder decir cuántos titulares pide— y recién
+   * después se cargan las personas.
+   */
+  preselection?: InscriptionPreselection;
 }
 
 /**
@@ -59,9 +80,12 @@ interface InscriptionWizardOptions {
 export function useInscriptionWizard({
   ageSubject = 'Tu edad',
   logScope = 'InscriptionPage',
+  preselection,
 }: InscriptionWizardOptions = {}) {
   const [step, setStep] = useState<WizardStep>(1);
-  const [formData, setFormData] = useState<InscriptionFormData>(EMPTY_FORM);
+  const [formData, setFormData] = useState<InscriptionFormData>(() =>
+    formularioInicial(preselection),
+  );
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [createdInscription, setCreatedInscription] = useState<Inscription | null>(null);
 
@@ -152,6 +176,21 @@ export function useInscriptionWizard({
       return;
     }
 
+    // Con la disciplina ya elegida, el paso 2 no existe: se salta a la
+    // confirmación. Pero la compatibilidad de edad y sexo se sigue chequeando
+    // —antes la miraba el paso 2, y sin este control pasaría derecho al
+    // backend, que contestaría un 400 después del formulario entero.
+    if (preselection) {
+      if (!categoryCompatibility.valid) {
+        toast.error(
+          categoryCompatibility.message || 'El participante no entra en esta categoría',
+        );
+        return;
+      }
+      goToStep(3);
+      return;
+    }
+
     goToStep(2);
   };
 
@@ -228,15 +267,32 @@ export function useInscriptionWizard({
   };
 
   const handleResetForm = () => {
-    setFormData(EMPTY_FORM);
+    setFormData(formularioInicial(preselection));
     setTermsAccepted(false);
     setCreatedInscription(null);
     setStep(1);
   };
 
+  /** Desde la confirmación se vuelve al paso anterior, que no siempre es el 2. */
+  const handleBackFromReview = () => goToStep(preselection ? 1 : 2);
+
+  /**
+   * Los dos botones que cambian de texto según haya o no paso 2.
+   *
+   * Prometer "Siguiente: Selección Deportiva" y aterrizar en la confirmación
+   * es la clase de detalle que hace desconfiar del formulario entero.
+   */
+  const labels = {
+    nextFromPersonalData: preselection
+      ? 'Siguiente: Confirmar Inscripción'
+      : 'Siguiente: Selección Deportiva',
+    backFromReview: preselection ? 'Volver a Datos del Participante' : 'Volver a Disciplina',
+  };
+
   return {
     step,
     setStep,
+    labels,
     formData,
     setFormData,
     termsAccepted,
@@ -253,6 +309,7 @@ export function useInscriptionWizard({
     isSubmitting: createMutation.isPending,
     handleNextToSport,
     handleNextToReview,
+    handleBackFromReview,
     handleSubmitInscription,
     handleDownloadQr,
     handleCopyCode,

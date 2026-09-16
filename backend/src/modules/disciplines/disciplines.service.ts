@@ -3,11 +3,12 @@
 // ===========================================
 import {
   Injectable,
+  BadRequestException,
   ConflictException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { DisciplineType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
   CreateDisciplineDto,
@@ -23,7 +24,43 @@ export class DisciplinesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * S21 — `titulares` / `maxSuplentes` sólo tienen sentido en `EQUIPO`.
+   *
+   * La regla no puede vivir en el DTO: en un `PATCH` el `type` puede no venir
+   * en el body y el tipo efectivo es el que ya está en la base. Acá se lo mira
+   * de verdad.
+   *
+   * Los rangos (`titulares >= 1`, `maxSuplentes >= 0`) sí los corta
+   * class-validator en el DTO; esto sólo decide *si* los campos corresponden.
+   */
+  private validarPlantel(
+    tipoEfectivo: DisciplineType,
+    dto: CreateDisciplineDto | UpdateDisciplineDto,
+  ): void {
+    if (tipoEfectivo === DisciplineType.EQUIPO) return;
+
+    // `null` es un borrado explícito y se permite: es la forma de limpiar el
+    // plantel de una disciplina que pasa de EQUIPO a INDIVIDUAL.
+    const cargados: string[] = [];
+    if (dto.titulares !== undefined && dto.titulares !== null) {
+      cargados.push('titulares');
+    }
+    if (dto.maxSuplentes !== undefined && dto.maxSuplentes !== null) {
+      cargados.push('maxSuplentes');
+    }
+
+    if (cargados.length > 0) {
+      throw new BadRequestException(
+        `Los campos ${cargados.join(' y ')} sólo se pueden cargar en ` +
+          'disciplinas de tipo EQUIPO. Una disciplina INDIVIDUAL no tiene plantel.',
+      );
+    }
+  }
+
   async create(createDto: CreateDisciplineDto) {
+    this.validarPlantel(createDto.type, createDto);
+
     const existing = await this.prisma.discipline.findFirst({
       where: { name: { equals: createDto.name, mode: 'insensitive' } },
     });
@@ -96,7 +133,10 @@ export class DisciplinesService {
   }
 
   async update(id: string, updateDto: UpdateDisciplineDto) {
-    await this.findOne(id);
+    const actual = await this.findOne(id);
+
+    // El tipo efectivo: el que trae el body si lo trae, y si no el persistido.
+    this.validarPlantel(updateDto.type ?? actual.type, updateDto);
 
     if (updateDto.name) {
       const existing = await this.prisma.discipline.findFirst({

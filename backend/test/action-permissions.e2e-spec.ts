@@ -51,6 +51,7 @@ import { ResultsController } from '../src/modules/results/results.controller';
 import { AuditController } from '../src/modules/audit/audit.controller';
 import { ZonesController } from '../src/modules/zones/zones.controller';
 import { DashboardController } from '../src/modules/dashboard/dashboard.controller';
+import { SurveyController } from '../src/modules/survey/survey.controller';
 import { ZonesService } from '../src/modules/zones/zones.service';
 
 import { JwtStrategy } from '../src/modules/auth/strategies';
@@ -94,6 +95,7 @@ const CONTROLLERS = [
   AuditController,
   ZonesController,
   DashboardController,
+  SurveyController,
 ];
 
 /**

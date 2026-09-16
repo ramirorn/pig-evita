@@ -37,6 +37,8 @@ interface StepPersonalDataProps {
   setFormData: React.Dispatch<React.SetStateAction<InscriptionFormData>>;
   calculatedAge: number | null;
   onNext: (e: React.FormEvent) => void;
+  /** Cambia según el asistente tenga o no un paso de selección deportiva después. */
+  nextLabel?: string;
 }
 
 export function StepPersonalData({
@@ -44,6 +46,7 @@ export function StepPersonalData({
   setFormData,
   calculatedAge,
   onNext,
+  nextLabel = 'Siguiente: Selección Deportiva',
 }: StepPersonalDataProps) {
   return (
     <form onSubmit={onNext} className="card p-6 md:p-8 space-y-6 animate-fade-in shadow-md">
@@ -232,7 +235,7 @@ export function StepPersonalData({
           type="submit"
           className="inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 shadow-md hover:shadow-lg transition-all"
         >
-          Siguiente: Selección Deportiva
+          {nextLabel}
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>

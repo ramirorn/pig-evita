@@ -114,6 +114,12 @@ export const DISCIPLINA = {
   resultType: 'GOLES',
   minPlayers: 5,
   maxPlayers: 11,
+  // S21 — composición del plantel de la inscripción por equipo. No se deriva de
+  // `minPlayers`/`maxPlayers`: sin estos dos, `POST /inscriptions/team` corta
+  // con 400 antes de tocar ninguna fila y el barrido no llegaría a mirar un
+  // payload.
+  titulares: 5,
+  maxSuplentes: 2,
   isActive: true,
 };
 
@@ -301,9 +307,7 @@ export const UNIVERSOS = [U_PILCOMAYO, U_PIRANE];
 type Universo = (typeof UNIVERSOS)[number];
 
 /** Sólo la zona de Pirané está mapeada: el ADMIN_ZONAL del barrido ve Pirané. */
-export const ZONE_DEPARTMENTS = [
-  { zone: ZONA_DE_PIRANE, department: PIRANE },
-];
+export const ZONE_DEPARTMENTS = [{ zone: ZONA_DE_PIRANE, department: PIRANE }];
 
 /**
  * Todo lo que delata a una fila. El barrido busca estos textos en el JSON
@@ -441,6 +445,41 @@ function cuerpoInscripcion(dni: string, departamento: string) {
   };
 }
 
+/**
+ * Plantel completo (S21): 5 titulares —los que exige `DISCIPLINA.titulares`— y
+ * un suplente.
+ *
+ * `dniLider` es el DNI del primer titular; el resto se numera a partir de
+ * `dniBase`. Así una receta puede colar el DNI de un participante ajeno en el
+ * plantel —el escenario S04 llevado al alta por equipo— sin tocar los otros.
+ */
+function cuerpoPlantel(
+  nombre: string,
+  departamento: string,
+  dniBase: number,
+  dniLider?: string,
+) {
+  const integrante = (i: number, isSubstitute: boolean) => ({
+    ...cuerpoParticipante(
+      i === 0 && dniLider ? dniLider : String(dniBase + i),
+      departamento,
+    ),
+    isSubstitute,
+  });
+
+  return {
+    disciplineId: DISCIPLINA.id,
+    categoryId: CATEGORIA_LIBRE.id,
+    teamName: nombre,
+    locality: 'Localidad',
+    department: departamento,
+    members: [
+      ...Array.from({ length: 5 }, (_, i) => integrante(i, false)),
+      integrante(5, true),
+    ],
+  };
+}
+
 const RECETAS: Record<string, Receta> = {
   // --- Participantes ---
   'ParticipantsController.findAll': {
@@ -469,7 +508,10 @@ const RECETAS: Record<string, Receta> = {
   'ParticipantsController.findByDni': {
     via: 'LECTURA',
     invocaciones: (ctx) => [
-      { etiqueta: 'el DNI propio', params: { dni: ctx.uPropio.participant.dni } },
+      {
+        etiqueta: 'el DNI propio',
+        params: { dni: ctx.uPropio.participant.dni },
+      },
       { etiqueta: 'el DNI ajeno', params: { dni: ctx.uAjeno.participant.dni } },
     ],
   },
@@ -642,6 +684,30 @@ const RECETAS: Record<string, Receta> = {
       },
     ],
   },
+  'InscriptionsController.createTeam': {
+    via: 'ESCRITURA',
+    invocaciones: (ctx) => [
+      {
+        etiqueta: 'plantel nuevo en el departamento propio',
+        body: cuerpoPlantel('Plantel Propio', ctx.propio, 31000000),
+      },
+      {
+        // S04 llevado al alta por equipo: el DNI de un chico del otro
+        // departamento metido adentro del plantel, declarando el propio.
+        etiqueta: 'plantel que cuela el DNI de un participante ajeno',
+        body: cuerpoPlantel(
+          'Plantel Con Ajeno',
+          ctx.propio,
+          31100000,
+          ctx.uAjeno.participant.dni,
+        ),
+      },
+      {
+        etiqueta: 'plantel declarando el departamento ajeno',
+        body: cuerpoPlantel('Plantel Ajeno', ctx.ajeno, 31200000),
+      },
+    ],
+  },
   'InscriptionsController.review': {
     via: 'ESCRITURA',
     invocaciones: (ctx) => [
@@ -777,8 +843,7 @@ function descubrirHandlers(): HandlerDescubierto[] {
       if (nombre === 'constructor') continue;
       const handler = proto[nombre];
       const metodo = Reflect.getMetadata(METHOD_METADATA, handler) as
-        | number
-        | undefined;
+        number | undefined;
       if (metodo === undefined || VERBOS[metodo] === undefined) continue;
 
       // Los `@Public()` no tienen usuario y por lo tanto no tienen alcance: su
@@ -898,6 +963,9 @@ function crearPrisma() {
       string,
       unknown
     >[]),
+    // S21 — `POST /inscriptions/team` arranca mirando la disciplina (tipo
+    // EQUIPO y plantel configurado) antes que la categoría.
+    discipline: tabla('discipline', [DISCIPLINA] as Record<string, unknown>[]),
     competition: tabla('competition', [] as Record<string, unknown>[]),
     zoneDepartment: {
       findMany: jest.fn(({ where }: { where?: Record<string, unknown> } = {}) =>

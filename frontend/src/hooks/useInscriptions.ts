@@ -2,13 +2,15 @@
 // React Query Hooks — Inscriptions
 // ===========================================
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  inscriptionsApi, 
-  type InscriptionFilters, 
-  type CreateInscriptionPayload, 
+import {
+  inscriptionsApi,
+  type InscriptionFilters,
+  type CreateInscriptionPayload,
+  type CreateTeamInscriptionPayload,
   type ReviewInscriptionPayload,
   type RejectInscriptionPayload
 } from '@/api/inscriptions.api';
+import { TEAM_KEYS } from './useTeams';
 import { STALE_TIME } from '@/lib/queryClient';
 import { getFriendlyError } from '@/lib/utils';
 import { useQueryScope } from './useQueryScope';
@@ -83,6 +85,30 @@ export function useCreateInscription() {
     },
     onError: (error: unknown) => {
       toast.error(getFriendlyError(error, 'Error al registrar la inscripción'));
+    },
+  });
+}
+
+/**
+ * Alta de un plantel entero en un solo request transaccional.
+ *
+ * **No lleva `onError`, a diferencia del resto de las mutaciones de este
+ * archivo.** Es deliberado: cuando el backend rechaza el alta porque un chico
+ * ya está inscripto en esa categoría, la respuesta útil no es un toast —es
+ * marcar a *esa* persona en la lista de 16 que el encargado tiene delante. El
+ * asistente (`useTeamInscriptionWizard`) hace las dos cosas: señala al que
+ * falló e informa. Un toast genérico acá se le superpondría.
+ */
+export function useCreateTeamInscription() {
+  const queryClient = useQueryClient();
+  const scope = useQueryScope();
+
+  return useMutation({
+    mutationFn: (payload: CreateTeamInscriptionPayload) => inscriptionsApi.createTeam(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INSCRIPTION_KEYS.lists(scope) });
+      // El alta crea también el equipo: el listado de Equipos queda viejo.
+      queryClient.invalidateQueries({ queryKey: TEAM_KEYS.lists(scope) });
     },
   });
 }

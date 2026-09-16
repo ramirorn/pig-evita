@@ -189,6 +189,23 @@ export const ACTION_ROLES = {
    * a golpear un sitio ajeno y trae contenido institucional de la Provincia.
    */
   NEWS_SYNC: [UserRole.SUPER_ADMIN, UserRole.ADMIN_PROVINCIAL],
+
+  /**
+   * S20 — administrar campañas de la encuesta y ver sus métricas agregadas.
+   *
+   * ⚠️ Habilita **agregados**, nunca respuestas individuales: `SurveyResponse`
+   * no guarda identidad y los cortes con menos respuestas que el umbral de
+   * k-anonimato vuelven suprimidos desde el backend.
+   *
+   * **Responder** la encuesta no requiere ningún rol ni sesión: el endpoint
+   * público es `@Public()`. Esta acción es sólo la del panel.
+   */
+  SURVEY_MANAGE: [
+    UserRole.SUPER_ADMIN,
+    UserRole.ADMIN_PROVINCIAL,
+    UserRole.ADMIN_DEPARTAMENTAL,
+    UserRole.ADMIN_ZONAL,
+  ],
   CALENDAR_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
@@ -271,5 +288,9 @@ export const ACCIONES_POR_PANTALLA: Partial<
   [ROUTES.NEWS_ADMIN]: ['NEWS_MANAGE', 'NEWS_SYNC'],
   [ROUTES.CALENDAR_ADMIN]: ['CALENDAR_MANAGE'],
   [ROUTES.VENUES_ADMIN]: ['VENUE_MANAGE'],
+  // S20 — quedó pendiente hasta que la pantalla existió: el alta de campañas
+  // vive en el listado y la edición del cuestionario en el detalle.
+  [ROUTES.SURVEY_ADMIN]: ['SURVEY_MANAGE'],
+  [ROUTES.SURVEY_CAMPAIGN_DETAIL]: ['SURVEY_MANAGE'],
   [ROUTES.USERS]: ['USER_MANAGE'],
 };

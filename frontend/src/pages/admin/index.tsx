@@ -23,6 +23,8 @@ export { ResultsPage } from './ResultsPage';
 export { NewsAdminPage } from './NewsAdminPage';
 export { CalendarAdminPage } from './CalendarAdminPage';
 export { VenuesAdminPage } from './VenuesAdminPage';
+export { SurveyAdminPage } from './SurveyAdminPage';
+export { SurveyCampaignPage } from './SurveyCampaignPage';
 
 export { ReportsPage } from './ReportsPage';
 export { UsersPage } from './UsersPage';

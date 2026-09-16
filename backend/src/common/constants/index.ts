@@ -284,6 +284,30 @@ export const ACCIONES = {
    * generar tráfico contra formosa.gob.ar.
    */
   NEWS_SYNC: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
+  /**
+   * Administrar la encuesta psicológica (S20): campañas, preguntas, opciones y
+   * lectura de los agregados.
+   *
+   * Mismo criterio que `NEWS_MANAGE` —la línea administrativa completa, sin
+   * roles operativos— porque es contenido que se publica en el sitio público y
+   * lo carga el mismo equipo. La psicóloga que redacta el cuestionario usa una
+   * cuenta de esa línea; no hay un rol propio para ella y crear uno para una
+   * sola persona agregaría una matriz de permisos nueva sin nadie que la
+   * mantenga.
+   *
+   * ⚠️ Esto habilita **agregados**, nunca respuestas individuales
+   * identificables: `SurveyResponse` no guarda identidad y las métricas
+   * suprimen los cortes con menos de `UMBRAL_K_ANONIMATO` respuestas.
+   *
+   * Responder la encuesta no requiere ningún rol: el endpoint público es
+   * `@Public()`.
+   */
+  SURVEY_MANAGE: [
+    Role.SUPER_ADMIN,
+    Role.ADMIN_PROVINCIAL,
+    Role.ADMIN_DEPARTAMENTAL,
+    Role.ADMIN_ZONAL,
+  ],
   CALENDAR_MANAGE: [
     Role.SUPER_ADMIN,
     Role.ADMIN_PROVINCIAL,

@@ -113,6 +113,10 @@ const SIN_ENTRADA_EN_EL_MENU = new Set([
   ROUTES.INSCRIPTION_DETAIL,
   ROUTES.TEAM_DETAIL,
   ROUTES.COMPETITION_DETAIL,
+  // S20 — al editor de una campaña se entra desde el listado "Encuesta", que sí
+  // está en el menú. Un link directo al detalle necesitaría un `:id` que el
+  // menú no tiene de dónde sacar.
+  ROUTES.SURVEY_CAMPAIGN_DETAIL,
 ]);
 
 // -------------------------------------------------

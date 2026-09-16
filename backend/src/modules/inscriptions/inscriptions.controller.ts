@@ -22,10 +22,12 @@ import {
 import { InscriptionsService } from './inscriptions.service';
 import {
   CreateInscriptionDto,
+  CreateTeamInscriptionDto,
   ReviewInscriptionDto,
   RejectInscriptionDto,
   InscriptionFilterDto,
   PublicInscriptionDto,
+  TeamInscriptionResultDto,
 } from './dto';
 import {
   Public,
@@ -77,6 +79,61 @@ export class InscriptionsController {
     @CurrentUser() actor: JwtPayload,
   ) {
     return this.inscriptionsService.create(
+      createDto,
+      userId,
+      await this.scope.alcanceDe(actor),
+    );
+  }
+
+  // --- Endpoint AUTENTICADO: inscripción de un plantel completo (S21) ---
+  //
+  // Mismos `@Roles(...)` que el alta individual: es el mismo acto de negocio
+  // —inscribir gente— hecho de a un equipo en vez de de a una persona, y quien
+  // puede lo uno puede lo otro. Una acción nueva en `ACCIONES` habría creado un
+  // permiso que nadie sabría a quién asignar y que en la práctica se terminaría
+  // dando a la misma lista.
+  @Post('team')
+  @Roles(...ACCIONES.INSCRIPTION_CREATE)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Inscribir un plantel completo (disciplinas de EQUIPO)',
+    description:
+      'Crea el equipo, sus integrantes (titulares y suplentes) y una inscripción ' +
+      'por participante, todo en una sola transacción. Si falla cualquier ' +
+      'integrante no se guarda nada. Los participantes se reutilizan por DNI. ' +
+      'Sólo para disciplinas de tipo EQUIPO con `titulares` y `maxSuplentes` ' +
+      'configurados; las INDIVIDUAL siguen por POST /inscriptions.',
+  })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Plantel inscripto. Devuelve el equipo y un QR por integrante.',
+    type: TeamInscriptionResultDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Disciplina INDIVIDUAL, plantel de la disciplina sin configurar, cantidad ' +
+      'de titulares/suplentes incorrecta, categoría ajena a la disciplina, ' +
+      'integrante fuera del rango de edad o sexo, DNI repetidos o más de un capitán',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Algún integrante ya está inscripto en esa categoría, o el nombre de ' +
+      'equipo ya existe en esa disciplina y categoría',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'El equipo o alguno de los integrantes está fuera del alcance territorial (R05)',
+  })
+  async createTeam(
+    @Body() createDto: CreateTeamInscriptionDto,
+    @CurrentUser('sub') userId: string,
+    @CurrentUser() actor: JwtPayload,
+  ): Promise<TeamInscriptionResultDto> {
+    return this.inscriptionsService.createTeam(
       createDto,
       userId,
       await this.scope.alcanceDe(actor),

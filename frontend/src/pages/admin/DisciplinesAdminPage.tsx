@@ -127,6 +127,27 @@ export function DisciplinesAdminPage() {
       cell: (discipline) => `${discipline.minPlayers} - ${discipline.maxPlayers}`,
     },
     {
+      id: 'roster',
+      header: 'Plantel',
+      // Sólo las de equipo tienen plantel, y la que no lo tiene cargado no se
+      // puede inscribir por plantel completo: se marca acá para que se vea en
+      // el listado, sin tener que abrir cada una.
+      cell: (discipline) => {
+        if (discipline.type !== DisciplineType.EQUIPO) return '—';
+        if (typeof discipline.titulares !== 'number') {
+          return (
+            <Badge
+              variant="outline"
+              className="bg-amber-50 text-amber-800 border-amber-200"
+            >
+              Sin configurar
+            </Badge>
+          );
+        }
+        return `${discipline.titulares} titulares + ${discipline.maxSuplentes ?? 0} supl.`;
+      },
+    },
+    {
       id: 'status',
       header: 'Estado',
       cell: (discipline) =>

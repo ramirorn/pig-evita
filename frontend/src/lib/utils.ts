@@ -211,8 +211,18 @@ function extractRawMessage(error: unknown): string[] | null {
   return null;
 }
 
-/** Lee el status HTTP del error, si lo tiene. */
-function extractStatus(error: unknown): number | null {
+/**
+ * Lee el status HTTP del error, si lo tiene.
+ *
+ * Se exporta porque hay pantallas que no sólo muestran el error: tienen que
+ * **actuar distinto según el status**. El formulario público de la encuesta es
+ * el caso — un 429 pide esperar, un 400 pide recargar el cuestionario y la
+ * ausencia de status (no hubo respuesta: no hay señal) pide encolar y
+ * reintentar—, y con `getFriendlyError` solo no se puede distinguir.
+ *
+ * Devuelve `null` cuando el error no llegó a tener respuesta.
+ */
+export function getHttpStatus(error: unknown): number | null {
   if (typeof error !== 'object' || error === null) return null;
   const response = (error as { response?: unknown }).response;
   if (typeof response !== 'object' || response === null) return null;
@@ -282,7 +292,7 @@ function joinMessages(items: string[]): string {
  * @param fallback Texto propio de la acción ("No se pudo crear el evento").
  */
 export function getFriendlyError(error: unknown, fallback: string): string {
-  const status = extractStatus(error);
+  const status = getHttpStatus(error);
 
   // Sin `response` es un error de red, un timeout o un abort: no hay mensaje
   // del backend que mostrar, y el detalle de Axios ("Network Error") no le

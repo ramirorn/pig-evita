@@ -16,6 +16,10 @@ const NAV_LINKS = [
   { label: 'Calendario', path: ROUTES.CALENDAR },
   { label: 'Sedes', path: ROUTES.VENUES },
   { label: 'Rankings', path: ROUTES.RANKINGS },
+  // Pedido explícito del cliente (S20): la encuesta tiene que verse en la
+  // navegación principal, no sólo en el QR que se reparte en las canchas. La
+  // edición anterior se difundió como un QR suelto y no llegó al 50 %.
+  { label: 'Encuesta', path: ROUTES.SURVEY },
 ];
 
 export function PublicLayout() {

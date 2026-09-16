@@ -24,6 +24,13 @@ export interface CreateDisciplinePayload {
   rules?: string;
   minPlayers?: number;
   maxPlayers?: number;
+  /**
+   * Plantel reglamentario de las disciplinas de equipo. Viaja `null` —y no
+   * ausente— cuando la disciplina deja de ser de equipo: en un PATCH, ausente
+   * significa "no lo toques" y el plantel viejo quedaría pegado.
+   */
+  titulares?: number | null;
+  maxSuplentes?: number | null;
   isActive?: boolean;
   sortOrder?: number;
 }

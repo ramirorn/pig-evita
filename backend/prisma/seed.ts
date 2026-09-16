@@ -11,6 +11,10 @@ import {
   CompetitionFormat,
   CompetitionStatus,
   MatchStatus,
+  SurveyAudience,
+  SurveyCampaignStatus,
+  SurveyQuestionKind,
+  SurveyWindow,
 } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
@@ -84,6 +88,176 @@ const FORMOSA_GEOGRAPHY: Record<string, string[]> = {
     'El Espinillo',
     'General Belgrano',
     'Tres Lagunas',
+  ],
+};
+
+/**
+ * Cuestionario de la encuesta psicológica (S20).
+ *
+ * ⚠️ ESTO ES UN BORRADOR. El texto de abajo lo redactó el equipo de desarrollo
+ * para que la pantalla no arranque vacía: **no es el instrumento final**. Lo
+ * escribe y lo corrige la psicóloga desde `/admin/encuesta`, sin deploy, que es
+ * la razón de que las preguntas vivan en la base y no acá.
+ *
+ * Lo único que no se toca a la ligera es el `valor` de cada opción: es la clave
+ * con la que se agregan las métricas. El texto se reescribe todas las veces que
+ * haga falta; cambiar el valor parte la serie histórica.
+ *
+ * Los ordinales 7 y 8 se repiten a propósito entre INDIVIDUAL y EQUIPO: son la
+ * misma posición del formulario, y cada chico ve sólo el par que le toca según
+ * su disciplina.
+ */
+const ENCUESTA_BORRADOR = {
+  titulo: 'Encuesta de bienestar deportivo (borrador)',
+  descripcion:
+    'Es anónima: no se guarda tu nombre, tu DNI ni nada que permita saber que la contestaste vos. Contestá lo que sentís de verdad.',
+  preguntas: [
+    {
+      orden: 1,
+      audiencia: SurveyAudience.TODOS,
+      kind: SurveyQuestionKind.UNICA,
+      texto:
+        '¿Tuviste asistencia profesional acerca de la salud mental antes del torneo?',
+      opciones: [
+        { texto: 'Sí', valor: 'si' },
+        { texto: 'No', valor: 'no' },
+        { texto: 'No sé qué es', valor: 'no_se_que_es' },
+      ],
+    },
+    {
+      orden: 2,
+      audiencia: SurveyAudience.TODOS,
+      kind: SurveyQuestionKind.UNICA,
+      texto: 'Cuando sentís nervios antes de competir, ¿qué te ayuda más?',
+      opciones: [
+        { texto: 'Escuchar música', valor: 'escuchar_musica' },
+        {
+          texto: 'Hablar con amigos o compañeros',
+          valor: 'hablar_con_amigos',
+        },
+        {
+          texto: 'Hablar con mi entrenador o profe',
+          valor: 'hablar_con_entrenador',
+        },
+        { texto: 'Estar solo y concentrarme', valor: 'estar_solo' },
+        { texto: 'Nada me ayuda', valor: 'nada_me_ayuda' },
+        { texto: 'No me pongo nervioso', valor: 'no_me_pongo_nervioso' },
+      ],
+    },
+    {
+      orden: 3,
+      audiencia: SurveyAudience.TODOS,
+      kind: SurveyQuestionKind.UNICA,
+      texto:
+        'Si este año no te va como esperabas, ¿qué pensás hacer el año que viene?',
+      opciones: [
+        {
+          texto: 'Volver a intentarlo en la misma disciplina',
+          valor: 'volver_a_intentar',
+        },
+        { texto: 'Probar otra disciplina', valor: 'probar_otra_disciplina' },
+        { texto: 'Dejar de competir', valor: 'dejar_de_competir' },
+        { texto: 'Todavía no lo sé', valor: 'no_lo_se' },
+      ],
+    },
+    {
+      orden: 4,
+      audiencia: SurveyAudience.TODOS,
+      kind: SurveyQuestionKind.UNICA,
+      texto: '¿Sentís que tu escuela te apoya para competir?',
+      opciones: [
+        { texto: 'Sí, mucho', valor: 'si_mucho' },
+        { texto: 'Más o menos', valor: 'mas_o_menos' },
+        { texto: 'No', valor: 'no' },
+        { texto: 'No voy a la escuela ahora', valor: 'no_voy_a_la_escuela' },
+      ],
+    },
+    {
+      orden: 5,
+      audiencia: SurveyAudience.TODOS,
+      kind: SurveyQuestionKind.MULTIPLE,
+      texto: '¿Con quién podés hablar cuando algo del deporte te preocupa?',
+      opciones: [
+        { texto: 'Familia', valor: 'familia' },
+        { texto: 'Entrenador o profe', valor: 'entrenador' },
+        { texto: 'Compañeros', valor: 'companeros' },
+        {
+          texto: 'Un psicólogo o profesional',
+          valor: 'psicologo_o_profesional',
+        },
+        { texto: 'Con nadie', valor: 'con_nadie' },
+      ],
+    },
+    {
+      orden: 6,
+      audiencia: SurveyAudience.TODOS,
+      kind: SurveyQuestionKind.UNICA,
+      texto:
+        '¿Te gustaría seguir compitiendo en un nivel más alto (alto rendimiento)?',
+      opciones: [
+        { texto: 'Sí, es mi objetivo', valor: 'si_es_mi_objetivo' },
+        {
+          texto: 'Me gustaría pero no sé cómo',
+          valor: 'me_gustaria_pero_no_se_como',
+        },
+        { texto: 'No, compito por diversión', valor: 'compito_por_diversion' },
+        { texto: 'No lo había pensado', valor: 'no_lo_habia_pensado' },
+      ],
+    },
+    {
+      orden: 7,
+      audiencia: SurveyAudience.INDIVIDUAL,
+      kind: SurveyQuestionKind.UNICA,
+      texto: 'Cuando competís solo, ¿cómo vivís el momento antes de entrar?',
+      opciones: [
+        { texto: 'Lo disfruto', valor: 'lo_disfruto' },
+        {
+          texto: 'Me da nervios pero lo manejo',
+          valor: 'nervios_pero_lo_manejo',
+        },
+        { texto: 'Me cuesta mucho', valor: 'me_cuesta_mucho' },
+        { texto: 'Prefiero no pensarlo', valor: 'prefiero_no_pensarlo' },
+      ],
+    },
+    {
+      orden: 8,
+      audiencia: SurveyAudience.INDIVIDUAL,
+      kind: SurveyQuestionKind.UNICA,
+      texto: 'Si algo sale mal durante tu prueba, ¿qué hacés?',
+      opciones: [
+        { texto: 'Me reordeno y sigo', valor: 'me_reordeno_y_sigo' },
+        { texto: 'Me cuesta pero termino', valor: 'me_cuesta_pero_termino' },
+        { texto: 'Me bloqueo', valor: 'me_bloqueo' },
+        { texto: 'Nunca me pasó', valor: 'nunca_me_paso' },
+      ],
+    },
+    {
+      orden: 7,
+      audiencia: SurveyAudience.EQUIPO,
+      kind: SurveyQuestionKind.UNICA,
+      texto: 'Cuando el equipo pierde, ¿cómo se hablan entre ustedes?',
+      opciones: [
+        { texto: 'Nos apoyamos', valor: 'nos_apoyamos' },
+        { texto: 'Se arma discusión', valor: 'se_arma_discusion' },
+        { texto: 'Cada uno por su lado', valor: 'cada_uno_por_su_lado' },
+        { texto: 'Depende del partido', valor: 'depende_del_partido' },
+      ],
+    },
+    {
+      orden: 8,
+      audiencia: SurveyAudience.EQUIPO,
+      kind: SurveyQuestionKind.UNICA,
+      texto: 'Si te toca el banco o no entrás a jugar, ¿cómo lo vivís?',
+      opciones: [
+        {
+          texto: 'Lo entiendo y apoyo desde afuera',
+          valor: 'lo_entiendo_y_apoyo',
+        },
+        { texto: 'Me pone mal pero lo acepto', valor: 'me_pone_mal_lo_acepto' },
+        { texto: 'Me da mucha bronca', valor: 'me_da_mucha_bronca' },
+        { texto: 'No me pasó', valor: 'no_me_paso' },
+      ],
+    },
   ],
 };
 
@@ -193,6 +367,13 @@ async function main() {
       resultType: ResultType.GOLES,
       minPlayers: 11,
       maxPlayers: 16,
+      // S21 — composición del plantel que se carga en la inscripción por equipo.
+      // No es lo mismo que `minPlayers`/`maxPlayers`: ese par es el reglamento en
+      // la cancha (con cuánta gente se puede jugar), este es la planilla que el
+      // encargado tiene que completar. Acá coinciden en el total porque en fútbol
+      // 11 coinciden; en otras disciplinas no.
+      titulares: 11,
+      maxSuplentes: 5,
       sortOrder: 1,
     },
     {
@@ -213,7 +394,15 @@ async function main() {
   for (const disc of disciplinesData) {
     const discipline = await prisma.discipline.upsert({
       where: { name: disc.name },
-      update: {},
+      // S21 — el `update` deja de estar vacío sólo para el plantel. Con
+      // `update: {}` una base ya sembrada nunca recibía `titulares` /
+      // `maxSuplentes` y `POST /inscriptions/team` respondía "falta configurar
+      // el plantel" para siempre. Los demás campos se siguen respetando: si
+      // alguien los editó desde el ABM, el seed no los pisa.
+      update: {
+        titulares: 'titulares' in disc ? disc.titulares : null,
+        maxSuplentes: 'maxSuplentes' in disc ? disc.maxSuplentes : null,
+      },
       create: disc,
     });
     dbDisciplines.push(discipline);
@@ -826,6 +1015,63 @@ async function main() {
       },
     });
     console.log(`  ✅ Competición de Ajedrez y Resultados creados`);
+  }
+
+  // --- 9. Encuesta psicológica: borrador editable (S20) ---
+  //
+  // Se siembra **una sola vez**. Si ya existe una campaña con este título y año,
+  // el seed la deja intacta: volver a correrlo no puede pisar las correcciones
+  // que la psicóloga haya hecho desde el panel. Para volver al borrador
+  // original hay que eliminar la campaña (sólo se puede si todavía no tiene
+  // respuestas) y correr el seed de nuevo.
+  const anioEncuesta = new Date().getFullYear();
+  const encuestaExistente = await prisma.surveyCampaign.findFirst({
+    where: { titulo: ENCUESTA_BORRADOR.titulo, anio: anioEncuesta },
+    select: { id: true },
+  });
+
+  if (encuestaExistente) {
+    console.log(
+      '  ↩️  Encuesta de bienestar ya existente: se respeta lo que haya cargado el panel',
+    );
+  } else {
+    const campania = await prisma.surveyCampaign.create({
+      data: {
+        titulo: ENCUESTA_BORRADOR.titulo,
+        descripcion: ENCUESTA_BORRADOR.descripcion,
+        anio: anioEncuesta,
+        // Nace en BORRADOR: nadie puede contestarla hasta que la psicóloga
+        // revise el texto y la publique.
+        status: SurveyCampaignStatus.BORRADOR,
+        ventana: SurveyWindow.PRE,
+        createdById: admin.id,
+        questions: {
+          create: ENCUESTA_BORRADOR.preguntas.map((pregunta) => ({
+            orden: pregunta.orden,
+            texto: pregunta.texto,
+            kind: pregunta.kind,
+            audiencia: pregunta.audiencia,
+            obligatoria: true,
+            activa: true,
+            options: {
+              create: pregunta.opciones.map((opcion, indice) => ({
+                orden: indice,
+                texto: opcion.texto,
+                valor: opcion.valor,
+              })),
+            },
+          })),
+        },
+      },
+      include: { questions: true },
+    });
+
+    console.log(
+      `  ✅ Encuesta de bienestar (BORRADOR) creada con ${campania.questions.length} preguntas`,
+    );
+    console.log(
+      '     ⚠️  El texto es un borrador del equipo de desarrollo: lo reemplaza la psicóloga desde el panel',
+    );
   }
 
   console.log('\n🎉 Seed completed successfully!');

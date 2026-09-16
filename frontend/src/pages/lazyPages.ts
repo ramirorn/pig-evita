@@ -61,6 +61,19 @@ export const CompetitionPublicPage = lazy(() =>
   import('@/pages/public/CompetitionPublicPage').then((m) => ({ default: m.CompetitionPublicPage })),
 );
 
+/**
+ * Encuesta (S20). Son dos chunks separados a propósito: la landing es
+ * informativa y la lee mucha más gente de la que después contesta, así que el
+ * cuestionario —con su wizard, su borrador y los catálogos que consulta— no
+ * tiene por qué viajar con ella.
+ */
+export const SurveyLandingPage = lazy(() =>
+  import('@/pages/public/survey/SurveyLandingPage').then((m) => ({ default: m.SurveyLandingPage })),
+);
+export const SurveyFormPage = lazy(() =>
+  import('@/pages/public/survey/form/SurveyFormPage').then((m) => ({ default: m.SurveyFormPage })),
+);
+
 // ============ ADMIN ============
 /**
  * El layout del panel también es lazy (R28): con el import estático, el shell
@@ -123,6 +136,17 @@ export const CalendarAdminPage = lazy(() =>
 );
 export const VenuesAdminPage = lazy(() =>
   import('@/pages/admin/VenuesAdminPage').then((m) => ({ default: m.VenuesAdminPage })),
+);
+/**
+ * Encuesta (S20), también en dos chunks: el listado de campañas se abre seguido
+ * y es liviano; el editor arrastra el ABM del cuestionario **y** el tablero de
+ * métricas, que es lo pesado y sólo hace falta cuando se entra a una campaña.
+ */
+export const SurveyAdminPage = lazy(() =>
+  import('@/pages/admin/SurveyAdminPage').then((m) => ({ default: m.SurveyAdminPage })),
+);
+export const SurveyCampaignPage = lazy(() =>
+  import('@/pages/admin/SurveyCampaignPage').then((m) => ({ default: m.SurveyCampaignPage })),
 );
 export const UsersPage = lazy(() =>
   import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })),

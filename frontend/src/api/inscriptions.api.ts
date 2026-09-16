@@ -2,7 +2,12 @@
 // Inscriptions API
 // ===========================================
 import apiClient from './client';
-import type { Inscription, PaginatedResponse, PublicInscription } from '@/types';
+import type {
+  Inscription,
+  PaginatedResponse,
+  PublicInscription,
+  TeamInscriptionResult,
+} from '@/types';
 
 export interface InscriptionFilters {
   page?: number;
@@ -36,6 +41,41 @@ export interface CreateInscriptionPayload {
   teamId?: string;
 }
 
+/** Un integrante dentro del alta de plantel completo. */
+export interface TeamInscriptionMemberPayload {
+  dni: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  sex: string;
+  phone?: string;
+  email?: string;
+  locality: string;
+  department: string;
+  address?: string;
+  isSubstitute: boolean;
+  position?: string;
+  shirtNumber?: number;
+  isCaptain?: boolean;
+}
+
+/**
+ * Alta de un plantel entero en una sola operación.
+ *
+ * El endpoint es transaccional del lado del backend: si un solo integrante
+ * falla, no se crea ninguno. Por eso la pantalla nunca tiene que reconciliar
+ * un alta a medias — pero sí tiene que conservar la lista cargada para que se
+ * pueda corregir el que falló y reintentar.
+ */
+export interface CreateTeamInscriptionPayload {
+  disciplineId: string;
+  categoryId: string;
+  teamName: string;
+  locality: string;
+  department: string;
+  members: TeamInscriptionMemberPayload[];
+}
+
 export interface ReviewInscriptionPayload {
   notes?: string;
 }
@@ -48,6 +88,12 @@ export const inscriptionsApi = {
   /** Authenticated: Create inscription (delegado/admin) */
   async create(payload: CreateInscriptionPayload): Promise<Inscription> {
     const { data } = await apiClient.post<Inscription>('/inscriptions', payload);
+    return data;
+  },
+
+  /** Authenticated: Create a whole team roster at once (delegado/admin) */
+  async createTeam(payload: CreateTeamInscriptionPayload): Promise<TeamInscriptionResult> {
+    const { data } = await apiClient.post<TeamInscriptionResult>('/inscriptions/team', payload);
     return data;
   },
 
