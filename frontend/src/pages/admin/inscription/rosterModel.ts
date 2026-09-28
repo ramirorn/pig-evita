@@ -82,10 +82,19 @@ export function nuevoIdIntegrante(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Edad cumplida a la fecha de referencia (hoy, salvo en los chequeos). */
+/**
+ * Edad cumplida a la fecha de referencia (hoy, salvo en los chequeos).
+ *
+ * `'2013-09-16'` se lee como fecha **local**: `new Date('2013-09-16')` es
+ * medianoche UTC, que en Argentina (UTC−3) cae el 15 a las 21 h, y la víspera
+ * del cumpleaños ya contaba un año más.
+ */
 export function calcularEdad(birthDate: string, referencia = new Date()): number | null {
   if (!birthDate) return null;
-  const nacimiento = new Date(birthDate);
+  const soloFecha = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
+  const nacimiento = soloFecha
+    ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
+    : new Date(birthDate);
   if (Number.isNaN(nacimiento.getTime())) return null;
 
   let edad = referencia.getFullYear() - nacimiento.getFullYear();

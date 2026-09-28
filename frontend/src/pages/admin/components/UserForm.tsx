@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { UserRole, type User } from '@/types';
-import { ROLE_LABELS } from '@/lib/constants';
+import { ROLE_LABELS, DEPARTMENTS_FORMOSA } from '@/lib/constants';
 import { useUserForm } from './user/useUserForm';
 
 import {
@@ -24,18 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-const FORMOSA_DEPARTMENTS = [
-  'Formosa',
-  'Bermejo',
-  'Laishí',
-  'Matacos',
-  'Patiño',
-  'Pilagás',
-  'Pilcomayo',
-  'Pirané',
-  'Ramón Lista',
-];
 
 interface UserFormProps {
   initialData?: User;
@@ -178,7 +166,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="none">Sin departamento / Provincial</SelectItem>
-                    {FORMOSA_DEPARTMENTS.map((dept) => (
+                    {DEPARTMENTS_FORMOSA.map((dept) => (
                       <SelectItem key={dept} value={dept}>
                         {dept}
                       </SelectItem>

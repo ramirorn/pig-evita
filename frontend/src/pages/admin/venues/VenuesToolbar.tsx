@@ -11,18 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-const FORMOSA_DEPARTMENTS = [
-  'Formosa',
-  'Pilcomayo',
-  'Pirané',
-  'Patiño',
-  'Pilagás',
-  'Bermejo',
-  'Matacos',
-  'Ramón Lista',
-  'Laishí',
-];
+import { DEPARTMENTS_FORMOSA } from '@/lib/constants';
 
 interface VenuesToolbarProps {
   filters: VenueListFilters;
@@ -63,7 +52,7 @@ export function VenuesToolbar({ filters, onChange }: VenuesToolbarProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los departamentos</SelectItem>
-            {FORMOSA_DEPARTMENTS.map((dept) => (
+            {DEPARTMENTS_FORMOSA.map((dept) => (
               <SelectItem key={dept} value={dept}>
                 {dept}
               </SelectItem>

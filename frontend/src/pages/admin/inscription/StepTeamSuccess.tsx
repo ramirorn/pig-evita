@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import type { TeamInscriptionMember } from '@/types';
 import { copiarAlPortapapeles, MENSAJE_COPIA_FALLIDA } from '@/lib/clipboard';
 import type { TeamInscriptionWizard } from './useTeamInscriptionWizard';
+import { TeamInscriptionDocuments } from '@/components/documents/InscriptionDocuments';
 
 async function copiarCodigo(codigo: string) {
   // El toast verde sale **después** de que la promesa resolvió (R26): cantar el
@@ -111,6 +112,9 @@ export function StepTeamSuccess({ wizard }: { wizard: TeamInscriptionWizard }) {
           ))}
         </ul>
       )}
+
+      {/* Papeles por integrante: opcionales, el plantel ya quedó inscripto. */}
+      <TeamInscriptionDocuments members={credenciales} />
 
       <div className="flex flex-wrap items-center justify-center gap-3 print:hidden">
         <button

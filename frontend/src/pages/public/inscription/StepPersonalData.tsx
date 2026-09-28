@@ -4,18 +4,7 @@
 import React from 'react';
 import { User, ArrowRight } from 'lucide-react';
 import { Sex } from '@/types';
-
-export const DEPARTMENTS_FORMOSA = [
-  'Formosa',
-  'Bermejo',
-  'Laishí',
-  'Matacos',
-  'Patiño',
-  'Pilagás',
-  'Pilcomayo',
-  'Pirané',
-  'Ramón Lista',
-];
+import { DEPARTMENTS_FORMOSA } from '@/lib/constants';
 
 export interface InscriptionFormData {
   dni: string;

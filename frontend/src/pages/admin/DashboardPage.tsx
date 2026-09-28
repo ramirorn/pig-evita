@@ -13,7 +13,7 @@ import { InscriptionStatus } from '@/types';
 import { ROUTES } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { formatRelativeTime } from '@/lib/utils';
+import { tiempoRelativo } from '@/lib/utils';
 import { InscriptionsStatusCard } from './dashboard/InscriptionsStatusCard';
 import { quickActionsParaRol } from './dashboard/quickActions';
 
@@ -186,7 +186,7 @@ export function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-primary-400">
-                        {formatRelativeTime(insc.createdAt)}
+                        {tiempoRelativo(insc.createdAt)}
                       </span>
                     </div>
                   </Link>

@@ -678,6 +678,18 @@ function armarPlantel(cantidad, suplentes = 0) {
     calcularEdad('2013-09-15', HOY) === 13,
     String(calcularEdad('2013-09-15', HOY)),
   );
+  // En UTC−3, `new Date('2013-09-16')` cae el 15 a las 21 h: la víspera del
+  // cumpleaños ya contaba un año más. Se fuerza la zona para que el chequeo
+  // muerda igual en una máquina o un CI en UTC.
+  const zonaOriginal = process.env.TZ;
+  process.env.TZ = 'America/Argentina/Buenos_Aires';
+  comprobar(
+    'la víspera del cumpleaños todavía no cuenta (fecha leída como local, no UTC)',
+    calcularEdad('2013-09-16', HOY) === 12,
+    String(calcularEdad('2013-09-16', HOY)),
+  );
+  if (zonaOriginal === undefined) delete process.env.TZ;
+  else process.env.TZ = zonaOriginal;
   comprobar('una fecha vacía no rompe el cálculo', calcularEdad('', HOY) === null);
   comprobar('una fecha inventada no rompe el cálculo', calcularEdad('no-es-fecha', HOY) === null);
 }

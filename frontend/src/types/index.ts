@@ -306,8 +306,13 @@ export interface DocumentEntity {
   rejectionNote?: string | null;
   createdAt: string;
   updatedAt: string;
-  // Extra
-  url?: string;
+  /**
+   * URL pre-firmada de MinIO, de corta duración. Sólo la trae
+   * `GET /documents/participant/:id` (el bucket es privado).
+   */
+  presignedUrl?: string;
+  /** Sólo en la respuesta de `PATCH /documents/:id/review`. */
+  participant?: Pick<Participant, 'dni' | 'firstName' | 'lastName'>;
 }
 
 export interface Venue {

@@ -434,7 +434,10 @@ const PANTALLAS_QUE_FILTRAN = [
   ['src/pages/admin/ParticipantsPage.tsx', ['PARTICIPANT_CREATE', 'PARTICIPANT_UPDATE']],
   ['src/pages/admin/TeamsAdminPage.tsx', ['TEAM_CREATE', 'TEAM_UPDATE', 'TEAM_DELETE']],
   ['src/pages/admin/UsersPage.tsx', ['USER_MANAGE']],
-  ['src/pages/admin/DocumentsPage.tsx', ['DOCUMENT_REVIEW']],
+  // El COORDINADOR entra a Documentos pero no revisa ni sube.
+  ['src/pages/admin/DocumentsPage.tsx', ['DOCUMENT_REVIEW', 'DOCUMENT_UPLOAD']],
+  // El paso final de la inscripción (individual y plantel) ofrece la carga.
+  ['src/components/documents/InscriptionDocuments.tsx', ['DOCUMENT_UPLOAD']],
   // S19 — `NEWS_SYNC` es mas acotada que `NEWS_MANAGE`: un ADMIN_ZONAL entra a
   // Noticias y NO puede sincronizar con el portal. Si el boton se pintara para
   // todos los que ven la pantalla, seria el 403 de R22 otra vez.

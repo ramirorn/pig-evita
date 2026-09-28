@@ -193,7 +193,22 @@ export const SURVEY_AUDIENCE_LABELS: Record<SurveyAudience, string> = {
 export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-// ============ FILE UPLOAD ============
+// ============ TERRITORIO ============
 
-export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-export const ACCEPTED_FILE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+/**
+ * Los nueve departamentos de Formosa, en orden alfabético.
+ *
+ * Única fuente para los selects de inscripción, plantel, usuarios y sedes:
+ * antes había cuatro copias, cada una en su propio orden.
+ */
+export const DEPARTMENTS_FORMOSA = [
+  'Bermejo',
+  'Formosa',
+  'Laishí',
+  'Matacos',
+  'Patiño',
+  'Pilagás',
+  'Pilcomayo',
+  'Pirané',
+  'Ramón Lista',
+] as const;

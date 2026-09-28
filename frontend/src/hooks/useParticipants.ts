@@ -31,12 +31,17 @@ export const PARTICIPANT_KEYS = {
     [...PARTICIPANT_KEYS.details(userId), id] as const,
 };
 
-export function useParticipants(filters?: ParticipantFilters) {
+export function useParticipants(
+  filters?: ParticipantFilters,
+  // `enabled`: el buscador de Documentos no pide nada hasta que hay texto.
+  options: { enabled?: boolean } = {},
+) {
   const scope = useQueryScope();
 
   return useQuery({
     queryKey: PARTICIPANT_KEYS.list(scope, filters),
     queryFn: () => participantsApi.findAll(filters),
+    enabled: options.enabled ?? true,
     staleTime: STALE_TIME.OPERATIONAL,
   });
 }

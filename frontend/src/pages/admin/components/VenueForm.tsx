@@ -24,24 +24,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2, MapPin, Building2, Users, CheckCircle2 } from 'lucide-react';
+import { DEPARTMENTS_FORMOSA } from '@/lib/constants';
 
 interface VenueFormProps {
   initialData?: Venue;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
-
-const FORMOSA_DEPARTMENTS = [
-  'Formosa',
-  'Pilcomayo',
-  'Pirané',
-  'Patiño',
-  'Pilagás',
-  'Bermejo',
-  'Matacos',
-  'Ramón Lista',
-  'Laishí',
-];
 
 /**
  * Formulario de alta/edición de sedes.
@@ -120,7 +109,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="max-h-56">
-                    {FORMOSA_DEPARTMENTS.map((dept) => (
+                    {DEPARTMENTS_FORMOSA.map((dept) => (
                       <SelectItem key={dept} value={dept}>
                         {dept}
                       </SelectItem>

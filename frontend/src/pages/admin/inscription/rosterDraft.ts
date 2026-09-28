@@ -9,8 +9,8 @@
 // teléfono, o directamente no inscribe al equipo.
 //
 // Sigue el mismo molde que `pages/public/survey/form/surveyDraft.ts`, por la
-// misma razón que aquél: el acceso a `localStorage` está encapsulado en tres
-// funciones que **tragan la excepción**, porque en modo privado de iOS, con
+// misma razón que aquél: el acceso a `localStorage` pasa por las tres
+// funciones de `lib/storage.ts`, que **tragan la excepción**, porque en modo privado de iOS, con
 // cookies de terceros bloqueadas o con el disco lleno, `localStorage` tira al
 // leer y al escribir. Un formulario que se rompe por no poder guardar un
 // borrador es peor que uno que no guarda borradores.
@@ -22,7 +22,7 @@
 // punto de viajar en el mismo request, y nunca un token ni una sesión.
 import { z } from 'zod';
 import { Sex } from '@/types';
-import { logError } from '@/lib/logger';
+import { borrarCrudo, escribirCrudo, leerCrudo } from '@/lib/storage';
 import type { RosterMember } from './rosterModel';
 
 const CLAVE_BORRADOR = 'evita_plantel_borrador_v1';
@@ -83,39 +83,6 @@ const borradorPlantelSchema = z.object({
 export type BorradorPlantel = z.infer<typeof borradorPlantelSchema>;
 
 // ===========================================
-// Acceso crudo al storage
-// ===========================================
-
-function leerCrudo(clave: string): unknown {
-  try {
-    const texto = localStorage.getItem(clave);
-    if (!texto) return null;
-    return JSON.parse(texto);
-  } catch (error) {
-    logError('rosterDraft.leerCrudo', error);
-    return null;
-  }
-}
-
-function escribirCrudo(clave: string, valor: unknown): boolean {
-  try {
-    localStorage.setItem(clave, JSON.stringify(valor));
-    return true;
-  } catch (error) {
-    logError('rosterDraft.escribirCrudo', error);
-    return false;
-  }
-}
-
-function borrarCrudo(clave: string): void {
-  try {
-    localStorage.removeItem(clave);
-  } catch (error) {
-    logError('rosterDraft.borrarCrudo', error);
-  }
-}
-
-// ===========================================
 // Borrador
 // ===========================================
 
@@ -133,7 +100,7 @@ function estaVencido(guardadoEn: string, ahora: Date): boolean {
  * sesión, con otra versión del formulario, y puede haber sido editado a mano.
  */
 export function leerBorradorPlantel(ahora = new Date()): BorradorPlantel | null {
-  const parseado = borradorPlantelSchema.safeParse(leerCrudo(CLAVE_BORRADOR));
+  const parseado = borradorPlantelSchema.safeParse(leerCrudo(CLAVE_BORRADOR, 'rosterDraft'));
   if (!parseado.success) return null;
   if (parseado.data.members.length === 0) return null;
   if (estaVencido(parseado.data.guardadoEn, ahora)) return null;
@@ -162,7 +129,7 @@ export function guardarBorradorPlantel(
   ahora = new Date(),
 ): boolean {
   if (integrantes.length === 0) {
-    borrarCrudo(CLAVE_BORRADOR);
+    borrarCrudo(CLAVE_BORRADOR, 'rosterDraft');
     return true;
   }
 
@@ -170,7 +137,7 @@ export function guardarBorradorPlantel(
     ...datos,
     members: [...integrantes],
     guardadoEn: ahora.toISOString(),
-  } satisfies BorradorPlantel);
+  } satisfies BorradorPlantel, 'rosterDraft');
 }
 
 /**
@@ -181,5 +148,5 @@ export function guardarBorradorPlantel(
  * plantel cargado es exactamente lo que hay que conservar.
  */
 export function borrarBorradorPlantel(): void {
-  borrarCrudo(CLAVE_BORRADOR);
+  borrarCrudo(CLAVE_BORRADOR, 'rosterDraft');
 }

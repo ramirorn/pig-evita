@@ -4,6 +4,7 @@
 import { CheckCircle2, QrCode, Copy, Download, Printer } from 'lucide-react';
 import type { Inscription, Discipline, Category } from '@/types';
 import type { InscriptionFormData } from './StepPersonalData';
+import { IndividualInscriptionDocuments } from '@/components/documents/InscriptionDocuments';
 
 interface StepSuccessProps {
   createdInscription: Inscription;
@@ -175,6 +176,11 @@ export function StepSuccess({
           </button>
         </div>
       </div>
+
+      {/* Papeles: opcionales. La inscripción ya existe; acá sólo se avisa qué falta. */}
+      {createdInscription.participantId && (
+        <IndividualInscriptionDocuments participantId={createdInscription.participantId} />
+      )}
 
       <div className="text-center pt-2">
         <button

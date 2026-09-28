@@ -18,7 +18,7 @@ import {
   surveySubmissionSchema,
   type SurveySubmissionValues,
 } from '@/schemas';
-import { logError } from '@/lib/logger';
+import { borrarCrudo, escribirCrudo, leerCrudo } from '@/lib/storage';
 import type { RespuestasPorPregunta } from './surveyAudience';
 
 const CLAVE_BORRADOR = 'evita_encuesta_borrador_v1';
@@ -62,44 +62,6 @@ const envioPendienteSchema = z.object({
 export type EnvioPendiente = z.infer<typeof envioPendienteSchema>;
 
 // ===========================================
-// Acceso crudo al storage
-// ===========================================
-//
-// Todo pasa por estas dos funciones, y las dos tragan la excepción: en modo
-// privado de iOS, con cookies de terceros bloqueadas o con el disco lleno,
-// `localStorage` **tira** al leer y al escribir. Un formulario que se rompe por
-// no poder guardar un borrador es peor que uno que no guarda borradores.
-
-function leerCrudo(clave: string): unknown {
-  try {
-    const texto = localStorage.getItem(clave);
-    if (!texto) return null;
-    return JSON.parse(texto);
-  } catch (error) {
-    logError('surveyDraft.leerCrudo', error);
-    return null;
-  }
-}
-
-function escribirCrudo(clave: string, valor: unknown): boolean {
-  try {
-    localStorage.setItem(clave, JSON.stringify(valor));
-    return true;
-  } catch (error) {
-    logError('surveyDraft.escribirCrudo', error);
-    return false;
-  }
-}
-
-function borrarCrudo(clave: string): void {
-  try {
-    localStorage.removeItem(clave);
-  } catch (error) {
-    logError('surveyDraft.borrarCrudo', error);
-  }
-}
-
-// ===========================================
 // Borrador
 // ===========================================
 
@@ -116,7 +78,7 @@ function borrarCrudo(clave: string): void {
  * preguntas de otra encuesta.
  */
 export function leerBorrador(campaignId: string): BorradorEncuesta | null {
-  const parseado = borradorSchema.safeParse(leerCrudo(CLAVE_BORRADOR));
+  const parseado = borradorSchema.safeParse(leerCrudo(CLAVE_BORRADOR, 'surveyDraft'));
   if (!parseado.success) return null;
   if (parseado.data.campaignId !== campaignId) return null;
   return parseado.data;
@@ -132,12 +94,12 @@ export function guardarBorrador(
     contexto,
     respuestas,
     guardadoEn: new Date().toISOString(),
-  } satisfies BorradorEncuesta);
+  } satisfies BorradorEncuesta, 'surveyDraft');
 }
 
 /** Se llama cuando el servidor confirmó: el borrador ya no representa nada. */
 export function borrarBorrador(): void {
-  borrarCrudo(CLAVE_BORRADOR);
+  borrarCrudo(CLAVE_BORRADOR, 'surveyDraft');
 }
 
 // ===========================================
@@ -151,7 +113,7 @@ export function borrarBorrador(): void {
  * cosecharía un 400 que quien responde no puede accionar.
  */
 export function leerPendientes(): EnvioPendiente[] {
-  const crudo = leerCrudo(CLAVE_PENDIENTES);
+  const crudo = leerCrudo(CLAVE_PENDIENTES, 'surveyDraft');
   if (!Array.isArray(crudo)) return [];
 
   return crudo.flatMap((item) => {
@@ -162,10 +124,10 @@ export function leerPendientes(): EnvioPendiente[] {
 
 function guardarPendientes(pendientes: EnvioPendiente[]): void {
   if (pendientes.length === 0) {
-    borrarCrudo(CLAVE_PENDIENTES);
+    borrarCrudo(CLAVE_PENDIENTES, 'surveyDraft');
     return;
   }
-  escribirCrudo(CLAVE_PENDIENTES, pendientes.slice(-MAX_PENDIENTES));
+  escribirCrudo(CLAVE_PENDIENTES, pendientes.slice(-MAX_PENDIENTES), 'surveyDraft');
 }
 
 /**

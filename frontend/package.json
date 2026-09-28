@@ -11,6 +11,7 @@
     "check:cards": "node scripts/check-public-cards.mjs",
     "check:survey": "node scripts/check-survey.mjs",
     "check:roster": "node scripts/check-roster.mjs",
+    "check:documents": "node scripts/check-documents.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

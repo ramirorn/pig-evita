@@ -6,8 +6,8 @@ import type React from 'react';
 import { UserPlus, Save, X, AlertCircle, Star } from 'lucide-react';
 import { Sex } from '@/types';
 import type { TeamMemberValues } from '@/schemas';
-import { DEPARTMENTS_FORMOSA } from '../../public/inscription/StepPersonalData';
 import type { PlantelRequerido, RosterMember } from './rosterModel';
+import { DEPARTMENTS_FORMOSA } from '@/lib/constants';
 
 /**
  * Estado del formulario: los mismos campos que `TeamMemberValues`, pero con los

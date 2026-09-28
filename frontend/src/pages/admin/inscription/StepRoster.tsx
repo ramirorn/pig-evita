@@ -14,10 +14,10 @@ import {
   History,
   Info,
 } from 'lucide-react';
-import { DEPARTMENTS_FORMOSA } from '../../public/inscription/StepPersonalData';
 import { RosterMemberForm } from './RosterMemberForm';
 import { calcularEdad, hayLugar, type RosterMember } from './rosterModel';
 import type { TeamInscriptionWizard } from './useTeamInscriptionWizard';
+import { DEPARTMENTS_FORMOSA } from '@/lib/constants';
 
 /** Contador siempre visible: es la única forma de saber cuánto falta. */
 function ContadorPlantel({
