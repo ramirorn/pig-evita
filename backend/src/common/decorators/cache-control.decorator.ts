@@ -11,6 +11,8 @@ export const CACHE_TTL = {
   CATALOG: 600, // 10 min
   /** Contenido editorial: puede actualizarse durante el día. */
   CONTENT: 300, // 5 min
+  /** Estadísticas agregadas en vivo (mapa de calor): cambian partido a partido. */
+  STATS: 60, // 1 min
 } as const;
 
 /**

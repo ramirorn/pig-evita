@@ -32,6 +32,9 @@ import { UserRole } from '@/types';
 export const ADMIN_ROUTE_ROLES = {
   [ROUTES.ADMIN]: DASHBOARD_VIEWERS,
   [ROUTES.DASHBOARD]: DASHBOARD_VIEWERS,
+  // Mapa de impacto: los datos son públicos, pero en el panel es una vista de
+  // resumen para autoridades, así que lo ve quien ve el dashboard.
+  [ROUTES.IMPACT_MAP_ADMIN]: DASHBOARD_VIEWERS,
   [ROUTES.PARTICIPANTS]: PARTICIPANT_MANAGERS,
   [ROUTES.PARTICIPANT_DETAIL]: PARTICIPANT_MANAGERS,
   [ROUTES.INSCRIPTIONS]: INSCRIPTION_MANAGERS,

@@ -16,6 +16,7 @@ const NAV_LINKS = [
   { label: 'Calendario', path: ROUTES.CALENDAR },
   { label: 'Sedes', path: ROUTES.VENUES },
   { label: 'Rankings', path: ROUTES.RANKINGS },
+  { label: 'Mapa', path: ROUTES.IMPACT_MAP },
   // Pedido explícito del cliente (S20): la encuesta tiene que verse en la
   // navegación principal, no sólo en el QR que se reparte en las canchas. La
   // edición anterior se difundió como un QR suelto y no llegó al 50 %.
@@ -80,7 +81,7 @@ export function PublicLayout() {
             </Link>
 
             {/* Desktop Nav */}
-            <nav className="hidden md:flex items-center gap-1" role="navigation" aria-label="Navegación principal">
+            <nav className="hidden lg:flex items-center gap-1" role="navigation" aria-label="Navegación principal">
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.path}
@@ -109,7 +110,7 @@ export function PublicLayout() {
               {/* Mobile menu button */}
               <button
                 type="button"
-                className="md:hidden p-2 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
+                className="lg:hidden p-2 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-expanded={mobileMenuOpen}
                 aria-label="Menú de navegación"
@@ -123,7 +124,7 @@ export function PublicLayout() {
         {/* Mobile menu with slide animation */}
         <div
           className={cn(
-            'md:hidden border-t border-primary-100 bg-white overflow-hidden transition-all duration-300 ease-in-out',
+            'lg:hidden border-t border-primary-100 bg-white overflow-hidden transition-all duration-300 ease-in-out',
             mobileMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0',
           )}
         >

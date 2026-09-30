@@ -39,9 +39,11 @@ import {
   VenuesPage,
   RankingsPage,
   CompetitionPublicPage,
+  ImpactMapPage,
   SurveyLandingPage,
   SurveyFormPage,
   DashboardPage,
+  ImpactMapAdminPage,
   ParticipantsPage,
   ParticipantDetailPage,
   InscriptionsPage,
@@ -161,6 +163,7 @@ export const router = createBrowserRouter([
       { path: ROUTES.VENUES, element: <VenuesPage /> },
       { path: ROUTES.RANKINGS, element: <RankingsPage /> },
       { path: ROUTES.COMPETITION_PUBLIC, element: <CompetitionPublicPage /> },
+      { path: ROUTES.IMPACT_MAP, element: <ImpactMapPage /> },
       // La landing de la encuesta no sabe nada del formulario: se le pasa la
       // ruta y su CTA —arriba y abajo— se engancha solo (ver `surveyCta.ts`).
       // Sin esta prop el botón se pinta deshabilitado, que es lo que pasaba
@@ -203,6 +206,7 @@ export const router = createBrowserRouter([
     children: [
       { path: ROUTES.ADMIN, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.ADMIN], <DashboardPage />) },
       { path: ROUTES.DASHBOARD, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.DASHBOARD], <DashboardPage />) },
+      { path: ROUTES.IMPACT_MAP_ADMIN, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.IMPACT_MAP_ADMIN], <ImpactMapAdminPage />) },
       { path: ROUTES.PARTICIPANTS, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.PARTICIPANTS], <ParticipantsPage />) },
       { path: ROUTES.PARTICIPANT_DETAIL, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.PARTICIPANT_DETAIL], <ParticipantDetailPage />) },
       { path: ROUTES.INSCRIPTIONS, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.INSCRIPTIONS], <InscriptionsPage />) },

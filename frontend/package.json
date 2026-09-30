@@ -12,6 +12,8 @@
     "check:survey": "node scripts/check-survey.mjs",
     "check:roster": "node scripts/check-roster.mjs",
     "check:documents": "node scripts/check-documents.mjs",
+    "check:map": "node scripts/check-map.mjs",
+    "geo:build": "node scripts/geo/build-geo.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

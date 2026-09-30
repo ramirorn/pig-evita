@@ -26,6 +26,7 @@ export { VenuesAdminPage } from './VenuesAdminPage';
 export { SurveyAdminPage } from './SurveyAdminPage';
 export { SurveyCampaignPage } from './SurveyCampaignPage';
 
+export { ImpactMapAdminPage } from './ImpactMapAdminPage';
 export { ReportsPage } from './ReportsPage';
 export { UsersPage } from './UsersPage';
 export { AuditPage } from './AuditPage';

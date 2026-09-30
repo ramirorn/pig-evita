@@ -14,6 +14,7 @@ const ENLACES = [
   { label: 'Calendario', to: ROUTES.CALENDAR },
   { label: 'Sedes', to: ROUTES.VENUES },
   { label: 'Rankings', to: ROUTES.RANKINGS },
+  { label: 'Mapa de los Juegos', to: ROUTES.IMPACT_MAP },
   { label: 'Encuesta', to: ROUTES.SURVEY },
   { label: 'Inscripciones', to: ROUTES.INSCRIPTION, destacado: true },
 ];

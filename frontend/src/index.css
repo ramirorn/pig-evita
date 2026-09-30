@@ -9,7 +9,10 @@
    - Dorado/Sol:  #E8AA34
    =========================================== */
 
-@theme {
+/* `static`: se emiten TODAS las variables del tema, no sólo las que usa alguna
+   clase. El mapa de impacto pinta el SVG con `var(--color-…)` en estilos
+   inline, que Tailwind no ve al escanear clases. */
+@theme static {
   /* Primary palette (Azul Oscuro Institucional — Base #002D6C en 800) */
   --color-primary-50: #edf3fa;
   --color-primary-100: #d6e4f4;

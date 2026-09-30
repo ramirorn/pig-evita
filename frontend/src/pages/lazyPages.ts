@@ -60,6 +60,9 @@ export const RankingsPage = lazy(() =>
 export const CompetitionPublicPage = lazy(() =>
   import('@/pages/public/CompetitionPublicPage').then((m) => ({ default: m.CompetitionPublicPage })),
 );
+export const ImpactMapPage = lazy(() =>
+  import('@/pages/public/ImpactMapPage').then((m) => ({ default: m.ImpactMapPage })),
+);
 
 /**
  * Encuesta (S20). Son dos chunks separados a propósito: la landing es
@@ -88,6 +91,9 @@ export const AdminLayout = lazy(() =>
 // ============ PÁGINAS ADMIN ============
 export const DashboardPage = lazy(() =>
   import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+);
+export const ImpactMapAdminPage = lazy(() =>
+  import('@/pages/admin/ImpactMapAdminPage').then((m) => ({ default: m.ImpactMapAdminPage })),
 );
 export const ParticipantsPage = lazy(() =>
   import('@/pages/admin/ParticipantsPage').then((m) => ({ default: m.ParticipantsPage })),

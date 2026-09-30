@@ -31,6 +31,8 @@ export const ROUTES = {
   VENUES: '/sedes',
   RANKINGS: '/rankings',
   COMPETITION_PUBLIC: '/competencias/:id',
+  /** Mapa de calor de la participación por localidad. */
+  IMPACT_MAP: '/mapa',
   INSCRIPTION: '/inscripcion',
   /** Landing informativa de la encuesta de salud mental (S20). */
   SURVEY: '/encuesta',
@@ -50,6 +52,8 @@ export const ROUTES = {
   // Admin
   ADMIN: '/admin',
   DASHBOARD: '/admin/dashboard',
+  /** El mismo mapa de impacto del sitio público, dentro del panel. */
+  IMPACT_MAP_ADMIN: '/admin/mapa',
   PARTICIPANTS: '/admin/participantes',
   PARTICIPANT_DETAIL: '/admin/participantes/:id',
   INSCRIPTIONS: '/admin/inscripciones',

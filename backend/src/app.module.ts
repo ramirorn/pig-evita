@@ -50,6 +50,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ZonesModule } from './modules/zones/zones.module';
 import { SurveyModule } from './modules/survey/survey.module';
+import { StatsModule } from './modules/stats/stats.module';
 
 // Auth Guards
 import { JwtAuthGuard } from './modules/auth/guards';
@@ -125,6 +126,7 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     DashboardModule,
     ZonesModule,
     SurveyModule,
+    StatsModule,
   ],
   providers: [
     // Global Exception Filter
