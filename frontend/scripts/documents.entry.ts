@@ -10,6 +10,7 @@ export {
   SECONDARY_DOCUMENT_TYPES,
   DOCUMENT_STATUS_BADGE_CLASSES,
   DOCUMENT_ERROR_MESSAGES,
+  DOCUMENT_UPLOADER_RULES,
   documentErrorKindFromStatus,
   classifyUploadError,
   isCanceledUpload,

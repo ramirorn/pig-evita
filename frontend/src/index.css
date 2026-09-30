@@ -62,6 +62,10 @@
   --color-accent-900: #523508;
 
   /* Surfaces */
+  /* Mapa de impacto: naranja intermedio de las burbujas, entre accent-400 y
+     destructive-600 (no hay un naranja en la marca). */
+  --color-heat-orange: #e8742a;
+
   --color-surface: #f6f8fb;
   --color-surface-elevated: #ffffff;
   --color-surface-muted: #eef3f9;

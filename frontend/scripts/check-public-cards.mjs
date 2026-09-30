@@ -58,6 +58,10 @@ execSync(
     '--bundle --format=esm --platform=node --jsx=automatic --log-level=error',
     `"--alias:@=${SRC}"`,
     '--packages=external',
+    // La portada de sede resuelve la foto contra `VITE_API_BASE_URL`
+    // (`@/lib/apiBase`): en Node no hay `import.meta.env`, se fija la base
+    // relativa, que es la de producción (mismo origen).
+    '"--define:import.meta.env={\\"DEV\\":false,\\"VITE_API_BASE_URL\\":\\"/api/v1\\"}"',
   ].join(' '),
   { cwd: RAIZ, stdio: ['ignore', 'ignore', 'inherit'] },
 );
@@ -66,7 +70,10 @@ const {
   DisciplineCard,
   VenueCard,
   CompetitionCard,
-  CalendarEventCard,
+  CalendarAgenda,
+  agruparPorMes,
+  rangoDeDias,
+  lineaDeDetalle,
   columnasSegunVolumen,
 } = await import(pathToFileURL(SALIDA).href);
 
@@ -282,6 +289,7 @@ const SEDE_BASE = {
   latitude: null,
   longitude: null,
   isActive: true,
+  imageUrl: null,
   createdAt: '2026-07-22T21:57:48.707Z',
   updatedAt: '2026-07-22T21:57:48.707Z',
 };
@@ -348,6 +356,106 @@ const SEDE_BASE = {
   comprobar(
     '[Sedes] se conserva el enlace "Cómo llegar" con URL https limpia',
     html.includes('https://maps.google.com/') && html.includes('rel="noopener noreferrer"'),
+  );
+}
+
+// -------------------------------------------------
+// 2b. Sedes — la portada es la foto real, o un placeholder que no finge serlo
+// -------------------------------------------------
+{
+  const FOTO = '/api/v1/venues/v1/image?v=a1b2c3d4e5f6';
+  const imgs = (html) => [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]);
+  const attr = (tag, nombre) => new RegExp(`\\s${nombre}="([^"]*)"`).exec(tag)?.[1];
+
+  // Con foto
+  const conFoto = pintar(VenueCard, {
+    venue: { ...SEDE_BASE, capacity: 4500, imageUrl: FOTO },
+    index: 0,
+    eventosProgramados: null,
+  });
+  const [portada] = imgs(conFoto);
+  comprobar('[Sedes] con foto, la tarjeta pinta UNA imagen de portada', imgs(conFoto).length === 1, `imgs: ${imgs(conFoto).length}`);
+  comprobar('[Sedes] la portada usa la URL de la API (mismo origen)', portada && attr(portada, 'src') === FOTO, portada);
+  comprobar(
+    '[Sedes] la portada tiene alt descriptivo con el nombre de la sede',
+    portada && attr(portada, 'alt') === 'Foto de la sede Estadio Cincuentenario',
+    portada,
+  );
+  comprobar(
+    '[Sedes] la portada es diferida (loading="lazy", decoding="async")',
+    portada && attr(portada, 'loading') === 'lazy' && attr(portada, 'decoding') === 'async',
+    portada,
+  );
+  comprobar(
+    '[Sedes] la portada reserva su lugar (width/height + aspect-video): no mueve el layout',
+    portada && attr(portada, 'width') && attr(portada, 'height') && /\baspect-video\b/.test(attr(portada, 'class') ?? ''),
+    portada,
+  );
+  comprobar(
+    '[Sedes] la portada recorta sin deformar (object-cover)',
+    portada && /\bobject-cover\b/.test(attr(portada, 'class') ?? ''),
+  );
+  comprobar(
+    '[Sedes] la portada va antes que el nombre (arriba de la tarjeta)',
+    conFoto.indexOf('<img') < conFoto.indexOf('<h2'),
+  );
+  comprobar(
+    '[Sedes] con foto no se pinta además el placeholder',
+    !conFoto.includes('data-venue-photo="placeholder"'),
+  );
+  comprobar(
+    '[Sedes] con foto, el título sigue siendo el único encabezado (h2)',
+    JSON.stringify(niveles(conFoto)) === '[2]',
+  );
+
+  // Sin foto
+  const sinFoto = pintar(VenueCard, {
+    venue: { ...SEDE_BASE, capacity: 4500, imageUrl: null },
+    index: 0,
+    eventosProgramados: null,
+  });
+  comprobar('[Sedes] sin foto, no se inventa ninguna imagen', imgs(sinFoto).length === 0, `imgs: ${imgs(sinFoto).length}`);
+  const placeholder = /<div[^>]*data-venue-photo="placeholder"[^>]*>/.exec(sinFoto)?.[0] ?? '';
+  comprobar('[Sedes] sin foto, hay un placeholder de portada', placeholder !== '');
+  comprobar(
+    '[Sedes] el placeholder es decorativo (aria-hidden) y no dice "sin foto" en pantalla',
+    placeholder.includes('aria-hidden="true"') && !/sin (foto|imagen)/i.test(texto(sinFoto)),
+    placeholder,
+  );
+  comprobar(
+    '[Sedes] el placeholder ocupa el mismo lugar que la foto (aspect-video)',
+    /\baspect-video\b/.test(placeholder),
+  );
+  comprobar(
+    '[Sedes] el placeholder usa los tokens del sitio (primary/celeste)',
+    /from-primary-\d+/.test(placeholder) && /to-celeste-\d+/.test(placeholder),
+    placeholder,
+  );
+
+  // URL que no es nuestra: no llega a un src
+  for (const [nombre, valor] of [
+    ['javascript:', 'javascript:alert(1)'],
+    ['host ajeno', 'https://evil.example/x.jpg'],
+    ['protocol-relative', '//evil.example/x.jpg'],
+  ]) {
+    const html = pintar(VenueCard, {
+      venue: { ...SEDE_BASE, imageUrl: valor },
+      index: 0,
+      eventosProgramados: null,
+    });
+    comprobar(
+      `[Sedes] una imageUrl ${nombre} no llega a un <img> (cae al placeholder)`,
+      imgs(html).length === 0 && html.includes('data-venue-photo="placeholder"'),
+    );
+  }
+
+  // Error de carga: el componente guarda QUÉ URL falló y cae al placeholder.
+  // El `onError` no corre en render estático, así que se fija el fuente y la
+  // decisión (la función pura la prueba `check:venues`).
+  const foto = sinComentarios(await readFile(path.join(SRC, 'components/venues/VenuePhoto.tsx'), 'utf8'));
+  comprobar(
+    '[Sedes] si la foto falla al cargar, cae al placeholder (onError → failedSrc)',
+    /onError=\{\(\) => setFailedSrc\(src\)\}/.test(foto) && /pickVenueImageSrc\(/.test(foto),
   );
 }
 
@@ -444,8 +552,12 @@ const COMPETENCIA_BASE = {
 }
 
 // =================================================
-// 4. Calendario — la sede que el encabezado promete, sin lo inventado
+// 4. Calendario — agenda por mes: la sede que el encabezado promete, sin lo inventado
 // =================================================
+//
+// "Próximos eventos" pasó de tarjetas con línea de tiempo a una agenda por
+// mes (una fila compacta por evento). Las propiedades que este bloque fijaba
+// sobre la tarjeta vieja se mantienen, ahora sobre la agenda renderizada.
 const EVENTO_BASE = {
   id: 'e1',
   title: 'Acto de Apertura Zonal Formosa',
@@ -462,103 +574,133 @@ const EVENTO_BASE = {
 
 const SEDES_POR_ID = new Map([['11111111-1111-1111-1111-111111111111', 'Estadio Cincuentenario']]);
 const DISCIPLINAS_POR_ID = new Map([['d1', 'Fútbol 11']]);
+const HOY_FIJO = new Date(2026, 8, 1, 12, 0);
+
+const agenda = (eventos, extra = {}) =>
+  pintar(CalendarAgenda, {
+    eventos,
+    nombreDeSede: (e) => (e.venueId && SEDES_POR_ID.get(e.venueId)) || null,
+    nombreDeDisciplina: (e) => (e.disciplineId && DISCIPLINAS_POR_ID.get(e.disciplineId)) || null,
+    esPasado: false,
+    hoy: HOY_FIJO,
+    ...extra,
+  });
 
 {
-  const html = pintar(CalendarEventCard, {
-    event: EVENTO_BASE,
-    index: 0,
-    isLast: false,
-    nombreDeSede: SEDES_POR_ID.get(EVENTO_BASE.venueId) ?? null,
-    nombreDeDisciplina: DISCIPLINAS_POR_ID.get(EVENTO_BASE.disciplineId) ?? null,
-    esPasado: false,
-    esHoy: false,
-  });
+  const html = agenda([EVENTO_BASE]);
   const t = texto(html);
 
   comprobar(
     '[Calendario] con description null, no se inventa una descripción',
     !/evento oficial del cronograma/i.test(t),
-    `la tarjeta emite: "${t}"`,
+    `la agenda emite: "${t}"`,
   );
   comprobar(
     '[Calendario] no aparece el chip decorativo "Competencia Oficial"',
     !/competencia oficial/i.test(t),
-    `la tarjeta emite: "${t}"`,
+    `la agenda emite: "${t}"`,
   );
   comprobar(
     '[Calendario] no aparece el chip decorativo "Juegos Evita Formosa"',
     !/juegos evita formosa/i.test(t),
-    `la tarjeta emite: "${t}"`,
+    `la agenda emite: "${t}"`,
   );
   comprobar(
     '[Calendario] la sede resuelta se pinta (es lo que el encabezado promete)',
     t.includes('Estadio Cincuentenario'),
-    `la tarjeta emite: "${t}"`,
+    `la agenda emite: "${t}"`,
   );
   comprobar(
     '[Calendario] la disciplina resuelta se pinta',
     t.includes('Fútbol 11'),
-    `la tarjeta emite: "${t}"`,
+    `la agenda emite: "${t}"`,
   );
+  comprobar('[Calendario] la etapa se pinta como "Zonal"', /\bZonal\b/.test(t), `la agenda emite: "${t}"`);
   comprobar(
-    '[Calendario] el evento es un h3 (va bajo el h2 de su sección)',
+    '[Calendario] sede · etapa · disciplina van en una sola línea separada por puntos',
+    t.includes('Estadio Cincuentenario · Zonal · Fútbol 11'),
+    `la agenda emite: "${t}"`,
+  );
+  comprobar('[Calendario] el encabezado del mes dice "Septiembre 2026"', t.includes('Septiembre 2026'));
+  comprobar(
+    '[Calendario] cada mes es un h3 (bajo el h2 de su sección) y los eventos no son encabezados',
     JSON.stringify(niveles(html)) === '[3]',
     `niveles emitidos: ${JSON.stringify(niveles(html))}`,
   );
+  comprobar('[Calendario] la hora se muestra', /\d{2}:\d{2}/.test(t), `la agenda emite: "${t}"`);
 }
 
 {
   // Un id que no resuelve —sede borrada, id viejo— no puede producir un
-  // "Sede a confirmar": la fila directamente no aparece.
-  const html = pintar(CalendarEventCard, {
-    event: { ...EVENTO_BASE, venueId: 'fantasma', disciplineId: null },
-    index: 0,
-    isLast: false,
-    nombreDeSede: null,
-    nombreDeDisciplina: null,
-    esPasado: false,
-    esHoy: false,
-  });
+  // "Sede a confirmar": la línea directamente no aparece, ni un "—".
+  const html = agenda([{ ...EVENTO_BASE, venueId: 'fantasma', disciplineId: null, stage: null }]);
   const t = texto(html);
   comprobar(
     '[Calendario] un venueId que no resuelve no produce ningún texto de relleno',
-    !/a confirmar|sin sede|por definir/i.test(t),
-    `la tarjeta emite: "${t}"`,
+    !/a confirmar|sin sede|por definir|—/i.test(t),
+    `la agenda emite: "${t}"`,
   );
 }
 
 {
-  const html = pintar(CalendarEventCard, {
-    event: { ...EVENTO_BASE, endDate: '2026-09-14T19:15:26.801Z' },
-    index: 0,
-    isLast: false,
-    nombreDeSede: 'Estadio Cincuentenario',
-    nombreDeDisciplina: null,
-    esPasado: false,
-    esHoy: false,
-  });
+  const t = texto(agenda([{ ...EVENTO_BASE, endDate: '2026-09-14T19:15:26.801Z' }]));
   comprobar(
-    '[Calendario] con endDate de otro día se muestra el rango, no un día suelto',
-    /14/.test(texto(html)),
-    `la tarjeta emite: "${texto(html)}"`,
+    '[Calendario] con endDate de otro día se muestra el rango ("10–14 sept")',
+    /10–14/.test(t),
+    `la agenda emite: "${t}"`,
   );
 }
 
 {
-  const html = pintar(CalendarEventCard, {
-    event: EVENTO_BASE,
-    index: 0,
-    isLast: false,
-    nombreDeSede: null,
-    nombreDeDisciplina: null,
-    esPasado: false,
-    esHoy: true,
-  });
+  const hoy = new Date(EVENTO_BASE.startDate);
+  const t = texto(agenda([EVENTO_BASE], { hoy }));
+  comprobar('[Calendario] un evento de hoy lleva su badge', /\bhoy\b/i.test(t), `la agenda emite: "${t}"`);
+  const pasado = texto(agenda([EVENTO_BASE], { hoy, esPasado: true }));
+  comprobar('[Calendario] en "Ya se disputaron" no hay badge de hoy', !/\bhoy\b/i.test(pasado));
+}
+
+{
+  // Varios eventos el mismo día: el día se escribe una sola vez.
+  const html = agenda([
+    EVENTO_BASE,
+    { ...EVENTO_BASE, id: 'e2', title: 'Torneo Relámpago de Ajedrez', startDate: '2026-09-10T21:00:00.000Z' },
+    { ...EVENTO_BASE, id: 'e3', title: 'Final de Vóley', startDate: '2026-10-05T18:00:00.000Z' },
+  ]);
+  const dias = html.match(/<time datetime="2026-09-10">/gi) ?? [];
+  comprobar('[Calendario] dos eventos el mismo día muestran el día una sola vez', dias.length === 1, `apariciones: ${dias.length}`);
+  comprobar('[Calendario] los dos eventos del día se listan', texto(html).includes('Torneo Relámpago de Ajedrez'));
   comprobar(
-    '[Calendario] un evento de hoy lleva su badge',
-    /\bhoy\b/i.test(texto(html)),
-    `la tarjeta emite: "${texto(html)}"`,
+    '[Calendario] un encabezado por mes, en el orden de la sección',
+    JSON.stringify(niveles(html)) === '[3,3]' && texto(html).indexOf('Septiembre') < texto(html).indexOf('Octubre'),
+    `niveles emitidos: ${JSON.stringify(niveles(html))}`,
   );
+  const pasado = agenda([EVENTO_BASE], { esPasado: true });
+  comprobar('[Calendario] "Ya se disputaron" usa la misma agenda, atenuada', /opacity-75/.test(pasado));
+}
+
+{
+  // Lógica pura de la agenda.
+  const meses = agruparPorMes([
+    { ...EVENTO_BASE, id: 'a', startDate: '2026-10-05T18:00:00.000Z' },
+    { ...EVENTO_BASE, id: 'b', startDate: '2026-09-10T18:00:00.000Z' },
+    { ...EVENTO_BASE, id: 'c', startDate: 'no-es-una-fecha' },
+  ]);
+  comprobar(
+    '[Calendario] agruparPorMes respeta el orden de entrada (sirve para próximos ↑ y pasados ↓)',
+    meses[0]?.titulo === 'Octubre 2026' && meses[1]?.titulo === 'Septiembre 2026',
+    JSON.stringify(meses.map((m) => m.titulo)),
+  );
+  comprobar(
+    '[Calendario] una fecha ilegible no se descarta: va a "Sin fecha confirmada"',
+    meses.at(-1)?.titulo === 'Sin fecha confirmada' && meses.at(-1)?.dias[0]?.eventos.length === 1,
+  );
+  comprobar(
+    '[Calendario] el rango que cruza de mes nombra los dos meses',
+    /30 sept? – 2 oct/.test(rangoDeDias({ ...EVENTO_BASE, startDate: '2026-09-30T15:00:00.000Z', endDate: '2026-10-02T15:00:00.000Z' }) ?? ''),
+    rangoDeDias({ ...EVENTO_BASE, startDate: '2026-09-30T15:00:00.000Z', endDate: '2026-10-02T15:00:00.000Z' }),
+  );
+  comprobar('[Calendario] un evento de un día no tiene rango', rangoDeDias(EVENTO_BASE) === null);
+  comprobar('[Calendario] lo ausente se omite en la línea de detalle', JSON.stringify(lineaDeDetalle([null, 'Zonal', '', undefined])) === '["Zonal"]');
 }
 
 // =================================================
@@ -576,7 +718,7 @@ const DISCIPLINAS_POR_ID = new Map([['d1', 'Fútbol 11']]);
     { archivo: 'VenuesPage.tsx', tarjeta: 2, seccion: false },
     { archivo: 'RankingsPage.tsx', tarjeta: 2, seccion: false },
     // Calendario es la única con un nivel intermedio: las secciones "Próximos"
-    // y "Ya se disputaron" son h2 y los eventos cuelgan de ellas como h3.
+    // y "Ya se disputaron" son h2 y los meses de la agenda cuelgan de ellas como h3.
     { archivo: 'CalendarPage.tsx', tarjeta: 3, seccion: true },
   ];
 
@@ -622,8 +764,9 @@ const DISCIPLINAS_POR_ID = new Map([['d1', 'Fútbol 11']]);
     'pages/public/disciplines/DisciplineCard.tsx',
     'pages/public/venues/VenueCard.tsx',
     'pages/public/rankings/CompetitionCard.tsx',
-    'pages/public/calendar/CalendarEventCard.tsx',
+    'pages/public/calendar/CalendarAgenda.tsx',
     'components/shared/CardGridSkeleton.tsx',
+    'components/venues/VenuePhoto.tsx',
     'lib/gridVolumen.ts',
   ];
 
@@ -661,7 +804,8 @@ const DISCIPLINAS_POR_ID = new Map([['d1', 'Fútbol 11']]);
     'pages/public/disciplines/DisciplineCard.tsx',
     'pages/public/venues/VenueCard.tsx',
     'pages/public/rankings/CompetitionCard.tsx',
-    'pages/public/calendar/CalendarEventCard.tsx',
+    'pages/public/calendar/CalendarAgenda.tsx',
+    'components/venues/VenuePhoto.tsx',
   ];
   // Las de la paleta default que no son tokens del proyecto.
   const FUERA_DE_PALETA = /\b(?:text|bg|border|from|to|via)-(?:amber|yellow|orange|sky|indigo|emerald|teal|rose|violet)-\d{2,3}\b/;
@@ -688,7 +832,7 @@ const DISCIPLINAS_POR_ID = new Map([['d1', 'Fútbol 11']]);
 {
   const ARCHIVOS = [
     'pages/public/venues/VenueCard.tsx',
-    'pages/public/calendar/CalendarEventCard.tsx',
+    'pages/public/calendar/CalendarAgenda.tsx',
     'pages/public/disciplines/DisciplineCard.tsx',
     'pages/public/rankings/CompetitionCard.tsx',
   ];
@@ -752,7 +896,7 @@ const DISCIPLINAS_POR_ID = new Map([['d1', 'Fútbol 11']]);
     'pages/public/disciplines/DisciplineCard.tsx',
     'pages/public/venues/VenueCard.tsx',
     'pages/public/rankings/CompetitionCard.tsx',
-    'pages/public/calendar/CalendarEventCard.tsx',
+    'pages/public/calendar/CalendarAgenda.tsx',
   ]) {
     const fuente = sinComentarios(await readFile(path.join(SRC, relativo), 'utf8'));
     comprobar(

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { AlertTriangle, Map as MapIcon, RotateCcw } from 'lucide-react';
 import { GEO_AREAS, GEO_POINTS, GEO_SOURCE, GEO_VIEWBOX } from '@/lib/geo/formosa.generated';
 import {
+  BUBBLE_RAMP,
   bubbleLegendValues,
   buildBubbles,
   buildLocalityMap,
@@ -100,6 +101,7 @@ export function LocalityImpactMap({
   const esEscritorio = useMediaQuery(ESCRITORIO);
 
   const cardRef = useRef<HTMLDivElement>(null);
+  const mapaRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<Element | null>(null);
 
   const model = useMemo(() => buildLocalityMap(data?.localities ?? []), [data]);
@@ -111,7 +113,13 @@ export function LocalityImpactMap({
     () => computeHeatClasses([...departments.values()].map((f) => metricValue(f, metric))),
     [departments, metric],
   );
-  const bubbles = useMemo(() => buildBubbles(model, metric), [model, metric]);
+  // Posiciones reales: el mapa las separa en pantalla, según el zoom.
+  const bubbles = useMemo(() => buildBubbles(model, metric, { separate: false }), [model, metric]);
+  const bubbleClasses = useMemo(
+    () => computeHeatClasses(bubbles.map((b) => b.value), BUBBLE_RAMP),
+    [bubbles],
+  );
+  const [centerRequest, setCenterRequest] = useState<{ id: string; seq: number } | null>(null);
   const bubbleValues = useMemo(() => bubbleLegendValues(bubbles.map((b) => b.value)), [bubbles]);
   const top = useMemo(() => topLocalities(rows, metric), [rows, metric]);
   const labeledIds = useMemo(() => top.filter((r) => r.onMap).map((r) => r.key), [top]);
@@ -140,6 +148,13 @@ export function LocalityImpactMap({
   const seleccionar = useCallback((id: string, trigger: Element) => {
     triggerRef.current = trigger;
     setSelected(id);
+  }, []);
+
+  /** Desde el Top 5 o la tabla: además de abrir el detalle, centra el mapa en ella. */
+  const seleccionarYCentrar = useCallback((id: string, trigger: Element) => {
+    triggerRef.current = trigger;
+    setSelected(id);
+    setCenterRequest((prev) => ({ id, seq: (prev?.seq ?? 0) + 1 }));
   }, []);
 
   // Escape y clic afuera cierran el detalle.
@@ -302,6 +317,7 @@ export function LocalityImpactMap({
 
       <div className="flex flex-col gap-3 lg:flex-row">
         <section
+          ref={mapaRef}
           aria-label="Mapa de participación"
           className={cn(
             'relative w-full rounded-2xl border border-primary-100 bg-white p-2 shadow-sm lg:w-auto lg:flex-none lg:min-h-[380px]',
@@ -315,7 +331,9 @@ export function LocalityImpactMap({
             metric={metric}
             departmentClasses={departmentClasses}
             bubbles={bubbles}
+            bubbleClasses={bubbleClasses}
             labeledIds={labeledIds}
+            centerRequest={centerRequest}
             showAll={showAll}
             selectedId={selected}
             onSelect={seleccionar}
@@ -326,6 +344,7 @@ export function LocalityImpactMap({
             classes={departmentClasses}
             metric={metric}
             bubbleValues={bubbleValues}
+            bubbleClasses={bubbleClasses}
             layout="overlay"
             className="absolute right-2 top-2 hidden md:block"
           />
@@ -338,7 +357,13 @@ export function LocalityImpactMap({
 
         {/* En el celular la leyenda y los controles van debajo del mapa. */}
         <div className="space-y-2 md:hidden">
-          <MapLegend classes={departmentClasses} metric={metric} bubbleValues={bubbleValues} layout="row" />
+          <MapLegend
+            classes={departmentClasses}
+            metric={metric}
+            bubbleValues={bubbleValues}
+            bubbleClasses={bubbleClasses}
+            layout="row"
+          />
           <div className="flex flex-col gap-1 px-1">{controles}</div>
         </div>
 
@@ -353,7 +378,7 @@ export function LocalityImpactMap({
             detalle
           ) : (
             <div className="grid gap-6 @xl:grid-cols-2">
-              <TopLocalities rows={top} metric={metric} onSelect={seleccionar} />
+              <TopLocalities rows={top} metric={metric} onSelect={seleccionarYCentrar} />
               <DepartmentRanking departments={departments} metric={metric} classes={departmentClasses} />
             </div>
           )}
@@ -370,7 +395,14 @@ export function LocalityImpactMap({
           Ver los datos en una tabla
         </summary>
         <div className="mt-4">
-          <LocalityTable rows={rows} />
+          <LocalityTable
+            rows={rows}
+            onSelect={(id, trigger) => {
+              seleccionarYCentrar(id, trigger);
+              // La tabla está debajo: se sube al mapa para ver dónde quedó.
+              mapaRef.current?.scrollIntoView({ block: 'nearest' });
+            }}
+          />
         </div>
       </details>
     </div>

@@ -7,7 +7,8 @@
 export { DisciplineCard } from '@/pages/public/disciplines/DisciplineCard';
 export { VenueCard } from '@/pages/public/venues/VenueCard';
 export { CompetitionCard } from '@/pages/public/rankings/CompetitionCard';
-export { CalendarEventCard } from '@/pages/public/calendar/CalendarEventCard';
+export { CalendarAgenda } from '@/pages/public/calendar/CalendarAgenda';
+export { agruparPorMes, rangoDeDias, lineaDeDetalle } from '@/pages/public/calendar/agendaPorMes';
 export { columnasSegunVolumen, retrasoDeEntrada } from '@/lib/gridVolumen';
 export { PublicListState } from '@/components/shared/PublicListState';
 export { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';

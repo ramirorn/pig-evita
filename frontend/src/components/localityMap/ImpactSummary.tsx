@@ -30,7 +30,7 @@ function Kpi({ icon, label, value }: { icon: ReactNode; label: string; value: nu
       </span>
       <div className="min-w-0">
         <p className="font-display text-xl font-black leading-none text-primary-800">{value.toLocaleString('es-AR')}</p>
-        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-wide text-primary-600 sm:text-[11px] sm:tracking-widest">{label}</p>
+        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-normal text-primary-600 sm:text-[11px] sm:tracking-widest">{label}</p>
       </div>
     </div>
   );

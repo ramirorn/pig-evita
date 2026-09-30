@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
+import type { Readable } from 'node:stream';
 import * as Minio from 'minio';
 import { assertStrongSecret } from '../../common/security/forbidden-secrets';
 import { retryAsync } from '../../common/resilience/retry';
@@ -19,8 +20,13 @@ import { retryAsync } from '../../common/resilience/retry';
 const MIN_ACCESS_KEY_LENGTH = 8;
 const MIN_SECRET_KEY_LENGTH = 16;
 
-/** Extensiones aceptadas. Cualquier otra cosa se guarda como `.bin`. */
-const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.pdf']);
+/**
+ * Extensiones aceptadas. Cualquier otra cosa se guarda como `.bin`.
+ *
+ * `.webp` es para las fotos de sedes; a los documentos no les cambia nada
+ * porque `FileSignaturePipe` rechaza un WebP antes de llegar acá.
+ */
+const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.pdf', '.webp']);
 const FALLBACK_EXTENSION = '.bin';
 
 /** Largo máximo del nombre legible que se conserva junto al UUID. */
@@ -528,6 +534,36 @@ export class MinioService implements OnModuleInit {
       throw new InternalServerErrorException(
         'Error al generar link del archivo',
       );
+    }
+  }
+
+  /**
+   * Abre un stream de lectura del objeto, para servirlo a través de la API
+   * (fotos de sedes) sin abrir el bucket ni firmar URLs.
+   *
+   * Devuelve `null` si el objeto no existe, para que el llamador responda 404
+   * con su propio mensaje. El reintento es seguro: leer no tiene efectos, y
+   * sólo cubre la apertura (hasta recibir los headers de MinIO), nunca un
+   * stream ya empezado.
+   */
+  async getObjectStream(objectName: string): Promise<Readable | null> {
+    await this.asegurarBucketPrivado();
+
+    const cleanObjectName = this.normalizeObjectName(objectName);
+
+    try {
+      return await this.withRetry('getObject', () =>
+        this.minioClient.getObject(this.bucketName, cleanObjectName),
+      );
+    } catch (error) {
+      const code = (error as { code?: unknown }).code;
+      if (code === 'NoSuchKey' || code === 'NotFound') {
+        return null;
+      }
+      this.logger.error(
+        `Failed to read file from MinIO: ${(error as Error).message}`,
+      );
+      throw new InternalServerErrorException('Error al leer el archivo');
     }
   }
 

@@ -6,8 +6,10 @@ import {
   venuesApi, 
   type VenueFilters, 
   type CreateVenuePayload,
-  type UpdateVenuePayload
+  type UpdateVenuePayload,
+  type UploadVenueImageOptions,
 } from '@/api/venues.api';
+import type { Venue } from '@/types';
 import { STALE_TIME } from '@/lib/queryClient';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { getFriendlyError } from '@/lib/utils';
@@ -102,6 +104,51 @@ export function useDeleteVenue() {
     },
     onError: (error: unknown) => {
       toast.error(getFriendlyError(error, 'Error al eliminar la sede'));
+    },
+  });
+}
+
+/**
+ * La sede cambió (foto nueva o quitada): se deja la respuesta en el detalle
+ * —así el panel la muestra sin esperar un refetch— y se invalidan las listas,
+ * que son las que pintan la miniatura del panel y la portada pública.
+ */
+function syncVenue(queryClient: ReturnType<typeof useQueryClient>, venue: Venue) {
+  queryClient.setQueryData(VENUE_KEYS.detail(venue.id), venue);
+  void queryClient.invalidateQueries({ queryKey: VENUE_KEYS.lists() });
+}
+
+/**
+ * Sube o reemplaza la foto de la sede.
+ *
+ * Sin toast de error: el uploader explica cada falla en línea (pesada, no es
+ * imagen, red, conflicto) con qué hacer, y un toast genérico encima diría lo
+ * mismo peor.
+ */
+export function useUploadVenueImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, file, options }: { id: string; file: File; options?: UploadVenueImageOptions }) =>
+      venuesApi.uploadImage(id, file, options),
+    onSuccess: (venue) => {
+      syncVenue(queryClient, venue);
+      toast.success('Foto de la sede actualizada');
+    },
+  });
+}
+
+export function useDeleteVenueImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => venuesApi.deleteImage(id),
+    onSuccess: (venue) => {
+      syncVenue(queryClient, venue);
+      toast.success('Foto quitada');
+    },
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'No se pudo quitar la foto. Probá de nuevo en un rato.'));
     },
   });
 }

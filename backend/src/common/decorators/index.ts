@@ -42,6 +42,8 @@ export {
 export {
   PublicReadThrottle,
   PUBLIC_READ_RATE_LIMIT,
+  PublicAssetThrottle,
+  PUBLIC_ASSET_RATE_LIMIT,
 } from './throttle.decorator';
 
 export { Audit, NoAudit, AUDIT_KEY } from './audit.decorator';

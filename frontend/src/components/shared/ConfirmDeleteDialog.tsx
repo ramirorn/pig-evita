@@ -23,6 +23,10 @@ interface ConfirmDeleteDialogProps {
   onConfirm: () => Promise<void> | void;
   isDeleting?: boolean;
   isLoading?: boolean;
+  /** Texto del botón de confirmar (por defecto "Sí, eliminar"). */
+  confirmLabel?: string;
+  /** Texto del botón mientras confirma (por defecto "Eliminando..."). */
+  pendingLabel?: string;
 }
 
 export function ConfirmDeleteDialog({
@@ -36,6 +40,8 @@ export function ConfirmDeleteDialog({
   onConfirm,
   isDeleting = false,
   isLoading = false,
+  confirmLabel = 'Sí, eliminar',
+  pendingLabel = 'Eliminando...',
 }: ConfirmDeleteDialogProps) {
   const isDialogOpen = open !== undefined ? open : !!isOpen;
   const loading = isDeleting || isLoading;
@@ -96,7 +102,7 @@ export function ConfirmDeleteDialog({
             className="w-full sm:w-auto gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {loading ? 'Eliminando...' : 'Sí, eliminar'}
+            {loading ? pendingLabel : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

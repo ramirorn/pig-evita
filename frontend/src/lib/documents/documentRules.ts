@@ -15,6 +15,7 @@
 // archivo renombrado pasa este filtro (no leemos bytes) y lo frena el pipe.
 import { DocumentStatus, DocumentType, type DocumentEntity } from '@/types';
 import { getHttpStatus } from '@/lib/utils';
+import type { UploaderRules } from '@/lib/uploads/uploaderRules';
 
 // -------------------------------------------------
 // Límites y formatos
@@ -246,6 +247,28 @@ export function uploadPercent(loaded: number, total: number | undefined): number
   if (!total || total <= 0 || !Number.isFinite(loaded)) return null;
   return Math.max(0, Math.min(100, Math.round((loaded / total) * 100)));
 }
+
+/**
+ * Reglas del `DocumentUploader` para papeles (su valor por defecto).
+ *
+ * Es la misma validación, los mismos formatos y los mismos mensajes de
+ * siempre, sólo empaquetados en el contrato genérico: el uploader también sirve
+ * para la foto de una sede, con otras reglas (`venueImageRules`).
+ */
+export const DOCUMENT_UPLOADER_RULES: UploaderRules = {
+  accept: DOCUMENT_ACCEPT_ATTRIBUTE,
+  cameraAccept: 'image/jpeg,image/png',
+  formatsHint: DOCUMENT_FORMATS_HINT,
+  validate: (file) => {
+    const result = validateDocumentFile(file);
+    return result.ok
+      ? { ok: true, preview: result.preview }
+      : { ok: false, error: DOCUMENT_ERROR_MESSAGES[result.kind] };
+  },
+  describeError: (error) => DOCUMENT_ERROR_MESSAGES[classifyUploadError(error)],
+  doneText: 'Subido. Queda pendiente de revisión.',
+  announceDone: (title) => `${title} subido. Queda pendiente de revisión.`,
+};
 
 /**
  * La URL pre-firmada viene del backend: sólo se usa si es http(s).

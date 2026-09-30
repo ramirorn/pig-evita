@@ -379,6 +379,9 @@ model Venue {
   longitude  Float?
   capacity   Int?
   isActive   Boolean  @default(true) @map("is_active")
+  /// Clave del objeto en MinIO (prefijo `venues/`) de la foto principal. Nunca
+  /// se expone: la API publica `imageUrl` (ver venue-image.util.ts).
+  imageKey   String?  @map("image_key")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 

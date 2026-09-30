@@ -2,8 +2,10 @@
 // MapLegend — qué significan los tonos y los tamaños
 // ===========================================
 import {
-  BUBBLE_COLOR,
+  BUBBLE_OUTLINE,
   bubbleRadius,
+  heatColor,
+  themeColor,
   metricInfo,
   NO_DATA_COLOR,
   NO_DATA_HATCH,
@@ -17,6 +19,8 @@ interface MapLegendProps {
   metric: MapMetric;
   /** Valores reales de referencia para los tamaños (el primero es el máximo). */
   bubbleValues: readonly number[];
+  /** Clases de color de las burbujas (amarillo → rojo). */
+  bubbleClasses: readonly HeatClass[];
   /**
    * `overlay`: recuadro semitransparente en la esquina vacía del mapa
    * (tablet y escritorio). `row`: fila compacta debajo del mapa (celular).
@@ -42,12 +46,12 @@ function MuestraSinDatos() {
  * de referencia usan la misma función de radio que el mapa, a escala, y sólo
  * valores que existen en los datos.
  */
-export function MapLegend({ classes, metric, bubbleValues, layout, className }: MapLegendProps) {
+export function MapLegend({ classes, metric, bubbleValues, bubbleClasses, layout, className }: MapLegendProps) {
   const info = metricInfo(metric);
   const maximo = bubbleValues[0] ?? 0;
   // El mapa se ve a ~0,65 px por unidad en escritorio: la leyenda usa la misma escala.
   const escala = 0.65;
-  const rMax = bubbleRadius(maximo, maximo) * escala;
+  const rMax = bubbleRadius(maximo, maximo) * escala + 1;
   const esFila = layout === 'row';
 
   return (
@@ -84,6 +88,19 @@ export function MapLegend({ classes, metric, bubbleValues, layout, className }: 
       {bubbleValues.length > 0 && (
         <div className={esFila ? undefined : 'mt-2 border-t border-primary-100 pt-2'}>
           <p className="font-semibold uppercase tracking-wide text-primary-500">{info.label} por localidad</p>
+          {/* Color: concentración. Con una sola clase no hay escala que explicar. */}
+          {bubbleClasses.length > 1 && (
+            <ul className={cn('mt-1', esFila ? 'flex flex-wrap gap-x-3 gap-y-1' : 'space-y-0.5')} aria-label="Color de los círculos">
+              {[...bubbleClasses].reverse().map((c) => (
+                <li key={c.from} className="flex items-center gap-1.5">
+                  <svg width="12" height="12" aria-hidden="true" className="shrink-0">
+                    <circle cx="6" cy="6" r="5" stroke="white" strokeWidth="1" style={{ fill: c.color }} />
+                  </svg>
+                  {c.label}
+                </li>
+              ))}
+            </ul>
+          )}
           <div
             className="mt-1 flex items-end gap-3"
             role="img"
@@ -97,10 +114,17 @@ export function MapLegend({ classes, metric, bubbleValues, layout, className }: 
                     <circle
                       cx={rMax + 2}
                       cy={rMax * 2 + 2 - r}
+                      r={r + 1}
+                      fillOpacity={0.45}
+                      style={{ fill: themeColor(BUBBLE_OUTLINE) }}
+                    />
+                    <circle
+                      cx={rMax + 2}
+                      cy={rMax * 2 + 2 - r}
                       r={r}
                       stroke="white"
                       strokeWidth={1.5}
-                      style={{ fill: BUBBLE_COLOR }}
+                      style={{ fill: heatColor(v, bubbleClasses) }}
                     />
                   </svg>
                   <span>{v.toLocaleString('es-AR')}</span>

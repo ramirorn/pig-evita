@@ -31,6 +31,16 @@ export interface CreateVenuePayload {
 
 export type UpdateVenuePayload = Partial<CreateVenuePayload>;
 
+export interface UploadVenueImageOptions {
+  /** Avance de la subida en bytes; `total` puede faltar si el navegador no lo sabe. */
+  onProgress?: (loaded: number, total: number | undefined) => void;
+  /** Para cancelar la subida. */
+  signal?: AbortSignal;
+}
+
+/** Una foto de 5 MB por 3G tarda más que los 15 s del cliente (igual que documentos). */
+const UPLOAD_TIMEOUT_MS = 2 * 60_000;
+
 export const venuesApi = {
   async findAll(filters?: VenueFilters): Promise<PaginatedResponse<Venue>> {
     const { data } = await apiClient.get<PaginatedResponse<Venue>>('/venues', { params: filters });
@@ -54,6 +64,28 @@ export const venuesApi = {
 
   async delete(id: string): Promise<{ success: boolean; message?: string }> {
     const { data } = await apiClient.delete(`/venues/${id}`);
+    return data;
+  },
+
+  /** Sube o reemplaza la foto principal (multipart, campo `file`). Devuelve la sede con `imageUrl`. */
+  async uploadImage(id: string, file: File, options: UploadVenueImageOptions = {}): Promise<Venue> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const { data } = await apiClient.post<Venue>(`/venues/${id}/image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: UPLOAD_TIMEOUT_MS,
+      signal: options.signal,
+      onUploadProgress: options.onProgress
+        ? (event) => options.onProgress?.(event.loaded, event.total)
+        : undefined,
+    });
+    return data;
+  },
+
+  /** Quita la foto (idempotente). Devuelve la sede con `imageUrl: null`. */
+  async deleteImage(id: string): Promise<Venue> {
+    const { data } = await apiClient.delete<Venue>(`/venues/${id}/image`);
     return data;
   },
 };

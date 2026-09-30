@@ -1,17 +1,20 @@
 // ===========================================
-// DocumentUploader — carga de una foto o PDF (DNI, ficha médica, etc.)
+// DocumentUploader — carga de una foto o PDF (DNI, ficha médica, foto de sede)
 // ===========================================
 //
 // Presentacional: no sabe de React Query ni de Axios. Quien lo usa le pasa
 // `onUpload`, que tiene que devolver una promesa y reportar el progreso.
-// Todas las reglas (tamaño, formatos, errores) viven en
-// `@/lib/documents/documentRules`, que chequea `npm run check:documents`.
-import { useEffect, useId, useRef, useState, type DragEvent } from 'react';
+// Las reglas (tamaño, formatos, errores) llegan por `rules`: por defecto las
+// de documentos (`@/lib/documents/documentRules`, `npm run check:documents`);
+// la foto de sede pasa las suyas (`@/lib/venues/venueImageRules`,
+// `npm run check:venues`). Un solo componente, dos contratos.
+import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import {
   Camera,
   CheckCircle2,
   FileText,
   FolderOpen,
+  ImageOff,
   Loader2,
   RefreshCw,
   UploadCloud,
@@ -21,17 +24,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DOCUMENT_STATUS_LABELS } from '@/lib/constants';
 import {
-  DOCUMENT_ACCEPT_ATTRIBUTE,
-  DOCUMENT_ERROR_MESSAGES,
-  DOCUMENT_FORMATS_HINT,
   DOCUMENT_STATUS_BADGE_CLASSES,
-  classifyUploadError,
+  DOCUMENT_UPLOADER_RULES,
   isCanceledUpload,
   uploadPercent,
-  validateDocumentFile,
-  type DocumentErrorKind,
-  type DocumentPreviewKind,
 } from '@/lib/documents/documentRules';
+import type {
+  UploadErrorMessage,
+  UploadPreviewKind,
+  UploaderRules,
+} from '@/lib/uploads/uploaderRules';
 import { logError } from '@/lib/logger';
 import { cn, formatFileSize } from '@/lib/utils';
 import { DocumentStatus, type DocumentEntity } from '@/types';
@@ -53,20 +55,32 @@ interface DocumentUploaderProps {
   contextLabel?: string;
   /** Documento vigente en el servidor, si ya hay uno. */
   current?: DocumentEntity | null;
+  /**
+   * Imagen vigente cuando lo que se carga no es un documento (foto de sede).
+   * `src` ya tiene que venir saneada por quien la pasa.
+   */
+  currentImage?: { src: string; alt: string } | null;
+  /** Acciones extra junto a "Reemplazar" sobre lo vigente (p. ej. "Quitar foto"). */
+  currentActions?: ReactNode;
   /** Ofrecer "Sacar foto" (cámara trasera) en pantallas táctiles. */
   allowCamera?: boolean;
+  /** Formatos, límites y mensajes. Por defecto, los de documentos. */
+  rules?: UploaderRules;
+  /** Nivel del título según dónde se monte (en un diálogo cuelga de un h2). */
+  headingLevel?: 3 | 4;
   onUpload: (file: File, request: DocumentUploadRequest) => Promise<unknown>;
 }
 
 type Phase =
   | { name: 'empty' }
+  | { name: 'preparing' }
   | { name: 'selected' }
   | { name: 'uploading'; percent: number | null }
   | { name: 'done' };
 
 interface Selection {
   file: File;
-  preview: DocumentPreviewKind;
+  preview: UploadPreviewKind;
   /** `blob:` URL para la miniatura de imágenes; se revoca al reemplazar. */
   objectUrl: string | null;
 }
@@ -76,7 +90,11 @@ export function DocumentUploader({
   hint,
   contextLabel,
   current,
+  currentImage,
+  currentActions,
   allowCamera = true,
+  rules = DOCUMENT_UPLOADER_RULES,
+  headingLevel = 4,
   onUpload,
 }: DocumentUploaderProps) {
   const baseId = useId();
@@ -93,7 +111,7 @@ export function DocumentUploader({
   const [phase, setPhase] = useState<Phase>({ name: 'empty' });
   // `fromServer`: el backend ya rechazó ESTE archivo; si el error no es de
   // reintentar (pesado, tipo), volver a mandarlo no tiene sentido.
-  const [error, setError] = useState<{ kind: DocumentErrorKind; fromServer: boolean } | null>(null);
+  const [error, setError] = useState<{ message: UploadErrorMessage; fromServer: boolean } | null>(null);
   const [replacing, setReplacing] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
@@ -108,19 +126,37 @@ export function DocumentUploader({
 
   const fullTitle = contextLabel ? `${title} ${contextLabel}` : title;
   const uploading = phase.name === 'uploading';
+  const preparing = phase.name === 'preparing';
+  const busy = uploading || preparing;
+  const Heading = headingLevel === 3 ? 'h3' : 'h4';
 
   function releasePreview() {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     objectUrlRef.current = null;
   }
 
-  function acceptFile(file: File | undefined) {
-    if (!file || uploading) return;
-    const result = validateDocumentFile(file);
+  async function acceptFile(picked: File | undefined) {
+    if (!picked || busy) return;
+    const previousPhase = phase;
+
+    // Optimización opcional (foto de sede): va ANTES de validar, así una foto
+    // de 8 MB que queda en 600 KB no se rechaza por pesada.
+    let file = picked;
+    if (rules.prepare) {
+      setPhase({ name: 'preparing' });
+      try {
+        file = await rules.prepare(picked);
+      } catch {
+        file = picked;
+      }
+    }
+
+    const result = rules.validate(file);
     if (!result.ok) {
       // Se descarta el archivo inválido pero se deja la selección anterior
       // (si había una) para no perder una foto buena por un toque de más.
-      setError({ kind: result.kind, fromServer: false });
+      setError({ message: result.error, fromServer: false });
+      setPhase(previousPhase);
       return;
     }
     releasePreview();
@@ -169,7 +205,7 @@ export function DocumentUploader({
         return;
       }
       logError('DocumentUploader.startUpload', err);
-      setError({ kind: classifyUploadError(err), fromServer: true });
+      setError({ message: rules.describeError(err), fromServer: true });
       setPhase({ name: 'selected' });
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -183,30 +219,33 @@ export function DocumentUploader({
   function handleDrag(event: DragEvent<HTMLDivElement>, active: boolean) {
     event.preventDefault();
     event.stopPropagation();
-    if (!uploading) setDragActive(active);
+    if (!busy) setDragActive(active);
   }
 
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     handleDrag(event, false);
-    acceptFile(event.dataTransfer.files[0]);
+    void acceptFile(event.dataTransfer.files[0]);
   }
 
   // Qué se ve: lo recién elegido manda; si no hay nada elegido, lo que ya está
   // en el servidor (salvo que se haya pedido reemplazarlo).
-  const showDropzone = !selection && (replacing || (!current && phase.name !== 'done'));
+  const hasCurrent = Boolean(current || currentImage);
+  const showDropzone = !selection && (replacing || (!hasCurrent && phase.name !== 'done'));
   const showCurrent = !selection && !showDropzone;
 
-  const errorMessage = error ? DOCUMENT_ERROR_MESSAGES[error.kind] : null;
+  const errorMessage = error?.message ?? null;
   const canSend = !(error?.fromServer && errorMessage && !errorMessage.retryable);
   const statusText = uploading
     ? phase.percent === null
       ? `Subiendo ${title}…`
       : `Subiendo ${title}: ${phase.percent}%`
-    : phase.name === 'done'
-      ? `${title} subido. Queda pendiente de revisión.`
-      : selection
-        ? `${selection.file.name} listo para subir.`
-        : '';
+    : preparing
+      ? `Preparando ${title}…`
+      : phase.name === 'done'
+        ? rules.announceDone(title)
+        : selection
+          ? `${selection.file.name} listo para subir.`
+          : '';
 
   return (
     <section
@@ -216,10 +255,10 @@ export function DocumentUploader({
     >
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h4 id={titleId} className="text-sm font-extrabold text-primary-900 leading-tight">
+          <Heading id={titleId} className="text-sm font-extrabold text-primary-900 leading-tight">
             {title}
             {contextLabel && <span className="sr-only"> {contextLabel}</span>}
-          </h4>
+          </Heading>
           {hint && (
             <p id={hintId} className="text-xs text-primary-500 mt-0.5">
               {hint}
@@ -238,22 +277,22 @@ export function DocumentUploader({
       <input
         ref={fileInputRef}
         type="file"
-        accept={DOCUMENT_ACCEPT_ATTRIBUTE}
+        accept={rules.accept}
         className="hidden"
         tabIndex={-1}
         aria-label={`Elegir archivo para ${fullTitle}`}
-        onChange={(event) => acceptFile(event.target.files?.[0])}
+        onChange={(event) => void acceptFile(event.target.files?.[0])}
       />
       {allowCamera && (
         <input
           ref={cameraInputRef}
           type="file"
-          accept="image/jpeg,image/png"
+          accept={rules.cameraAccept}
           capture="environment"
           className="hidden"
           tabIndex={-1}
           aria-label={`Sacar foto para ${fullTitle}`}
-          onChange={(event) => acceptFile(event.target.files?.[0])}
+          onChange={(event) => void acceptFile(event.target.files?.[0])}
         />
       )}
 
@@ -271,6 +310,19 @@ export function DocumentUploader({
         </div>
       )}
 
+      {showCurrent && !current && currentImage && (
+        <div className="space-y-3">
+          <CurrentImage key={currentImage.src} src={currentImage.src} alt={currentImage.alt} />
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button type="button" variant="outline" size="sm" onClick={() => setReplacing(true)}>
+              <RefreshCw aria-hidden="true" />
+              Reemplazar
+            </Button>
+            {currentActions}
+          </div>
+        </div>
+      )}
+
       {current?.status === DocumentStatus.RECHAZADO && current.rejectionNote && (
         <p className="rounded-xl bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-800">
           <span className="font-bold">Motivo del rechazo:</span>{' '}
@@ -278,11 +330,11 @@ export function DocumentUploader({
         </p>
       )}
 
-      {showCurrent && !current && phase.name === 'done' && (
+      {showCurrent && !hasCurrent && phase.name === 'done' && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-center gap-2 text-sm font-medium text-secondary-700">
             <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-            Subido. Queda pendiente de revisión.
+            {rules.doneText}
           </p>
           <Button type="button" variant="outline" size="sm" onClick={() => setReplacing(true)}>
             <RefreshCw aria-hidden="true" />
@@ -305,8 +357,14 @@ export function DocumentUploader({
           <UploadCloud className="mx-auto w-7 h-7 text-primary-400" aria-hidden="true" />
           <p className="mt-2 text-sm text-primary-700">
             <span className="hidden pointer-fine:inline">Arrastrá el archivo acá o elegilo. </span>
-            {DOCUMENT_FORMATS_HINT}.
+            {rules.formatsHint}.
           </p>
+          {preparing ? (
+            <p className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-primary-700">
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+              Preparando la imagen…
+            </p>
+          ) : (
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
             {allowCamera && (
               <Button
@@ -329,6 +387,7 @@ export function DocumentUploader({
               </Button>
             )}
           </div>
+          )}
         </div>
       )}
 
@@ -380,7 +439,12 @@ export function DocumentUploader({
           )}
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            {uploading ? (
+            {preparing ? (
+              <p className="inline-flex items-center gap-2 text-sm font-medium text-primary-700">
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                Preparando la imagen…
+              </p>
+            ) : uploading ? (
               <Button type="button" variant="outline" size="sm" onClick={cancelUpload}>
                 <X aria-hidden="true" />
                 Cancelar subida
@@ -434,5 +498,34 @@ export function DocumentUploader({
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Imagen vigente en el servidor. Si no carga (se borró en el medio, sin red),
+ * se muestra un aviso en su lugar y no el ícono de imagen rota del navegador.
+ */
+function CurrentImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div className="flex aspect-video w-full max-w-sm flex-col items-center justify-center gap-1 rounded-xl border border-primary-100 bg-primary-50 text-center text-xs text-primary-600">
+        <ImageOff className="w-6 h-6 text-primary-500" aria-hidden="true" />
+        No se pudo mostrar la imagen actual.
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={384}
+      height={216}
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="aspect-video w-full max-w-sm rounded-xl border border-primary-100 bg-primary-50 object-cover"
+    />
   );
 }

@@ -446,6 +446,11 @@ const PANTALLAS_QUE_FILTRAN = [
     'src/pages/admin/inscription-detail/InscriptionReviewPanel.tsx',
     ['INSCRIPTION_APPROVE'],
   ],
+  // Foto de sede: hoy la ruta de Sedes y VENUE_MANAGE tienen los mismos roles,
+  // pero el POST/DELETE /venues/:id/image los exige por su cuenta. Si mañana
+  // la ruta se abre a un rol de sólo lectura, el uploader no puede quedar a la
+  // vista devolviendo 403.
+  ['src/pages/admin/venues/VenuePhotoSection.tsx', ['VENUE_MANAGE']],
 ];
 
 for (const [archivo, acciones] of PANTALLAS_QUE_FILTRAN) {

@@ -1,7 +1,12 @@
 // ===========================================
 // Venues Service
 // ===========================================
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
@@ -11,12 +16,19 @@ import {
   CAMPOS_ORDEN_VENUE,
 } from './dto';
 import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
+import { MinioService } from '../documents/minio.service';
+import { toVenueResponse } from './venue-image.util';
 
 @Injectable()
 export class VenuesService {
   private readonly logger = new Logger(VenuesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Opcional: sólo se usa para borrar la foto cuando la sede se elimina de
+    // verdad. Los specs que montan este service sin MinIO siguen andando.
+    @Optional() private readonly minio?: MinioService,
+  ) {}
 
   async create(createDto: CreateVenueDto) {
     const venue = await this.prisma.venue.create({
@@ -24,7 +36,7 @@ export class VenuesService {
     });
 
     this.logger.log(`Venue created: ${venue.name} in ${venue.locality}`);
-    return venue;
+    return toVenueResponse(venue);
   }
 
   async findAll(filterDto: VenueFilterDto) {
@@ -63,10 +75,19 @@ export class VenuesService {
       this.prisma.venue.count({ where }),
     ]);
 
-    return buildPaginatedResponse(venues, total, filterDto);
+    return buildPaginatedResponse(
+      venues.map(toVenueResponse),
+      total,
+      filterDto,
+    );
   }
 
   async findOne(id: string) {
+    return toVenueResponse(await this.findOneRaw(id));
+  }
+
+  /** Sede con `imageKey` (uso interno: nunca devolverla tal cual). */
+  private async findOneRaw(id: string) {
     const venue = await this.prisma.venue.findUnique({
       where: { id },
       include: {
@@ -82,7 +103,7 @@ export class VenuesService {
   }
 
   async update(id: string, updateDto: UpdateVenueDto) {
-    await this.findOne(id); // verifica existencia
+    await this.findOneRaw(id); // verifica existencia
 
     const venue = await this.prisma.venue.update({
       where: { id },
@@ -90,26 +111,43 @@ export class VenuesService {
     });
 
     this.logger.log(`Venue updated: ${venue.name}`);
-    return venue;
+    return toVenueResponse(venue);
   }
 
   async remove(id: string) {
-    const venue = await this.findOne(id);
+    const venue = await this.findOneRaw(id);
 
     // If venue has matches associated, soft delete by marking inactive
     if (venue._count && venue._count.matches > 0) {
       this.logger.log(
         `Venue ${venue.name} has matches, soft-deleting (deactivating)`,
       );
-      return this.prisma.venue.update({
-        where: { id },
-        data: { isActive: false },
-      });
+      return toVenueResponse(
+        await this.prisma.venue.update({
+          where: { id },
+          data: { isActive: false },
+        }),
+      );
     }
 
     this.logger.log(`Venue deleted: ${venue.name}`);
-    return this.prisma.venue.delete({
+    const eliminada = await this.prisma.venue.delete({
       where: { id },
     });
+
+    // La sede ya no existe: su foto quedaría huérfana en el bucket. Se borra
+    // después del DELETE (si la base falla, la foto sigue sirviendo) y en modo
+    // best-effort: un objeto huérfano no justifica fallar la operación.
+    if (venue.imageKey && this.minio) {
+      await this.minio
+        .deleteFile(venue.imageKey)
+        .catch((error: Error) =>
+          this.logger.warn(
+            `No se pudo borrar la foto de la sede ${id}: ${error.message}`,
+          ),
+        );
+    }
+
+    return toVenueResponse(eliminada);
   }
 }

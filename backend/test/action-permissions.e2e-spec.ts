@@ -45,6 +45,7 @@ import { CompetitionsController } from '../src/modules/competitions/competitions
 import { NewsController } from '../src/modules/news/news.controller';
 import { CalendarController } from '../src/modules/calendar/calendar.controller';
 import { VenuesController } from '../src/modules/venues/venues.controller';
+import { VenueImagesController } from '../src/modules/venues/venue-images.controller';
 import { DisciplinesController } from '../src/modules/disciplines/disciplines.controller';
 import { CategoriesController } from '../src/modules/categories/categories.controller';
 import { ResultsController } from '../src/modules/results/results.controller';
@@ -89,6 +90,7 @@ const CONTROLLERS = [
   NewsController,
   CalendarController,
   VenuesController,
+  VenueImagesController,
   DisciplinesController,
   CategoriesController,
   ResultsController,

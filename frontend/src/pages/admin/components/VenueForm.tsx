@@ -28,7 +28,7 @@ import { DEPARTMENTS_FORMOSA } from '@/lib/constants';
 
 interface VenueFormProps {
   initialData?: Venue;
-  onSuccess?: () => void;
+  onSuccess?: (venue: Venue) => void;
   onCancel?: () => void;
 }
 

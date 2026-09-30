@@ -2,16 +2,16 @@
 // Calendar Page — Public
 // ===========================================
 import { useMemo, useState } from 'react';
-import { CalendarDays } from 'lucide-react';
+import { AlertTriangle, CalendarDays, RotateCcw } from 'lucide-react';
 import { useAllCalendarEvents } from '@/hooks/useCalendar';
 import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { useAllVenues } from '@/hooks/useVenues';
 import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { PublicListState } from '@/components/shared/PublicListState';
-import { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
+import { Button } from '@/components/ui/button';
 import { CalendarFiltersPanel } from './calendar/CalendarFiltersPanel';
-import { CalendarEventCard } from './calendar/CalendarEventCard';
+import { CalendarAgenda, CalendarAgendaSkeleton } from './calendar/CalendarAgenda';
 import {
   EMPTY_CALENDAR_FILTERS,
   filterCalendarEvents,
@@ -19,7 +19,7 @@ import {
   opcionesDeMes,
   type CalendarPageFilters,
 } from './calendar/calendarFilters';
-import { esMismoDia, repartirPorFecha } from './calendar/calendarSecciones';
+import { repartirPorFecha } from './calendar/calendarSecciones';
 import { MONTH_NAMES } from './calendar/eventStageStyles';
 import type { CalendarEvent } from '@/types';
 
@@ -29,7 +29,13 @@ export function CalendarPage() {
   // Todos los eventos publicados, recorriendo la paginación hasta el final: el
   // `limit: 100` que había acá era el tope duro del backend disfrazado de
   // "traeme todo", y los filtros de abajo corren en memoria (R29).
-  const { data: calendarEvents, isLoading } = useAllCalendarEvents({ isPublished: true });
+  const {
+    data: calendarEvents,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useAllCalendarEvents({ isPublished: true });
   // El selector recorre la paginación hasta el final (S06): con el hook
   // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
   const { data: disciplinesData } = useAllDisciplines({ isActive: true });
@@ -81,29 +87,28 @@ export function CalendarPage() {
     [filteredEvents, hoy],
   );
 
-  /** Pinta una sección con su `h2`. Los eventos son `h3` y cuelgan de él. */
+  const nombreDeSede = (event: CalendarEvent) =>
+    (event.venueId && sedesPorId.get(event.venueId)) || null;
+  const nombreDeDisciplina = (event: CalendarEvent) =>
+    (event.disciplineId && disciplinasPorId.get(event.disciplineId)) || null;
+
+  /**
+   * Pinta una sección con su `h2`, en formato agenda por mes: cada mes es un
+   * `h3` que cuelga de él.
+   */
   const seccion = (titulo: string, eventos: CalendarEvent[], esPasado: boolean) => (
     <section className="mb-12 last:mb-0">
-      <h2 className="mb-6 text-lg font-bold uppercase tracking-wide text-primary-700">
+      <h2 className="mb-3 text-lg font-bold uppercase tracking-wide text-primary-700">
         {titulo}{' '}
         <span className="font-semibold text-primary-600">({eventos.length})</span>
       </h2>
-      <div className="relative">
-        {eventos.map((event, idx) => (
-          <CalendarEventCard
-            key={event.id}
-            event={event}
-            index={idx}
-            isLast={idx === eventos.length - 1}
-            nombreDeSede={(event.venueId && sedesPorId.get(event.venueId)) || null}
-            nombreDeDisciplina={
-              (event.disciplineId && disciplinasPorId.get(event.disciplineId)) || null
-            }
-            esPasado={esPasado}
-            esHoy={!esPasado && esMismoDia(new Date(event.startDate), hoy)}
-          />
-        ))}
-      </div>
+      <CalendarAgenda
+        eventos={eventos}
+        nombreDeSede={nombreDeSede}
+        nombreDeDisciplina={nombreDeDisciplina}
+        esPasado={esPasado}
+        hoy={hoy}
+      />
     </section>
   );
 
@@ -128,10 +133,23 @@ export function CalendarPage() {
         monthOptions={monthOptions}
       />
 
+      {isError ? (
+        <EmptyState
+          icon={<AlertTriangle className="w-10 h-10" />}
+          title="No pudimos cargar el calendario"
+          description="Puede ser un problema de conexión. Probá de nuevo en unos segundos."
+          action={
+            <Button type="button" variant="outline" onClick={() => void refetch()} disabled={isFetching}>
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              Reintentar
+            </Button>
+          }
+        />
+      ) : (
       <PublicListState
         isLoading={isLoading}
         isEmpty={filteredEvents.length === 0}
-        skeleton={<CardGridSkeleton cantidad={3} alto="h-40" />}
+        skeleton={<CalendarAgendaSkeleton />}
         empty={
           <EmptyState
             icon={<CalendarDays className="w-10 h-10" />}
@@ -144,7 +162,7 @@ export function CalendarPage() {
           />
         }
       >
-        <div className="max-w-5xl">
+        <div className="max-w-4xl">
           {/* Una sección vacía no se renderiza: un "Ya se disputaron (0)" es
               peor que su ausencia — mismo argumento que `newsLayout.ts` sobre
               la sección "Más artículos". */}
@@ -152,6 +170,7 @@ export function CalendarPage() {
           {pasados.length > 0 && seccion('Ya se disputaron', pasados, true)}
         </div>
       </PublicListState>
+      )}
     </div>
   );
 }

@@ -30,3 +30,19 @@ export const PUBLIC_READ_RATE_LIMIT = { limit: 20, ttl: 60_000 } as const;
  */
 export const PublicReadThrottle = () =>
   Throttle({ default: { ...PUBLIC_READ_RATE_LIMIT } });
+
+/**
+ * Cupo por IP de los recursos públicos que el navegador pide en lote, como las
+ * fotos de sedes (`GET /venues/:id/image`).
+ *
+ * Con el cupo de lectura (20/min) una página de sedes con más de 20 fotos
+ * recibiría 429 en la primera visita. Cada foto es una request, pero no hay
+ * nada que "barrer": son imágenes que la propia página publica y que además
+ * se cachean un año (URL versionada). El cupo sigue existiendo para que nadie
+ * use el endpoint para martillar MinIO.
+ */
+export const PUBLIC_ASSET_RATE_LIMIT = { limit: 120, ttl: 60_000 } as const;
+
+/** Aplica el cupo de recursos públicos. Ver `PUBLIC_ASSET_RATE_LIMIT`. */
+export const PublicAssetThrottle = () =>
+  Throttle({ default: { ...PUBLIC_ASSET_RATE_LIMIT } });

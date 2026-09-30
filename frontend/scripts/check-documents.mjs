@@ -61,6 +61,7 @@ const {
   SECONDARY_DOCUMENT_TYPES,
   DOCUMENT_STATUS_BADGE_CLASSES,
   DOCUMENT_ERROR_MESSAGES,
+  DOCUMENT_UPLOADER_RULES,
   documentErrorKindFromStatus,
   classifyUploadError,
   isCanceledUpload,
@@ -385,7 +386,49 @@ comprobar('rechazar con motivo se permite', validateRejectionNote('Foto borrosa'
   );
 
   const uploader = await leer('src/components/shared/DocumentUploader.tsx');
-  comprobar('el uploader usa el accept del módulo', uploader.includes('accept={DOCUMENT_ACCEPT_ATTRIBUTE}'));
+  // El uploader se parametrizó con `rules` (también carga la foto de sede):
+  // lo que se fija es que, sin reglas explícitas, use las de documentos, y que
+  // esas reglas sean exactamente las de este módulo.
+  comprobar('el uploader toma el accept de sus reglas', uploader.includes('accept={rules.accept}'));
+  comprobar(
+    'sin reglas explícitas, el uploader usa las de documentos',
+    uploader.includes('rules = DOCUMENT_UPLOADER_RULES'),
+  );
+  comprobar(
+    'las reglas del uploader de documentos usan el accept del módulo',
+    DOCUMENT_UPLOADER_RULES.accept === DOCUMENT_ACCEPT_ATTRIBUTE,
+    `accept=${DOCUMENT_UPLOADER_RULES.accept}`,
+  );
+  comprobar(
+    'la cámara de documentos sigue pidiendo JPG o PNG',
+    DOCUMENT_UPLOADER_RULES.cameraAccept === 'image/jpeg,image/png',
+  );
+  comprobar(
+    'las reglas del uploader no preparan (achican) documentos',
+    DOCUMENT_UPLOADER_RULES.prepare === undefined,
+  );
+  {
+    const pdf = DOCUMENT_UPLOADER_RULES.validate(archivo('ficha.pdf', MB, 'application/pdf'));
+    const webp = DOCUMENT_UPLOADER_RULES.validate(archivo('dni.webp', MB, 'image/webp'));
+    const pesado = DOCUMENT_UPLOADER_RULES.validate(archivo('dni.jpg', 6 * MB, 'image/jpeg'));
+    comprobar('las reglas del uploader aceptan PDF con vista "pdf"', pdf.ok && pdf.preview === 'pdf');
+    comprobar(
+      'las reglas del uploader de documentos NO aceptan WebP',
+      !webp.ok && webp.error === DOCUMENT_ERROR_MESSAGES['wrong-type'],
+    );
+    comprobar(
+      'las reglas del uploader dan el mismo mensaje de "muy pesado" que el módulo',
+      !pesado.ok && pesado.error === DOCUMENT_ERROR_MESSAGES['too-large'],
+    );
+    comprobar(
+      'las reglas del uploader traducen el 422 al mensaje de "muy pesado"',
+      DOCUMENT_UPLOADER_RULES.describeError({ response: { status: 422 } }) === DOCUMENT_ERROR_MESSAGES['too-large'],
+    );
+    comprobar(
+      'el anuncio de subida de documentos no cambió',
+      DOCUMENT_UPLOADER_RULES.announceDone('DNI (frente)') === 'DNI (frente) subido. Queda pendiente de revisión.',
+    );
+  }
   comprobar(
     'el uploader ofrece cámara (capture) y además elegir archivo (sin capture)',
     uploader.includes('capture="environment"') && (uploader.match(/type="file"/g) ?? []).length >= 2,

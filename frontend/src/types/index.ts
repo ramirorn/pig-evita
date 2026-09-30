@@ -325,6 +325,12 @@ export interface Venue {
   longitude?: number | null;
   capacity?: number | null;
   isActive: boolean;
+  /**
+   * Foto principal: `/api/v1/venues/<id>/image?v=<versión>`, relativa al
+   * ORIGEN de la API, o `null` si no tiene. La versión cambia al reemplazarla.
+   * Nunca se usa cruda: pasa por `resolveVenueImageUrl`.
+   */
+  imageUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }

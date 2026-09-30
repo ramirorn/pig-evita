@@ -372,28 +372,33 @@ export function topLocalities(
 export type ThemeToken =
   | 'primary-50' | 'primary-100' | 'primary-200' | 'primary-300' | 'primary-500'
   | 'primary-600' | 'primary-700' | 'primary-800' | 'primary-900'
+  | 'secondary-100' | 'secondary-300' | 'secondary-400' | 'secondary-500'
+  | 'secondary-700' | 'secondary-800' | 'secondary-900'
   | 'celeste-200' | 'celeste-400' | 'celeste-700'
-  | 'accent-500' | 'accent-700'
+  | 'accent-400' | 'accent-500' | 'accent-700'
+  | 'heat-orange'
+  | 'destructive-600'
   | 'surface-muted';
 
 /** `'primary-500'` → `'var(--color-primary-500)'`. */
 export const themeColor = (token: ThemeToken) => `var(--color-${token})`;
 
 /**
- * Rampa secuencial de la coropleta: la escala PRIMARY (azul institucional), de
- * poco (primary-100) a mucho (primary-700). Varía en luminosidad, así que se
- * lee igual con daltonismo; `check:map` verifica que tonos vecinos se
- * distingan.
+ * Rampa secuencial de la coropleta: la escala SECONDARY (verde institucional),
+ * de poco (secondary-100) a mucho (secondary-700). Se saltea secondary-200:
+ * contra secondary-100 no se distinguía lo suficiente. Varía en luminosidad,
+ * así que se lee igual con daltonismo; `check:map` verifica que tonos
+ * vecinos se distingan.
  *
  * Cada tono trae el color de rótulo que le da contraste AA (≥ 4,5:1 con texto
  * chico), también verificado por `check:map` contra los hex del tema.
  */
 export const HEAT_RAMP: ReadonlyArray<{ tone: ThemeToken; label: ThemeToken | 'white' }> = [
-  { tone: 'primary-100', label: 'celeste-700' },
-  { tone: 'primary-200', label: 'primary-800' },
-  { tone: 'primary-300', label: 'primary-900' },
-  { tone: 'primary-500', label: 'white' },
-  { tone: 'primary-700', label: 'white' },
+  { tone: 'secondary-100', label: 'secondary-800' },
+  { tone: 'secondary-300', label: 'secondary-900' },
+  { tone: 'secondary-400', label: 'secondary-900' },
+  { tone: 'secondary-500', label: 'white' },
+  { tone: 'secondary-700', label: 'white' },
 ];
 
 export const HEAT_COLORS = HEAT_RAMP.map((t) => themeColor(t.tone));
@@ -407,8 +412,20 @@ export const NO_DATA_COLOR = themeColor(NO_DATA_TOKEN);
 export const NO_DATA_HATCH = themeColor('celeste-200');
 export const NO_DATA_LABEL: ThemeToken = 'celeste-700';
 
-/** Burbujas de localidad: el dorado (accent-500) resalta sobre los azules. */
-export const BUBBLE_COLOR = themeColor('accent-500');
+/**
+ * Burbujas de localidad: de amarillo (poca concentración) a rojo (mucha),
+ * pasando por un naranja propio del mapa (`--color-heat-orange` en el tema).
+ * Tres clases por cuantiles, igual que la coropleta. Con un solo valor (la seed:
+ * 13 en todas) sale una sola clase y todas se ven del mismo color.
+ */
+export const BUBBLE_RAMP_TOKENS: readonly ThemeToken[] = ['accent-400', 'heat-orange', 'destructive-600'];
+export const BUBBLE_RAMP = BUBBLE_RAMP_TOKENS.map(themeColor);
+
+/**
+ * Anillo exterior de las burbujas, por fuera del borde blanco: sobre los verdes
+ * claros el blanco solo no alcanza para separar un amarillo del fondo.
+ */
+export const BUBBLE_OUTLINE: ThemeToken = 'primary-900';
 
 /** Color de rótulo (AA) que corresponde al tono de un valor. */
 export function heatLabelColor(valor: number, clases: readonly HeatClass[]): string {
@@ -418,14 +435,16 @@ export function heatLabelColor(valor: number, clases: readonly HeatClass[]): str
   return label === 'white' ? 'white' : themeColor(label);
 }
 
-/** Qué tonos de la rampa se usan según cuántas clases salgan. */
-const TONOS_POR_CANTIDAD: Record<number, readonly number[]> = {
-  1: [2],
-  2: [1, 3],
-  3: [0, 2, 4],
-  4: [0, 2, 3, 4],
-  5: [0, 1, 2, 3, 4],
-};
+/**
+ * Qué posiciones de una rampa de `m` tonos se usan para `n` clases: los
+ * extremos siempre (poco = claro, mucho = oscuro) y el resto repartido. Una
+ * sola clase toma el tono del medio, que no afirma "poco" ni "mucho".
+ */
+export function rampIndices(n: number, m: number): number[] {
+  if (n <= 0) return [];
+  if (n === 1) return [Math.floor((m - 1) / 2)];
+  return Array.from({ length: n }, (_, i) => Math.round((i * (m - 1)) / (n - 1)));
+}
 
 export interface HeatClass {
   /** Límites inclusivos, en enteros. */
@@ -446,12 +465,15 @@ export const MAX_HEAT_CLASSES = 5;
  * explicación. Si hay menos valores distintos que clases, hay una clase por
  * valor. Todo en cero → ninguna clase (el mapa entero es "sin participación").
  */
-export function computeHeatClasses(valores: readonly number[]): HeatClass[] {
+export function computeHeatClasses(
+  valores: readonly number[],
+  rampa: readonly string[] = HEAT_COLORS,
+): HeatClass[] {
   const positivos = valores.filter((v) => v > 0).sort((a, b) => a - b);
   if (positivos.length === 0) return [];
 
   const distintos = new Set(positivos).size;
-  const k = Math.min(MAX_HEAT_CLASSES, distintos);
+  const k = Math.min(MAX_HEAT_CLASSES, rampa.length, distintos);
 
   // Umbral inferior de cada clase: el valor en el cuantil i/k. Si ese valor
   // repite el corte anterior (muchos valores iguales), se toma el siguiente
@@ -464,7 +486,7 @@ export function computeHeatClasses(valores: readonly number[]): HeatClass[] {
     if (v !== undefined) cortes.push(v);
   }
   const max = positivos[positivos.length - 1]!;
-  const tonos = TONOS_POR_CANTIDAD[cortes.length] ?? TONOS_POR_CANTIDAD[MAX_HEAT_CLASSES]!;
+  const tonos = rampIndices(cortes.length, rampa.length);
 
   return cortes.map((from, i) => {
     const siguiente = cortes[i + 1];
@@ -472,7 +494,7 @@ export function computeHeatClasses(valores: readonly number[]): HeatClass[] {
     return {
       from,
       to,
-      color: HEAT_COLORS[tonos[i] ?? HEAT_COLORS.length - 1] ?? NO_DATA_COLOR,
+      color: rampa[tonos[i] ?? rampa.length - 1] ?? NO_DATA_COLOR,
       label: from === to ? from.toLocaleString('es-AR') : `${from.toLocaleString('es-AR')} a ${to.toLocaleString('es-AR')}`,
     };
   });
@@ -567,7 +589,11 @@ export interface Bubble {
  * métrica. Ordenadas de mayor a menor radio, que es el orden de pintado (las
  * chicas quedan encima y se pueden tocar).
  */
-export function buildBubbles(model: LocalityMapModel, metric: MapMetric): Bubble[] {
+export function buildBubbles(
+  model: LocalityMapModel,
+  metric: MapMetric,
+  { separate = true }: { separate?: boolean } = {},
+): Bubble[] {
   const conValor = [...model.mapped.values()]
     .map((m) => ({ m, value: metricValue(m.figures, metric) }))
     .filter((x) => x.value > 0);
@@ -581,7 +607,9 @@ export function buildBubbles(model: LocalityMapModel, metric: MapMetric): Bubble
       value,
     }))
     .sort((a, b) => b.r - a.r || a.name.localeCompare(b.name, 'es'));
-  return separateBubbles(burbujas);
+  // Con zoom, la separación se hace en coordenadas de pantalla (ver
+  // `bubblesOnScreen` en mapZoom.ts): el mapa pide las posiciones reales.
+  return separate ? separateBubbles(burbujas) : burbujas;
 }
 
 /**
@@ -695,56 +723,87 @@ export function boxTouchesCircle(c: Box, b: { x: number; y: number; r: number })
 export interface PlacedLabel {
   id: string;
   text: string;
+  /** Centro de la etiqueta (el texto va centrado). */
   x: number;
   y: number;
-  anchor: 'start' | 'middle' | 'end';
+  /** Caja completa de la etiqueta, fondo incluido. */
   box: Box;
+  /** Punto del borde de la burbuja donde nace el conector. */
+  from: { x: number; y: number };
 }
 
 export const BUBBLE_LABEL_SIZE = 17;
 
 /**
- * Nombres de las localidades principales junto a su burbuja, sin encimarse.
+ * Medidas de la etiqueta de localidad (fondo blanco con borde): el texto más
+ * el relleno. Se usa igual para ubicarla y para dibujarla, así lo que el
+ * anti-choque cree que ocupa es lo que realmente ocupa.
+ */
+export function labelBoxSize(texto: string, tamano: number): { w: number; h: number; padX: number } {
+  const padX = tamano * 0.5;
+  return { w: textWidth(texto, tamano) + 2 * padX, h: tamano * 1.6, padX };
+}
+
+/**
+ * Nombres de las localidades junto a su burbuja, como etiquetas sin encimarse.
  *
- * Greedy: en orden de importancia, cada rótulo prueba derecha, izquierda,
- * arriba y abajo de su burbuja; se queda con la primera posición que no pisa
- * otro rótulo, otra burbuja ni se sale del mapa. Si ninguna sirve, el rótulo se
- * omite (el nombre sigue en el tooltip, el Top 5 y la tabla).
+ * Greedy: en orden de importancia, cada etiqueta prueba ocho posiciones
+ * pegadas a su burbuja (derecha, izquierda, arriba, abajo y las diagonales) y
+ * se queda con la primera que no pisa otra etiqueta, otra burbuja ni se sale
+ * del mapa. Si ninguna sirve, se omite (el nombre sigue en el tooltip, el Top
+ * 5 y la tabla). Con zoom las burbujas se separan y entran más.
  */
 export function placeBubbleLabels(
   burbujas: readonly Bubble[],
   ids: readonly string[],
   ancho: number,
   alto: number,
+  /** Tamaño de letra en unidades del viewBox (más grande en pantallas chicas). */
+  tamano: number = BUBBLE_LABEL_SIZE,
 ): PlacedLabel[] {
   const colocados: PlacedLabel[] = [];
-  // Alto con margen para ascendentes y descendentes (la caja real del texto).
-  const h = BUBBLE_LABEL_SIZE * 1.4;
   for (const id of ids) {
     const b = burbujas.find((x) => x.id === id);
     if (!b) continue;
-    const w = textWidth(b.name, BUBBLE_LABEL_SIZE);
-    const sep = 5;
-    const derecha = b.x + b.r + sep;
-    const izquierda = b.x - b.r - sep;
-    const arriba = b.y - b.r - sep;
-    const abajo = b.y + b.r + sep;
-    const opciones: Array<Omit<PlacedLabel, 'id' | 'text'>> = [
-      { x: derecha, y: b.y, anchor: 'start', box: { x0: derecha, y0: b.y - h / 2, x1: derecha + w, y1: b.y + h / 2 } },
-      { x: izquierda, y: b.y, anchor: 'end', box: { x0: izquierda - w, y0: b.y - h / 2, x1: izquierda, y1: b.y + h / 2 } },
-      { x: b.x, y: arriba - h / 2, anchor: 'middle', box: { x0: b.x - w / 2, y0: arriba - h, x1: b.x + w / 2, y1: arriba } },
-      { x: b.x, y: abajo + h / 2, anchor: 'middle', box: { x0: b.x - w / 2, y0: abajo, x1: b.x + w / 2, y1: abajo + h } },
+    const { w, h } = labelBoxSize(b.name, tamano);
+    // Separación corta: la etiqueta queda pegada a su burbuja y el conector
+    // cubre el hueco, así no hay duda de a quién pertenece.
+    const sep = Math.max(4, tamano * 0.35);
+    const d = b.r + sep;
+    const diag = (b.r + sep) * Math.SQRT1_2;
+    const caja = (cx: number, cy: number): Box => ({ x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 });
+    // Centro de la caja para cada dirección (la caja toca el punto `d`).
+    const candidatos: Array<{ cx: number; cy: number; fx: number; fy: number }> = [
+      { cx: b.x + d + w / 2, cy: b.y, fx: 1, fy: 0 },
+      { cx: b.x - d - w / 2, cy: b.y, fx: -1, fy: 0 },
+      { cx: b.x, cy: b.y - d - h / 2, fx: 0, fy: -1 },
+      { cx: b.x, cy: b.y + d + h / 2, fx: 0, fy: 1 },
+      { cx: b.x + diag + w / 2, cy: b.y - diag - h / 2, fx: Math.SQRT1_2, fy: -Math.SQRT1_2 },
+      { cx: b.x - diag - w / 2, cy: b.y - diag - h / 2, fx: -Math.SQRT1_2, fy: -Math.SQRT1_2 },
+      { cx: b.x + diag + w / 2, cy: b.y + diag + h / 2, fx: Math.SQRT1_2, fy: Math.SQRT1_2 },
+      { cx: b.x - diag - w / 2, cy: b.y + diag + h / 2, fx: -Math.SQRT1_2, fy: Math.SQRT1_2 },
     ];
-    const libre = opciones.find(
-      (o) =>
-        o.box.x0 >= 2 &&
-        o.box.y0 >= 2 &&
-        o.box.x1 <= ancho - 2 &&
-        o.box.y1 <= alto - 2 &&
-        colocados.every((c) => !boxesOverlap(c.box, o.box)) &&
-        burbujas.every((otra) => !boxTouchesCircle(o.box, otra)),
-    );
-    if (libre) colocados.push({ id, text: b.name, ...libre });
+    const libre = candidatos.find(({ cx, cy }) => {
+      const c = caja(cx, cy);
+      return (
+        c.x0 >= 2 &&
+        c.y0 >= 2 &&
+        c.x1 <= ancho - 2 &&
+        c.y1 <= alto - 2 &&
+        colocados.every((o) => !boxesOverlap(o.box, c)) &&
+        burbujas.every((otra) => !boxTouchesCircle(c, otra))
+      );
+    });
+    if (libre) {
+      colocados.push({
+        id,
+        text: b.name,
+        x: libre.cx,
+        y: libre.cy,
+        box: caja(libre.cx, libre.cy),
+        from: { x: b.x + libre.fx * b.r, y: b.y + libre.fy * b.r },
+      });
+    }
   }
   return colocados;
 }

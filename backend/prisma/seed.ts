@@ -261,6 +261,801 @@ const ENCUESTA_BORRADOR = {
   ],
 };
 
+// ===========================================
+// Datos variados para el mapa de impacto
+// ===========================================
+//
+// Con los datos de arriba el mapa de calor (`GET /stats/localities`) mostraba
+// 8 localidades con 13 atletas cada una: todo del mismo color. Esta sección
+// suma participación DESPAREJA, como la de un torneo de verdad: la capital
+// arrasa, Clorinda la sigue, un puñado de localidades medianas y una cola larga
+// de pueblos con 1 a 5 chicos. Pilagás y Ramón Lista quedan sin participación
+// a propósito (Siete Palmas sólo tiene inscripciones RECHAZADAS, que el
+// endpoint no cuenta).
+//
+// Reglas de la casa para esta sección:
+// - **Determinista**: todo sale de un generador con semilla fija (nada de
+//   `Math.random`). El plan completo se arma en memoria ANTES de tocar la base,
+//   así que no depende de lo que ya haya cargado.
+// - **Idempotente**: upsert por claves únicas (DNI, participante+categoría,
+//   nombre de equipo). Los partidos de las tres competencias propias se borran
+//   y se recrean, igual que hace el resto de la seed con las suyas.
+// - **Datos ficticios**: DNIs en el rango reservado 90.000.000+ (no existen
+//   DNIs de menores tan altos) y nombres armados al azar de listas genéricas.
+// - Las competencias propias son ZONAL de Atletismo Sub-14 Mixto, ZONAL de
+//   Ajedrez Libre Mixto y ZONAL de Fútbol 11 Sub-16 Femenino. No toca la
+//   competencia de fútbol Sub-14 Masculino en BORRADOR (la del fixture) ni el
+//   torneo PROVINCIAL de ajedrez.
+
+/** Rango reservado de DNIs de la sección. Claramente falso a propósito. */
+const MAPA_DNI_BASE = 90_000_000;
+const MAPA_SEMILLA = 20260930;
+const MAPA_MARCA = { seed: 'mapa-impacto' } as const;
+
+/**
+ * Plan por localidad. `atletismo` y `ajedrez` son atletas nuevos que se
+ * inscriben en esa disciplina; `rechazados` son chicos extra con la inscripción
+ * RECHAZADA (no deben sumar en el mapa). `fuerza` pesa en el sorteo de las
+ * finales: pocas localidades concentran los podios y la mayoría queda en cero.
+ *
+ * Los nombres salen del catálogo `FORMOSA_GEOGRAPHY`, salvo dos variantes
+ * escritas distinto a propósito ("Ing. Juárez", "Gral. Belgrano") para
+ * ejercitar los alias del mapa. "Colonia Aquino" está en el catálogo pero no en
+ * el mapa del IGN: tiene que caer en "Sin ubicación".
+ */
+const MAPA_PLAN: Array<{
+  locality: string;
+  department: string;
+  atletismo?: number;
+  ajedrez?: number;
+  rechazados?: number;
+  fuerza?: number;
+}> = [
+  // Muy alta / alta (se suman a los planteles Sub-14 que ya carga la seed)
+  {
+    locality: 'Formosa',
+    department: 'Formosa',
+    atletismo: 20,
+    ajedrez: 12,
+    rechazados: 3,
+    fuerza: 4,
+  },
+  {
+    locality: 'Clorinda',
+    department: 'Pilcomayo',
+    atletismo: 8,
+    ajedrez: 5,
+    rechazados: 2,
+    fuerza: 3,
+  },
+  // Medias
+  {
+    locality: 'Pirané',
+    department: 'Pirané',
+    atletismo: 6,
+    ajedrez: 3,
+    rechazados: 1,
+    fuerza: 2.5,
+  },
+  {
+    locality: 'Las Lomitas',
+    department: 'Patiño',
+    atletismo: 4,
+    ajedrez: 1,
+    fuerza: 2,
+  },
+  { locality: 'Ibarreta', department: 'Patiño', atletismo: 3, fuerza: 1.5 },
+  { locality: 'El Colorado', department: 'Pirané', ajedrez: 2, fuerza: 0.3 },
+  {
+    locality: 'Laguna Blanca',
+    department: 'Pilcomayo',
+    atletismo: 2,
+    fuerza: 0.8,
+  },
+  // Bajas (1 a 5)
+  {
+    locality: 'Mojón de Fierro',
+    department: 'Formosa',
+    atletismo: 3,
+    ajedrez: 1,
+  },
+  { locality: 'Gran Guardia', department: 'Formosa', atletismo: 2, ajedrez: 1 },
+  { locality: 'Mariano Boedo', department: 'Formosa', ajedrez: 2 },
+  { locality: 'San Hilario', department: 'Formosa', atletismo: 1 },
+  { locality: 'Herradura', department: 'Laishí', atletismo: 2 },
+  { locality: 'Villa Escolar', department: 'Laishí', ajedrez: 1 },
+  {
+    locality: 'Colonia Aquino',
+    department: 'Laishí',
+    atletismo: 2,
+    ajedrez: 1,
+  },
+  { locality: 'Palo Santo', department: 'Pirané', atletismo: 3, ajedrez: 1 },
+  { locality: 'Mayor Vicente Villafañe', department: 'Pirané', atletismo: 2 },
+  {
+    locality: 'Pozo del Tigre',
+    department: 'Patiño',
+    atletismo: 2,
+    ajedrez: 1,
+  },
+  { locality: 'Los Chiriguanos', department: 'Bermejo', atletismo: 2 },
+  { locality: 'Pozo de Maza', department: 'Bermejo', ajedrez: 1 },
+  {
+    locality: 'Ing. Juárez',
+    department: 'Matacos',
+    atletismo: 3,
+    ajedrez: 2,
+    fuerza: 1.5,
+  },
+  { locality: 'Misión Tacaaglé', department: 'Pilcomayo', atletismo: 2 },
+  {
+    locality: 'Gral. Belgrano',
+    department: 'Pilcomayo',
+    atletismo: 1,
+    ajedrez: 2,
+  },
+  { locality: 'El Espinillo', department: 'Pilcomayo', atletismo: 1 },
+  // Sólo rechazadas: no tiene que aparecer en el mapa (Pilagás queda vacío)
+  { locality: 'Siete Palmas', department: 'Pilagás', rechazados: 2 },
+];
+
+/**
+ * Planteles de Fútbol 11 Sub-16 Femenino. Dos equipos de Formosa en la misma
+ * categoría son dos delegaciones: el endpoint lo tiene que reflejar. El
+ * tamaño respeta la composición de la disciplina (11 titulares + hasta 5
+ * suplentes).
+ */
+const MAPA_EQUIPOS: Array<{
+  name: string;
+  locality: string;
+  department: string;
+  jugadoras: number;
+  status: 'APROBADA' | 'REVISADA';
+}> = [
+  {
+    name: 'Las Guerreras de Formosa',
+    locality: 'Formosa',
+    department: 'Formosa',
+    jugadoras: 14,
+    status: 'APROBADA',
+  },
+  {
+    name: 'Las Yaguaretés de Formosa',
+    locality: 'Formosa',
+    department: 'Formosa',
+    jugadoras: 12,
+    status: 'REVISADA',
+  },
+  {
+    name: 'Las Aguiluchas de Clorinda',
+    locality: 'Clorinda',
+    department: 'Pilcomayo',
+    jugadoras: 13,
+    status: 'APROBADA',
+  },
+  {
+    name: 'Las Garzas de Laguna Blanca',
+    locality: 'Laguna Blanca',
+    department: 'Pilcomayo',
+    jugadoras: 12,
+    status: 'APROBADA',
+  },
+];
+
+const MAPA_NOMBRES_F = [
+  'Valentina',
+  'Martina',
+  'Catalina',
+  'Sofía',
+  'Isabella',
+  'Emilia',
+  'Olivia',
+  'Julieta',
+  'Camila',
+  'Milagros',
+  'Abril',
+  'Lucía',
+  'Delfina',
+  'Agustina',
+  'Morena',
+  'Josefina',
+  'Renata',
+  'Guadalupe',
+  'Micaela',
+  'Florencia',
+  'Antonella',
+  'Pilar',
+  'Zoe',
+  'Bianca',
+  'Ailén',
+  'Jazmín',
+  'Luana',
+  'Malena',
+];
+const MAPA_NOMBRES_M = [
+  'Thiago',
+  'Benicio',
+  'Felipe',
+  'Joaquín',
+  'Bautista',
+  'Lautaro',
+  'Tobías',
+  'Santino',
+  'Valentino',
+  'Gael',
+  'Ciro',
+  'Lisandro',
+  'Dylan',
+  'Bastián',
+  'Alexis',
+  'Franco',
+  'Ulises',
+  'Iker',
+  'Mateo',
+  'Genaro',
+  'Luca',
+  'Jeremías',
+];
+const MAPA_APELLIDOS = [
+  'Ledesma',
+  'Ayala',
+  'Galeano',
+  'Cáceres',
+  'Ojeda',
+  'Maidana',
+  'Insaurralde',
+  'Duarte',
+  'Espínola',
+  'Riquelme',
+  'Vera',
+  'Núñez',
+  'Franco',
+  'Brítez',
+  'Zárate',
+  'Bogado',
+  'Escobar',
+  'Leguizamón',
+  'Quintana',
+  'Arce',
+  'Barrios',
+  'Fretes',
+  'Paredes',
+  'Vallejos',
+  'Chamorro',
+  'Toledo',
+  'Correa',
+  'Samudio',
+];
+
+/** mulberry32: chico, rápido y con semilla. Suficiente para datos de prueba. */
+function crearAzar(semilla: number) {
+  let estado = semilla >>> 0;
+  const siguiente = () => {
+    estado = (estado + 0x6d2b79f5) >>> 0;
+    let t = estado;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  return {
+    siguiente,
+    entero: (min: number, max: number) =>
+      min + Math.floor(siguiente() * (max - min + 1)),
+    elegir: <T>(lista: readonly T[]): T =>
+      lista[Math.floor(siguiente() * lista.length)],
+  };
+}
+type Azar = ReturnType<typeof crearAzar>;
+
+/**
+ * Fecha de nacimiento para que la edad cumplida hoy caiga en `edad` o
+ * `edad - 1` (nace entre enero y junio). Se calcula contra el año en curso para
+ * que las categorías sigan validando aunque la seed se corra el año que viene.
+ */
+function nacimientoParaEdad(azar: Azar, edad: number): Date {
+  const anio = new Date().getFullYear() - edad;
+  return new Date(Date.UTC(anio, azar.entero(0, 5), azar.entero(1, 28)));
+}
+
+/** Sorteo ponderado sin reposición: devuelve `n` elementos ya ordenados. */
+function sortearPonderado<T>(
+  azar: Azar,
+  items: T[],
+  peso: (item: T) => number,
+  n: number,
+): T[] {
+  const bolsa = [...items];
+  const elegidos: T[] = [];
+  while (elegidos.length < n && bolsa.length > 0) {
+    const total = bolsa.reduce((acc, it) => acc + peso(it), 0);
+    let tiro = azar.siguiente() * total;
+    let idx = 0;
+    for (; idx < bolsa.length - 1; idx++) {
+      tiro -= peso(bolsa[idx]);
+      if (tiro <= 0) break;
+    }
+    elegidos.push(bolsa.splice(idx, 1)[0]);
+  }
+  return elegidos;
+}
+
+function formatearTiempo(segundos: number): string {
+  if (segundos < 60) return segundos.toFixed(2);
+  const min = Math.floor(segundos / 60);
+  return `${min}:${(segundos - min * 60).toFixed(2).padStart(5, '0')}`;
+}
+
+async function sembrarDatosDelMapa(venueIds: {
+  estadio: string;
+  polideportivo: string;
+  club: string;
+}) {
+  const azar = crearAzar(MAPA_SEMILLA);
+
+  // --- Catálogo: disciplinas y categorías que ya cargó la seed ---
+  const buscarCategoria = async (disciplina: string, categoria: string) => {
+    const cat = await prisma.category.findFirst({
+      where: { name: categoria, discipline: { name: disciplina } },
+    });
+    if (!cat) {
+      throw new Error(`Falta la categoría ${disciplina} / ${categoria}`);
+    }
+    return cat;
+  };
+  const catAtletismo = await buscarCategoria('Atletismo', 'Sub-14 Mixto');
+  const catAjedrez = await buscarCategoria('Ajedrez', 'Libre Mixto');
+  const catFutbolFem = await buscarCategoria('Fútbol 11', 'Sub-16 Femenino');
+
+  // --- 1. Plan en memoria (acá se consume TODO el azar de las personas) ---
+  type Estado = 'APROBADA' | 'PENDIENTE' | 'REVISADA' | 'RECHAZADA';
+  type Persona = {
+    dni: string;
+    firstName: string;
+    lastName: string;
+    birthDate: Date;
+    sex: Sex;
+    locality: string;
+    department: string;
+    categoryId: string;
+    codigo: string;
+    status: Estado;
+    disciplina: 'atletismo' | 'ajedrez' | 'futbol';
+    fuerza: number;
+    equipo?: string;
+  };
+  const personas: Persona[] = [];
+  let dni = MAPA_DNI_BASE;
+
+  const nuevaPersona = (
+    base: Omit<Persona, 'dni' | 'firstName' | 'lastName' | 'birthDate' | 'sex'>,
+    sexo: Sex,
+    edad: number,
+  ): Persona => ({
+    ...base,
+    dni: String(dni++),
+    sex: sexo,
+    firstName: azar.elegir(
+      sexo === Sex.FEMENINO ? MAPA_NOMBRES_F : MAPA_NOMBRES_M,
+    ),
+    lastName: `${azar.elegir(MAPA_APELLIDOS)} ${azar.elegir(MAPA_APELLIDOS)}`,
+    birthDate: nacimientoParaEdad(azar, edad),
+  });
+
+  // Estado de una inscripción individual: mayoría aprobada, algo en trámite.
+  const estadoIndividual = (): Estado => {
+    const r = azar.siguiente();
+    return r < 0.12 ? 'PENDIENTE' : r < 0.22 ? 'REVISADA' : 'APROBADA';
+  };
+
+  for (const loc of MAPA_PLAN) {
+    const comun = {
+      locality: loc.locality,
+      department: loc.department,
+      fuerza: loc.fuerza ?? 0.15,
+    };
+    for (let i = 0; i < (loc.atletismo ?? 0); i++) {
+      const sexo = azar.siguiente() < 0.5 ? Sex.FEMENINO : Sex.MASCULINO;
+      personas.push(
+        nuevaPersona(
+          {
+            ...comun,
+            categoryId: catAtletismo.id,
+            codigo: 'ATL14',
+            status: estadoIndividual(),
+            disciplina: 'atletismo',
+          },
+          sexo,
+          azar.entero(13, 14), // Sub-14: 12 a 14 años
+        ),
+      );
+    }
+    for (let i = 0; i < (loc.ajedrez ?? 0); i++) {
+      const sexo = azar.siguiente() < 0.4 ? Sex.FEMENINO : Sex.MASCULINO;
+      personas.push(
+        nuevaPersona(
+          {
+            ...comun,
+            categoryId: catAjedrez.id,
+            codigo: 'AJD',
+            status: estadoIndividual(),
+            disciplina: 'ajedrez',
+          },
+          sexo,
+          azar.entero(11, 17), // Libre: 10 a 99, pero son chicos
+        ),
+      );
+    }
+    for (let i = 0; i < (loc.rechazados ?? 0); i++) {
+      const sexo = azar.siguiente() < 0.5 ? Sex.FEMENINO : Sex.MASCULINO;
+      personas.push(
+        nuevaPersona(
+          {
+            ...comun,
+            categoryId: catAtletismo.id,
+            codigo: 'ATL14',
+            status: 'RECHAZADA',
+            disciplina: 'atletismo',
+          },
+          sexo,
+          azar.entero(13, 14),
+        ),
+      );
+    }
+  }
+
+  for (const eq of MAPA_EQUIPOS) {
+    for (let j = 0; j < eq.jugadoras; j++) {
+      personas.push(
+        nuevaPersona(
+          {
+            locality: eq.locality,
+            department: eq.department,
+            fuerza: 0,
+            categoryId: catFutbolFem.id,
+            codigo: 'FUT16F',
+            status: eq.status,
+            disciplina: 'futbol',
+            equipo: eq.name,
+          },
+          Sex.FEMENINO,
+          azar.entero(15, 16), // Sub-16 F: 14 a 16 años
+        ),
+      );
+    }
+  }
+
+  // --- 2. Equipos ---
+  const equiposPorNombre = new Map<string, string>();
+  for (const eq of MAPA_EQUIPOS) {
+    const team = await prisma.team.upsert({
+      where: {
+        name_disciplineId_categoryId: {
+          name: eq.name,
+          disciplineId: catFutbolFem.disciplineId,
+          categoryId: catFutbolFem.id,
+        },
+      },
+      update: {
+        locality: eq.locality,
+        department: eq.department,
+        isActive: true,
+      },
+      create: {
+        name: eq.name,
+        disciplineId: catFutbolFem.disciplineId,
+        categoryId: catFutbolFem.id,
+        locality: eq.locality,
+        department: eq.department,
+      },
+    });
+    equiposPorNombre.set(eq.name, team.id);
+  }
+
+  // --- 3. Participantes, planteles e inscripciones ---
+  const idPorDni = new Map<string, string>();
+  const dorsalPorEquipo = new Map<string, number>();
+  for (const p of personas) {
+    const datos = {
+      firstName: p.firstName,
+      lastName: p.lastName,
+      birthDate: p.birthDate,
+      sex: p.sex,
+      locality: p.locality,
+      department: p.department,
+    };
+    const participant = await prisma.participant.upsert({
+      where: { dni: p.dni },
+      update: datos,
+      create: { dni: p.dni, ...datos },
+    });
+    idPorDni.set(p.dni, participant.id);
+
+    const teamId = p.equipo ? equiposPorNombre.get(p.equipo) : undefined;
+    if (teamId) {
+      const dorsal = (dorsalPorEquipo.get(teamId) ?? 0) + 1;
+      dorsalPorEquipo.set(teamId, dorsal);
+      const miembro = {
+        shirtNumber: dorsal,
+        position:
+          dorsal === 1
+            ? 'Arquera'
+            : dorsal <= 5
+              ? 'Defensora'
+              : dorsal <= 9
+                ? 'Mediocampista'
+                : 'Delantera',
+        isCaptain: dorsal === 6,
+        // 11 titulares; de la 12 en adelante, suplentes (máximo 5)
+        isSubstitute: dorsal > 11,
+      };
+      await prisma.teamMember.upsert({
+        where: {
+          teamId_participantId: { teamId, participantId: participant.id },
+        },
+        update: miembro,
+        create: { teamId, participantId: participant.id, ...miembro },
+      });
+    }
+
+    const inscripcion = {
+      teamId: teamId ?? null,
+      status: p.status,
+      rejectionNote:
+        p.status === 'RECHAZADA'
+          ? 'Dato de prueba: falta el certificado médico'
+          : null,
+    };
+    await prisma.inscription.upsert({
+      where: {
+        participantId_categoryId: {
+          participantId: participant.id,
+          categoryId: p.categoryId,
+        },
+      },
+      update: inscripcion,
+      create: {
+        participantId: participant.id,
+        categoryId: p.categoryId,
+        qrCode: `MAPA-${p.codigo}-${p.dni}`,
+        ...inscripcion,
+      },
+    });
+  }
+
+  // --- 4. Competencias propias (se recrean sus partidos en cada corrida) ---
+  const competenciaPropia = async (
+    cat: { id: string; disciplineId: string },
+    name: string,
+    format: CompetitionFormat,
+  ) => {
+    const comp = await prisma.competition.upsert({
+      where: {
+        disciplineId_categoryId_stage: {
+          disciplineId: cat.disciplineId,
+          categoryId: cat.id,
+          stage: CompetitionStage.ZONAL,
+        },
+      },
+      update: {
+        name,
+        format,
+        status: CompetitionStatus.FINALIZADA,
+        config: MAPA_MARCA,
+      },
+      create: {
+        disciplineId: cat.disciplineId,
+        categoryId: cat.id,
+        stage: CompetitionStage.ZONAL,
+        format,
+        status: CompetitionStatus.FINALIZADA,
+        name,
+        config: MAPA_MARCA,
+      },
+    });
+    await prisma.result.deleteMany({
+      where: { match: { competitionId: comp.id } },
+    });
+    await prisma.match.deleteMany({ where: { competitionId: comp.id } });
+    return comp;
+  };
+
+  const hace = (dias: number) => new Date(Date.now() - 86400000 * dias);
+  let resultados = 0;
+
+  // Sólo compiten las inscripciones vigentes.
+  const vigentes = (disciplina: Persona['disciplina']) =>
+    personas.filter(
+      (p) => p.disciplina === disciplina && p.status !== 'RECHAZADA',
+    );
+
+  // 4.a Atletismo: cuatro finales de 8, orden sorteado según la fuerza
+  const compAtl = await competenciaPropia(
+    catAtletismo,
+    'Zonal de Atletismo Sub-14 Mixto',
+    CompetitionFormat.ROUND_ROBIN,
+  );
+  const pruebas = [
+    { prueba: '80 m llanos', base: 10.9, salto: 0.18 },
+    { prueba: '150 m llanos', base: 19.8, salto: 0.35 },
+    { prueba: '600 m', base: 104, salto: 2.1 },
+    { prueba: '1000 m', base: 188, salto: 3.4 },
+  ];
+  for (const [i, pr] of pruebas.entries()) {
+    const match = await prisma.match.create({
+      data: {
+        competitionId: compAtl.id,
+        venueId: venueIds.estadio,
+        round: 1,
+        matchNumber: i + 1,
+        status: MatchStatus.FINALIZADO,
+        scheduledAt: hace(12 - i),
+        finishedAt: hace(12 - i),
+        notes: `Final ${pr.prueba}`,
+      },
+    });
+    const finalistas = sortearPonderado(
+      azar,
+      vigentes('atletismo'),
+      (p) => p.fuerza,
+      8,
+    );
+    let tiempo = pr.base;
+    for (const [pos, p] of finalistas.entries()) {
+      tiempo += pos === 0 ? 0 : pr.salto * (0.5 + azar.siguiente());
+      await prisma.result.create({
+        data: {
+          matchId: match.id,
+          participantId: idPorDni.get(p.dni),
+          scoreData: { time: formatearTiempo(tiempo), prueba: pr.prueba },
+          ranking: pos + 1,
+          isWinner: pos === 0,
+        },
+      });
+      resultados++;
+    }
+  }
+
+  // 4.b Ajedrez: dos mesas finales de 6, todos contra todos
+  const compAjd = await competenciaPropia(
+    catAjedrez,
+    'Zonal de Ajedrez Libre Mixto',
+    CompetitionFormat.ROUND_ROBIN,
+  );
+  const tablas = [
+    [4.5, 3.5, 3, 2.5, 1, 0.5],
+    [5, 3.5, 3, 2, 1, 0.5],
+  ];
+  const poolAjedrez = vigentes('ajedrez');
+  for (const [i, puntos] of tablas.entries()) {
+    const match = await prisma.match.create({
+      data: {
+        competitionId: compAjd.id,
+        venueId: venueIds.club,
+        round: 1,
+        matchNumber: i + 1,
+        status: MatchStatus.FINALIZADO,
+        scheduledAt: hace(8 - i),
+        finishedAt: hace(8 - i),
+        notes: `Mesa final ${i + 1}`,
+      },
+    });
+    const jugadores = sortearPonderado(
+      azar,
+      poolAjedrez,
+      (p) => p.fuerza,
+      puntos.length,
+    );
+    // Nadie juega las dos mesas
+    for (const j of jugadores) poolAjedrez.splice(poolAjedrez.indexOf(j), 1);
+    for (const [pos, p] of jugadores.entries()) {
+      await prisma.result.create({
+        data: {
+          matchId: match.id,
+          participantId: idPorDni.get(p.dni),
+          scoreData: { points: puntos[pos] },
+          ranking: pos + 1,
+          isWinner: pos === 0,
+        },
+      });
+      resultados++;
+    }
+  }
+
+  // 4.c Fútbol femenino: semis, tercer puesto y final. En las semis no hay
+  // podio (ranking nulo), sólo victoria; el podio sale de la final (1 y 2) y
+  // del partido por el tercer puesto (3; la perdedora queda 4ª).
+  const compFut = await competenciaPropia(
+    catFutbolFem,
+    'Zonal de Fútbol 11 Sub-16 Femenino',
+    CompetitionFormat.ELIMINACION_DIRECTA,
+  );
+  const [guerreras, yaguaretes, aguiluchas, garzas] = MAPA_EQUIPOS.map((e) =>
+    equiposPorNombre.get(e.name)!,
+  );
+  const partidos: Array<{
+    round: number;
+    notes: string;
+    local: [string, number, number | null];
+    visita: [string, number, number | null];
+  }> = [
+    {
+      round: 1,
+      notes: 'Semifinal 1',
+      local: [guerreras, 3, null],
+      visita: [garzas, 0, null],
+    },
+    {
+      round: 1,
+      notes: 'Semifinal 2',
+      local: [aguiluchas, 2, null],
+      visita: [yaguaretes, 1, null],
+    },
+    {
+      round: 2,
+      notes: 'Tercer puesto',
+      local: [yaguaretes, 1, 3],
+      visita: [garzas, 0, 4],
+    },
+    {
+      round: 2,
+      notes: 'Final',
+      local: [guerreras, 2, 1],
+      visita: [aguiluchas, 1, 2],
+    },
+  ];
+  for (const [i, pa] of partidos.entries()) {
+    const match = await prisma.match.create({
+      data: {
+        competitionId: compFut.id,
+        venueId: venueIds.polideportivo,
+        round: pa.round,
+        matchNumber: i + 1,
+        status: MatchStatus.FINALIZADO,
+        scheduledAt: hace(6 - pa.round * 2),
+        finishedAt: hace(6 - pa.round * 2),
+        notes: pa.notes,
+      },
+    });
+    for (const [lado, esLocal] of [
+      [pa.local, true],
+      [pa.visita, false],
+    ] as const) {
+      const rival = esLocal ? pa.visita : pa.local;
+      await prisma.result.create({
+        data: {
+          matchId: match.id,
+          teamId: lado[0],
+          scoreData: { goals: lado[1] },
+          ranking: lado[2],
+          isWinner: lado[1] > rival[1],
+          isHome: esLocal,
+        },
+      });
+      resultados++;
+    }
+  }
+
+  // --- 5. Resumen ---
+  const porEstado = personas.reduce<Record<string, number>>((acc, p) => {
+    acc[p.status] = (acc[p.status] ?? 0) + 1;
+    return acc;
+  }, {});
+  const localidades = new Set(
+    personas.filter((p) => p.status !== 'RECHAZADA').map((p) => p.locality),
+  );
+  console.log(
+    `  ✅ Datos del mapa: ${personas.length} participantes ficticios (DNI ${MAPA_DNI_BASE}–${dni - 1}) en ${localidades.size} localidades, ${MAPA_EQUIPOS.length} equipos femeninos`,
+  );
+  console.log(
+    `     Inscripciones: ${Object.entries(porEstado)
+      .map(([k, v]) => `${k} ${v}`)
+      .join(' · ')}`,
+  );
+  console.log(
+    `     3 competencias ZONAL finalizadas con ${resultados} resultados (podios concentrados en pocas localidades)`,
+  );
+}
+
 async function main() {
   console.log('🌱 Seeding database with comprehensive mock data...');
 
@@ -1016,6 +1811,13 @@ async function main() {
     });
     console.log(`  ✅ Competición de Ajedrez y Resultados creados`);
   }
+
+  // --- 8.b Datos variados para el mapa de impacto (ver `sembrarDatosDelMapa`) ---
+  await sembrarDatosDelMapa({
+    estadio: venuesData[0].id,
+    polideportivo: venuesData[1].id,
+    club: venuesData[2].id,
+  });
 
   // --- 9. Encuesta psicológica: borrador editable (S20) ---
   //

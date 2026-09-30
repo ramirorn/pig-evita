@@ -39,7 +39,8 @@ function numeroOUndefined(valor: number | undefined | null): number | undefined 
 
 interface UseVenueFormOptions {
   initialData?: Venue;
-  onSuccess?: () => void;
+  /** Recibe la sede tal como quedó (en el alta, con su `id` nuevo). */
+  onSuccess?: (venue: Venue) => void;
 }
 
 /**
@@ -77,12 +78,10 @@ export function useVenueForm({ initialData, onSuccess }: UseVenueFormOptions) {
         isActive: values.isActive,
       };
 
-      if (initialData) {
-        await updateMutation.mutateAsync({ id: initialData.id, payload });
-      } else {
-        await createMutation.mutateAsync(payload);
-      }
-      onSuccess?.();
+      const saved = initialData
+        ? await updateMutation.mutateAsync({ id: initialData.id, payload })
+        : await createMutation.mutateAsync(payload);
+      onSuccess?.(saved);
     } catch (error) {
       logError('VenueForm.onSubmit', error);
     }

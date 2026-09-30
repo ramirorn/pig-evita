@@ -70,7 +70,23 @@ const {
   HEAT_RAMP,
   NO_DATA_TOKEN,
   NO_DATA_LABEL,
-  BUBBLE_COLOR,
+  BUBBLE_RAMP,
+  BUBBLE_RAMP_TOKENS,
+  BUBBLE_OUTLINE,
+  rampIndices,
+  clampView,
+  zoomAt,
+  panBy,
+  centerOn,
+  toScreen,
+  toMap,
+  inverseScale,
+  bubblesOnScreen,
+  lerpView,
+  isVisible,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  IDENTITY_VIEW,
   themeColor,
   featureAnchor,
   departmentTotals,
@@ -82,6 +98,8 @@ const {
   BUBBLE_MAX_OVERLAP,
   BUBBLE_MAX_SHIFT,
   placeBubbleLabels,
+  labelBoxSize,
+  BUBBLE_LABEL_SIZE,
   pickDepartmentAnchor,
   boxesOverlap,
   boxTouchesCircle,
@@ -625,7 +643,7 @@ const SIN_UBICACION_ESPERADAS = new Set([
 
   for (const { tone, label } of HEAT_RAMP) {
     comprobar(`el tono ${tone} existe en el tema`, tema.has(tone));
-    comprobar(`el tono de la coropleta ${tone} es de la escala primary`, tone.startsWith('primary-'));
+    comprobar(`el tono de la coropleta ${tone} es de la escala secondary (verde)`, tone.startsWith('secondary-'));
     const c = hex(tone) && hex(label) ? contraste(hex(tone), hex(label)) : 0;
     comprobar(`rótulo ${label} sobre ${tone}: contraste AA (≥ 4,5)`, c >= 4.5, `${c.toFixed(2)}:1`);
   }
@@ -640,10 +658,49 @@ const SIN_UBICACION_ESPERADAS = new Set([
   const cPocoVsNada = contraste(hex(HEAT_RAMP[0].tone), hex(NO_DATA_TOKEN));
   comprobar('"poca participación" se distingue de "sin participación" (además del rayado)', cPocoVsNada >= 1.1, `${cPocoVsNada.toFixed(2)}:1`);
 
-  comprobar('las burbujas son dorado accent del tema', BUBBLE_COLOR === themeColor('accent-500'));
+  // Burbujas: amarillo (accent) → naranja (token propio del mapa) → rojo (destructive).
+  comprobar(
+    'las burbujas van de accent (amarillo) a destructive (rojo) pasando por heat-orange',
+    BUBBLE_RAMP_TOKENS[0].startsWith('accent-') &&
+      BUBBLE_RAMP_TOKENS.at(-1).startsWith('destructive-') &&
+      BUBBLE_RAMP_TOKENS.includes('heat-orange'),
+    BUBBLE_RAMP_TOKENS.join(' → '),
+  );
+  for (const t of [...BUBBLE_RAMP_TOKENS, BUBBLE_OUTLINE]) {
+    comprobar(`el token de burbuja ${t} existe en el tema`, tema.has(t));
+  }
+  const lumBurbujas = BUBBLE_RAMP_TOKENS.map((t) => luminancia(hex(t)));
+  comprobar(
+    'la rampa de burbujas oscurece de amarillo a rojo (más concentración, más oscuro)',
+    lumBurbujas.every((l, i) => i === 0 || l < lumBurbujas[i - 1]),
+    lumBurbujas.map((l) => l.toFixed(2)).join(' > '),
+  );
+  // Separación de la burbuja contra cada verde: el borde blanco o el contorno
+  // oscuro tiene que destacarse (≥ 3:1) contra el fondo.
+  for (const { tone } of HEAT_RAMP) {
+    const c = Math.max(contraste('#ffffff', hex(tone)), contraste(hex(BUBBLE_OUTLINE), hex(tone)));
+    comprobar(`la burbuja se separa del fondo ${tone} (borde blanco o contorno ≥ 3:1)`, c >= 3, `${c.toFixed(2)}:1`);
+  }
+  comprobar(
+    'las clases de burbujas usan la rampa amarillo → rojo',
+    computeHeatClasses([1, 5, 20, 40, 90], BUBBLE_RAMP).every((c) => BUBBLE_RAMP.includes(c.color)),
+  );
+  comprobar(
+    'con mucha variedad, las burbujas usan los tres colores (amarillo, naranja, rojo)',
+    new Set(computeHeatClasses([1, 5, 20, 40, 90], BUBBLE_RAMP).map((c) => c.color)).size === 3,
+  );
+  const seedBurbujas = computeHeatClasses([13, 13, 13, 13, 13, 13, 13, 13], BUBBLE_RAMP);
+  comprobar(
+    'con todas en 13 (la seed), las burbujas son de un solo color: no se inventan diferencias',
+    seedBurbujas.length === 1,
+    JSON.stringify(seedBurbujas),
+  );
+  comprobar('los colores de burbuja son var() de sus tokens', BUBBLE_RAMP.every((c, i) => c === themeColor(BUBBLE_RAMP_TOKENS[i])));
+  comprobar('los índices de rampa toman los extremos', JSON.stringify(rampIndices(3, 5)) === '[0,2,4]' && JSON.stringify(rampIndices(2, 3)) === '[0,2]');
+  comprobar('una sola clase toma el tono del medio', JSON.stringify(rampIndices(1, 3)) === '[1]');
   comprobar(
     'la rampa y "sin participación" se expresan como var(--color-…)',
-    [...HEAT_COLORS, NO_DATA_COLOR, BUBBLE_COLOR].every((c) => /^var\(--color-[a-z0-9-]+\)$/.test(c)),
+    [...HEAT_COLORS, NO_DATA_COLOR, ...BUBBLE_RAMP].every((c) => /^var\(--color-[a-z0-9-]+\)$/.test(c)),
   );
 
   const archivos = [
@@ -660,6 +717,151 @@ const SIN_UBICACION_ESPERADAS = new Set([
       comprobar(`${path.basename(archivo)}: el token ${token} existe en el tema`, tema.has(token));
     }
   }
+}
+
+// -------------------------------------------------
+// 7.g Zoom: límites, zoom hacia un punto y escala inversa
+// -------------------------------------------------
+{
+  const { width: W, height: H } = GEO_VIEWBOX;
+  const cerca = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
+  const cubre = (v) => v.x <= 1e-9 && v.y <= 1e-9 && v.x + v.k * W >= W - 1e-9 && v.y + v.k * H >= H - 1e-9;
+
+  comprobar('el zoom no baja de 1×', clampView({ k: 0.3, x: 50, y: 50 }, W, H).k === MIN_ZOOM);
+  comprobar('el zoom no pasa de 8×', clampView({ k: 20, x: 0, y: 0 }, W, H).k === MAX_ZOOM);
+  comprobar('a 1× la vista es la provincia entera', JSON.stringify(clampView({ k: 1, x: 300, y: -200 }, W, H)) === JSON.stringify(IDENTITY_VIEW));
+  comprobar(
+    'no se puede sacar la provincia de la vista desplazando',
+    [panBy({ k: 3, x: 0, y: 0 }, 99999, 99999, W, H), panBy({ k: 3, x: 0, y: 0 }, -99999, -99999, W, H)].every(cubre),
+  );
+
+  // Zoom hacia un punto: lo que estaba bajo el cursor sigue bajo el cursor.
+  const v0 = { k: 2, x: -300, y: -250 };
+  const px = 420;
+  const py = 510;
+  const antes = toMap(v0, px, py);
+  const v1 = zoomAt(v0, 1.5, px, py, W, H);
+  const despues = toMap(v1, px, py);
+  comprobar(
+    'zoom hacia un punto: el punto bajo el cursor no se mueve',
+    cerca(antes.x, despues.x, 1e-6) && cerca(antes.y, despues.y, 1e-6),
+    `${antes.x.toFixed(2)},${antes.y.toFixed(2)} → ${despues.x.toFixed(2)},${despues.y.toFixed(2)}`,
+  );
+  comprobar('zoom hacia un punto respeta los límites', cubre(zoomAt(IDENTITY_VIEW, 100, 0, 0, W, H)));
+  comprobar('toScreen y toMap son inversas', (() => {
+    const p = toScreen(v1, 123, 456);
+    const q = toMap(v1, p.x, p.y);
+    return cerca(q.x, 123) && cerca(q.y, 456);
+  })());
+
+  // Centrar una localidad (Top 5 / tabla).
+  const c = centerOn(500, 500, 2.5, W, H);
+  const enPantalla = toScreen(c, 500, 500);
+  comprobar('centrar deja la localidad en el medio de la vista', cerca(enPantalla.x, W / 2) && cerca(enPantalla.y, H / 2));
+  comprobar('centrar cerca del borde no saca la provincia de la vista', cubre(centerOn(2, 2, 4, W, H)));
+
+  // Escala inversa: burbujas y trazos mantienen su tamaño en pantalla.
+  comprobar('escala inversa: a 4× los trazos se dividen por 4', inverseScale({ k: 4, x: 0, y: 0 }) === 0.25);
+  const reales = buildBubbles(
+    buildLocalityMap([fila('Ibarreta', '', { athletes: 13 }), fila('Comandante Fontana', '', { athletes: 13 }), fila('Formosa', '', { athletes: 40 })]),
+    'athletes',
+    { separate: false },
+  );
+  const v4 = centerOn(reales[0].x, reales[0].y, 4, W, H);
+  const a4 = bubblesOnScreen(reales, v4);
+  comprobar('con zoom, las burbujas mantienen su radio en pantalla', a4.every((b, i) => b.r === reales[i].r));
+  const distancia = (arr, n1, n2) => {
+    const a = arr.find((b) => b.name === n1);
+    const b = arr.find((x) => x.name === n2);
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+  const d1 = distancia(bubblesOnScreen(reales, IDENTITY_VIEW), 'Ibarreta', 'Comandante Fontana');
+  const d4 = distancia(a4, 'Ibarreta', 'Comandante Fontana');
+  comprobar('acercar separa localidades vecinas en pantalla (en vez de agrandarlas)', d4 > d1 * 2, `${d1.toFixed(1)} → ${d4.toFixed(1)}`);
+  comprobar('a 1× las burbujas en pantalla coinciden con las separadas por defecto', (() => {
+    const def = buildBubbles(buildLocalityMap([fila('Formosa', '', { athletes: 13 }), fila('Clorinda', '', { athletes: 13 })]), 'athletes');
+    const pan = bubblesOnScreen(
+      buildBubbles(buildLocalityMap([fila('Formosa', '', { athletes: 13 }), fila('Clorinda', '', { athletes: 13 })]), 'athletes', { separate: false }),
+      IDENTITY_VIEW,
+    );
+    return def.every((b, i) => cerca(b.x, pan[i].x, 0.11) && cerca(b.y, pan[i].y, 0.11));
+  })());
+  comprobar('isVisible descarta lo que quedó fuera de la vista', !isVisible(-50, 10, 13, W, H) && isVisible(5, 10, 13, W, H));
+  const mitad = lerpView({ k: 1, x: 0, y: 0 }, { k: 4, x: -100, y: -100 }, 0.5);
+  comprobar('la transición interpola el zoom en escala logarítmica (1× → 4× pasa por 2×)', cerca(mitad.k, 2, 1e-9));
+}
+
+// -------------------------------------------------
+// 7.h Etiquetas de localidad: legibles, con fondo, sin encimarse
+// -------------------------------------------------
+{
+  const { width: W, height: H } = GEO_VIEWBOX;
+  // El caso que reportó el usuario: 25 localidades con valores variados.
+  const variadas = [
+    'Formosa', 'Clorinda', 'Pirané', 'El Colorado', 'Las Lomitas', 'Ibarreta', 'Comandante Fontana',
+    'Laguna Yema', 'Ingeniero Juárez', 'Laguna Blanca', 'General Belgrano', 'Riacho He-Hé',
+    'San Francisco de Laishí', 'Estanislao del Campo', 'Pozo del Tigre', 'Villa General Güemes',
+    'Mayor Vicente Villafañe', 'Palo Santo', 'Herradura', 'Villa Escolar', 'Misión Tacaaglé',
+    'Buena Vista', 'Siete Palmas', 'Laguna Naick Neck', 'El Espinillo',
+  ].map((l, i) => fila(l, '', { athletes: 5 + ((i * 37) % 180) }));
+  const reales = buildBubbles(buildLocalityMap(variadas), 'athletes', { separate: false });
+  comprobar('el caso variado tiene 25 burbujas', reales.length === 25, `${reales.length}`);
+
+  const sinEncimar = (rot, burb) =>
+    rot.every((a, i) => rot.every((b, j) => i === j || !boxesOverlap(a.box, b.box))) &&
+    rot.every((r) => burb.every((b) => !boxTouchesCircle(r.box, b))) &&
+    rot.every((r) => r.box.x0 >= 0 && r.box.y0 >= 0 && r.box.x1 <= W && r.box.y1 <= H);
+
+  // Tamaños reales: 12 px en escritorio (~0,65 px por unidad) y 11 px en el
+  // celular (~0,34 px por unidad).
+  for (const [nombre, pxPorUnidad, minimoPx] of [['escritorio', 0.65, 12], ['celular', 0.34, 11]]) {
+    const tam = Math.max(BUBBLE_LABEL_SIZE, minimoPx / pxPorUnidad);
+    comprobar(`[${nombre}] el nombre mide al menos ${minimoPx} px en pantalla`, tam * pxPorUnidad >= minimoPx - 1e-9);
+    for (const k of [1, 2.5, 5]) {
+      const vista = k === 1 ? IDENTITY_VIEW : centerOn(640, 560, k, W, H);
+      const burb = bubblesOnScreen(reales, vista).filter((b) => isVisible(b.x, b.y, b.r, W, H));
+      const ids = [...burb].sort((a, b) => b.value - a.value).map((b) => b.id);
+      const rot = placeBubbleLabels(burb, ids, W, H, tam);
+      comprobar(
+        `[${nombre} ${k}×] 0 etiquetas encimadas entre sí, sobre burbujas o fuera del mapa (${rot.length} ubicadas)`,
+        sinEncimar(rot, burb),
+      );
+      comprobar(
+        `[${nombre} ${k}×] cada etiqueta ocupa su caja real (texto + relleno)`,
+        rot.every((r) => {
+          const { w, h } = labelBoxSize(r.text, tam);
+          return Math.abs(r.box.x1 - r.box.x0 - w) < 1e-6 && Math.abs(r.box.y1 - r.box.y0 - h) < 1e-6;
+        }),
+      );
+      comprobar(
+        `[${nombre} ${k}×] cada etiqueta queda pegada a su burbuja`,
+        rot.every((r) => {
+          const b = burb.find((x) => x.id === r.id);
+          const px = Math.max(r.box.x0, Math.min(b.x, r.box.x1));
+          const py = Math.max(r.box.y0, Math.min(b.y, r.box.y1));
+          return Math.hypot(px - b.x, py - b.y) - b.r <= tam * 0.35 + 4 + 0.5;
+        }),
+      );
+    }
+    const rot1 = placeBubbleLabels(bubblesOnScreen(reales, IDENTITY_VIEW), reales.map((b) => b.id), W, H, tam);
+    const burbZ = bubblesOnScreen(reales, centerOn(640, 560, 5, W, H)).filter((b) => isVisible(b.x, b.y, b.r, W, H));
+    const rotZ = placeBubbleLabels(burbZ, burbZ.map((b) => b.id), W, H, tam);
+    comprobar(
+      `[${nombre}] con zoom entra una proporción mayor de nombres`,
+      rotZ.length / Math.max(1, burbZ.length) >= rot1.length / reales.length,
+      `1×: ${rot1.length}/${reales.length} · 5×: ${rotZ.length}/${burbZ.length}`,
+    );
+  }
+
+  // La etiqueta se dibuja sin opacidad parcial ni halo (lo que la "lavaba").
+  const svgFuente = await readFile(path.join(SRC, 'components', 'localityMap', 'ImpactMapSvg.tsx'), 'utf8');
+  const etiqueta = /function EtiquetaLocalidad[\s\S]*?\n}\n/.exec(svgFuente)?.[0] ?? '';
+  comprobar('existe el componente EtiquetaLocalidad', etiqueta.length > 0);
+  comprobar('la etiqueta de localidad no usa opacidad parcial', !/opacity/i.test(etiqueta));
+  comprobar('la etiqueta de localidad no usa halo (paintOrder/stroke en el texto)', !/paintOrder/.test(etiqueta));
+  comprobar('la etiqueta tiene fondo blanco sólido', /fill="white"/.test(etiqueta));
+  comprobar('el nombre va en semibold', /fontWeight=\{600\}/.test(etiqueta));
+  comprobar('mínimos de 12 px (escritorio) y 11 px (celular) en el componente', svgFuente.includes('pxPorUnidad >= 0.5 ? 12 : 11'));
 }
 
 // -------------------------------------------------

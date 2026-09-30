@@ -5,6 +5,7 @@ import { Building2, ExternalLink, MapPin, MoreVertical, Pencil, Trash2, Users } 
 import type { Venue } from '@/types';
 import type { DataTableColumn } from '@/components/shared/DataTable';
 import { safeExternalUrl } from '@/lib/utils';
+import { VenuePhoto } from '@/components/venues/VenuePhoto';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,19 +34,25 @@ export function createVenueColumns({ onEdit, onDelete }: VenueColumnActions): Da
       id: 'venue',
       header: 'Sede / Instalación',
       rowHeader: true,
-      headClassName: 'min-w-[220px]',
+      headClassName: 'min-w-[260px]',
       cell: (venue) => (
-        <div>
-          <p className="font-semibold text-primary-900 flex items-center gap-1.5">
-            <Building2 className="w-4 h-4 text-primary-600 shrink-0" aria-hidden="true" />
-            {venue.name}
-          </p>
-          {venue.address && (
-            <p className="text-xs text-primary-600 mt-0.5 flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-primary-400 shrink-0" aria-hidden="true" />
-              {venue.address}
+        <div className="flex items-center gap-3">
+          {/* Miniatura de la foto (o placeholder): se ve de un vistazo qué
+              sedes ya tienen portada en la página pública. */}
+          <VenuePhoto imageUrl={venue.imageUrl} name={venue.name} variant="thumb" />
+          <div className="min-w-0">
+            <p className="font-semibold text-primary-900 flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-primary-600 shrink-0" aria-hidden="true" />
+              {venue.name}
             </p>
-          )}
+            {venue.address && (
+              <p className="text-xs text-primary-600 mt-0.5 flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-primary-400 shrink-0" aria-hidden="true" />
+                {venue.address}
+              </p>
+            )}
+            {!venue.imageUrl && <p className="text-[11px] text-primary-500 mt-0.5">Sin foto</p>}
+          </div>
         </div>
       ),
     },

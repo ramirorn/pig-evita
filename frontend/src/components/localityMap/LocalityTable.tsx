@@ -35,13 +35,15 @@ function numero(f: LocalityFigures, col: Columna): number {
 
 interface LocalityTableProps {
   rows: readonly LocalityRow[];
+  /** Abre el detalle (y centra el mapa) de una localidad ubicada. */
+  onSelect?: (key: string, trigger: Element) => void;
 }
 
 /**
  * Los mismos datos del mapa en una tabla ordenable, para quien no puede o no
  * quiere usar el mapa (lector de pantalla, celular chico, impresión).
  */
-export function LocalityTable({ rows }: LocalityTableProps) {
+export function LocalityTable({ rows, onSelect }: LocalityTableProps) {
   const [orden, setOrden] = useState<{ col: Columna; desc: boolean }>({ col: 'athletes', desc: true });
 
   const ordenadas = useMemo(() => {
@@ -96,7 +98,19 @@ export function LocalityTable({ rows }: LocalityTableProps) {
           {ordenadas.map((r) => (
             <tr key={r.key} className="bg-white hover:bg-primary-50/40">
               <th scope="row" className="px-3 py-2 text-left font-medium text-primary-800">
-                {r.name}
+                {r.onMap && onSelect ? (
+                  <button
+                    type="button"
+                    data-locality-id={r.key}
+                    onClick={(e) => onSelect(r.key, e.currentTarget)}
+                    className="rounded text-left underline decoration-primary-200 underline-offset-2 hover:text-primary-900 hover:decoration-primary-500 focus-visible:outline-2 focus-visible:outline-primary-500"
+                    aria-label={`Ver ${r.name} en el mapa`}
+                  >
+                    {r.name}
+                  </button>
+                ) : (
+                  r.name
+                )}
                 <span className="block text-xs font-normal text-primary-500">
                   {r.kind ? KIND_LABELS[r.kind] : 'Sin ubicación en el mapa'}
                 </span>

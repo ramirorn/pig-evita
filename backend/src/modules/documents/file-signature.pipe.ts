@@ -11,7 +11,12 @@
 //
 // Acá se hace al revés: se mira el contenido y de ahí sale el tipo. Lo que el
 // cliente diga sirve nada más que para detectar la inconsistencia.
-import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  PipeTransform,
+  Type,
+} from '@nestjs/common';
 
 /** Tipos aceptados y su mimetype canónico. */
 export const TIPOS_PERMITIDOS = {
@@ -67,10 +72,40 @@ function extensionDe(nombre: string): string {
 }
 
 /**
- * Valida el archivo subido contra su propio contenido.
+ * Qué acepta un uso concreto del pipe y cómo lo nombra en los errores.
+ *
+ * El pipe es configurable por uso: documentos (DNI, ficha médica) y fotos de
+ * sedes aceptan listas DISTINTAS y ninguna agranda a la otra. La regla de
+ * documentos es `REGLA_DOCUMENTOS`, de abajo; la de fotos vive en el módulo de
+ * sedes (`venues/image-signature.pipe.ts`).
+ */
+export interface ReglaDeFirma<T extends string> {
+  /** Tipo real por magic bytes, o `null` si no es ninguno aceptado. */
+  detectar: (buffer: Buffer | undefined) => T | null;
+  /** Tipo → mimetype canónico con el que sigue el archivo. */
+  mimes: Readonly<Record<T, string>>;
+  /** Extensión declarada (minúsculas, con punto) → tipo esperado. */
+  extensiones: Readonly<Record<string, T>>;
+  /** Para "no corresponde a un …". */
+  nombreTipos: string;
+  /** Para "se aceptan …". */
+  nombreExtensiones: string;
+}
+
+/** Regla de DOCUMENTOS: PDF, PNG y JPEG. */
+export const REGLA_DOCUMENTOS: ReglaDeFirma<TipoArchivo> = {
+  detectar: detectarTipoPorContenido,
+  mimes: TIPOS_PERMITIDOS,
+  extensiones: EXTENSION_A_TIPO,
+  nombreTipos: 'PDF, PNG o JPEG',
+  nombreExtensiones: '.pdf, .png, .jpg y .jpeg',
+};
+
+/**
+ * Valida el archivo subido contra su propio contenido, según `regla`.
  *
  * Tres cortes, todos con **400**:
- *   1. el contenido no es PDF/PNG/JPEG;
+ *   1. el contenido no es de un tipo aceptado;
  *   2. la extensión declarada no está permitida;
  *   3. la extensión no se corresponde con el contenido (un `.pdf` que por
  *      dentro es PNG entra acá — no es peligroso en sí, pero la clave que
@@ -82,38 +117,74 @@ function extensionDe(nombre: string): string {
  * que mandó el cliente: ni la columna `mimeType` de la tabla, ni el
  * `Content-Type` con el que el objeto se guarda en MinIO.
  */
-@Injectable()
-export class FileSignaturePipe implements PipeTransform<
+export function validarFirma<T extends string>(
+  file: Express.Multer.File | undefined,
+  regla: ReglaDeFirma<T>,
+): Express.Multer.File {
+  if (!file) {
+    throw new BadRequestException('No se adjuntó ningún archivo');
+  }
+
+  const tipoReal = regla.detectar(file.buffer);
+  if (!tipoReal) {
+    throw new BadRequestException(
+      `El contenido del archivo no corresponde a un ${regla.nombreTipos}`,
+    );
+  }
+
+  const extension = extensionDe(file.originalname);
+  const tipoDeclarado = Object.prototype.hasOwnProperty.call(
+    regla.extensiones,
+    extension,
+  )
+    ? regla.extensiones[extension]
+    : undefined;
+  if (!tipoDeclarado) {
+    throw new BadRequestException(
+      `Extensión de archivo no permitida (se aceptan ${regla.nombreExtensiones})`,
+    );
+  }
+
+  if (tipoDeclarado !== tipoReal) {
+    throw new BadRequestException(
+      `El contenido del archivo (${tipoReal}) no coincide con su extensión (${extension})`,
+    );
+  }
+
+  file.mimetype = regla.mimes[tipoReal];
+  return file;
+}
+
+/** Un pipe de firma: recibe el archivo de multer y lo devuelve validado. */
+export interface PipeDeFirma extends PipeTransform<
   Express.Multer.File,
   Express.Multer.File
 > {
-  transform(file: Express.Multer.File): Express.Multer.File {
-    if (!file) {
-      throw new BadRequestException('No se adjuntó ningún archivo');
-    }
-
-    const tipoReal = detectarTipoPorContenido(file.buffer);
-    if (!tipoReal) {
-      throw new BadRequestException(
-        'El contenido del archivo no corresponde a un PDF, PNG o JPEG',
-      );
-    }
-
-    const extension = extensionDe(file.originalname);
-    const tipoDeclarado = EXTENSION_A_TIPO[extension];
-    if (!tipoDeclarado) {
-      throw new BadRequestException(
-        'Extensión de archivo no permitida (se aceptan .pdf, .png, .jpg y .jpeg)',
-      );
-    }
-
-    if (tipoDeclarado !== tipoReal) {
-      throw new BadRequestException(
-        `El contenido del archivo (${tipoReal}) no coincide con su extensión (${extension})`,
-      );
-    }
-
-    file.mimetype = TIPOS_PERMITIDOS[tipoReal];
-    return file;
-  }
+  transform(file: Express.Multer.File): Express.Multer.File;
 }
+
+/**
+ * Fábrica de pipes por uso: `crearPipeDeFirma(regla)` devuelve una clase
+ * inyectable que valida con esa regla.
+ */
+export function crearPipeDeFirma<T extends string>(
+  regla: ReglaDeFirma<T>,
+): Type<PipeDeFirma> {
+  @Injectable()
+  class PipeConRegla implements PipeTransform<
+    Express.Multer.File,
+    Express.Multer.File
+  > {
+    transform(file: Express.Multer.File): Express.Multer.File {
+      return validarFirma(file, regla);
+    }
+  }
+  return PipeConRegla;
+}
+
+/**
+ * Pipe de DOCUMENTOS (PDF, PNG, JPEG). Tipos, mensajes y códigos idénticos a
+ * los de R14; la regla es `REGLA_DOCUMENTOS`.
+ */
+@Injectable()
+export class FileSignaturePipe extends crearPipeDeFirma(REGLA_DOCUMENTOS) {}
