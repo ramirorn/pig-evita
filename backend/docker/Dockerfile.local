@@ -1,0 +1,30 @@
+# ===========================================
+# Juegos Evita — backend para correr en la PC (docker-compose.yml de la raíz)
+# ===========================================
+# Distinto de docker/Dockerfile (producción): conserva las dependencias de
+# desarrollo porque al arrancar corre `prisma migrate deploy` y el seed
+# (`ts-node`), y los dos viven en devDependencies.
+FROM node:22-alpine
+
+WORKDIR /app
+
+# `postinstall` corre `prisma generate`: el schema y la config tienen que estar
+# antes del `npm ci`. La URL es de mentira: generar no se conecta a la base.
+COPY package*.json prisma.config.ts ./
+COPY prisma ./prisma
+ARG DATABASE_URL=postgresql://build:build@localhost:5432/build
+ENV DATABASE_URL=${DATABASE_URL}
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+COPY docker/entrypoint.local.sh /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

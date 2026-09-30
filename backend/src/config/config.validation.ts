@@ -62,6 +62,8 @@ export const envSchema = z
     MINIO_ACCESS_KEY: z.string(),
     MINIO_SECRET_KEY: z.string(),
     MINIO_BUCKET: z.string().default('juegos-evita'),
+    MINIO_PUBLIC_ENDPOINT: z.string().optional(),
+    MINIO_PUBLIC_PORT: z.coerce.number().optional(),
     MINIO_USE_SSL: z
       .string()
       .default('false')

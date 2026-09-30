@@ -170,6 +170,13 @@ export class MinioService implements OnModuleInit {
   private bucketVerificadoPrivado = false;
   private readonly logger = new Logger(MinioService.name);
   private readonly minioClient: Minio.Client;
+  /**
+   * Cliente que sólo firma URLs. La firma v4 incluye el host, así que el link
+   * tiene que firmarse con el host que ve el navegador, no con el que usa el
+   * backend (en Docker, `minio` no resuelve fuera de la red interna). Sin
+   * `MINIO_PUBLIC_ENDPOINT` es el mismo cliente de siempre.
+   */
+  private readonly presignClient: Minio.Client;
   private readonly bucketName: string;
 
   constructor(private readonly configService: ConfigService) {
@@ -192,6 +199,25 @@ export class MinioService implements OnModuleInit {
       accessKey: accessKey as string,
       secretKey: secretKey as string,
     });
+
+    const publicEndpoint = this.configService.get<string>(
+      'minio.publicEndpoint',
+    );
+    this.presignClient = publicEndpoint
+      ? new Minio.Client({
+          endPoint: publicEndpoint,
+          port:
+            this.configService.get<number>('minio.publicPort') ??
+            this.configService.get<number>('minio.port') ??
+            9000,
+          useSSL: this.configService.get<boolean>('minio.useSSL') ?? false,
+          accessKey: accessKey as string,
+          secretKey: secretKey as string,
+          // Con la región fija no sale a la red a averiguarla: el host
+          // público no es alcanzable desde adentro del contenedor.
+          region: 'us-east-1',
+        })
+      : this.minioClient;
   }
 
   async onModuleInit() {
@@ -490,7 +516,7 @@ export class MinioService implements OnModuleInit {
     );
 
     try {
-      return await this.minioClient.presignedGetObject(
+      return await this.presignClient.presignedGetObject(
         this.bucketName,
         cleanObjectName,
         expiry,

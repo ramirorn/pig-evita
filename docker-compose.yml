@@ -1,0 +1,115 @@
+# ===========================================
+# Juegos Evita — proyecto completo en Docker (uso local)
+# ===========================================
+# Levantar:   docker compose up -d --build
+# Web:        http://localhost:8080
+# Apagar:     docker compose down            (los datos quedan en los volúmenes)
+# Borrar todo: docker compose down -v        (¡borra base y archivos subidos!)
+#
+# Los secretos salen de `.env` en esta carpeta (copiar `.env.example`).
+# Los puertos no chocan con backend/docker-compose.dev.yml: se pueden tener
+# los dos stacks a la vez.
+name: pgd-evita
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pgd-evita-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evita_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?definir DB_PASSWORD en .env}
+      POSTGRES_DB: juegos_evita
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evita_user -d juegos_evita"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pgd-evita-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: pgd-evita-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?definir MINIO_ACCESS_KEY en .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?definir MINIO_SECRET_KEY en .env}
+    # 9100: el navegador abre los documentos con links firmados que apuntan acá.
+    # 9101: consola web de MinIO.
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile.local
+    container_name: pgd-evita-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      API_PREFIX: api/v1
+      DATABASE_URL: postgresql://evita_user:${DB_PASSWORD}@postgres:5432/juegos_evita?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?definir JWT_ACCESS_SECRET en .env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?definir JWT_REFRESH_SECRET en .env}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_PUBLIC_ENDPOINT: localhost
+      MINIO_PUBLIC_PORT: 9100
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: juegos-evita
+      MINIO_USE_SSL: "false"
+      CORS_ORIGINS: http://localhost:8080
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@juegosevita.gob.ar}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?definir SEED_ADMIN_PASSWORD en .env}
+      SEED_ON_START: ${SEED_ON_START:-true}
+      NEWS_SYNC_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: docker/Dockerfile
+    container_name: pgd-evita-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

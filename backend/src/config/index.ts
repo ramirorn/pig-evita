@@ -35,6 +35,13 @@ export const minioConfig = registerAs('minio', () => ({
   secretKey: process.env.MINIO_SECRET_KEY,
   bucket: process.env.MINIO_BUCKET || 'juegos-evita',
   useSSL: process.env.MINIO_USE_SSL === 'true',
+  // Host y puerto con los que el NAVEGADOR llega a MinIO. Sólo hacen falta
+  // cuando difieren de los del backend (en Docker: `minio:9000` adentro,
+  // `localhost:9000` afuera). Vacíos → se firma con endpoint/port.
+  publicEndpoint: process.env.MINIO_PUBLIC_ENDPOINT || undefined,
+  publicPort: process.env.MINIO_PUBLIC_PORT
+    ? parseInt(process.env.MINIO_PUBLIC_PORT, 10)
+    : undefined,
 }));
 
 export const throttleConfig = registerAs('throttle', () => ({
