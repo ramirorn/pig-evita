@@ -20,6 +20,8 @@ import {
   esPlantillaSinNota,
   leerOpenGraph,
   parsearNota,
+  preferirImagenGrande,
+  resolverImagen,
   slugDeNotaExterna,
   urlDeNota,
 } from './formosa-news.parser';
@@ -190,15 +192,90 @@ describe('formosa-news.parser (contra HTML real del portal)', () => {
       );
     });
 
-    it('descarta una imagen que no venga por https', () => {
+    it('resuelve la imagen relativa contra archivos.formosa.gob.ar (formato del portal desde 2026-09)', () => {
+      // Relevado el 2026-09-29: el portal pasó a publicar el og:image sin host.
+      // Resuelto contra www.formosa.gob.ar da un 302 a la home; el archivo
+      // vive en archivos.formosa.gob.ar.
+      const relativa = HTML_JUEGOS_EVITA.replace(
+        'content="https://archivos.formosa.gob.ar/media',
+        'content="media',
+      );
+      const resultado = parsearNota(relativa, 34709);
+      if (!resultado.ok) throw new Error('no parseó');
+      expect(resultado.nota.imagenUrl).toBe(
+        'https://archivos.formosa.gob.ar/media/uploads/imagenes_noticias/imagen_noticia_d27f631e8eb8851697cc881a2f9b2ca6-0.jpeg',
+      );
+    });
+
+    it('prefiere la foto grande (-0) cuando og:image anuncia la miniatura (-1)', () => {
+      // Formato real del portal al 2026-09-29: og:image relativo y en `-1`
+      // (184 px); el cuerpo de la nota usa la `-0` (600 px).
+      const miniatura = HTML_JUEGOS_EVITA.replace(
+        'content="https://archivos.formosa.gob.ar/media/uploads/imagenes_noticias/imagen_noticia_d27f631e8eb8851697cc881a2f9b2ca6-0.jpeg"',
+        'content="media/uploads/imagenes_noticias/imagen_noticia_d27f631e8eb8851697cc881a2f9b2ca6-1.jpeg"',
+      );
+      const resultado = parsearNota(miniatura, 34709);
+      if (!resultado.ok) throw new Error('no parseó');
+      expect(resultado.nota.imagenUrl).toBe(
+        'https://archivos.formosa.gob.ar/media/uploads/imagenes_noticias/imagen_noticia_d27f631e8eb8851697cc881a2f9b2ca6-0.jpeg',
+      );
+    });
+
+    it('pasa a https una imagen del portal que venga por http', () => {
       const http = HTML_JUEGOS_EVITA.replace(
         'content="https://archivos.formosa.gob.ar',
         'content="http://archivos.formosa.gob.ar',
       );
       const resultado = parsearNota(http, 34709);
       if (!resultado.ok) throw new Error('no parseó');
-      // `safeImageSrc` del frontend (T17) la rechazaría igual; no la guardamos.
-      expect(resultado.nota.imagenUrl).toBeNull();
+      // `safeImageSrc` del frontend (T17) sólo acepta https.
+      expect(resultado.nota.imagenUrl).toMatch(
+        /^https:\/\/archivos\.formosa\.gob\.ar\//,
+      );
+    });
+  });
+
+  describe('preferirImagenGrande', () => {
+    const MINI = 'https://archivos.formosa.gob.ar/m/foto-1.jpeg';
+    it('cambia a -0 si la página la usa', () => {
+      expect(preferirImagenGrande(MINI, '<img src="m/foto-0.jpeg">')).toBe(
+        'https://archivos.formosa.gob.ar/m/foto-0.jpeg',
+      );
+    });
+    it('deja la -1 si la -0 no aparece: no inventa URLs', () => {
+      expect(preferirImagenGrande(MINI, '<p>sin foto grande</p>')).toBe(MINI);
+    });
+    it('no toca una imagen que no sea -1', () => {
+      const otra = 'https://archivos.formosa.gob.ar/m/foto.png';
+      expect(preferirImagenGrande(otra, 'foto-0.png')).toBe(otra);
+    });
+    it('null sigue siendo null', () => {
+      expect(preferirImagenGrande(null, '')).toBeNull();
+    });
+  });
+
+  describe('resolverImagen', () => {
+    it.each([
+      ['media/x.jpeg', 'https://archivos.formosa.gob.ar/media/x.jpeg'],
+      ['/media/x.jpeg', 'https://archivos.formosa.gob.ar/media/x.jpeg'],
+      [
+        'https://archivos.formosa.gob.ar/a.png',
+        'https://archivos.formosa.gob.ar/a.png',
+      ],
+      ['http://www.formosa.gob.ar/a.png', 'https://www.formosa.gob.ar/a.png'],
+    ])('%s → %s', (entrada, esperado) => {
+      expect(resolverImagen(entrada)).toBe(esperado);
+    });
+
+    it.each([
+      [null],
+      [''],
+      ['https://otro-sitio.com/a.png'],
+      ['https://formosa.gob.ar.evil.com/a.png'],
+      ['javascript:alert(1)'],
+      ['data:image/png;base64,AAAA'],
+    ])('descarta %s', (entrada) => {
+      expect(resolverImagen(entrada)).toBeNull();
     });
   });
 });

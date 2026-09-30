@@ -58,6 +58,9 @@ export interface ReporteSyncNoticias {
   duracionMs: number;
 }
 
+/** 5 min: holgura sobre los ~2 min de una corrida con el portal lento. */
+const SYNC_TIMEOUT_MS = 5 * 60 * 1000;
+
 export const newsApi = {
   async findAll(filters?: NewsFilters): Promise<PaginatedResponse<News>> {
     const { data } = await apiClient.get<PaginatedResponse<News>>('/news', { params: filters });
@@ -94,9 +97,16 @@ export const newsApi = {
    * Puede tardar: recorre IDs del portal con una pausa entre requests para no
    * castigar un sitio ajeno. El backend responde 503 si el portal no contesta o
    * si cambió el markup, en vez de informar "0 noticias nuevas".
+   *
+   * ⚠️ Timeout propio: una corrida de 60 IDs con 1 s de pausa tarda ~2 min, y
+   * con los 15 s generales del cliente la pantalla informaba un error mientras
+   * el backend seguía y terminaba bien; el reintento chocaba con el candado
+   * ("ya hay una sincronización en curso", 503).
    */
   async sync(): Promise<ReporteSyncNoticias> {
-    const { data } = await apiClient.post<ReporteSyncNoticias>('/news/sync');
+    const { data } = await apiClient.post<ReporteSyncNoticias>('/news/sync', undefined, {
+      timeout: SYNC_TIMEOUT_MS,
+    });
     return data;
   },
 };

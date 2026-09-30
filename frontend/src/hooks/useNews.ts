@@ -105,11 +105,23 @@ export function useDeleteNews() {
  * La alternativa —un mensaje de éxito idéntico traiga lo que traiga— es
  * exactamente el modo de falla silenciosa que esta tarea viene a cerrar.
  */
+const SYNC_TOAST_ID = 'news-sync';
+
 export function useSyncNews() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () => newsApi.sync(),
+    // La corrida tarda ~2 min: sin aviso, el botón girando parece colgado.
+    onMutate: () => {
+      toast.loading('Sincronizando con el portal oficial…', {
+        id: SYNC_TOAST_ID,
+        description: 'Puede tardar un par de minutos. Podés seguir usando el panel.',
+      });
+    },
+    onSettled: () => {
+      toast.dismiss(SYNC_TOAST_ID);
+    },
     onSuccess: (reporte: ReporteSyncNoticias) => {
       queryClient.invalidateQueries({ queryKey: NEWS_KEYS.lists() });
 

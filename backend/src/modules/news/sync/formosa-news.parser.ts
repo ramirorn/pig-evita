@@ -258,6 +258,58 @@ export function leerFuente(html: string): string | null {
  * lo que hace falta para enlazarla (título, bajada, imagen, fecha), y el texto
  * completo se lee en el portal. Ver el comentario del modelo `News`.
  */
+/** Host desde el que el portal sirve las imágenes de las notas. */
+export const BASE_ARCHIVOS = 'https://archivos.formosa.gob.ar/';
+
+/**
+ * Convierte el `og:image` del portal en una URL absoluta por https, o `null`.
+ *
+ * ⚠️ El portal lo publica **relativo** (`media/uploads/imagenes_noticias/…`,
+ * relevado en la 34709 el 2026-09-29) y el archivo vive en
+ * archivos.formosa.gob.ar: resuelto contra www.formosa.gob.ar da un 302 a la
+ * home. La versión anterior exigía que ya viniera con `https://` y descartaba
+ * la imagen de todas las notas.
+ *
+ * Sólo se acepta https y un host de formosa.gob.ar: es lo que exige
+ * `safeImageSrc` en el frontend (T17), y un `og:image` apuntando a otro sitio
+ * no es algo que el sync tenga que publicar.
+ */
+export function resolverImagen(valor: string | null): string | null {
+  if (!valor) return null;
+  let url: URL;
+  try {
+    url = new URL(valor.trim(), BASE_ARCHIVOS);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.toLowerCase();
+  const esDelPortal =
+    host === 'formosa.gob.ar' || host.endsWith('.formosa.gob.ar');
+  if (!esDelPortal) return null;
+  if (url.protocol === 'http:') url.protocol = 'https:';
+  return url.protocol === 'https:' ? url.toString() : null;
+}
+
+/**
+ * Cambia la miniatura del `og:image` por la foto grande, si la página la tiene.
+ *
+ * ⚠️ Relevado el 2026-09-29: el portal anuncia en `og:image` la variante `-1`
+ * (184 px de ancho), mientras que el cuerpo de la nota usa la `-0` (600 px).
+ * Con la `-1`, las tarjetas grandes del listado se ven borrosas. Sólo se cambia
+ * si el nombre de la `-0` aparece en el HTML: no se adivina una URL que el
+ * portal no publicó.
+ */
+export function preferirImagenGrande(
+  url: string | null,
+  html: string,
+): string | null {
+  if (!url) return null;
+  const grande = url.replace(/-1(\.(?:jpe?g|png|webp|gif))$/i, '-0$1');
+  if (grande === url) return url;
+  const archivo = grande.slice(grande.lastIndexOf('/') + 1);
+  return html.includes(archivo) ? grande : url;
+}
+
 export function parsearNota(html: string, idPortal: number): ResultadoParseo {
   if (esPlantillaSinNota(html)) {
     return { ok: false, motivo: 'inexistente' };
@@ -286,9 +338,7 @@ export function parsearNota(html: string, idPortal: number): ResultadoParseo {
       sourceUrl: urlDeNota(idPortal),
       titulo,
       bajada,
-      // Sólo https: es lo que exige `safeImageSrc` en el frontend (T17), y el
-      // portal ya sirve las imágenes por https desde archivos.formosa.gob.ar.
-      imagenUrl: imagen && imagen.startsWith('https://') ? imagen : null,
+      imagenUrl: preferirImagenGrande(resolverImagen(imagen), html),
       seccionSlug: seccion.slug,
       seccionNombre: seccion.nombre,
       fuente: leerFuente(html),

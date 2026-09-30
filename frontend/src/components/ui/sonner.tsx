@@ -22,12 +22,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
         error: <OctagonXIcon className="size-4" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
+      // Los tokens del tema se llaman `--color-*` (ver `@theme` en index.css).
+      // Con los nombres del template de shadcn (`--popover`, `--border`,
+      // `--radius`), que acá no existen, el fondo de los avisos neutros
+      // (cargando, info) quedaba transparente sobre el contenido.
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--normal-bg": "var(--color-popover)",
+          "--normal-text": "var(--color-popover-foreground)",
+          "--normal-border": "var(--color-primary-100)",
+          "--border-radius": "var(--radius-lg)",
         } as React.CSSProperties
       }
       {...props}
