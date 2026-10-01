@@ -1,30 +1,81 @@
+# syntax=docker/dockerfile:1.7
 # ===========================================
 # Juegos Evita — backend para correr en la PC (docker-compose.yml de la raíz)
 # ===========================================
-# Distinto de docker/Dockerfile (producción): conserva las dependencias de
-# desarrollo porque al arrancar corre `prisma migrate deploy` y el seed
-# (`ts-node`), y los dos viven en devDependencies.
-FROM node:22-alpine
+# Multi-stage:
+#   build      → dependencias completas, `nest build` y la seed compilada a JS
+#                (dist/prisma/seed.js): en runtime no hace falta ts-node.
+#   prod-deps  → `npm ci --omit=dev` + poda (docker/prune-node-modules.sh).
+#                El `postinstall` corre `prisma generate`. El CLI `prisma` está
+#                en dependencies, pineado a la misma versión que @prisma/client,
+#                porque el arranque corre `prisma migrate deploy`.
+#   runtime    → Alpine + el binario de node (sin npm/yarn/corepack) +
+#                node_modules de producción + dist + schema/migraciones.
+#
+# Distinto de docker/Dockerfile (producción): éste migra y siembra al arrancar
+# (ver docker/entrypoint.local.sh).
+#
+# Las dos imágenes base van con la MISMA versión de Alpine: el binario de node
+# se copia de una a la otra y necesita su libstdc++.
+ARG NODE_IMAGE=node:22-alpine3.24
+ARG RUNTIME_IMAGE=alpine:3.24
 
+FROM ${NODE_IMAGE} AS base
 WORKDIR /app
+ENV CHECKPOINT_DISABLE=1 \
+    PRISMA_HIDE_UPDATE_MESSAGE=1 \
+    npm_config_update_notifier=false \
+    npm_config_fund=false \
+    npm_config_audit=false
 
 # `postinstall` corre `prisma generate`: el schema y la config tienen que estar
-# antes del `npm ci`. La URL es de mentira: generar no se conecta a la base.
-COPY package*.json prisma.config.ts ./
+# antes del `npm ci`. La URL es de mentira (generar no se conecta a la base) y
+# sólo vive en las etapas de build: no llega a la imagen final.
+FROM base AS manifests
+COPY package.json package-lock.json prisma.config.ts ./
 COPY prisma ./prisma
-ARG DATABASE_URL=postgresql://build:build@localhost:5432/build
-ENV DATABASE_URL=${DATABASE_URL}
-RUN npm ci
 
+# --- build ---
+FROM manifests AS build
+RUN --mount=type=cache,target=/root/.npm \
+    DATABASE_URL=postgresql://build:build@localhost:5432/build npm ci
 COPY . .
-RUN npm run build
+RUN npm run build && npm run build:seed
 
+# --- dependencias de producción ---
+FROM manifests AS prod-deps
+COPY docker/prune-node-modules.sh /tmp/prune.sh
+RUN --mount=type=cache,target=/root/.npm \
+    DATABASE_URL=postgresql://build:build@localhost:5432/build npm ci --omit=dev \
+ && sh /tmp/prune.sh /app/node_modules
+
+# --- runtime ---
+FROM ${RUNTIME_IMAGE} AS runtime
+# libstdc++/libgcc: dependencias del binario de node.
+# tini: PID 1, reenvía SIGTERM a node y junta procesos zombis.
+RUN apk add --no-cache libstdc++ libgcc tini \
+ && addgroup -g 1000 node \
+ && adduser -u 1000 -G node -s /bin/sh -D node
+COPY --from=base /usr/local/bin/node /usr/local/bin/node
+
+WORKDIR /app
+ENV NODE_ENV=production \
+    CHECKPOINT_DISABLE=1 \
+    PRISMA_HIDE_UPDATE_MESSAGE=1
+
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY package.json prisma.config.ts ./
+COPY prisma ./prisma
+COPY --from=build /app/dist ./dist
 COPY docker/entrypoint.local.sh /usr/local/bin/entrypoint.sh
-RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod 755 /usr/local/bin/entrypoint.sh
+
+# Los archivos quedan de root (sólo lectura para la app); corre como `node`.
+USER node
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]

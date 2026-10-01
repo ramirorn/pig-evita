@@ -1,8 +1,46 @@
+# Dependencias y salidas locales (se regeneran dentro de la imagen)
 node_modules
 dist
+build
 coverage
+.nest
+*.tsbuildinfo
+.eslintcache
+
+# Secretos
 .env
 .env.*
 !.env.example
-*.log
+
+# Control de versiones, editores, SO
 .git
+.gitignore
+.gitattributes
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+
+# Tests y documentación: no entran en la imagen
+test
+**/*.spec.ts
+*.md
+docs
+
+# Herramientas que corren en la PC, no en el contenedor
+scripts
+docker-compose*.yml
+docker/Dockerfile*
+docker/nginx
+eslint.config.mjs
+.prettierrc*
+
+# Scripts sueltos de pruebas manuales
+fix-email.ts
+fix-password.ts
+verify-user.ts
+.github

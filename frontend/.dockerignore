@@ -1,7 +1,31 @@
+# Dependencias y salidas locales (se regeneran dentro de la imagen)
 node_modules
 dist
+dist-ssr
+coverage
+*.tsbuildinfo
+.vite
+
+# Secretos (el build no usa .env: la API va por /api/v1 relativo)
 .env
 .env.*
 !.env.example
-*.log
+
+# Control de versiones, editores, SO
 .git
+.gitignore
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Logs, documentación, tests
+*.log
+*.md
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# Docker (el Dockerfile copia nginx.conf explícitamente)
+docker/Dockerfile

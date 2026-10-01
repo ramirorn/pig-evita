@@ -3,6 +3,7 @@
 # ===========================================
 # Levantar:   docker compose up -d --build
 # Web:        http://localhost:8080
+# Primera vez: cd backend && npm run setup     (crea .env, levanta y carga datos)
 # Apagar:     docker compose down            (los datos quedan en los volúmenes)
 # Borrar todo: docker compose down -v        (¡borra base y archivos subidos!)
 #
@@ -11,15 +12,27 @@
 # los dos stacks a la vez.
 name: pgd-evita
 
+# Rotación de logs (driver json-file): hasta 3 archivos de 10 MB por servicio.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: pgd-evita-postgres
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_USER: evita_user
       POSTGRES_PASSWORD: ${DB_PASSWORD:?definir DB_PASSWORD en .env}
       POSTGRES_DB: juegos_evita
+    # 5435 en la PC, para Prisma Studio u otro cliente. Sólo escucha en
+    # 127.0.0.1: no queda expuesto a la red.
+    ports:
+      - "127.0.0.1:5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -32,6 +45,7 @@ services:
     image: redis:7-alpine
     container_name: pgd-evita-redis
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - redis_data:/data
     healthcheck:
@@ -41,9 +55,16 @@ services:
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    # Versión fija (no `latest`). MinIO dejó de publicar imágenes: minio/minio
+    # ya no se puede bajar de Docker Hub (ni de quay.io), así que en una PC nueva
+    # el stack no arrancaba. pgsty/minio es el fork comunitario que sigue
+    # compilando el mismo código (AGPL). Probado contra una copia del volumen
+    # minio_data creado con minio/minio RELEASE.2025-09-07: lee los mismos
+    # objetos, y la versión vieja vuelve a leerlos si hiciera falta volver.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: pgd-evita-minio
     restart: unless-stopped
+    logging: *default-logging
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?definir MINIO_ACCESS_KEY en .env}
@@ -65,8 +86,12 @@ services:
     build:
       context: ./backend
       dockerfile: docker/Dockerfile.local
+    # NODE_ENV=development a propósito (abajo): la validación de producción
+    # rechaza CORS a localhost. La imagen trae tini como PID 1.
+    stop_grace_period: 20s
     container_name: pgd-evita-backend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: development
       PORT: 3000
@@ -103,6 +128,7 @@ services:
       dockerfile: docker/Dockerfile
     container_name: pgd-evita-frontend
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "8080:80"
     depends_on:

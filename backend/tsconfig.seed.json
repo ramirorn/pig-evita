@@ -1,0 +1,14 @@
+{
+  // Compila prisma/seed.ts a dist/prisma/seed.js para correrlo con `node` en
+  // la imagen Docker (sin ts-node). Se corre después de `nest build`, que
+  // vacía dist/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./prisma",
+    "outDir": "./dist/prisma",
+    "declaration": false,
+    "sourceMap": false,
+    "incremental": false
+  },
+  "include": ["prisma/seed.ts"]
+}

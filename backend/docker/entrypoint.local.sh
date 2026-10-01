@@ -6,11 +6,13 @@
 #
 # La seed NO corre en cada arranque: borra y recrea los eventos del calendario
 # y los partidos de prueba, así que repetirla pisaría lo cargado a mano.
-# Para recargarla a pedido: `.\datos-prueba.ps1` en la raíz del proyecto.
+# Para recargarla a pedido, desde backend/ en la PC:
+#   npm run db:demo              (recarga los datos de prueba)
+#   npm run db:demo:reset        (vacía la base y la recarga desde cero)
 set -e
 
 echo "[pgd-evita] Aplicando migraciones..."
-npx prisma migrate deploy
+./node_modules/.bin/prisma migrate deploy
 
 USUARIOS=$(node -e "
 const { Client } = require('pg');
@@ -23,7 +25,7 @@ c.connect()
 
 if [ "$USUARIOS" = "0" ] && [ "${SEED_ON_START:-true}" = "true" ]; then
   echo "[pgd-evita] Base vacía: cargando datos de prueba (seed)..."
-  npx prisma db seed
+  node dist/prisma/seed.js
 else
   echo "[pgd-evita] La base ya tiene datos: se omite la seed."
 fi

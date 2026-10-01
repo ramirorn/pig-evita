@@ -6,6 +6,36 @@ Este repositorio contiene el código fuente de la plataforma de los Juegos Evita
 
 A continuación, encontrarás una guía paso a paso para levantar el proyecto en tu entorno local.
 
+## ⚡ Todo en Docker con un comando (PC nueva)
+
+**Requisitos:** Node.js 18+ y Docker Desktop (o Docker Engine con `docker compose`) andando. No hace falta `npm install`.
+
+```bash
+git clone <url-del-repo> evita
+cd evita/backend
+npm run setup
+```
+
+`npm run setup`:
+1. Si no existe `.env` en la raíz, lo crea a partir de `.env.example` con secretos al azar. Si ya existe, no lo toca.
+2. Construye y levanta el stack `pgd-evita` (web, API, Postgres, Redis y MinIO) y espera a que todo esté sano.
+3. Deja cargados los datos de prueba (el primer arranque con la base vacía corre la seed solo).
+4. Muestra cómo entrar. La primera vez imprime la contraseña del admin; queda guardada en `.env` (`SEED_ADMIN_PASSWORD`).
+
+**Cómo entrar:** http://localhost:8080 (panel en `/login`), usuario `admin@juegosevita.gob.ar` (o el `SEED_ADMIN_EMAIL` de `.env`).
+
+**Recargar los datos de prueba** (desde `backend/`):
+
+| Comando | Qué hace |
+| --- | --- |
+| `npm run db:demo` | Aplica migraciones, corre la seed completa y limpia la caché de estadísticas. Se puede repetir. |
+| `npm run db:demo:reset` | Igual, pero antes **borra toda la base** (pide confirmación; `npm run db:demo:reset -- --yes` no pregunta). |
+| `npm run db:studio:docker` | Abre Prisma Studio contra la base de Docker (requiere `npm install` en `backend/`). |
+
+Apagar: `docker compose down` en la raíz (los datos quedan en los volúmenes).
+
+> Los comandos `db:migrate`, `db:seed`, `db:studio` y `db:reset` siguen apuntando a `backend/.env` (el entorno de desarrollo de la guía de abajo), no al stack Docker.
+
 ## 📋 Requisitos Previos
 
 Asegúrate de tener instalados los siguientes programas en tu sistema:
