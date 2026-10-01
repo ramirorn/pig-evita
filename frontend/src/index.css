@@ -62,9 +62,12 @@
   --color-accent-900: #523508;
 
   /* Surfaces */
-  /* Mapa de impacto: naranja intermedio de las burbujas, entre accent-400 y
-     destructive-600 (no hay un naranja en la marca). */
-  --color-heat-orange: #e8742a;
+  /* Mapa de impacto: rampa de calor tipo viridis; no hay equivalentes en la marca.
+     Va de primary-900 (sin calor) a heat-yellow (máximo), con luminancia creciente. */
+  --color-heat-teal: #21918c;
+  --color-heat-green: #3fb37a;
+  --color-heat-lime: #8fd14f;
+  --color-heat-yellow: #fde725;
 
   --color-surface: #f6f8fb;
   --color-surface-elevated: #ffffff;

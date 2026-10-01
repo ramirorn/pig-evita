@@ -11,7 +11,7 @@
 // viewBox. El contenido ocupa todo el viewBox `W × H`, así que "que la
 // provincia no se salga de la vista" es exactamente que el rectángulo
 // transformado cubra el viewBox: `x ∈ [W − k·W, 0]` y lo mismo en `y`.
-import { separateBubbles, type Bubble } from '@/lib/localityMap';
+import type { HeatPoint, MapMarker } from '@/lib/localityMap';
 
 export interface MapView {
   /** Factor de zoom (1 = provincia entera). */
@@ -79,13 +79,12 @@ export function toMap(v: MapView, sx: number, sy: number): { x: number; y: numbe
 export const inverseScale = (v: MapView) => 1 / v.k;
 
 /**
- * Burbujas en pantalla: la **posición** sigue al zoom y el **radio** no (se
- * dibujan fuera del grupo transformado). Así acercar separa las localidades
- * vecinas en vez de agrandarlas. La separación anti-choque se aplica después,
- * en pantalla, así que con zoom casi no hace falta correr nada.
+ * Marcadores en pantalla: la **posición** sigue al zoom y el **radio** no (se
+ * dibujan fuera del grupo transformado, a tamaño fijo en pantalla). Así acercar
+ * separa las localidades vecinas en vez de agrandar sus marcadores.
  */
-export function bubblesOnScreen(burbujas: readonly Bubble[], v: MapView): Bubble[] {
-  return separateBubbles(burbujas.map((b) => ({ ...b, ...toScreen(v, b.x, b.y) })));
+export function markersOnScreen(puntos: readonly HeatPoint[], v: MapView, r: number): MapMarker[] {
+  return puntos.map((p) => ({ id: p.id, name: p.name, value: p.value, r, ...toScreen(v, p.x, p.y) }));
 }
 
 /** ¿El círculo cae (al menos en parte) dentro de la vista? */

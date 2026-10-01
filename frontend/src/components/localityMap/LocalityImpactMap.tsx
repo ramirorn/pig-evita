@@ -1,23 +1,29 @@
 // ===========================================
 // LocalityImpactMap — mapa de calor de la participación por localidad
 // ===========================================
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, Map as MapIcon, RotateCcw } from 'lucide-react';
-import { GEO_AREAS, GEO_POINTS, GEO_SOURCE, GEO_VIEWBOX } from '@/lib/geo/formosa.generated';
 import {
-  BUBBLE_RAMP,
-  bubbleLegendValues,
-  buildBubbles,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
+import { AlertTriangle, Map as MapIcon, Maximize, Minimize, RotateCcw } from 'lucide-react';
+import { GEO_AREAS, GEO_POINTS, GEO_SOURCE } from '@/lib/geo/formosa.generated';
+import {
+  buildHeatPoints,
   buildLocalityMap,
-  computeHeatClasses,
   departmentTotals,
   localityRows,
   METRIC_OPTIONS,
-  metricValue,
   provinceTotals,
   topLocalities,
   type MapMetric,
 } from '@/lib/localityMap';
+import { escapeAction, nextFocusIndex } from '@/lib/fullscreenMode';
+import { useFullscreen } from '@/hooks/useFullscreen';
 import type { LocalityStats } from '@/schemas/localityStats';
 import { cn, formatDateTime } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -66,8 +72,18 @@ const LUGARES = new Map(
   ].map((l) => [l.id, l]),
 );
 
-/** Proporción del mapa: la tarjeta la copia para que el SVG la llene entera. */
-const PROPORCION = `${GEO_VIEWBOX.width} / ${GEO_VIEWBOX.height}`;
+/**
+ * Proporciones (clases completas). El área del mapa usa la del viewBox
+ * (1000 × 1017) en celular y tablet; en escritorio la tarjeta entera usa la del
+ * viewBox más el pie con la leyenda (≈ 1000 × 1110), para que el SVG llene su
+ * área. `check:map` verifica que sigan coincidiendo con `GEO_VIEWBOX`.
+ */
+const AREA_MAPA_PROPORCION = 'aspect-[1000/1017]';
+const TARJETA_PROPORCION_LG = 'lg:aspect-[1000/1110]';
+
+/** Lo que se puede enfocar dentro de la pantalla completa (foco atrapado). */
+const ENFOCABLES =
+  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Mismo corte que `lg:` de Tailwind: desde acá el detalle va en el panel. */
 const ESCRITORIO = '(min-width: 1024px)';
@@ -102,6 +118,9 @@ export function LocalityImpactMap({
 
   const cardRef = useRef<HTMLDivElement>(null);
   const mapaRef = useRef<HTMLElement>(null);
+  const salirRef = useRef<HTMLButtonElement>(null);
+  const pantallaCompletaRef = useRef<HTMLButtonElement>(null);
+  const pantalla = useFullscreen(mapaRef);
   const triggerRef = useRef<Element | null>(null);
 
   const model = useMemo(() => buildLocalityMap(data?.localities ?? []), [data]);
@@ -109,20 +128,12 @@ export function LocalityImpactMap({
   const totals = useMemo(() => provinceTotals(data?.localities ?? []), [data]);
   const departments = useMemo(() => departmentTotals(model), [model]);
 
-  const departmentClasses = useMemo(
-    () => computeHeatClasses([...departments.values()].map((f) => metricValue(f, metric))),
-    [departments, metric],
-  );
-  // Posiciones reales: el mapa las separa en pantalla, según el zoom.
-  const bubbles = useMemo(() => buildBubbles(model, metric, { separate: false }), [model, metric]);
-  const bubbleClasses = useMemo(
-    () => computeHeatClasses(bubbles.map((b) => b.value), BUBBLE_RAMP),
-    [bubbles],
-  );
+  // Las localidades que generan calor en la métrica elegida (memo: el calor se
+  // recalcula sólo si cambian la métrica o los datos, nunca con el zoom).
+  const points = useMemo(() => buildHeatPoints(model, metric), [model, metric]);
+  const hayCeros = GEO_AREAS.length + GEO_POINTS.length > points.length;
   const [centerRequest, setCenterRequest] = useState<{ id: string; seq: number } | null>(null);
-  const bubbleValues = useMemo(() => bubbleLegendValues(bubbles.map((b) => b.value)), [bubbles]);
   const top = useMemo(() => topLocalities(rows, metric), [rows, metric]);
-  const labeledIds = useMemo(() => top.filter((r) => r.onMap).map((r) => r.key), [top]);
 
   const cerrar = useCallback(() => {
     const id = selected;
@@ -182,6 +193,42 @@ export function LocalityImpactMap({
     };
   }, [selected, cerrar]);
 
+  // Pantalla completa: el foco entra al botón "Salir" y vuelve al de pantalla
+  // completa al salir.
+  const estabaActivo = useRef(false);
+  useEffect(() => {
+    if (pantalla.activo && !estabaActivo.current) salirRef.current?.focus({ preventScroll: true });
+    if (!pantalla.activo && estabaActivo.current) pantallaCompletaRef.current?.focus({ preventScroll: true });
+    estabaActivo.current = pantalla.activo;
+  }, [pantalla.activo]);
+
+  // Escape en la capa (en modo nativo lo maneja el navegador). Con un detalle
+  // abierto, Escape cierra el detalle y la pantalla completa sigue.
+  const { modo: modoPantalla, salir: salirDePantalla } = pantalla;
+  useEffect(() => {
+    if (modoPantalla !== 'overlay') return;
+    const alTeclado = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && escapeAction('overlay', selected !== null) === 'exit') void salirDePantalla();
+    };
+    document.addEventListener('keydown', alTeclado);
+    return () => document.removeEventListener('keydown', alTeclado);
+  }, [modoPantalla, salirDePantalla, selected]);
+
+  /** Foco atrapado: Tab y Shift+Tab ciclan dentro de la pantalla completa. */
+  const atraparFoco = (e: ReactKeyboardEvent<HTMLElement>) => {
+    if (!pantalla.activo || e.key !== 'Tab' || !mapaRef.current) return;
+    const enfocables = Array.from(mapaRef.current.querySelectorAll<HTMLElement>(ENFOCABLES)).filter(
+      (el) => el.getClientRects().length > 0,
+    );
+    const actual = document.activeElement instanceof HTMLElement || document.activeElement instanceof SVGElement
+      ? enfocables.indexOf(document.activeElement as HTMLElement)
+      : -1;
+    const siguiente = nextFocusIndex(enfocables.length, actual, e.shiftKey);
+    if (siguiente < 0) return;
+    e.preventDefault();
+    enfocables[siguiente]?.focus();
+  };
+
   const alto = ALTO_BLOQUE[placement];
   const hayDatos = !isLoading && !isError && data !== undefined && data.localities.length > 0;
 
@@ -228,8 +275,12 @@ export function LocalityImpactMap({
         </div>
         <div className="flex flex-col gap-3 lg:flex-row" aria-busy="true" aria-label="Cargando el mapa">
           <div
-            className={cn('w-full animate-pulse rounded-2xl bg-primary-50 lg:w-auto lg:flex-none lg:min-h-[380px]', alto)}
-            style={{ aspectRatio: PROPORCION }}
+            className={cn(
+              'w-full animate-pulse rounded-2xl bg-primary-50 lg:w-auto lg:flex-none lg:min-h-[380px]',
+              AREA_MAPA_PROPORCION,
+              TARJETA_PROPORCION_LG,
+              alto,
+            )}
           />
           <div className={cn('h-64 animate-pulse rounded-2xl bg-primary-50 lg:flex-1 lg:min-h-[380px]', alto)} />
         </div>
@@ -285,13 +336,35 @@ export function LocalityImpactMap({
       figures={seleccionadoDatos?.figures ?? null}
       sourceNames={seleccionadoDatos?.sourceNames ?? []}
       variant={esEscritorio ? 'panel' : 'sheet'}
+      closeText={pantalla.activo ? 'Cerrar el detalle' : undefined}
       onClose={cerrar}
       cardRef={cardRef}
     />
   ) : null;
 
-  const controles = (
-    <>
+  const botonPantallaCompleta = (
+    <button
+      ref={pantallaCompletaRef}
+      type="button"
+      aria-pressed={pantalla.activo}
+      aria-label={pantalla.activo ? 'Salir de pantalla completa' : 'Ver mapa en pantalla completa'}
+      title={pantalla.activo ? 'Salir de pantalla completa' : 'Ver mapa en pantalla completa'}
+      onClick={() => void (pantalla.activo ? pantalla.salir() : pantalla.entrar())}
+      className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-100 bg-white/90 text-primary-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500 pointer-coarse:h-11 pointer-coarse:w-11"
+    >
+      {pantalla.activo ? <Minimize className="h-4 w-4" aria-hidden="true" /> : <Maximize className="h-4 w-4" aria-hidden="true" />}
+    </button>
+  );
+
+  const pie = (
+    <div
+      className={
+        pantalla.activo
+          ? 'flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 border-t border-primary-100 bg-white px-3 py-2 lg:min-h-12 lg:px-4'
+          : 'flex flex-wrap items-center gap-x-5 gap-y-1.5 px-1 pt-2'
+      }
+    >
+      <MapLegend metric={metric} points={points} hasZeros={hayCeros} compact={pantalla.activo && !esEscritorio} />
       <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-primary-600">
         <input
           type="checkbox"
@@ -306,7 +379,7 @@ export function LocalityImpactMap({
         {/* Fecha ausente o inválida: se omite la frase, no se muestra "—". */}
         {actualizado !== '—' && ` Datos al ${actualizado.replace(/\.$/, '')}.`}
       </p>
-    </>
+    </div>
   );
 
   return (
@@ -316,56 +389,67 @@ export function LocalityImpactMap({
       <ProvinceTotalsBar totals={totals} />
 
       <div className="flex flex-col gap-3 lg:flex-row">
+        {/* El módulo del mapa. En pantalla completa es este mismo elemento (así
+            el zoom se conserva): nativo con la Fullscreen API o capa fija. */}
         <section
           ref={mapaRef}
-          aria-label="Mapa de participación"
+          aria-label={pantalla.activo ? 'Mapa de participación en pantalla completa' : 'Mapa de participación'}
+          onKeyDown={atraparFoco}
           className={cn(
-            'relative w-full rounded-2xl border border-primary-100 bg-white p-2 shadow-sm lg:w-auto lg:flex-none lg:min-h-[380px]',
-            alto,
+            pantalla.activo
+              ? 'fixed inset-0 z-[60] flex h-dvh flex-col bg-surface pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-[env(safe-area-inset-top)]'
+              : cn(
+                  'relative flex w-full flex-col rounded-2xl border border-primary-100 bg-white p-2 shadow-sm lg:w-auto lg:flex-none lg:min-h-[380px]',
+                  TARJETA_PROPORCION_LG,
+                  alto,
+                ),
           )}
-          style={{ aspectRatio: PROPORCION }}
         >
-          <ImpactMapSvg
-            mapped={model.mapped}
-            departments={departments}
-            metric={metric}
-            departmentClasses={departmentClasses}
-            bubbles={bubbles}
-            bubbleClasses={bubbleClasses}
-            labeledIds={labeledIds}
-            centerRequest={centerRequest}
-            showAll={showAll}
-            selectedId={selected}
-            onSelect={seleccionar}
-          />
+          {pantalla.activo && (
+            <div className="flex h-[52px] shrink-0 items-center gap-3 border-b border-primary-100 bg-white px-3 lg:h-14 lg:px-4">
+              <p className="hidden shrink-0 font-display text-base font-bold text-primary-800 lg:block">Mapa de impacto</p>
+              <div className="min-w-0 flex-1">{selector}</div>
+              <button
+                ref={salirRef}
+                type="button"
+                onClick={() => void pantalla.salir()}
+                className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500 lg:h-9"
+              >
+                <Minimize className="h-4 w-4" aria-hidden="true" />
+                Salir
+              </button>
+            </div>
+          )}
 
-          {/* Esquina NE, vacía por la diagonal de la provincia: la leyenda. */}
-          <MapLegend
-            classes={departmentClasses}
-            metric={metric}
-            bubbleValues={bubbleValues}
-            bubbleClasses={bubbleClasses}
-            layout="overlay"
-            className="absolute right-2 top-2 hidden md:block"
-          />
-
-          {/* Esquina SO, también vacía: controles y fuente. */}
-          <div className="absolute bottom-2 left-3 hidden max-w-[45%] flex-col items-start gap-1 md:flex">
-            {controles}
+          <div className="flex min-h-0 flex-1">
+            <div
+              className={cn(
+                'relative min-w-0 flex-1',
+                pantalla.activo ? 'min-h-0 p-2' : cn('w-full lg:aspect-auto lg:min-h-0', AREA_MAPA_PROPORCION),
+              )}
+            >
+              <ImpactMapSvg
+                mapped={model.mapped}
+                metric={metric}
+                points={points}
+                centerRequest={centerRequest}
+                showAll={showAll}
+                selectedId={selected}
+                onSelect={seleccionar}
+                extraControl={botonPantallaCompleta}
+              />
+            </div>
+            {/* Escritorio en pantalla completa: el detalle achica el mapa, no lo tapa. */}
+            {pantalla.activo && esEscritorio && detalle && (
+              <div className="w-[340px] shrink-0 overflow-y-auto border-l border-primary-100 bg-white p-4">{detalle}</div>
+            )}
           </div>
-        </section>
 
-        {/* En el celular la leyenda y los controles van debajo del mapa. */}
-        <div className="space-y-2 md:hidden">
-          <MapLegend
-            classes={departmentClasses}
-            metric={metric}
-            bubbleValues={bubbleValues}
-            bubbleClasses={bubbleClasses}
-            layout="row"
-          />
-          <div className="flex flex-col gap-1 px-1">{controles}</div>
-        </div>
+          {pie}
+
+          {/* Celular en pantalla completa: el detalle es una hoja inferior. */}
+          {pantalla.activo && !esEscritorio && detalle}
+        </section>
 
         <aside
           aria-label="Ranking y detalle"
@@ -374,19 +458,19 @@ export function LocalityImpactMap({
             alto,
           )}
         >
-          {detalle && esEscritorio ? (
+          {detalle && esEscritorio && !pantalla.activo ? (
             detalle
           ) : (
             <div className="grid gap-6 @xl:grid-cols-2">
               <TopLocalities rows={top} metric={metric} onSelect={seleccionarYCentrar} />
-              <DepartmentRanking departments={departments} metric={metric} classes={departmentClasses} />
+              <DepartmentRanking departments={departments} metric={metric} />
             </div>
           )}
         </aside>
       </div>
 
       {/* En el celular el detalle es una hoja inferior, fuera del panel. */}
-      {detalle && !esEscritorio && detalle}
+      {detalle && !esEscritorio && !pantalla.activo && detalle}
 
       <UnmappedLocalities localities={model.unmapped} />
 

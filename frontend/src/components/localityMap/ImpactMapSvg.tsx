@@ -1,5 +1,5 @@
 // ===========================================
-// ImpactMapSvg — coropleta por departamento + burbujas, con zoom
+// ImpactMapSvg — mapa de calor fluido de la provincia, con zoom
 // ===========================================
 import {
   useCallback,
@@ -15,34 +15,28 @@ import {
 import { Maximize2, Minus, Plus } from 'lucide-react';
 import { GEO_AREAS, GEO_DEPARTMENTS, GEO_POINTS, GEO_VIEWBOX } from '@/lib/geo/formosa.generated';
 import {
-  BUBBLE_LABEL_SIZE,
-  BUBBLE_OUTLINE,
   formatMetric,
-  heatColor,
-  heatLabelColor,
   KIND_LABELS,
+  metricInfo,
   metricValue,
-  NO_DATA_COLOR,
-  NO_DATA_HATCH,
-  themeColor,
-  pickDepartmentAnchor,
-  placeBubbleLabels,
+  PROVINCE_FILL,
   textWidth,
-  type Bubble,
-  type HeatClass,
-  type LocalityFigures,
+  themeColor,
+  placeBubbleLabels,
+  type Box,
+  type HeatPoint,
   type MapMetric,
   type MappedLocality,
-  type PlacedLabel,
+  boxTouchesCircle,
 } from '@/lib/localityMap';
 import {
-  bubblesOnScreen,
   centerOn,
   FOCUS_ZOOM,
   IDENTITY_VIEW,
   inverseScale,
   isVisible,
   lerpView,
+  markersOnScreen,
   MAX_ZOOM,
   MIN_ZOOM,
   panBy,
@@ -53,19 +47,32 @@ import {
   type MapView,
 } from '@/lib/mapZoom';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useHeatImage } from '@/hooks/useHeatImage';
 
-/** Id del patrón de rayado de "sin participación". Único por página. */
-const HATCH_ID = 'impacto-sin-participacion';
-const SOMBRA_ID = 'impacto-sombra-provincia';
-const SOMBRA_ETIQUETA_ID = 'impacto-sombra-etiqueta';
+/** Ids únicos por página. */
+const RECORTE_ID = 'impacto-recorte-provincia';
+const AFUERA_ID = 'impacto-afuera-provincia';
 
 /** Colores de la interfaz del mapa, todos tokens del tema. */
-const TINTA = themeColor('primary-900');
-const TINTA_SUAVE = themeColor('primary-100');
-const PUNTO_SIN_DATOS = themeColor('celeste-400');
-const BORDE_ETIQUETA = themeColor('primary-200');
-const BORDE_ETIQUETA_ACTIVA = themeColor('primary-300');
-const CONTORNO_BURBUJA = themeColor(BUBBLE_OUTLINE);
+const AZUL_MARINO = themeColor(PROVINCE_FILL);
+const LIMITE_DEPTO = themeColor('celeste-700');
+const ROTULO_DEPTO = themeColor('celeste-100');
+const SIN_DATOS = themeColor('celeste-300');
+const TOOLTIP_SUAVE = themeColor('primary-100');
+
+/** Medidas en píxeles de pantalla (se convierten a unidades con `u`). */
+const PX = {
+  marcador: 2.5,
+  zonaDeClic: 12,
+  anilloFoco: 8,
+  anilloSeleccion: 10,
+  sinDatos: 3,
+  halo: 3,
+  rotuloLocalidad: 13,
+  rotuloDepto: 11,
+  /** Lo que un rótulo no puede tapar alrededor de un marcador. */
+  marcadorParaRotulos: 4,
+};
 
 /** Desplazamiento de las flechas del teclado, en unidades de pantalla. */
 const PASO_FLECHA = 80;
@@ -79,74 +86,63 @@ const TODAS = [
 
 interface ImpactMapSvgProps {
   mapped: ReadonlyMap<string, MappedLocality>;
-  departments: ReadonlyMap<string, LocalityFigures>;
   metric: MapMetric;
-  departmentClasses: readonly HeatClass[];
-  /** Burbujas en su lugar real (sin separar): la separación se hace en pantalla. */
-  bubbles: readonly Bubble[];
-  /** Clases de color de las burbujas (amarillo → rojo). */
-  bubbleClasses: readonly HeatClass[];
-  /** Localidades cuyo nombre se escribe sin zoom (el Top 5). */
-  labeledIds: readonly string[];
+  /** Localidades con calor, de mayor a menor valor. */
+  points: readonly HeatPoint[];
   /** Dibuja también las localidades sin participación (apagado por defecto). */
   showAll: boolean;
   selectedId: string | null;
   onSelect: (id: string, trigger: Element) => void;
   /** Pedido de centrar una localidad (desde el Top 5 o la tabla). */
   centerRequest: { id: string; seq: number } | null;
+  /** Un control más, arriba de la pila de zoom (el botón de pantalla completa). */
+  extraControl?: ReactNode;
 }
 
 type Tooltip = { x: number; y: number; titulo: string; detalle: string };
 
 /**
- * El mapa. Dos capas que se leen solas:
+ * El mapa: la provincia en azul marino y, encima, el **calor** de cada
+ * localidad como una mancha difusa (azul → verde azulado → verde → amarillo).
+ * Cada localidad brilla según su propio valor: las manchas cercanas no se suman
+ * (ver `computeHeatField`).
  *
- * - **Departamentos** en verde según el total de la métrica: de un vistazo se
- *   ve dónde "hay calor" en la provincia.
- * - **Burbujas** en las localidades con participación: el área es la cantidad
- *   y el color (amarillo → rojo) la concentración. Las localidades en cero no se
- *   dibujan salvo que se pida con "Mostrar todas".
+ * Capas dentro del grupo que hace zoom: fondo de la provincia, imagen del calor
+ * (recortada al contorno), límites de departamento y contorno. Afuera, a tamaño
+ * fijo en pantalla: marcadores, zonas de clic, anillos y rótulos. El calor se
+ * precalcula por métrica (`useHeatImage`): acercar o arrastrar no lo recalcula.
  *
- * **Zoom.** Los departamentos y ejidos viven en un grupo transformado; las
- * burbujas, sus nombres y los rótulos se dibujan afuera, en coordenadas de
- * pantalla, así mantienen su tamaño al acercar: el zoom separa localidades
- * vecinas en vez de agrandarlas. Toda la cuenta está en `@/lib/mapZoom`.
- *
- * Las burbujas son botones (Tab + Enter/Espacio) con `aria-label` completo. El
- * mapa en sí es enfocable: + / − / 0 y flechas acercan, alejan, restablecen y
- * desplazan.
+ * Cada localidad con participación es un botón (Tab + Enter/Espacio) con
+ * `aria-label` completo y una zona de clic de 24 × 24 px. El mapa en sí es
+ * enfocable: + / − / 0 y flechas acercan, alejan, restablecen y desplazan.
  */
 export function ImpactMapSvg({
   mapped,
-  departments,
   metric,
-  departmentClasses,
-  bubbles,
-  bubbleClasses,
-  labeledIds,
+  points,
   showAll,
   selectedId,
   onSelect,
   centerRequest,
+  extraControl,
 }: ImpactMapSvgProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
-  const [hoveredDept, setHoveredDept] = useState<string | null>(null);
   const [view, setView] = useState<MapView>(IDENTITY_VIEW);
   const [aviso, setAviso] = useState(false);
 
   const { width: W, height: H } = GEO_VIEWBOX;
   const sinMovimiento = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const urlCalor = useHeatImage(points, W, H);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const viewRef = useRef(view);
   viewRef.current = view;
   const animRef = useRef<number | null>(null);
+  const finRef = useRef<number | null>(null);
   const avisoRef = useRef<number | null>(null);
 
   // ---------- Vista y transiciones ----------
-
-  const finRef = useRef<number | null>(null);
 
   const cortarAnimacion = () => {
     if (animRef.current !== null) cancelAnimationFrame(animRef.current);
@@ -301,7 +297,7 @@ export function ImpactMapSvg({
     if (!a.movio) {
       a.movio = true;
       // La captura recién ahora: capturar en el pointerdown mandaría el clic
-      // al <svg> y ninguna burbuja respondería.
+      // al <svg> y ninguna localidad respondería.
       e.currentTarget.setPointerCapture(e.pointerId);
     }
     const u = unidadesPorPx();
@@ -376,65 +372,74 @@ export function ImpactMapSvg({
 
   // ---------- Geometría en pantalla ----------
 
-  // En pantallas chicas el mapa se dibuja a ~0,35 px por unidad y un nombre de
-  // 17 unidades quedaría en 6 px: se agranda hasta un mínimo legible de 12 px
-  // en escritorio y 11 px en el celular.
+  // Píxeles de pantalla por unidad del viewBox: los marcadores, anillos y
+  // rótulos se miden en píxeles (`u` los pasa a unidades).
   const [pxPorUnidad, setPxPorUnidad] = useState(0.65);
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
     const medir = () => {
-      const ancho = svg.getBoundingClientRect().width;
-      if (ancho > 0) setPxPorUnidad(Math.min(ancho / W, svg.getBoundingClientRect().height / H));
+      const r = svg.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) setPxPorUnidad(Math.min(r.width / W, r.height / H));
     };
     medir();
     const obs = new ResizeObserver(medir);
     obs.observe(svg);
     return () => obs.disconnect();
   }, [W, H]);
-  const minimoPx = pxPorUnidad >= 0.5 ? 12 : 11;
-  const tamRotulo = Math.max(BUBBLE_LABEL_SIZE, minimoPx / pxPorUnidad);
+  const u = 1 / pxPorUnidad;
+  const tamLocalidad = PX.rotuloLocalidad * u;
+  const tamDepto = PX.rotuloDepto * u;
 
-  const enPantalla = useMemo(
-    () => bubblesOnScreen(bubbles, view).filter((b) => isVisible(b.x, b.y, b.r, W, H)),
-    [bubbles, view, W, H],
+  // Marcadores en pantalla (posición con zoom, tamaño fijo) que caen en la vista.
+  const marcadores = useMemo(
+    () => markersOnScreen(points, view, PX.marcadorParaRotulos * u).filter((m) => isVisible(m.x, m.y, m.r, W, H)),
+    [points, view, u, W, H],
   );
 
-  // Sin zoom se nombran las del Top 5; con zoom, todas las visibles por orden
-  // de importancia: el anti-choque decide cuáles entran.
-  const idsConNombre = useMemo(
-    () =>
-      view.k <= MIN_ZOOM + 0.01
-        ? labeledIds
-        : [...enPantalla].sort((a, b) => b.value - a.value).map((b) => b.id),
-    [view.k, labeledIds, enPantalla],
-  );
-  const rotulos = useMemo(
-    () => placeBubbleLabels(enPantalla, idsConNombre, W, H, tamRotulo),
-    [enPantalla, idsConNombre, W, H, tamRotulo],
-  );
+  // Cuántos nombres: Top 5 a 1×, Top 10 desde 2×, todos los que entren desde 4×.
+  // La seleccionada va siempre primero (su rótulo se fuerza).
+  const idsConNombre = useMemo(() => {
+    const orden = marcadores.map((m) => m.id); // ya vienen de mayor a menor valor
+    const tope = view.k >= 4 ? orden.length : view.k >= 2 ? 10 : 5;
+    const ids = orden.slice(0, tope);
+    return selectedId && orden.includes(selectedId)
+      ? [selectedId, ...ids.filter((id) => id !== selectedId)]
+      : ids;
+  }, [marcadores, view.k, selectedId]);
 
-  // Los rótulos de departamento crecen un poco con el zoom (raíz, con tope) y
-  // se ubican en la primera posición candidata visible que no choque.
-  const escalaRotulo = Math.min(1.5, Math.sqrt(view.k));
+  // Rótulos de departamento: siempre, y se ubican primero. Primera posición
+  // candidata visible que no pisa un marcador; si ninguna, la primera visible.
   const rotulosDepto = useMemo(
     () =>
       GEO_DEPARTMENTS.map((d) => {
-        const w = d.label.width * escalaRotulo;
-        const h = d.label.height * escalaRotulo;
-        const candidatos = d.label.anchors
+        const lineas = d.label.lines;
+        const w = Math.max(...lineas.map((l) => textWidth(l, tamDepto) * 1.1)) + tamDepto;
+        const h = lineas.length * tamDepto * 1.25;
+        const caja = (p: { x: number; y: number }): Box => ({ x0: p.x - w / 2, y0: p.y - h / 2, x1: p.x + w / 2, y1: p.y + h / 2 });
+        const visibles = d.label.anchors
           .map(([x, y]) => toScreen(view, x, y))
-          .filter((p) => p.x - w / 2 >= 0 && p.x + w / 2 <= W && p.y - h / 2 >= 0 && p.y + h / 2 <= H)
-          .map((p) => [p.x, p.y] as const);
-        return { d, pos: pickDepartmentAnchor(candidatos, w, h, enPantalla, rotulos) };
+          .filter((p) => p.x - w / 2 >= 0 && p.x + w / 2 <= W && p.y - h / 2 >= 0 && p.y + h / 2 <= H);
+        const pos = visibles.find((p) => !marcadores.some((m) => boxTouchesCircle(caja(p), m))) ?? visibles[0] ?? null;
+        return { d, pos, caja: pos ? caja(pos) : null };
       }),
-    [view, escalaRotulo, enPantalla, rotulos, W, H],
+    [view, tamDepto, marcadores, W, H],
   );
 
-  const valorDepto = (nombre: string) => {
-    const f = departments.get(nombre);
-    return f ? metricValue(f, metric) : 0;
-  };
+  // Nombres de localidad: no pisan marcadores, otros nombres ni los rótulos de
+  // departamento (que se ubicaron antes).
+  const rotulos = useMemo(
+    () =>
+      placeBubbleLabels(
+        marcadores,
+        idsConNombre,
+        W,
+        H,
+        tamLocalidad,
+        rotulosDepto.flatMap((r) => (r.caja ? [r.caja] : [])),
+      ),
+    [marcadores, idsConNombre, W, H, tamLocalidad, rotulosDepto],
+  );
 
   const etiqueta = (id: string, nombre: string, tipo: keyof typeof KIND_LABELS) => {
     const m = mapped.get(id);
@@ -463,53 +468,48 @@ export function ImpactMapSvg({
   });
 
   const puntosSinDatos = showAll
-    ? TODAS.filter((t) => !bubbles.some((b) => b.id === t.id))
+    ? TODAS.filter((t) => !points.some((p) => p.id === t.id))
         .map((t) => ({ ...t, ...toScreen(view, t.x, t.y) }))
-        .filter((t) => isVisible(t.x, t.y, 4, W, H))
+        .filter((t) => isVisible(t.x, t.y, PX.sinDatos * u, W, H))
     : [];
 
-  // Resaltado: selección, hover y foco de teclado.
-  const activos = new Set([selectedId, hovered, focused].filter((x): x is string => x !== null));
-  const anillos = [...activos].flatMap((id) => {
-    const b = enPantalla.find((x) => x.id === id);
-    if (b) return [{ id, x: b.x, y: b.y, r: b.r }];
-    const t = puntosSinDatos.find((x) => x.id === id);
-    return t ? [{ id, x: t.x, y: t.y, r: 4 }] : [];
-  });
+  // Anillos: hover o foco (8 px) y selección (10 px), doble trazo blanco +
+  // azul marino para verse igual sobre el amarillo y sobre el azul.
+  const posicionDe = (id: string) =>
+    marcadores.find((m) => m.id === id) ?? puntosSinDatos.find((t) => t.id === id) ?? null;
+  const anillos = [
+    ...[hovered, focused]
+      .filter((id): id is string => id !== null && id !== selectedId)
+      .map((id) => ({ id, pos: posicionDe(id), r: PX.anilloFoco * u, fijo: false })),
+    ...(selectedId ? [{ id: selectedId, pos: posicionDe(selectedId), r: PX.anilloSeleccion * u, fijo: true }] : []),
+  ].filter((a, i, arr) => a.pos && arr.findIndex((b) => b.id === a.id) === i);
 
-  // Tooltip: localidad con hover o foco (si no es la seleccionada, que ya tiene
-  // su detalle); si no, el departamento bajo el mouse.
+  // Tooltip de la localidad con hover o foco (la seleccionada ya tiene su detalle).
   let tooltip: Tooltip | null = null;
   const idTooltip = hovered ?? focused;
   if (idTooltip && idTooltip !== selectedId) {
     const lugar = TODAS.find((t) => t.id === idTooltip);
-    const b = enPantalla.find((x) => x.id === idTooltip);
     const m = mapped.get(idTooltip);
     const valor = m ? metricValue(m.figures, metric) : 0;
     if (lugar) {
-      const p = b ?? toScreen(view, lugar.x, lugar.y);
+      const p = toScreen(view, lugar.x, lugar.y);
       tooltip = {
         x: p.x,
-        y: p.y - (b?.r ?? 5) - 8,
+        y: p.y - PX.anilloFoco * u - 6 * u,
         titulo: lugar.name,
         detalle: valor > 0 ? formatMetric(valor, metric) : 'sin participación',
       };
     }
-  } else if (hoveredDept) {
-    const r = rotulosDepto.find((x) => x.d.name === hoveredDept);
-    const ancla = r?.d.label.anchors[0];
-    const p = r?.pos ?? (ancla ? toScreen(view, ancla[0], ancla[1]) : { x: W / 2, y: H / 2 });
-    const valor = valorDepto(hoveredDept);
-    tooltip = {
-      x: p.x,
-      y: p.y - 16,
-      titulo: `Departamento ${hoveredDept}`,
-      detalle: valor > 0 ? formatMetric(valor, metric) : 'sin participación',
-    };
   }
 
   const inv = inverseScale(view);
   const hayZoom = view.k > MIN_ZOOM + 0.01;
+  const halo = {
+    stroke: AZUL_MARINO,
+    strokeWidth: PX.halo * u,
+    strokeLinejoin: 'round' as const,
+    paintOrder: 'stroke' as const,
+  };
 
   return (
     <>
@@ -525,7 +525,7 @@ export function ImpactMapSvg({
         style={{ touchAction: 'pan-x pan-y' }}
         tabIndex={0}
         role="group"
-        aria-label="Mapa de la provincia de Formosa. Los departamentos están coloreados según su participación y cada círculo es una localidad con atletas. Con el mapa enfocado: más y menos acercan, cero restablece y las flechas desplazan. Recorré las localidades con Tab y abrí el detalle con Enter."
+        aria-label={`Mapa de calor de ${metricInfo(metric).plural} por localidad; la tabla de más abajo tiene los mismos datos. Con el mapa enfocado: más y menos acercan, cero restablece y las flechas desplazan. Recorré las localidades con Tab y abrí el detalle con Enter.`}
         onKeyDown={alTeclado}
         onPointerDown={alBajar}
         onPointerMove={alMover}
@@ -535,52 +535,65 @@ export function ImpactMapSvg({
         onDoubleClick={alDobleClic}
       >
         <defs>
-          <pattern id={HATCH_ID} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="7" height="7" style={{ fill: NO_DATA_COLOR }} />
-            <line x1="0" y1="0" x2="0" y2="7" strokeWidth="1.5" style={{ stroke: NO_DATA_HATCH }} />
-          </pattern>
-          <filter id={SOMBRA_ID} x="-5%" y="-5%" width="110%" height="110%">
-            <feDropShadow dx="0" dy="4" stdDeviation="6" floodOpacity="0.16" style={{ floodColor: TINTA }} />
-          </filter>
-          <filter id={SOMBRA_ETIQUETA_ID} x="-10%" y="-20%" width="120%" height="160%">
-            <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodOpacity="0.22" style={{ floodColor: TINTA }} />
-          </filter>
+          {/* Recorte estricto: el calor no se pinta fuera de Formosa. */}
+          <clipPath id={RECORTE_ID}>
+            {GEO_DEPARTMENTS.map((d) => (
+              <path key={d.name} d={d.d} />
+            ))}
+          </clipPath>
+          {/* Afuera de la provincia: para dibujar sólo la mitad exterior del
+              contorno (los límites internos quedan tapados). */}
+          <mask id={AFUERA_ID} maskUnits="userSpaceOnUse" x={-W} y={-H} width={3 * W} height={3 * H}>
+            <rect x={-W} y={-H} width={3 * W} height={3 * H} fill="white" />
+            {GEO_DEPARTMENTS.map((d) => (
+              <path key={d.name} d={d.d} fill="black" />
+            ))}
+          </mask>
         </defs>
 
-        {/* Capa que escala con el zoom: departamentos y ejidos. Los trazos se
-            dividen por el zoom para mantener su grosor en pantalla. */}
-        <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
-          <g filter={`url(#${SOMBRA_ID})`} aria-hidden="true">
-            {GEO_DEPARTMENTS.map((d) => {
-              const valor = valorDepto(d.name);
-              return (
-                <path
-                  key={d.name}
-                  d={d.d}
-                  style={{ fill: valor > 0 ? heatColor(valor, departmentClasses) : `url(#${HATCH_ID})` }}
-                  stroke="white"
-                  strokeWidth={2 * inv}
-                  strokeLinejoin="round"
-                  onMouseEnter={() => setHoveredDept(d.name)}
-                  onMouseLeave={() => setHoveredDept(null)}
-                />
-              );
-            })}
+        {/* Capa que escala con el zoom. Los trazos se dividen por el zoom para
+            mantener su grosor en pantalla. */}
+        <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`} aria-hidden="true" pointerEvents="none">
+          {/* 1. Fondo uniforme de la provincia (= calor 0). */}
+          <g style={{ fill: AZUL_MARINO }}>
+            {GEO_DEPARTMENTS.map((d) => (
+              <path key={d.name} d={d.d} />
+            ))}
           </g>
 
-          <g aria-hidden="true" pointerEvents="none" fill="none" strokeOpacity={0.18} strokeWidth={0.8 * inv} style={{ stroke: TINTA }}>
-            {GEO_AREAS.map((a) => (
-              <path key={a.id} d={a.d} />
+          {/* 2. El calor, precalculado por métrica y recortado al contorno. */}
+          {urlCalor && (
+            <image
+              href={urlCalor}
+              x={0}
+              y={0}
+              width={W}
+              height={H}
+              preserveAspectRatio="none"
+              clipPath={`url(#${RECORTE_ID})`}
+            />
+          )}
+
+          {/* 3. Límites de departamento, finos y apenas visibles, encima del calor. */}
+          <g fill="none" strokeOpacity={0.55} strokeWidth={0.75 * inv} strokeLinejoin="round" style={{ stroke: LIMITE_DEPTO }}>
+            {GEO_DEPARTMENTS.map((d) => (
+              <path key={d.name} d={d.d} />
+            ))}
+          </g>
+
+          {/* 4. Contorno de la provincia: sólo la mitad de afuera del trazo. */}
+          <g fill="none" strokeWidth={2.5 * inv} strokeLinejoin="round" mask={`url(#${AFUERA_ID})`} style={{ stroke: AZUL_MARINO }}>
+            {GEO_DEPARTMENTS.map((d) => (
+              <path key={d.name} d={d.d} />
             ))}
           </g>
         </g>
 
-        {/* Rótulos de departamento: dentro del polígono, sin pisar burbujas. */}
+        {/* Rótulos de departamento: claros, en mayúsculas, con halo azul marino. */}
         <g aria-hidden="true" pointerEvents="none">
           {rotulosDepto.map(({ d, pos }) => {
             if (!pos) return null;
-            const tam = d.label.size * escalaRotulo;
-            const alto = tam * 1.2;
+            const alto = tamDepto * 1.2;
             const y0 = pos.y - ((d.label.lines.length - 1) * alto) / 2;
             return (
               <text
@@ -588,11 +601,12 @@ export function ImpactMapSvg({
                 x={pos.x}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={tam}
+                fontSize={tamDepto}
                 fontWeight={600}
-                letterSpacing={1.5}
-                // Color con contraste AA garantizado para el tono del fondo.
-                style={{ fill: heatLabelColor(valorDepto(d.name), departmentClasses) }}
+                letterSpacing={tamDepto * 0.06}
+                fillOpacity={0.9}
+                style={{ fill: ROTULO_DEPTO }}
+                {...halo}
               >
                 {d.label.lines.map((linea, i) => (
                   <tspan key={linea} x={pos.x} y={y0 + i * alto}>
@@ -604,82 +618,73 @@ export function ImpactMapSvg({
           })}
         </g>
 
-        {/* Localidades sin participación: sólo si se pidió "Mostrar todas". */}
+        {/* Localidades sin participación: anillos huecos, sólo si se pidió. */}
         {showAll && (
           <g>
             {puntosSinDatos.map((t) => (
-              <circle
-                key={t.id}
-                cx={t.x}
-                cy={t.y}
-                r={3.5}
-                stroke="white"
-                strokeWidth={1.2}
-                style={{ fill: PUNTO_SIN_DATOS }}
-                aria-label={etiqueta(t.id, t.name, t.kind)}
-                {...boton(t.id)}
-              />
+              <g key={t.id} aria-label={etiqueta(t.id, t.name, t.kind)} {...boton(t.id)}>
+                <circle cx={t.x} cy={t.y} r={PX.zonaDeClic * u} fill="transparent" />
+                <circle cx={t.x} cy={t.y} r={PX.sinDatos * u} fill="none" strokeWidth={u} style={{ stroke: SIN_DATOS }} />
+              </g>
             ))}
           </g>
         )}
 
-        {/* Burbujas: área = cantidad, color = concentración. Tamaño fijo en pantalla. */}
+        {/* Localidades con participación: marcador discreto + zona de clic de 24 px. */}
         <g>
-          {enPantalla.map((b) => {
-            const m = mapped.get(b.id);
-            const kind = m?.feature.feature.kind ?? 'MUNICIPIO';
+          {marcadores.map((m) => {
+            const kind = mapped.get(m.id)?.feature.feature.kind ?? 'MUNICIPIO';
             return (
-              <g key={b.id}>
-                {/* Contorno oscuro por fuera del borde blanco: separa el
-                    amarillo de los verdes claros. */}
+              <g key={m.id} aria-label={etiqueta(m.id, m.name, kind)} {...boton(m.id)}>
+                <circle cx={m.x} cy={m.y} r={PX.zonaDeClic * u} fill="transparent" />
                 <circle
-                  cx={b.x}
-                  cy={b.y}
-                  r={b.r + 1.6}
-                  fillOpacity={0.45}
-                  aria-hidden="true"
-                  pointerEvents="none"
-                  style={{ fill: CONTORNO_BURBUJA }}
-                />
-                <circle
-                  cx={b.x}
-                  cy={b.y}
-                  r={b.r}
-                  stroke="white"
-                  strokeWidth={1.75}
-                  style={{ fill: heatColor(b.value, bubbleClasses) }}
-                  aria-label={etiqueta(b.id, b.name, kind)}
-                  {...boton(b.id)}
+                  cx={m.x}
+                  cy={m.y}
+                  r={PX.marcador * u}
+                  fill="white"
+                  fillOpacity={0.9}
+                  strokeWidth={u}
+                  style={{ stroke: AZUL_MARINO }}
                 />
               </g>
             );
           })}
         </g>
 
-        {/* Nombres: los del Top 5 sin zoom; con zoom, todos los que entren. */}
+        {/* Anillos de hover, foco y selección. */}
+        <g aria-hidden="true" pointerEvents="none">
+          {anillos.map((a) =>
+            a.pos ? (
+              <g key={`${a.id}-${a.fijo ? 'sel' : 'foco'}`}>
+                <circle cx={a.pos.x} cy={a.pos.y} r={a.r + 2 * u} fill="none" strokeWidth={4 * u} style={{ stroke: AZUL_MARINO }} />
+                <circle cx={a.pos.x} cy={a.pos.y} r={a.r - u} fill="none" stroke="white" strokeWidth={2 * u} />
+                {/* Pulso único al seleccionar (no con movimiento reducido). */}
+                {a.fijo && !sinMovimiento && (
+                  <circle cx={a.pos.x} cy={a.pos.y} r={a.r} fill="none" stroke="white" strokeWidth={2 * u}>
+                    <animate attributeName="r" from={a.r} to={a.r + 12 * u} dur="0.6s" fill="freeze" />
+                    <animate attributeName="stroke-opacity" from="1" to="0" dur="0.6s" fill="freeze" />
+                  </circle>
+                )}
+              </g>
+            ) : null,
+          )}
+        </g>
+
+        {/* Nombres de localidad: blancos con halo, sin cajas. */}
         <g aria-hidden="true" pointerEvents="none">
           {rotulos.map((r) => (
-            <EtiquetaLocalidad key={r.id} rotulo={r} tamano={tamRotulo} activa={activos.has(r.id)} />
+            <RotuloLocalidad key={r.id} texto={r.text} x={r.x} y={r.y} tamano={tamLocalidad} halo={halo} />
           ))}
         </g>
 
-        {/* Resaltado de la localidad activa. */}
-        <g aria-hidden="true" pointerEvents="none">
-          {anillos.map((a) => (
-            <g key={a.id}>
-              <circle cx={a.x} cy={a.y} r={a.r + 4} fill="none" stroke="white" strokeWidth={4} />
-              <circle cx={a.x} cy={a.y} r={a.r + 4} fill="none" strokeWidth={2.5} style={{ stroke: TINTA }} />
-            </g>
-          ))}
-        </g>
-
-        {tooltip && <MapTooltip {...tooltip} ancho={W} />}
+        {tooltip && <MapTooltip {...tooltip} ancho={W} u={u} />}
       </svg>
 
-      {/* Controles de zoom, en una esquina que la diagonal deja libre. */}
-      {/* En el celular van abajo a la izquierda (los controles del mapa quedan
-          debajo, así que esa esquina está libre); desde tablet, abajo a la derecha. */}
-      <div className="absolute bottom-2 left-2 flex flex-col gap-1 md:left-auto md:right-2" role="group" aria-label="Zoom del mapa">
+      {/* Controles: pantalla completa arriba de la pila de zoom. En el celular
+          abajo a la izquierda (esquina SO, libre por la diagonal); desde tablet
+          arriba a la derecha (esquina NE, libre ahora que la leyenda va abajo). */}
+      <div className="absolute bottom-2 left-2 flex flex-row gap-1 md:bottom-auto md:left-auto md:right-2 md:top-2 md:flex-col" role="group" aria-label="Zoom del mapa">
+        {extraControl}
         <BotonZoom etiqueta="Acercar" disabled={view.k >= MAX_ZOOM - 0.01} onClick={() => acercar(ZOOM_STEP)}>
           <Plus className="h-4 w-4" aria-hidden="true" />
         </BotonZoom>
@@ -707,6 +712,42 @@ export function ImpactMapSvg({
   );
 }
 
+/**
+ * Nombre de una localidad: **blanco con halo azul marino**, sin caja. El halo
+ * es obligatorio: blanco sobre el amarillo del calor da 1,26:1; con el halo
+ * cada letra queda sobre azul marino (16,35:1) en toda la rampa.
+ *
+ * `check:map` verifica que use halo y que no use opacidad ni cajas.
+ */
+function RotuloLocalidad({
+  texto,
+  x,
+  y,
+  tamano,
+  halo,
+}: {
+  texto: string;
+  x: number;
+  y: number;
+  tamano: number;
+  halo: { stroke: string; strokeWidth: number; strokeLinejoin: 'round'; paintOrder: 'stroke' };
+}) {
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={tamano}
+      fontWeight={600}
+      fill="white"
+      {...halo}
+    >
+      {texto}
+    </text>
+  );
+}
+
 function BotonZoom({
   etiqueta,
   disabled,
@@ -725,78 +766,28 @@ function BotonZoom({
       title={etiqueta}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary-100 bg-white/90 text-primary-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500 disabled:cursor-default disabled:opacity-40"
+      className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-100 bg-white/90 text-primary-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500 disabled:cursor-default disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
     >
       {children}
     </button>
   );
 }
 
-/**
- * Etiqueta de una localidad: fondo blanco sólido con borde fino, esquinas
- * redondeadas y texto primary-900 en semibold. **Sin opacidades parciales ni
- * halo**: sobre los verdes oscuros el halo blanco se lavaba y el nombre se
- * "transparentaba". Un conector corto la une a su burbuja; si la burbuja está
- * activa (hover, foco o selección) la etiqueta se remarca también.
- *
- * `check:map` verifica que esta función no use opacidad.
- */
-function EtiquetaLocalidad({ rotulo, tamano, activa }: { rotulo: PlacedLabel; tamano: number; activa: boolean }) {
-  const { box } = rotulo;
-  const w = box.x1 - box.x0;
-  const h = box.y1 - box.y0;
-  // El conector va del borde de la burbuja al punto más cercano de la caja.
-  const hastaX = Math.max(box.x0, Math.min(rotulo.from.x, box.x1));
-  const hastaY = Math.max(box.y0, Math.min(rotulo.from.y, box.y1));
-  return (
-    <g>
-      <line
-        x1={rotulo.from.x}
-        y1={rotulo.from.y}
-        x2={hastaX}
-        y2={hastaY}
-        strokeWidth={activa ? 2.5 : 1.5}
-        style={{ stroke: activa ? TINTA : BORDE_ETIQUETA_ACTIVA }}
-      />
-      <rect
-        x={box.x0}
-        y={box.y0}
-        width={w}
-        height={h}
-        rx={h * 0.3}
-        fill="white"
-        strokeWidth={activa ? 2.5 : 1.25}
-        filter={`url(#${SOMBRA_ETIQUETA_ID})`}
-        style={{ stroke: activa ? TINTA : BORDE_ETIQUETA }}
-      />
-      <text
-        x={rotulo.x}
-        y={rotulo.y}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize={tamano}
-        fontWeight={600}
-        style={{ fill: TINTA }}
-      >
-        {rotulo.text}
-      </text>
-    </g>
-  );
-}
-
-/** Tooltip dibujado dentro del SVG, así escala y se posiciona con el mapa. */
-function MapTooltip({ x, y, titulo, detalle, ancho }: Tooltip & { ancho: number }) {
-  const w = Math.max(textWidth(titulo, 22), textWidth(detalle, 19)) + 32;
-  const h = 66;
+/** Tooltip dibujado dentro del SVG, a tamaño fijo en pantalla. */
+function MapTooltip({ x, y, titulo, detalle, ancho, u }: Tooltip & { ancho: number; u: number }) {
+  const t1 = 14 * u;
+  const t2 = 12 * u;
+  const w = Math.max(textWidth(titulo, t1), textWidth(detalle, t2)) + 20 * u;
+  const h = 44 * u;
   const x0 = Math.min(ancho - w - 4, Math.max(4, x - w / 2));
   const y0 = Math.max(4, y - h);
   return (
     <g aria-hidden="true" pointerEvents="none">
-      <rect x={x0} y={y0} width={w} height={h} rx={10} fillOpacity={0.95} style={{ fill: TINTA }} />
-      <text x={x0 + 16} y={y0 + 27} fontSize={22} fontWeight={700} fill="white">
+      <rect x={x0} y={y0} width={w} height={h} rx={8 * u} style={{ fill: AZUL_MARINO }} />
+      <text x={x0 + 10 * u} y={y0 + 18 * u} fontSize={t1} fontWeight={700} fill="white">
         {titulo}
       </text>
-      <text x={x0 + 16} y={y0 + 52} fontSize={19} style={{ fill: TINTA_SUAVE }}>
+      <text x={x0 + 10 * u} y={y0 + 35 * u} fontSize={t2} style={{ fill: TOOLTIP_SUAVE }}>
         {detalle}
       </text>
     </g>

@@ -361,157 +361,115 @@ export function topLocalities(
 }
 
 // -------------------------------------------------
-// 3. Escala de color (cuantiles, un solo tono)
+// 3. Rampa de calor
 // -------------------------------------------------
 
 /**
  * Los colores del mapa salen de los **tokens del tema** (`@theme` de
  * `src/index.css`), nunca de hex sueltos: si cambia la marca, cambia el mapa.
- * Se usan como `var(--color-…)` en estilos inline del SVG y de las muestras.
+ * Se usan como `var(--color-…)` en estilos inline del SVG y de la leyenda; el
+ * coloreado del calor (que pinta píxeles en un canvas) resuelve los hex en el
+ * navegador con `getComputedStyle`.
  */
 export type ThemeToken =
-  | 'primary-50' | 'primary-100' | 'primary-200' | 'primary-300' | 'primary-500'
+  | 'primary-50' | 'primary-100' | 'primary-200' | 'primary-300' | 'primary-400' | 'primary-500'
   | 'primary-600' | 'primary-700' | 'primary-800' | 'primary-900'
-  | 'secondary-100' | 'secondary-300' | 'secondary-400' | 'secondary-500'
-  | 'secondary-700' | 'secondary-800' | 'secondary-900'
-  | 'celeste-200' | 'celeste-400' | 'celeste-700'
-  | 'accent-400' | 'accent-500' | 'accent-700'
-  | 'heat-orange'
-  | 'destructive-600'
-  | 'surface-muted';
+  | 'celeste-100' | 'celeste-300' | 'celeste-700'
+  | 'heat-teal' | 'heat-green' | 'heat-lime' | 'heat-yellow'
+  | 'surface';
 
 /** `'primary-500'` → `'var(--color-primary-500)'`. */
 export const themeColor = (token: ThemeToken) => `var(--color-${token})`;
 
 /**
- * Rampa secuencial de la coropleta: la escala SECONDARY (verde institucional),
- * de poco (secondary-100) a mucho (secondary-700). Se saltea secondary-200:
- * contra secondary-100 no se distinguía lo suficiente. Varía en luminosidad,
- * así que se lee igual con daltonismo; `check:map` verifica que tonos
- * vecinos se distingan.
- *
- * Cada tono trae el color de rótulo que le da contraste AA (≥ 4,5:1 con texto
- * chico), también verificado por `check:map` contra los hex del tema.
+ * Rampa del calor: siete paradas de luminancia siempre creciente, del azul
+ * marino del fondo (sin calor) al amarillo del máximo, tipo "viridis". Se lee
+ * por luminosidad y por el eje azul → amarillo, que se distingue bien con
+ * daltonismo; no tiene rojos. `check:map` verifica que la luminancia crezca en
+ * cada parada y que paradas vecinas se distingan (≥ 1,3:1).
  */
-export const HEAT_RAMP: ReadonlyArray<{ tone: ThemeToken; label: ThemeToken | 'white' }> = [
-  { tone: 'secondary-100', label: 'secondary-800' },
-  { tone: 'secondary-300', label: 'secondary-900' },
-  { tone: 'secondary-400', label: 'secondary-900' },
-  { tone: 'secondary-500', label: 'white' },
-  { tone: 'secondary-700', label: 'white' },
+export const HEAT_STOPS: ReadonlyArray<{ t: number; token: ThemeToken }> = [
+  { t: 0, token: 'primary-900' },
+  { t: 0.15, token: 'primary-600' },
+  { t: 0.3, token: 'primary-500' },
+  { t: 0.5, token: 'heat-teal' },
+  { t: 0.68, token: 'heat-green' },
+  { t: 0.84, token: 'heat-lime' },
+  { t: 1, token: 'heat-yellow' },
 ];
 
-export const HEAT_COLORS = HEAT_RAMP.map((t) => themeColor(t.tone));
+/** Gradiente CSS de la rampa, para la barra de la leyenda. */
+export const HEAT_GRADIENT_CSS = `linear-gradient(to right, ${HEAT_STOPS.map(
+  (s) => `${themeColor(s.token)} ${Math.round(s.t * 100)}%`,
+).join(', ')})`;
+
+/** Fondo de la provincia (= calor 0) y color del halo de los rótulos. */
+export const PROVINCE_FILL: ThemeToken = 'primary-900';
 
 /**
- * "Sin participación": surface-muted con rayado celeste en el SVG. Tiene que
- * leerse como "no hay dato", no como "poquito".
+ * Ancho de la difusión: σ = 22 unidades del viewBox (≈ 11 km). Es geográfico:
+ * escala con el zoom (a 8× la mancha ocupa 8 veces más píxeles) y no se
+ * recalcula por vista. El núcleo se corta en 3σ.
  */
-export const NO_DATA_TOKEN: ThemeToken = 'surface-muted';
-export const NO_DATA_COLOR = themeColor(NO_DATA_TOKEN);
-export const NO_DATA_HATCH = themeColor('celeste-200');
-export const NO_DATA_LABEL: ThemeToken = 'celeste-700';
+export const HEAT_SIGMA = 22;
+export const HEAT_CUTOFF = 3 * HEAT_SIGMA;
+
+/** Piso del peso: una localidad con 1 se ve al menos azul, no "como si no hubiera participado". */
+export const HEAT_MIN_WEIGHT = 0.25;
+
+/** Por debajo de este calor el píxel es transparente; hasta `HEAT_ALPHA_FULL` se funde. */
+export const HEAT_ALPHA_START = 0.04;
+export const HEAT_ALPHA_FULL = 0.15;
 
 /**
- * Burbujas de localidad: de amarillo (poca concentración) a rojo (mucha),
- * pasando por un naranja propio del mapa (`--color-heat-orange` en el tema).
- * Tres clases por cuantiles, igual que la coropleta. Con un solo valor (la seed:
- * 13 en todas) sale una sola clase y todas se ven del mismo color.
+ * Peso de una localidad: `0,25 + 0,75 · √(v / vMax)`. La raíz evita que la
+ * capital apague a todas; el piso, que una localidad chica desaparezca. Cero
+ * (o sin máximo) → 0: no genera calor.
  */
-export const BUBBLE_RAMP_TOKENS: readonly ThemeToken[] = ['accent-400', 'heat-orange', 'destructive-600'];
-export const BUBBLE_RAMP = BUBBLE_RAMP_TOKENS.map(themeColor);
+export function heatWeight(valor: number, maximo: number): number {
+  if (valor <= 0 || maximo <= 0) return 0;
+  return HEAT_MIN_WEIGHT + (1 - HEAT_MIN_WEIGHT) * Math.sqrt(Math.min(1, valor / maximo));
+}
 
-/**
- * Anillo exterior de las burbujas, por fuera del borde blanco: sobre los verdes
- * claros el blanco solo no alcanza para separar un amarillo del fondo.
- */
-export const BUBBLE_OUTLINE: ThemeToken = 'primary-900';
+/** Opacidad del píxel según su calor: transparente abajo del umbral, sin borde duro. */
+export function heatAlpha(t: number): number {
+  if (t < HEAT_ALPHA_START) return 0;
+  if (t >= HEAT_ALPHA_FULL) return 1;
+  return (t - HEAT_ALPHA_START) / (HEAT_ALPHA_FULL - HEAT_ALPHA_START);
+}
 
-/** Color de rótulo (AA) que corresponde al tono de un valor. */
-export function heatLabelColor(valor: number, clases: readonly HeatClass[]): string {
-  const color = heatColor(valor, clases);
-  const tono = HEAT_RAMP.find((t) => themeColor(t.tone) === color);
-  const label = tono ? tono.label : NO_DATA_LABEL;
-  return label === 'white' ? 'white' : themeColor(label);
+/** `#rrggbb` → `[r, g, b]`. Lo que no es un hex de 6 dígitos da negro. */
+export function hexToRgb(hex: string): [number, number, number] {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return [0, 0, 0];
+  const n = parseInt(m[1]!, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
 /**
- * Qué posiciones de una rampa de `m` tonos se usan para `n` clases: los
- * extremos siempre (poco = claro, mucho = oscuro) y el resto repartido. Una
- * sola clase toma el tono del medio, que no afirma "poco" ni "mucho".
+ * Tabla de 256 colores interpolados entre las paradas (en el orden de
+ * `HEAT_STOPS`), como `[r0, g0, b0, r1, …]`. El colorizador la indexa con
+ * `round(t · 255)`.
  */
-export function rampIndices(n: number, m: number): number[] {
-  if (n <= 0) return [];
-  if (n === 1) return [Math.floor((m - 1) / 2)];
-  return Array.from({ length: n }, (_, i) => Math.round((i * (m - 1)) / (n - 1)));
-}
-
-export interface HeatClass {
-  /** Límites inclusivos, en enteros. */
-  from: number;
-  to: number;
-  color: string;
-  /** "1 a 4", "12". */
-  label: string;
-}
-
-export const MAX_HEAT_CLASSES = 5;
-
-/**
- * Clases por cuantiles sobre los valores **positivos**.
- *
- * Los cortes son valores reales de los datos y los rangos quedan contiguos en
- * enteros ("1 a 4", "5 a 11", …), que es lo que una autoridad puede leer sin
- * explicación. Si hay menos valores distintos que clases, hay una clase por
- * valor. Todo en cero → ninguna clase (el mapa entero es "sin participación").
- */
-export function computeHeatClasses(
-  valores: readonly number[],
-  rampa: readonly string[] = HEAT_COLORS,
-): HeatClass[] {
-  const positivos = valores.filter((v) => v > 0).sort((a, b) => a - b);
-  if (positivos.length === 0) return [];
-
-  const distintos = new Set(positivos).size;
-  const k = Math.min(MAX_HEAT_CLASSES, rampa.length, distintos);
-
-  // Umbral inferior de cada clase: el valor en el cuantil i/k. Si ese valor
-  // repite el corte anterior (muchos valores iguales), se toma el siguiente
-  // valor distinto, así no quedan clases vacías ni se pierde el extremo alto.
-  const cortes: number[] = [positivos[0]!];
-  for (let i = 1; i < k; i++) {
-    const ultimo = cortes[cortes.length - 1]!;
-    const enCuantil = positivos[Math.floor((i * positivos.length) / k)] ?? ultimo;
-    const v = enCuantil > ultimo ? enCuantil : positivos.find((x) => x > ultimo);
-    if (v !== undefined) cortes.push(v);
+export function buildColorTable(hexes: readonly string[]): Uint8ClampedArray {
+  const rgb = hexes.map(hexToRgb);
+  const tabla = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255;
+    let j = 0;
+    while (j < HEAT_STOPS.length - 2 && t > HEAT_STOPS[j + 1]!.t) j++;
+    const a = HEAT_STOPS[j]!;
+    const b = HEAT_STOPS[j + 1]!;
+    const f = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+    const ca = rgb[j] ?? [0, 0, 0];
+    const cb = rgb[j + 1] ?? ca;
+    for (let k = 0; k < 3; k++) tabla[i * 3 + k] = ca[k]! + (cb[k]! - ca[k]!) * f;
   }
-  const max = positivos[positivos.length - 1]!;
-  const tonos = rampIndices(cortes.length, rampa.length);
-
-  return cortes.map((from, i) => {
-    const siguiente = cortes[i + 1];
-    const to = siguiente === undefined ? max : siguiente - 1;
-    return {
-      from,
-      to,
-      color: rampa[tonos[i] ?? rampa.length - 1] ?? NO_DATA_COLOR,
-      label: from === to ? from.toLocaleString('es-AR') : `${from.toLocaleString('es-AR')} a ${to.toLocaleString('es-AR')}`,
-    };
-  });
-}
-
-/** Color de un valor según las clases. Cero (o sin clases) → gris "sin participación". */
-export function heatColor(valor: number, clases: readonly HeatClass[]): string {
-  if (valor <= 0) return NO_DATA_COLOR;
-  for (let i = clases.length - 1; i >= 0; i--) {
-    const c = clases[i]!;
-    if (valor >= c.from) return c.color;
-  }
-  return NO_DATA_COLOR;
+  return tabla;
 }
 
 // -------------------------------------------------
-// 4. Coropleta por departamento
+// 4. Totales por departamento
 // -------------------------------------------------
 
 /** Nombre normalizado → nombre oficial del departamento en el mapa del IGN. */
@@ -525,7 +483,7 @@ export function matchDepartment(nombre: string): string | null {
 }
 
 /**
- * Totales por departamento, que pintan la capa de fondo del mapa.
+ * Totales por departamento, para el ranking "Por departamento" del panel.
  *
  * Una localidad ubicada aporta al departamento **del mapa** (el del IGN, que es
  * la autoridad geográfica); una sin ubicación aporta al departamento que dice la
@@ -550,23 +508,8 @@ export function departmentTotals(model: LocalityMapModel): Map<string, LocalityF
 }
 
 // -------------------------------------------------
-// 5. Burbujas por localidad
+// 5. Puntos de calor y campo de calor
 // -------------------------------------------------
-
-/** Radios en unidades del viewBox (1000 de ancho). */
-export const BUBBLE_MIN_RADIUS = 5;
-export const BUBBLE_MAX_RADIUS = 13;
-
-/**
- * Radio con **área** proporcional al valor (por eso la raíz cuadrada): una
- * localidad con el cuádruple de atletas tiene el doble de radio, no el
- * cuádruple. Con un piso para que la más chica se pueda tocar. Cero → 0: no se
- * dibuja.
- */
-export function bubbleRadius(valor: number, maximo: number): number {
-  if (valor <= 0 || maximo <= 0) return 0;
-  return Math.max(BUBBLE_MIN_RADIUS, BUBBLE_MAX_RADIUS * Math.sqrt(valor / maximo));
-}
 
 /** Dónde se dibuja una localidad: su punto oficial. */
 export function featureAnchor(f: MapFeature): { x: number; y: number } {
@@ -575,124 +518,120 @@ export function featureAnchor(f: MapFeature): { x: number; y: number } {
     : { x: f.feature.x, y: f.feature.y };
 }
 
-export interface Bubble {
+/** Una localidad con participación en la métrica: genera calor. */
+export interface HeatPoint {
   id: string;
   name: string;
   x: number;
   y: number;
-  r: number;
+  /** Valor real de la métrica (> 0). */
   value: number;
+  /** Peso del calor, de 0,25 a 1 (`heatWeight`). */
+  weight: number;
 }
 
 /**
- * Las burbujas a dibujar: **sólo** las localidades con valor mayor a cero en la
- * métrica. Ordenadas de mayor a menor radio, que es el orden de pintado (las
- * chicas quedan encima y se pueden tocar).
+ * Las localidades que generan calor: **sólo** las ubicadas con valor > 0 en la
+ * métrica, de mayor a menor (que es también el orden de importancia de sus
+ * nombres). Con un solo valor distinto todas pesan 1.
  */
-export function buildBubbles(
-  model: LocalityMapModel,
-  metric: MapMetric,
-  { separate = true }: { separate?: boolean } = {},
-): Bubble[] {
+export function buildHeatPoints(model: LocalityMapModel, metric: MapMetric): HeatPoint[] {
   const conValor = [...model.mapped.values()]
     .map((m) => ({ m, value: metricValue(m.figures, metric) }))
     .filter((x) => x.value > 0);
   const maximo = Math.max(0, ...conValor.map((x) => x.value));
-  const burbujas = conValor
+  return conValor
     .map(({ m, value }) => ({
       id: m.feature.feature.id,
       name: m.feature.feature.name,
       ...featureAnchor(m.feature),
-      r: bubbleRadius(value, maximo),
       value,
+      weight: heatWeight(value, maximo),
     }))
-    .sort((a, b) => b.r - a.r || a.name.localeCompare(b.name, 'es'));
-  // Con zoom, la separación se hace en coordenadas de pantalla (ver
-  // `bubblesOnScreen` en mapZoom.ts): el mapa pide las posiciones reales.
-  return separate ? separateBubbles(burbujas) : burbujas;
+    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'es'));
+}
+
+/** Mínimo y máximo reales de la métrica entre las localidades con calor. */
+export function heatValueRange(puntos: readonly HeatPoint[]): { min: number; max: number } | null {
+  if (puntos.length === 0) return null;
+  const valores = puntos.map((p) => p.value);
+  return { min: Math.min(...valores), max: Math.max(...valores) };
 }
 
 /**
- * Valores de referencia para la leyenda de tamaños, tomados de los **datos
- * reales**: el máximo y, si hay variedad, el mínimo y un valor intermedio que
- * exista. Nunca un número que no esté en el mapa (con todas las localidades en
- * 13, la leyenda muestra sólo 13).
+ * Campo de calor sobre una grilla de `round(W·escala) × round(H·escala)`
+ * celdas, con valores de 0 a 1.
  *
- * Un intermedio cuyo círculo casi no se distingue de un vecino se descarta.
- */
-export function bubbleLegendValues(valores: readonly number[]): number[] {
-  const distintos = [...new Set(valores.filter((v) => v > 0))].sort((a, b) => b - a);
-  const maximo = distintos[0];
-  if (maximo === undefined) return [];
-  const minimo = distintos[distintos.length - 1]!;
-  if (minimo === maximo) return [maximo];
-  const medio = distintos[Math.floor(distintos.length / 2)];
-  const r = (v: number) => bubbleRadius(v, maximo);
-  const conMedio =
-    medio !== undefined &&
-    medio !== maximo &&
-    medio !== minimo &&
-    r(maximo) - r(medio) >= 3 &&
-    r(medio) - r(minimo) >= 3;
-  return conMedio ? [maximo, medio, minimo] : [maximo, minimo];
-}
-
-/** Cuánto pueden encimarse dos burbujas, como fracción del radio menor. */
-export const BUBBLE_MAX_OVERLAP = 0.25;
-/** Cuánto se puede correr una burbuja de su lugar real, en radios propios. */
-export const BUBBLE_MAX_SHIFT = 1.1;
-
-/**
- * Separación simple de burbujas: dos localidades vecinas (Ibarreta y
- * Comandante Fontana, a 15 unidades) no pueden taparse casi enteras.
+ * Decisión del usuario: **cada localidad brilla según su propio valor; las
+ * manchas no se suman**. El calor de una celda es el máximo, sobre las
+ * localidades, de `peso · gaussiana(distancia)`: cinco pueblos chicos juntos
+ * nunca llegan al amarillo de la capital. Como el peso máximo es 1, el centro de
+ * la localidad máxima vale exactamente 1 (amarillo) y no hace falta normalizar.
  *
- * Relajación iterativa: cada par que se encima más de lo tolerado se empuja
- * sobre la recta que los une, mitad y mitad. El corrimiento queda acotado a
- * `BUBBLE_MAX_SHIFT` radios de su punto real, así ninguna se va de su zona.
- * Determinista: mismo dato, mismo dibujo.
+ * Puro (sin DOM): lo ejercita `check:map`. Cada localidad recorre sólo la caja
+ * de su núcleo (3σ).
  */
-export function separateBubbles(burbujas: readonly Bubble[]): Bubble[] {
-  const pos = burbujas.map((b) => ({ ...b }));
-  for (let iter = 0; iter < 60; iter++) {
-    let movio = false;
-    for (let i = 0; i < pos.length; i++) {
-      for (let j = i + 1; j < pos.length; j++) {
-        const a = pos[i]!;
-        const b = pos[j]!;
-        const minimo = a.r + b.r - BUBBLE_MAX_OVERLAP * Math.min(a.r, b.r);
-        let dx = b.x - a.x;
-        let dy = b.y - a.y;
-        let d = Math.hypot(dx, dy);
-        if (d >= minimo - 0.01) continue;
-        if (d < 0.001) {
-          // Mismo punto: se separan en horizontal, en un sentido fijo.
-          dx = 1;
-          dy = 0;
-          d = 1;
-        }
-        const empuje = (minimo - d) / 2;
-        a.x -= (dx / d) * empuje;
-        a.y -= (dy / d) * empuje;
-        b.x += (dx / d) * empuje;
-        b.y += (dy / d) * empuje;
-        movio = true;
+export function computeHeatField(
+  puntos: readonly HeatPoint[],
+  ancho: number,
+  alto: number,
+  escala: number,
+): { data: Float32Array; width: number; height: number } {
+  const width = Math.max(1, Math.round(ancho * escala));
+  const height = Math.max(1, Math.round(alto * escala));
+  const data = new Float32Array(width * height);
+  const dosSigma2 = 2 * HEAT_SIGMA * HEAT_SIGMA;
+  const corte2 = HEAT_CUTOFF * HEAT_CUTOFF;
+
+  for (const p of puntos) {
+    if (p.weight <= 0) continue;
+    const x0 = Math.max(0, Math.floor((p.x - HEAT_CUTOFF) * escala));
+    const x1 = Math.min(width - 1, Math.ceil((p.x + HEAT_CUTOFF) * escala));
+    const y0 = Math.max(0, Math.floor((p.y - HEAT_CUTOFF) * escala));
+    const y1 = Math.min(height - 1, Math.ceil((p.y + HEAT_CUTOFF) * escala));
+    for (let j = y0; j <= y1; j++) {
+      const dy = (j + 0.5) / escala - p.y;
+      const fila = j * width;
+      for (let i = x0; i <= x1; i++) {
+        const dx = (i + 0.5) / escala - p.x;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > corte2) continue;
+        const v = p.weight * Math.exp(-d2 / dosSigma2);
+        if (v > data[fila + i]!) data[fila + i] = v;
       }
     }
-    // Tope de corrimiento respecto del punto real.
-    pos.forEach((p, k) => {
-      const orig = burbujas[k]!;
-      const tope = BUBBLE_MAX_SHIFT * orig.r;
-      const ox = p.x - orig.x;
-      const oy = p.y - orig.y;
-      const dist = Math.hypot(ox, oy);
-      if (dist > tope) {
-        p.x = orig.x + (ox / dist) * tope;
-        p.y = orig.y + (oy / dist) * tope;
-      }
-    });
-    if (!movio) break;
   }
-  return pos.map((p) => ({ ...p, x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10 }));
+  return { data, width, height };
+}
+
+/** Calor en un punto del viewBox (para pruebas y para el centro de cada mancha). */
+export function heatAt(puntos: readonly HeatPoint[], x: number, y: number): number {
+  let max = 0;
+  for (const p of puntos) {
+    const d2 = (p.x - x) ** 2 + (p.y - y) ** 2;
+    if (d2 > HEAT_CUTOFF * HEAT_CUTOFF) continue;
+    max = Math.max(max, p.weight * Math.exp(-d2 / (2 * HEAT_SIGMA * HEAT_SIGMA)));
+  }
+  return Math.min(1, max);
+}
+
+/**
+ * Píxeles RGBA del calor: cada celda toma su color de la tabla y su opacidad
+ * del umbral (`heatAlpha`). Puro: el componente sólo lo vuelca a un canvas.
+ */
+export function colorizeHeatField(field: Float32Array, tabla: Uint8ClampedArray): Uint8ClampedArray<ArrayBuffer> {
+  const px = new Uint8ClampedArray(field.length * 4);
+  for (let i = 0; i < field.length; i++) {
+    const t = Math.min(1, field[i]!);
+    const a = heatAlpha(t);
+    if (a === 0) continue;
+    const k = Math.round(t * 255) * 3;
+    px[i * 4] = tabla[k]!;
+    px[i * 4 + 1] = tabla[k + 1]!;
+    px[i * 4 + 2] = tabla[k + 2]!;
+    px[i * 4 + 3] = Math.round(a * 255);
+  }
+  return px;
 }
 
 // -------------------------------------------------
@@ -711,6 +650,19 @@ export function textWidth(texto: string, tamano: number): number {
   return texto.length * tamano * 0.62;
 }
 
+/**
+ * Un marcador de localidad en pantalla, como círculo: lo que los rótulos no
+ * pueden tapar.
+ */
+export interface MapMarker {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  r: number;
+  value: number;
+}
+
 export const boxesOverlap = (a: Box, b: Box) =>
   a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 
@@ -723,65 +675,66 @@ export function boxTouchesCircle(c: Box, b: { x: number; y: number; r: number })
 export interface PlacedLabel {
   id: string;
   text: string;
-  /** Centro de la etiqueta (el texto va centrado). */
+  /** Centro del rótulo (el texto va centrado). */
   x: number;
   y: number;
-  /** Caja completa de la etiqueta, fondo incluido. */
+  /** Caja que ocupa el rótulo, halo incluido. */
   box: Box;
-  /** Punto del borde de la burbuja donde nace el conector. */
-  from: { x: number; y: number };
 }
 
-export const BUBBLE_LABEL_SIZE = 17;
+/** Tamaño de letra por defecto de los rótulos, en unidades del viewBox. */
+export const DEFAULT_LABEL_SIZE = 17;
 
 /**
- * Medidas de la etiqueta de localidad (fondo blanco con borde): el texto más
- * el relleno. Se usa igual para ubicarla y para dibujarla, así lo que el
- * anti-choque cree que ocupa es lo que realmente ocupa.
+ * Medidas del rótulo de una localidad: el texto más el margen del halo. Se usa
+ * igual para ubicarlo y para dibujarlo, así lo que el anti-choque cree que
+ * ocupa es lo que realmente ocupa.
  */
 export function labelBoxSize(texto: string, tamano: number): { w: number; h: number; padX: number } {
-  const padX = tamano * 0.5;
-  return { w: textWidth(texto, tamano) + 2 * padX, h: tamano * 1.6, padX };
+  const padX = tamano * 0.25;
+  return { w: textWidth(texto, tamano) + 2 * padX, h: tamano * 1.4, padX };
 }
 
 /**
- * Nombres de las localidades junto a su burbuja, como etiquetas sin encimarse.
+ * Nombres de las localidades junto a su marcador, sin encimarse.
  *
- * Greedy: en orden de importancia, cada etiqueta prueba ocho posiciones
- * pegadas a su burbuja (derecha, izquierda, arriba, abajo y las diagonales) y
- * se queda con la primera que no pisa otra etiqueta, otra burbuja ni se sale
- * del mapa. Si ninguna sirve, se omite (el nombre sigue en el tooltip, el Top
- * 5 y la tabla). Con zoom las burbujas se separan y entran más.
+ * Greedy: en orden de importancia, cada rótulo prueba ocho posiciones pegadas
+ * a su marcador (derecha, izquierda, arriba, abajo y las diagonales) y se queda
+ * con la primera que no pisa otro rótulo, otro marcador ni se sale del mapa. Si
+ * ninguna sirve, se omite (el nombre sigue en el tooltip, el Top 5 y la tabla).
+ * Con zoom los marcadores se separan y entran más.
  */
 export function placeBubbleLabels(
-  burbujas: readonly Bubble[],
+  burbujas: readonly MapMarker[],
   ids: readonly string[],
   ancho: number,
   alto: number,
   /** Tamaño de letra en unidades del viewBox (más grande en pantallas chicas). */
-  tamano: number = BUBBLE_LABEL_SIZE,
+  tamano: number = DEFAULT_LABEL_SIZE,
+  /** Cajas ya ocupadas que los nombres no pueden pisar (los rótulos de departamento). */
+  ocupadas: readonly Box[] = [],
 ): PlacedLabel[] {
   const colocados: PlacedLabel[] = [];
   for (const id of ids) {
     const b = burbujas.find((x) => x.id === id);
     if (!b) continue;
     const { w, h } = labelBoxSize(b.name, tamano);
-    // Separación corta: la etiqueta queda pegada a su burbuja y el conector
-    // cubre el hueco, así no hay duda de a quién pertenece.
-    const sep = Math.max(4, tamano * 0.35);
+    // Separación corta: el rótulo queda pegado a su marcador, así no hay duda
+    // de a quién pertenece.
+    const sep = Math.max(2, tamano * 0.2);
     const d = b.r + sep;
     const diag = (b.r + sep) * Math.SQRT1_2;
     const caja = (cx: number, cy: number): Box => ({ x0: cx - w / 2, y0: cy - h / 2, x1: cx + w / 2, y1: cy + h / 2 });
     // Centro de la caja para cada dirección (la caja toca el punto `d`).
-    const candidatos: Array<{ cx: number; cy: number; fx: number; fy: number }> = [
-      { cx: b.x + d + w / 2, cy: b.y, fx: 1, fy: 0 },
-      { cx: b.x - d - w / 2, cy: b.y, fx: -1, fy: 0 },
-      { cx: b.x, cy: b.y - d - h / 2, fx: 0, fy: -1 },
-      { cx: b.x, cy: b.y + d + h / 2, fx: 0, fy: 1 },
-      { cx: b.x + diag + w / 2, cy: b.y - diag - h / 2, fx: Math.SQRT1_2, fy: -Math.SQRT1_2 },
-      { cx: b.x - diag - w / 2, cy: b.y - diag - h / 2, fx: -Math.SQRT1_2, fy: -Math.SQRT1_2 },
-      { cx: b.x + diag + w / 2, cy: b.y + diag + h / 2, fx: Math.SQRT1_2, fy: Math.SQRT1_2 },
-      { cx: b.x - diag - w / 2, cy: b.y + diag + h / 2, fx: -Math.SQRT1_2, fy: Math.SQRT1_2 },
+    const candidatos: Array<{ cx: number; cy: number }> = [
+      { cx: b.x + d + w / 2, cy: b.y },
+      { cx: b.x - d - w / 2, cy: b.y },
+      { cx: b.x, cy: b.y - d - h / 2 },
+      { cx: b.x, cy: b.y + d + h / 2 },
+      { cx: b.x + diag + w / 2, cy: b.y - diag - h / 2 },
+      { cx: b.x - diag - w / 2, cy: b.y - diag - h / 2 },
+      { cx: b.x + diag + w / 2, cy: b.y + diag + h / 2 },
+      { cx: b.x - diag - w / 2, cy: b.y + diag + h / 2 },
     ];
     const libre = candidatos.find(({ cx, cy }) => {
       const c = caja(cx, cy);
@@ -791,6 +744,7 @@ export function placeBubbleLabels(
         c.x1 <= ancho - 2 &&
         c.y1 <= alto - 2 &&
         colocados.every((o) => !boxesOverlap(o.box, c)) &&
+        ocupadas.every((o) => !boxesOverlap(o, c)) &&
         burbujas.every((otra) => !boxTouchesCircle(c, otra))
       );
     });
@@ -801,30 +755,8 @@ export function placeBubbleLabels(
         x: libre.cx,
         y: libre.cy,
         box: caja(libre.cx, libre.cy),
-        from: { x: b.x + libre.fx * b.r, y: b.y + libre.fy * b.r },
       });
     }
   }
   return colocados;
-}
-
-/**
- * Elige la posición del rótulo de un departamento: la primera candidata (de
- * `geo:build`, todas adentro del polígono) que no pisa burbujas ni rótulos de
- * localidad. Si todas chocan, `null`: mejor sin rótulo que un rótulo tapado.
- */
-export function pickDepartmentAnchor(
-  anchors: ReadonlyArray<readonly [number, number]>,
-  ancho: number,
-  alto: number,
-  burbujas: readonly Bubble[],
-  rotulos: readonly PlacedLabel[],
-): { x: number; y: number } | null {
-  for (const [x, y] of anchors) {
-    const caja = { x0: x - ancho / 2, y0: y - alto / 2, x1: x + ancho / 2, y1: y + alto / 2 };
-    if (burbujas.some((b) => boxTouchesCircle(caja, b))) continue;
-    if (rotulos.some((r) => boxesOverlap(r.box, caja))) continue;
-    return { x, y };
-  }
-  return null;
 }

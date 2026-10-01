@@ -20,6 +20,8 @@ interface LocalityDetailCardProps {
    * con "Volver". `sheet`: hoja inferior fija (celular).
    */
   variant: 'panel' | 'sheet';
+  /** Texto del botón de cierre del panel (en pantalla completa no hay Top 5). */
+  closeText?: string;
   onClose: () => void;
   cardRef: RefObject<HTMLDivElement | null>;
 }
@@ -43,6 +45,7 @@ export function LocalityDetailCard({
   figures,
   sourceNames,
   variant,
+  closeText = 'Volver al Top 5',
   onClose,
   cardRef,
 }: LocalityDetailCardProps) {
@@ -83,7 +86,7 @@ export function LocalityDetailCard({
           className="-ml-1 mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-sm font-medium text-primary-600 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-primary-500"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Volver al Top 5
+          {closeText}
         </button>
       )}
 

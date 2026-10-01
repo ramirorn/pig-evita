@@ -5,11 +5,8 @@ import type { ReactNode } from 'react';
 import { MapPin, Medal, Users, UsersRound } from 'lucide-react';
 import {
   formatMetric,
-  heatColor,
   metricInfo,
   metricValue,
-  NO_DATA_COLOR,
-  type HeatClass,
   type LocalityFigures,
   type LocalityRow,
   type MapMetric,
@@ -116,15 +113,15 @@ export function TopLocalities({ rows, metric, onSelect }: TopLocalitiesProps) {
 interface DepartmentRankingProps {
   departments: ReadonlyMap<string, LocalityFigures>;
   metric: MapMetric;
-  classes: readonly HeatClass[];
 }
 
 /**
- * Los nueve departamentos con su valor y su tono: la lectura en texto de la
- * capa de colores del mapa. Los que no tienen participación van al final y lo
- * dicen, sin un cero inventado.
+ * Los nueve departamentos con su valor, en texto. El mapa de calor ya no pinta
+ * departamentos, así que el ranking no lleva color: uno sugeriría una capa que
+ * no existe. Los que no tienen participación van al final y lo dicen, sin un
+ * cero inventado.
  */
-export function DepartmentRanking({ departments, metric, classes }: DepartmentRankingProps) {
+export function DepartmentRanking({ departments, metric }: DepartmentRankingProps) {
   const filas = GEO_DEPARTMENTS.map((d) => {
     const f = departments.get(d.name);
     return { name: d.name, valor: f ? metricValue(f, metric) : 0 };
@@ -135,18 +132,10 @@ export function DepartmentRanking({ departments, metric, classes }: DepartmentRa
       <h2 id="ranking-departamentos" className="text-base font-bold text-primary-800">
         Por departamento
       </h2>
-      <p className="text-xs text-primary-500">El tono de cada departamento en el mapa.</p>
       <ul className="mt-2 space-y-1 text-sm">
         {filas.map((f) => (
           <li key={f.name} className="flex items-center justify-between gap-2 px-2 py-0.5">
-            <span className="flex min-w-0 items-center gap-2 text-primary-800">
-              <span
-                aria-hidden="true"
-                className="inline-block h-3 w-3 shrink-0 rounded-sm ring-1 ring-black/10"
-                style={{ backgroundColor: f.valor > 0 ? heatColor(f.valor, classes) : NO_DATA_COLOR }}
-              />
-              <span className="truncate">{f.name}</span>
-            </span>
+            <span className="min-w-0 truncate text-primary-800">{f.name}</span>
             <span className={f.valor > 0 ? 'shrink-0 font-semibold text-primary-700' : 'shrink-0 text-xs text-primary-400'}>
               {f.valor > 0 ? formatMetric(f.valor, metric) : 'Sin participación'}
             </span>
