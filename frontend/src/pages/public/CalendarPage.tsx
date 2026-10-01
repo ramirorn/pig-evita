@@ -93,29 +93,36 @@ export function CalendarPage() {
     (event.disciplineId && disciplinasPorId.get(event.disciplineId)) || null;
 
   /**
-   * Pinta una sección con su `h2`, en formato agenda por mes: cada mes es un
-   * `h3` que cuelga de él.
+   * Pinta una sección con su `h2` y su contador. Adentro, un `h3` por mes y
+   * las tarjetas con ficha de fecha (`CalendarAgenda`).
    */
-  const seccion = (titulo: string, eventos: CalendarEvent[], esPasado: boolean) => (
-    <section className="mb-12 last:mb-0">
-      <h2 className="mb-3 text-lg font-bold uppercase tracking-wide text-primary-700">
-        {titulo}{' '}
-        <span className="font-semibold text-primary-600">({eventos.length})</span>
-      </h2>
-      <CalendarAgenda
-        eventos={eventos}
-        nombreDeSede={nombreDeSede}
-        nombreDeDisciplina={nombreDeDisciplina}
-        esPasado={esPasado}
-        hoy={hoy}
-      />
-    </section>
-  );
+  const seccion = (titulo: string, eventos: CalendarEvent[], esPasado: boolean) => {
+    const id = esPasado ? 'cal-pasados' : 'cal-proximos';
+    return (
+      <section aria-labelledby={id} className="mb-12 last:mb-0">
+        <h2
+          id={id}
+          className="mb-4 flex items-baseline gap-2 font-display text-xl font-extrabold tracking-tight text-primary-800"
+        >
+          {titulo}
+          <span className="font-sans text-sm font-semibold text-primary-600">({eventos.length})</span>
+        </h2>
+        <CalendarAgenda
+          eventos={eventos}
+          nombreDeSede={nombreDeSede}
+          nombreDeDisciplina={nombreDeDisciplina}
+          esPasado={esPasado}
+          hoy={hoy}
+          idPrefix={id}
+        />
+      </section>
+    );
+  };
 
   return (
-    // `max-w-7xl` como las otras tres páginas: con `max-w-5xl` el contenido
-    // saltaba de ancho al navegar entre secciones. El timeline queda acotado
-    // por dentro, que es donde el ancho sí importa para leerlo.
+    // `max-w-7xl` como las otras tres páginas. Las secciones van a todo ese
+    // ancho: con un `max-w-4xl` adentro, la grilla de tarjetas no pasaba de 2
+    // columnas en escritorio.
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16">
       <PublicPageHeader
         title="Calendario de Eventos"
@@ -162,7 +169,7 @@ export function CalendarPage() {
           />
         }
       >
-        <div className="max-w-4xl">
+        <div>
           {/* Una sección vacía no se renderiza: un "Ya se disputaron (0)" es
               peor que su ausencia — mismo argumento que `newsLayout.ts` sobre
               la sección "Más artículos". */}

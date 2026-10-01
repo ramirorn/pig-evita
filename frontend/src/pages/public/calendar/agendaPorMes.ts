@@ -25,7 +25,8 @@ export interface MesDeAgenda {
 }
 
 const dos = (n: number) => String(n).padStart(2, '0');
-const claveDia = (d: Date) => `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
+/** `aaaa-mm-dd` local, para `<time dateTime>` y como clave de día. */
+export const claveDia = (d: Date) => `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
 const claveMes = (d: Date) => `${d.getFullYear()}-${dos(d.getMonth() + 1)}`;
 
 /**
@@ -85,7 +86,13 @@ export function horaCorta(fecha: Date): string {
   return fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-const mesCorto = (d: Date) => d.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '');
+/** "oct", "sept": mes abreviado, sin punto. */
+export const mesCorto = (d: Date) => d.toLocaleDateString('es-AR', { month: 'short' }).replace('.', '');
+
+/** "jueves 1 de octubre": la fecha completa que lee el lector de pantalla en la ficha. */
+export function fechaLarga(d: Date): string {
+  return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
+}
 
 /**
  * Rango de un evento de varios días: "5–7 oct" dentro del mismo mes y
@@ -110,9 +117,34 @@ export function etiquetaDeEtapa(stage: string | null | undefined): string | null
 }
 
 /**
- * La línea de detalle debajo del título: sede · etapa · disciplina, sólo lo
- * que existe. Nada de "—" ni "a confirmar" de relleno.
+ * El rango, leído completo para el lector de pantalla: "del 12 al 14 de
+ * octubre" o "del 30 de octubre al 2 de noviembre". `null` si no hay rango.
  */
-export function lineaDeDetalle(partes: ReadonlyArray<string | null | undefined>): string[] {
-  return partes.filter((p): p is string => typeof p === 'string' && p.trim() !== '');
+export function rangoLargo(evento: CalendarEvent): string | null {
+  if (!rangoDeDias(evento) || !evento.endDate) return null;
+  const inicio = new Date(evento.startDate);
+  const fin = new Date(evento.endDate);
+  const diaMes = (d: Date) => d.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
+  return inicio.getMonth() === fin.getMonth() && inicio.getFullYear() === fin.getFullYear()
+    ? `del ${inicio.getDate()} al ${diaMes(fin)}`
+    : `del ${diaMes(inicio)} al ${diaMes(fin)}`;
+}
+
+/** Medianoche local: las comparaciones de "hoy" son por día, no por hora. */
+const inicioDelDia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+/**
+ * ¿El evento ocurre hoy? Un evento de un día, si empieza hoy; uno de varios
+ * días, si hoy está entre su inicio y su fin (inclusive, por día). Fechas
+ * ilegibles → no.
+ */
+export function ocurreHoy(evento: CalendarEvent, hoy: Date): boolean {
+  const inicio = new Date(evento.startDate);
+  if (Number.isNaN(inicio.getTime())) return false;
+  if (esMismoDia(inicio, hoy)) return true;
+  if (!evento.endDate) return false;
+  const fin = new Date(evento.endDate);
+  if (Number.isNaN(fin.getTime())) return false;
+  const h = inicioDelDia(hoy);
+  return inicioDelDia(inicio) <= h && h <= inicioDelDia(fin);
 }

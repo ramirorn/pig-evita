@@ -73,7 +73,7 @@ const {
   CalendarAgenda,
   agruparPorMes,
   rangoDeDias,
-  lineaDeDetalle,
+  ocurreHoy,
   columnasSegunVolumen,
 } = await import(pathToFileURL(SALIDA).href);
 
@@ -552,12 +552,13 @@ const COMPETENCIA_BASE = {
 }
 
 // =================================================
-// 4. Calendario — agenda por mes: la sede que el encabezado promete, sin lo inventado
+// 4. Calendario — tarjetas con ficha de fecha: lo que el encabezado promete, sin lo inventado
 // =================================================
 //
-// "Próximos eventos" pasó de tarjetas con línea de tiempo a una agenda por
-// mes (una fila compacta por evento). Las propiedades que este bloque fijaba
-// sobre la tarjeta vieja se mantienen, ahora sobre la agenda renderizada.
+// "Próximos eventos" es una grilla de tarjetas por mes, cada una con su ficha
+// de fecha (Propuesta A). Las reglas de siempre —no inventar descripción ni
+// chips, sede y disciplina resueltas, nada de relleno— se verifican sobre la
+// agenda renderizada, más las propias de A.
 const EVENTO_BASE = {
   id: 'e1',
   title: 'Acto de Apertura Zonal Formosa',
@@ -583,8 +584,12 @@ const agenda = (eventos, extra = {}) =>
     nombreDeDisciplina: (e) => (e.disciplineId && DISCIPLINAS_POR_ID.get(e.disciplineId)) || null,
     esPasado: false,
     hoy: HOY_FIJO,
+    idPrefix: 'cal-proximos',
     ...extra,
   });
+
+/** Clases de la tarjeta (el primer `<li class="grid …">`). */
+const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec(html)?.[1] ?? '';
 
 {
   const html = agenda([EVENTO_BASE]);
@@ -610,29 +615,52 @@ const agenda = (eventos, extra = {}) =>
     t.includes('Estadio Cincuentenario'),
     `la agenda emite: "${t}"`,
   );
-  comprobar(
-    '[Calendario] la disciplina resuelta se pinta',
-    t.includes('Fútbol 11'),
-    `la agenda emite: "${t}"`,
-  );
-  comprobar('[Calendario] la etapa se pinta como "Zonal"', /\bZonal\b/.test(t), `la agenda emite: "${t}"`);
-  comprobar(
-    '[Calendario] sede · etapa · disciplina van en una sola línea separada por puntos',
-    t.includes('Estadio Cincuentenario · Zonal · Fútbol 11'),
-    `la agenda emite: "${t}"`,
-  );
+  comprobar('[Calendario] la disciplina resuelta se pinta', t.includes('Fútbol 11'), `la agenda emite: "${t}"`);
   comprobar('[Calendario] el encabezado del mes dice "Septiembre 2026"', t.includes('Septiembre 2026'));
   comprobar(
     '[Calendario] cada mes es un h3 (bajo el h2 de su sección) y los eventos no son encabezados',
     JSON.stringify(niveles(html)) === '[3]',
     `niveles emitidos: ${JSON.stringify(niveles(html))}`,
   );
-  comprobar('[Calendario] la hora se muestra', /\d{2}:\d{2}/.test(t), `la agenda emite: "${t}"`);
+
+  // Ficha de fecha accesible: <time datetime> con la fecha completa en sr-only
+  // y los tres textos visuales ocultos al lector.
+  const ficha = /<time datetime="2026-09-10"[^>]*>([\s\S]*?)<\/time>/i.exec(html);
+  comprobar('[Calendario] cada tarjeta lleva su ficha <time datetime="aaaa-mm-dd">', ficha !== null);
+  comprobar(
+    '[Calendario] la ficha se lee completa ("jueves 10 de septiembre") y sus fragmentos van aria-hidden',
+    ficha !== null &&
+      /<span class="sr-only">jueves 10 de septiembre<\/span>/i.test(ficha[1]) &&
+      (ficha[1].match(/aria-hidden="true"/g) ?? []).length === 3,
+    ficha?.[1],
+  );
+  comprobar('[Calendario] ficha de próximos en primary-800', /<time datetime="2026-09-10"[^>]*class="[^"]*bg-primary-800/i.test(html));
+
+  // Meta en lista: hora, sede y disciplina, cada una con su rótulo para el lector.
+  const meta = /<ul class="flex flex-col gap-1[^"]*">([\s\S]*?)<\/ul>/.exec(html)?.[1] ?? '';
+  comprobar('[Calendario] la hora va en la meta como <time> ISO, con "hs"', /<time datetime="2026-09-10T19:15:26.801Z">\d{2}:\d{2} hs<\/time>/i.test(meta), meta);
+  comprobar('[Calendario] la sede va en la meta con su rótulo "Sede:" para el lector', /Sede: <\/span>Estadio Cincuentenario/.test(meta));
+  comprobar('[Calendario] la disciplina va en la meta con su rótulo "Disciplina:"', /Disciplina: <\/span>Fútbol 11/.test(meta));
+
+  // Etapa como chip legible, con las clases completas del mapa.
+  comprobar(
+    '[Calendario] la etapa es un chip legible ("Etapa Zonal" para el lector) con la clase del mapa',
+    /<span class="[^"]*bg-celeste-100 text-celeste-800[^"]*">[\s\S]*?<span class="sr-only">Etapa <\/span>Zonal<\/span>/.test(html),
+  );
+  comprobar('[Calendario] el borde de la tarjeta es el de su etapa', clasesDeTarjeta(html).includes('border-l-celeste-500'));
+
+  // Tarjeta no interactiva: nada que prometa un clic que no existe.
+  const clases = clasesDeTarjeta(html);
+  comprobar(
+    '[Calendario] la tarjeta no tiene cursor-pointer, hover ni transición (no es un enlace)',
+    clases !== '' && !/cursor-pointer|hover:|transition|translate/.test(clases),
+    clases,
+  );
 }
 
 {
   // Un id que no resuelve —sede borrada, id viejo— no puede producir un
-  // "Sede a confirmar": la línea directamente no aparece, ni un "—".
+  // "Sede a confirmar": el ítem directamente no aparece, ni un "—".
   const html = agenda([{ ...EVENTO_BASE, venueId: 'fantasma', disciplineId: null, stage: null }]);
   const t = texto(html);
   comprobar(
@@ -640,42 +668,67 @@ const agenda = (eventos, extra = {}) =>
     !/a confirmar|sin sede|por definir|—/i.test(t),
     `la agenda emite: "${t}"`,
   );
+  comprobar('[Calendario] sin sede ni disciplina, la meta sólo trae la hora', !/Sede:|Disciplina:/.test(html));
+  comprobar('[Calendario] sin etapa no hay chip de etapa', !/Etapa </.test(html));
+  comprobar('[Calendario] sin etapa el borde es neutro (primary-200)', clasesDeTarjeta(html).includes('border-l-primary-200'));
 }
 
 {
-  const t = texto(agenda([{ ...EVENTO_BASE, endDate: '2026-09-14T19:15:26.801Z' }]));
-  comprobar(
-    '[Calendario] con endDate de otro día se muestra el rango ("10–14 sept")',
-    /10–14/.test(t),
-    `la agenda emite: "${t}"`,
-  );
+  const html = agenda([{ ...EVENTO_BASE, endDate: '2026-09-14T19:15:26.801Z' }]);
+  const t = texto(html);
+  comprobar('[Calendario] con endDate de otro día se muestra el rango ("10–14 sept")', /10–14/.test(t), `la agenda emite: "${t}"`);
+  comprobar('[Calendario] el rango se lee completo ("del 10 al 14 de septiembre")', /del 10 al 14 de septiembre/.test(t));
+  comprobar('[Calendario] el chip de rango no es celeste (no se confunde con Zonal)', /bg-primary-50 text-primary-700[^"]*"><span aria-hidden="true">10–14/.test(html));
 }
 
 {
   const hoy = new Date(EVENTO_BASE.startDate);
   const t = texto(agenda([EVENTO_BASE], { hoy }));
-  comprobar('[Calendario] un evento de hoy lleva su badge', /\bhoy\b/i.test(t), `la agenda emite: "${t}"`);
-  const pasado = texto(agenda([EVENTO_BASE], { hoy, esPasado: true }));
-  comprobar('[Calendario] en "Ya se disputaron" no hay badge de hoy', !/\bhoy\b/i.test(pasado));
+  comprobar('[Calendario] un evento de hoy lleva su chip "Hoy"', /\bhoy\b/i.test(t), `la agenda emite: "${t}"`);
+  const pasado = agenda([EVENTO_BASE], { hoy, esPasado: true, idPrefix: 'cal-pasados' });
+  comprobar('[Calendario] en "Ya se disputaron" no hay chip "Hoy"', !/\bhoy\b/i.test(texto(pasado)));
+
+  // Un evento de varios días en curso (empezó antes y termina después de hoy).
+  const enCurso = { ...EVENTO_BASE, startDate: '2026-09-08T15:00:00.000Z', endDate: '2026-09-12T15:00:00.000Z' };
+  comprobar('[Calendario] un evento de varios días en curso hoy también lleva "Hoy"', /\bhoy\b/i.test(texto(agenda([enCurso], { hoy }))));
+  comprobar(
+    '[Calendario] … pero nunca en "Ya se disputaron"',
+    !/\bhoy\b/i.test(texto(agenda([enCurso], { hoy, esPasado: true, idPrefix: 'cal-pasados' }))),
+  );
+  comprobar('[Calendario] un evento que todavía no empezó no lleva "Hoy"', !/\bhoy\b/i.test(texto(agenda([EVENTO_BASE]))));
 }
 
 {
-  // Varios eventos el mismo día: el día se escribe una sola vez.
+  // Varios eventos el mismo día: una tarjeta cada uno, cada una con su ficha.
   const html = agenda([
     EVENTO_BASE,
     { ...EVENTO_BASE, id: 'e2', title: 'Torneo Relámpago de Ajedrez', startDate: '2026-09-10T21:00:00.000Z' },
     { ...EVENTO_BASE, id: 'e3', title: 'Final de Vóley', startDate: '2026-10-05T18:00:00.000Z' },
   ]);
-  const dias = html.match(/<time datetime="2026-09-10">/gi) ?? [];
-  comprobar('[Calendario] dos eventos el mismo día muestran el día una sola vez', dias.length === 1, `apariciones: ${dias.length}`);
+  const fichas = html.match(/<time datetime="2026-09-10"[^>]*class="[^"]*rounded-xl/gi) ?? [];
+  comprobar('[Calendario] dos eventos el mismo día: una tarjeta con su ficha cada uno', fichas.length === 2, `fichas: ${fichas.length}`);
   comprobar('[Calendario] los dos eventos del día se listan', texto(html).includes('Torneo Relámpago de Ajedrez'));
   comprobar(
     '[Calendario] un encabezado por mes, en el orden de la sección',
     JSON.stringify(niveles(html)) === '[3,3]' && texto(html).indexOf('Septiembre') < texto(html).indexOf('Octubre'),
     `niveles emitidos: ${JSON.stringify(niveles(html))}`,
   );
-  const pasado = agenda([EVENTO_BASE], { esPasado: true });
-  comprobar('[Calendario] "Ya se disputaron" usa la misma agenda, atenuada', /opacity-75/.test(pasado));
+
+  // "Ya se disputaron": atenuado con la ficha primary-600, SIN opacity (con
+  // opacity varios pares caían debajo de AA).
+  const pasado = agenda([EVENTO_BASE], { esPasado: true, idPrefix: 'cal-pasados' });
+  comprobar('[Calendario] "Ya se disputaron" lleva la ficha en primary-600', /<time datetime="2026-09-10"[^>]*class="[^"]*bg-primary-600/i.test(pasado));
+  comprobar('[Calendario] "Ya se disputaron" se atenúa sin opacity (AA)', !/\bopacity-/.test(pasado));
+  comprobar('[Calendario] los ids de los meses no chocan entre secciones', /id="cal-pasados-2026-09"/.test(pasado) && /id="cal-proximos-2026-09"/.test(agenda([EVENTO_BASE])));
+}
+
+{
+  // Sin fecha legible: la tarjeta va sin ficha, en "Sin fecha confirmada".
+  const html = agenda([{ ...EVENTO_BASE, startDate: 'no-es-una-fecha' }]);
+  comprobar('[Calendario] una fecha ilegible va a "Sin fecha confirmada"', texto(html).includes('Sin fecha confirmada'));
+  comprobar('[Calendario] sin fecha, la tarjeta no tiene ficha ni hora', !/<time/.test(html));
+  comprobar('[Calendario] sin fecha, la tarjeta ocupa una sola columna', clasesDeTarjeta(html).includes('grid-cols-1'));
+  comprobar('[Calendario] sin fecha, el evento igual se lista', texto(html).includes(EVENTO_BASE.title));
 }
 
 {
@@ -700,7 +753,12 @@ const agenda = (eventos, extra = {}) =>
     rangoDeDias({ ...EVENTO_BASE, startDate: '2026-09-30T15:00:00.000Z', endDate: '2026-10-02T15:00:00.000Z' }),
   );
   comprobar('[Calendario] un evento de un día no tiene rango', rangoDeDias(EVENTO_BASE) === null);
-  comprobar('[Calendario] lo ausente se omite en la línea de detalle', JSON.stringify(lineaDeDetalle([null, 'Zonal', '', undefined])) === '["Zonal"]');
+  comprobar(
+    '[Calendario] ocurreHoy: un evento de varios días está "hoy" en todo su rango (por día)',
+    ocurreHoy({ ...EVENTO_BASE, startDate: '2026-09-08T23:00:00.000Z', endDate: '2026-09-12T02:00:00.000Z' }, new Date(2026, 8, 10, 12)) &&
+      !ocurreHoy({ ...EVENTO_BASE, startDate: '2026-09-08T15:00:00.000Z', endDate: '2026-09-09T15:00:00.000Z' }, new Date(2026, 8, 10, 12)),
+  );
+  comprobar('[Calendario] ocurreHoy con fecha ilegible es falso', !ocurreHoy({ ...EVENTO_BASE, startDate: 'x' }, new Date()));
 }
 
 // =================================================
@@ -718,7 +776,8 @@ const agenda = (eventos, extra = {}) =>
     { archivo: 'VenuesPage.tsx', tarjeta: 2, seccion: false },
     { archivo: 'RankingsPage.tsx', tarjeta: 2, seccion: false },
     // Calendario es la única con un nivel intermedio: las secciones "Próximos"
-    // y "Ya se disputaron" son h2 y los meses de la agenda cuelgan de ellas como h3.
+    // y "Ya se disputaron" son h2 y los meses cuelgan de ellas como h3; las
+    // tarjetas de evento no son encabezados.
     { archivo: 'CalendarPage.tsx', tarjeta: 3, seccion: true },
   ];
 
@@ -765,6 +824,8 @@ const agenda = (eventos, extra = {}) =>
     'pages/public/venues/VenueCard.tsx',
     'pages/public/rankings/CompetitionCard.tsx',
     'pages/public/calendar/CalendarAgenda.tsx',
+    'pages/public/calendar/CalendarFiltersPanel.tsx',
+    'pages/public/calendar/eventStageStyles.ts',
     'components/shared/CardGridSkeleton.tsx',
     'components/venues/VenuePhoto.tsx',
     'lib/gridVolumen.ts',
@@ -805,6 +866,8 @@ const agenda = (eventos, extra = {}) =>
     'pages/public/venues/VenueCard.tsx',
     'pages/public/rankings/CompetitionCard.tsx',
     'pages/public/calendar/CalendarAgenda.tsx',
+    'pages/public/calendar/CalendarFiltersPanel.tsx',
+    'pages/public/calendar/eventStageStyles.ts',
     'components/venues/VenuePhoto.tsx',
   ];
   // Las de la paleta default que no son tokens del proyecto.
@@ -833,6 +896,8 @@ const agenda = (eventos, extra = {}) =>
   const ARCHIVOS = [
     'pages/public/venues/VenueCard.tsx',
     'pages/public/calendar/CalendarAgenda.tsx',
+    'pages/public/calendar/CalendarFiltersPanel.tsx',
+    'pages/public/calendar/eventStageStyles.ts',
     'pages/public/disciplines/DisciplineCard.tsx',
     'pages/public/rankings/CompetitionCard.tsx',
   ];
@@ -897,6 +962,8 @@ const agenda = (eventos, extra = {}) =>
     'pages/public/venues/VenueCard.tsx',
     'pages/public/rankings/CompetitionCard.tsx',
     'pages/public/calendar/CalendarAgenda.tsx',
+    'pages/public/calendar/CalendarFiltersPanel.tsx',
+    'pages/public/calendar/eventStageStyles.ts',
   ]) {
     const fuente = sinComentarios(await readFile(path.join(SRC, relativo), 'utf8'));
     comprobar(
