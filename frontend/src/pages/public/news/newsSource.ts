@@ -107,3 +107,42 @@ export function antiguedadDeNoticia(
   if (dias <= 7) return `hace ${dias} d`;
   return formatDate(fecha);
 }
+
+// -------------------------------------------------
+// Origen y fuente, como texto
+// -------------------------------------------------
+
+/**
+ * El chip de las tarjetas de la portada.
+ *
+ * ⚠️ El diseño de referencia pone ahí la **categoría** (NFL, MLB, Rugby…), pero
+ * el modelo `News` no tiene categorías ni deporte. Lo único real que distingue a
+ * una nota de otra es el origen, y es además lo que el lector necesita saber
+ * antes del clic: una se lee acá y la otra lo saca del sitio.
+ */
+export function etiquetaDeOrigen(
+  news: Pick<News, 'isExternal' | 'sourceUrl'>,
+): 'Portal oficial' | 'Plataforma' {
+  return esNoticiaExterna(news) ? 'Portal oficial' : 'Plataforma';
+}
+
+/**
+ * Quién firma la nota: `sourceName` del portal (p. ej. "Secretaría de
+ * Deportes") o el host si no vino; las propias, la plataforma.
+ */
+export function fuenteDeNoticia(
+  news: Pick<News, 'isExternal' | 'sourceUrl' | 'sourceName'>,
+): string {
+  if (!esNoticiaExterna(news)) return 'Juegos Evita Formoseños';
+  return news.sourceName ?? hostDeLaFuente(news.sourceUrl) ?? 'Portal oficial';
+}
+
+/** Bajada para mostrar: la `excerpt` o el arranque del cuerpo. Vacía si no hay nada. */
+export function bajadaDeNoticia(
+  news: Pick<News, 'excerpt' | 'content'>,
+  largo = 180,
+): string {
+  const base = (news.excerpt ?? '').trim() || (news.content ?? '').trim();
+  if (base.length <= largo) return base;
+  return `${base.slice(0, largo).trimEnd()}…`;
+}

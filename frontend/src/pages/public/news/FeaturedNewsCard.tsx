@@ -1,85 +1,100 @@
 // ===========================================
-// FeaturedNewsCard — tarjeta hero de la noticia destacada
+// FeaturedNewsCard — diapositiva del carrusel destacado de /noticias
 // ===========================================
-import { ArrowRight, Calendar, ExternalLink, Sparkles } from 'lucide-react';
+import { ArrowRight, ExternalLink } from 'lucide-react';
 import type { News } from '@/types';
 import { SafeNewsImage } from './SafeNewsImage';
-import { BadgeNoticiaExterna, NewsLink } from './NewsLink';
-import { esNoticiaExterna, fechaDeNoticia } from './newsSource';
+import { NewsLink } from './NewsLink';
+import { NewsOriginChip } from './NewsOriginChip';
+import {
+  antiguedadDeNoticia,
+  bajadaDeNoticia,
+  esNoticiaExterna,
+  fuenteDeNoticia,
+} from './newsSource';
+
+interface FeaturedNewsCardProps {
+  news: News;
+  /** La primera diapositiva carga su foto de inmediato; el resto, perezosa. */
+  prioritaria?: boolean;
+}
 
 /**
- * La primera noticia del listado se muestra con un layout propio (imagen
- * grande + bajada larga). Vive aparte de `NewsCard` porque no comparten
- * markup: unificarlas terminaría en un solo componente lleno de `isLarge`.
+ * Nota destacada: foto a sangre, degradé oscuro, chip de origen arriba a la
+ * izquierda y, abajo, la fuente en color, el título grande, la bajada y el
+ * botón "Leer nota completa".
  *
- * El reparto de columnas da **más espacio al texto que a la imagen** (7 contra
- * 5). Al revés —que es como estaba— el título quedaba en un tercio del ancho de
- * pantalla y se partía en tres renglones; con una foto apaisada, además, sobraba
- * alto de imagen y faltaba ancho de texto.
+ * **El enlace es el botón y no la tarjeta entera.** El carrusel tiene controles
+ * propios encima (flechas, puntos, pausa): una diapositiva toda clicable
+ * competiría con ellos por el mismo clic y anidaría elementos interactivos.
+ *
+ * El botón va a donde la nota vive: si es del portal oficial abre el original
+ * en otra pestaña (no tenemos el cuerpo, sólo la bajada); si es propia, el
+ * detalle. Eso lo resuelve `NewsLink`.
+ *
+ * Contraste: el texto se apoya sobre `primary-900` opaco abajo y al 70 % a mitad
+ * de altura; sobre una foto blanca eso deja el blanco en ≥ 6.5:1.
  */
-export function FeaturedNewsCard({ news }: { news: News }) {
-  // S19 — la destacada también puede venir del portal oficial.
+export function FeaturedNewsCard({ news, prioritaria = false }: FeaturedNewsCardProps) {
   const externa = esNoticiaExterna(news);
+  const antiguedad = antiguedadDeNoticia(news);
+  const bajada = bajadaDeNoticia(news);
 
   return (
-    <NewsLink news={news} className="group block animate-fade-in">
-      <div className="overflow-hidden rounded-3xl border border-primary-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl">
-        <div className="grid items-stretch md:grid-cols-12">
-          {/* Imagen: 5 de 12 en escritorio, y más baja que antes (320 contra
-              384) para que la tarjeta entre completa en pantalla. */}
-          <div className="relative h-64 overflow-hidden bg-primary-900 md:col-span-6 md:h-80 lg:col-span-5">
-            <SafeNewsImage src={news.imageKey} alt={news.title} isLarge />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-primary-950/40 via-transparent to-transparent" />
-          </div>
-
-          {/* Texto: 7 de 12. */}
-          <div className="flex flex-col justify-between bg-white p-6 md:col-span-6 md:p-8 lg:col-span-7">
-            <div>
-              {/* Arriba del título va **sólo** el distintivo de destacada. La
-                  fecha y el origen bajan debajo: cuatro chips apilados antes
-                  del titular empujaban el contenido fuera del pliegue. */}
-              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-accent-200 bg-accent-50 px-3 py-1 text-xs font-black tracking-wider text-accent-700 uppercase shadow-xs">
-                <Sparkles className="h-3.5 w-3.5 text-accent-500" />
-                Destacada
-              </span>
-
-              <h3 className="mb-3 text-2xl leading-tight font-extrabold text-primary-900 transition-colors group-hover:text-primary-600 md:text-3xl">
-                {news.title}
-              </h3>
-
-              {/* Fecha y origen en un solo renglón.
-                  Acá vivía un "3 min de lectura" **hardcodeado**: el mismo
-                  string para toda noticia, sin medir nada. En las que vienen del
-                  portal es peor —sólo guardamos la bajada, no hay artículo que
-                  medir—, así que se sacó en vez de intentar calcularlo. */}
-              <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary-500">
-                  <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-                  {fechaDeNoticia(news)}
-                </span>
-                <BadgeNoticiaExterna news={news} />
-              </div>
-
-              <p className="mb-6 line-clamp-3 text-sm leading-relaxed text-primary-600 md:text-base">
-                {news.excerpt || news.content.substring(0, 180) + '...'}
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-primary-50 pt-4">
-              <span className="inline-flex items-center gap-2 text-sm font-bold text-primary-700 transition-colors group-hover:text-primary-900">
-                {externa ? 'Leer en el portal oficial' : 'Leer artículo completo'}
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-50 transition-all group-hover:bg-primary-600 group-hover:text-white">
-                  {externa ? (
-                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                  ) : (
-                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-                  )}
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
+    <article className="relative isolate flex h-full w-full flex-col justify-end overflow-hidden bg-primary-900">
+      <div className="absolute inset-0 -z-10">
+        <SafeNewsImage
+          src={news.imageKey}
+          alt={news.title}
+          isLarge
+          prioritaria={prioritaria}
+        />
       </div>
-    </NewsLink>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-primary-900 via-primary-900/70 to-primary-900/10"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 hidden bg-gradient-to-r from-primary-900/80 via-primary-900/30 to-transparent md:block"
+      />
+
+      <NewsOriginChip news={news} className="absolute top-4 left-4 md:top-6 md:left-6" />
+
+      <div className="max-w-2xl p-5 pb-12 md:p-8 md:pb-14">
+        <p className="mb-2 flex flex-wrap items-center gap-x-2 text-xs font-bold tracking-wide uppercase">
+          <span className="max-w-full min-w-0 truncate text-accent-300">{fuenteDeNoticia(news)}</span>
+          {antiguedad && (
+            <>
+              <span aria-hidden="true" className="text-white/70">·</span>
+              <span className="font-semibold text-white/85 normal-case">{antiguedad}</span>
+            </>
+          )}
+        </p>
+
+        <h3 className="font-display line-clamp-3 text-2xl leading-tight font-extrabold text-white md:text-4xl">
+          {news.title}
+        </h3>
+
+        {bajada && (
+          <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-white/90 md:text-base">
+            {bajada}
+          </p>
+        )}
+
+        <NewsLink
+          news={news}
+          className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-primary-900 shadow-sm transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
+        >
+          Leer nota completa
+          <span className="sr-only">: {news.title}</span>
+          {externa ? (
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          )}
+        </NewsLink>
+      </div>
+    </article>
   );
 }

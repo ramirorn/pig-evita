@@ -16,9 +16,16 @@ export { NewsCard } from '@/pages/public/news/NewsCard';
 export { FeaturedNewsCard } from '@/pages/public/news/FeaturedNewsCard';
 export { NewsMosaicCard } from '@/pages/public/news/NewsMosaicCard';
 export { NewsSidebarList } from '@/pages/public/news/NewsSidebarList';
+export { NewsTickerCard } from '@/pages/public/news/NewsTickerCard';
+export { NewsHeroCarousel } from '@/pages/public/news/NewsHeroCarousel';
+export { NewsOriginChip } from '@/pages/public/news/NewsOriginChip';
+export { UpcomingEventsPanel } from '@/pages/public/news/UpcomingEventsPanel';
+export { repartirPortada, NOTAS_EN_PORTADA } from '@/pages/public/news/newsLayout';
+export { proximosEventos } from '@/pages/public/news/proximosEventos';
 export {
   antiguedadDeNoticia,
   fechaDeNoticia,
   fechaDePublicacion,
+  etiquetaDeOrigen,
 } from '@/pages/public/news/newsSource';
 export { formatDate } from '@/lib/utils';

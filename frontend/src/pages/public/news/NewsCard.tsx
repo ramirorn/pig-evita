@@ -4,8 +4,9 @@
 import { ArrowRight, Calendar, ExternalLink } from "lucide-react";
 import type { News } from "@/types";
 import { SafeNewsImage } from "./SafeNewsImage";
-import { BadgeNoticiaExterna, NewsLink } from "./NewsLink";
-import { esNoticiaExterna, fechaDeNoticia } from "./newsSource";
+import { NewsLink } from "./NewsLink";
+import { NewsOriginChip } from "./NewsOriginChip";
+import { bajadaDeNoticia, esNoticiaExterna, fechaDeNoticia } from "./newsSource";
 
 interface NewsCardProps {
   news: News;
@@ -21,35 +22,32 @@ export function NewsCard({ news, index }: NewsCardProps) {
   return (
     <NewsLink
       news={news}
-      className="animate-fade-in group flex flex-col"
+      className="animate-fade-in group flex h-full flex-col rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
       style={{ animationDelay: `${index * 0.05}s` }}
     >
-      <div className="bg-white rounded-2xl border border-primary-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col h-full">
+      <div className="bg-surface-elevated rounded-2xl border border-primary-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col h-full">
         {/* Cabecera de Imagen (16:9) */}
         <div className="aspect-video relative overflow-hidden bg-primary-900">
           <SafeNewsImage src={news.imageKey} alt={news.title} />
-          <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-1.5">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/90 backdrop-blur-xs text-primary-800 shadow-xs border border-white/40">
-              Actualidad
-            </span>
-            <BadgeNoticiaExterna news={news} className="bg-white/90 backdrop-blur-xs" />
-          </div>
+          {/* Origen y no "Actualidad": ese chip era una categoría fija pintada
+              en todas las notas, y el modelo no tiene categorías. */}
+          <NewsOriginChip news={news} className="absolute top-3 left-3 z-10" />
         </div>
 
         {/* Cuerpo de la Tarjeta */}
         <div className="p-5 flex-1 flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs text-primary-400 mb-2">
-              <Calendar className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-2 text-xs text-primary-600 mb-2">
+              <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{fechaDeNoticia(news)}</span>
             </div>
 
-            <h4 className="font-bold text-primary-900 text-lg mb-2.5 line-clamp-2 group-hover:text-primary-600 transition-colors leading-snug">
+            <h3 className="font-bold text-primary-900 text-lg mb-2.5 line-clamp-2 group-hover:text-primary-600 transition-colors leading-snug">
               {news.title}
-            </h4>
+            </h3>
 
             <p className="text-primary-600 text-xs sm:text-sm leading-relaxed line-clamp-3 mb-4">
-              {news.excerpt || news.content.substring(0, 120) + "..."}
+              {bajadaDeNoticia(news, 120)}
             </p>
           </div>
 
@@ -60,7 +58,7 @@ export function NewsCard({ news, index }: NewsCardProps) {
             {externa ? (
               <ExternalLink className="w-4 h-4" aria-hidden="true" />
             ) : (
-              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" aria-hidden="true" />
             )}
           </div>
         </div>

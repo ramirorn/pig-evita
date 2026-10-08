@@ -1,23 +1,22 @@
 // ===========================================
-// NewsSidebarList — lista numerada que acompaña a la destacada
+// NewsSidebarList — lista numerada "Más recientes" de /noticias
 // ===========================================
 import type { News } from '@/types';
-import { BadgeNoticiaExterna, NewsLink } from './NewsLink';
-import { fechaDeNoticia } from './newsSource';
+import { NewsLink } from './NewsLink';
+import { SafeNewsImage } from './SafeNewsImage';
+import { antiguedadDeNoticia, etiquetaDeOrigen } from './newsSource';
 
 interface NewsSidebarListProps {
   news: News[];
 }
 
 /**
- * Columna lateral de la portada de noticias.
+ * Número, título, "origen · antigüedad" y miniatura a la derecha.
  *
- * ⚠️ **Se llama "Últimas noticias" y no "Lo más leído" a propósito.** El diseño
- * original proponía un ranking de lecturas, pero **la plataforma no cuenta
- * visitas**: no hay contador en el modelo ni nada que lo alimente. Numerar por
- * fecha y rotularlo como "lo más leído" sería inventar una métrica delante del
- * usuario. Los números quedan porque ordenan la lectura; lo que cambia es que el
- * título dice la verdad sobre qué los ordena.
+ * ⚠️ **Se llama "Más recientes" y no "Lo más leído" (ni "Top Stories") a
+ * propósito.** La plataforma no cuenta visitas: no hay contador en el modelo ni
+ * nada que lo alimente. Los números ordenan la lectura por fecha de
+ * publicación, y el título de la sección dice eso.
  *
  * Si mañana se agrega un contador de vistas, este componente se reusa cambiando
  * el orden y el título.
@@ -26,32 +25,45 @@ export function NewsSidebarList({ news }: NewsSidebarListProps) {
   if (news.length === 0) return null;
 
   return (
-    <ol className="flex flex-col gap-4">
-      {news.map((item, idx) => (
-        <li key={item.id}>
-          <NewsLink news={item} className="group block">
-            <article className="flex items-start gap-4 rounded-xl border border-primary-100 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-              <span
-                aria-hidden="true"
-                className="text-4xl leading-none font-extrabold text-primary-100 transition-colors group-hover:text-accent-400"
-              >
-                {idx + 1}
-              </span>
-              <div className="min-w-0">
-                <div className="mb-1 flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-semibold text-primary-500">
-                    {fechaDeNoticia(item)}
-                  </span>
-                  <BadgeNoticiaExterna news={item} />
+    <ol className="flex flex-col divide-y divide-primary-100">
+      {news.map((item, idx) => {
+        const antiguedad = antiguedadDeNoticia(item);
+        return (
+          <li key={item.id} className="py-1.5 first:pt-0 last:pb-0">
+            <NewsLink
+              news={item}
+              className="group block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+            >
+              <article className="flex items-center gap-3 rounded-lg p-1.5 transition-colors group-hover:bg-primary-50">
+                <span
+                  aria-hidden="true"
+                  className="font-display w-6 shrink-0 text-center text-2xl leading-none font-extrabold text-primary-500"
+                >
+                  {idx + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="line-clamp-2 text-sm leading-snug font-bold text-primary-900 transition-colors group-hover:text-primary-600">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1 truncate text-xs text-primary-600">
+                    {etiquetaDeOrigen(item)}
+                    {antiguedad && (
+                      <>
+                        <span aria-hidden="true"> · </span>
+                        <span className="sr-only">, </span>
+                        {antiguedad}
+                      </>
+                    )}
+                  </p>
                 </div>
-                <h3 className="line-clamp-2 text-sm font-bold text-primary-900 transition-colors group-hover:text-primary-600">
-                  {item.title}
-                </h3>
-              </div>
-            </article>
-          </NewsLink>
-        </li>
-      ))}
+                <div className="aspect-[5/4] w-16 shrink-0 overflow-hidden rounded-md bg-primary-900">
+                  <SafeNewsImage src={item.imageKey} alt={item.title} compacta />
+                </div>
+              </article>
+            </NewsLink>
+          </li>
+        );
+      })}
     </ol>
   );
 }

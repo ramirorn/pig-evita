@@ -79,6 +79,14 @@ const {
   FeaturedNewsCard,
   NewsMosaicCard,
   NewsSidebarList,
+  NewsTickerCard,
+  NewsHeroCarousel,
+  NewsOriginChip,
+  UpcomingEventsPanel,
+  repartirPortada,
+  NOTAS_EN_PORTADA,
+  proximosEventos,
+  etiquetaDeOrigen,
   antiguedadDeNoticia,
   fechaDeNoticia,
   fechaDePublicacion,
@@ -1118,6 +1126,8 @@ const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec
     ['FeaturedNewsCard', pintar(FeaturedNewsCard, { news: NOTA_DEL_PORTAL })],
     ['NewsMosaicCard', pintar(NewsMosaicCard, { news: NOTA_DEL_PORTAL, tamano: 'grande' })],
     ['NewsSidebarList', pintar(NewsSidebarList, { news: [NOTA_DEL_PORTAL] })],
+    ['NewsTickerCard', pintar(NewsTickerCard, { news: NOTA_DEL_PORTAL })],
+    ['NewsHeroCarousel', pintar(NewsHeroCarousel, { noticias: [NOTA_DEL_PORTAL] })],
   ];
 
   for (const [nombre, html] of tarjetas) {
@@ -1201,6 +1211,316 @@ const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec
       `[${archivo}] no muestra \`createdAt\` (la fecha es la de publicación)`,
       !/\.createdAt\b/.test(fuente),
       'usar fechaDeNoticia / antiguedadDeNoticia de news/newsSource.ts',
+    );
+  }
+}
+
+// =================================================
+// 13. Noticias — la portada editorial de /noticias
+// =================================================
+//
+// La portada se rediseñó como un diario deportivo (tira de notas, carrusel con
+// panel de próximos eventos, mosaico "No te pierdas", lista "Más recientes" y
+// archivo). La referencia traía cosas que acá serían inventadas: categorías por
+// deporte (NFL, MLB…), "Top Scores", "Top Stories" por lecturas, videos y
+// suscripción por correo. Este bloque fija que no vuelvan, y que el reparto no
+// repita notas entre secciones.
+{
+  const ARCHIVOS_NOTICIAS = [
+    'pages/public/NewsPage.tsx',
+    ...(await readdir(path.join(SRC, 'pages/public/news')))
+      .filter((f) => /\.(tsx|ts)$/.test(f))
+      .map((f) => `pages/public/news/${f}`),
+  ];
+  const fuentes = new Map();
+  for (const relativo of ARCHIVOS_NOTICIAS) {
+    fuentes.set(relativo, await readFile(path.join(SRC, relativo), 'utf8'));
+  }
+
+  const nota = (i, extra = {}) => ({
+    id: `n${i}`,
+    title: `Nota número ${i}`,
+    slug: `nota-${i}`,
+    content: 'Cuerpo.',
+    excerpt: 'Bajada.',
+    imageKey: null,
+    isPublished: true,
+    publishedAt: new Date(Date.UTC(2026, 7, 20) - i * 86_400_000).toISOString(),
+    authorId: null,
+    sourceUrl: null,
+    sourceName: null,
+    isExternal: false,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    updatedAt: '2026-10-01T00:00:00.000Z',
+    ...extra,
+  });
+  const DEL_PORTAL = {
+    isExternal: true,
+    sourceUrl: 'https://www.formosa.gob.ar/noticia/1/0/x',
+    sourceName: 'Secretaría de Deportes',
+  };
+
+  // ---- 13.a Reparto: nada repetido, nada perdido, orden de fecha respetado.
+  comprobar('[portada] consume 18 notas (4 + 4 + 5 + 5)', NOTAS_EN_PORTADA === 18);
+  for (let n = 0; n <= 40; n++) {
+    const notas = Array.from({ length: n }, (_, i) => nota(i));
+    const r = repartirPortada(notas);
+    const enPantalla = [...r.carrusel, ...r.tira, ...r.mosaico, ...r.lista, ...r.resto];
+    const ids = enPantalla.map((x) => x.id);
+    comprobar(
+      `[portada] con ${n} notas ninguna se repite entre secciones`,
+      new Set(ids).size === ids.length,
+    );
+    comprobar(
+      `[portada] con ${n} notas no se pierde ninguna y el orden de lectura es el de fecha`,
+      ids.join(',') === notas.map((x) => x.id).join(','),
+    );
+    comprobar(
+      `[portada] con ${n} notas el carrusel son las ${Math.min(4, n)} más recientes`,
+      r.carrusel.map((x) => x.id).join(',') === notas.slice(0, 4).map((x) => x.id).join(','),
+    );
+    comprobar(
+      `[portada] con ${n} notas el mosaico tiene una forma que llena (0, 3 o 5) y la lista 0 o ≥ 3`,
+      [0, 3, 5].includes(r.mosaico.length) &&
+        (r.lista.length === 0 || (r.lista.length >= 3 && r.lista.length <= 5)) &&
+        r.tira.length <= 4,
+      `tira ${r.tira.length}, mosaico ${r.mosaico.length}, lista ${r.lista.length}`,
+    );
+    if (n >= NOTAS_EN_PORTADA) {
+      const enCarrusel = new Set(r.carrusel.map((x) => x.id));
+      comprobar(
+        `[portada] con ${n} notas la portada está completa y el carrusel no se repite en las demás`,
+        r.tira.length === 4 && r.mosaico.length === 5 && r.lista.length === 5 &&
+          ![...r.tira, ...r.mosaico, ...r.lista].some((x) => enCarrusel.has(x.id)),
+      );
+    }
+  }
+  {
+    const r = repartirPortada(Array.from({ length: 14 }, (_, i) => nota(i)));
+    comprobar(
+      '[portada] con las 14 notas de hoy: carrusel 4, tira 2, mosaico 5, lista 3, nada afuera',
+      r.carrusel.length === 4 && r.tira.length === 2 && r.mosaico.length === 5 &&
+        r.lista.length === 3 && r.resto.length === 0,
+      `tira ${r.tira.length}, mosaico ${r.mosaico.length}, lista ${r.lista.length}, resto ${r.resto.length}`,
+    );
+  }
+
+  // ---- 13.b Sin categorías inventadas: el chip dice el origen.
+  comprobar(
+    '[NewsOriginChip] el chip dice el origen real ("Portal oficial" / "Plataforma")',
+    texto(pintar(NewsOriginChip, { news: nota(1, DEL_PORTAL) })) === 'Portal oficial' &&
+      texto(pintar(NewsOriginChip, { news: nota(1) })) === 'Plataforma' &&
+      etiquetaDeOrigen({ isExternal: true, sourceUrl: null }) === 'Plataforma',
+    'una fila marcada como externa sin sourceUrl no es del portal',
+  );
+  const CATEGORIA_INVENTADA =
+    /\b(Actualidad|NFL|MLB|NBA|F1|Football|Surfing|Rugby|Tenis|Tennis|Premier League|Top Scores|Top Stories|Lo más leído|Más leídas)\b/i;
+  const piezas = (news) => [
+    ['NewsCard', pintar(NewsCard, { news, index: 0 })],
+    ['FeaturedNewsCard', pintar(FeaturedNewsCard, { news })],
+    ['NewsMosaicCard', pintar(NewsMosaicCard, { news, tamano: 'grande' })],
+    ['NewsTickerCard', pintar(NewsTickerCard, { news })],
+    ['NewsSidebarList', pintar(NewsSidebarList, { news: [news] })],
+  ];
+  for (const [origen, news] of [['propia', nota(1)], ['del portal', nota(1, DEL_PORTAL)]]) {
+    for (const [nombre, html] of piezas(news)) {
+      const visible = texto(html);
+      comprobar(
+        `[${nombre}] nota ${origen}: sin categorías ni métricas inventadas`,
+        !CATEGORIA_INVENTADA.test(visible),
+        `texto visible: "${visible.slice(0, 160)}"`,
+      );
+      comprobar(
+        `[${nombre}] nota ${origen}: sólo encabezados h3 (cuelgan de los h2 de sección)`,
+        niveles(html).every((nivel) => nivel === 3),
+        `niveles: ${niveles(html).join(',')}`,
+      );
+      const clases = /<a [^>]*class="([^"]*)"/.exec(html)?.[1] ?? '';
+      comprobar(
+        `[${nombre}] nota ${origen}: el enlace es un bloque con foco visible`,
+        /\b(block|flex|inline-flex)\b/.test(clases) && /focus-visible:outline/.test(clases),
+        `clases del <a>: "${clases}"`,
+      );
+    }
+  }
+  for (const [relativo, fuente] of fuentes) {
+    comprobar(
+      `[${relativo}] no lee un campo de categoría/deporte que el modelo no tiene`,
+      !/\.(category|categoria|categories|sport|deporte)\b/.test(sinComentarios(fuente)),
+    );
+  }
+
+  // ---- 13.c "Próximos eventos" sale del calendario real.
+  const ahora = new Date('2026-10-08T15:00:00.000Z');
+  const evento = (id, startDate, extra = {}) => ({
+    id,
+    title: `Evento ${id}`,
+    description: null,
+    startDate,
+    endDate: null,
+    stage: null,
+    venueId: null,
+    disciplineId: null,
+    isPublished: true,
+    createdAt: '2026-09-01T00:00:00.000Z',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+    ...extra,
+  });
+  const EVENTOS = [
+    evento('pasado', '2026-10-01T13:00:00.000Z'),
+    evento('borrador', '2026-10-09T13:00:00.000Z', { isPublished: false }),
+    evento('e5', '2026-10-20T13:00:00.000Z'),
+    evento('e2', '2026-10-09T13:00:00.000Z', { stage: 'ZONAL', venueId: 'v1' }),
+    evento('e4', '2026-10-15T13:00:00.000Z', { venueId: 'v-de-baja' }),
+    evento('encurso', '2026-10-06T13:00:00.000Z', { endDate: '2026-10-10T13:00:00.000Z' }),
+    evento('e3', '2026-10-12T13:00:00.000Z'),
+    evento('e6', '2026-11-02T13:00:00.000Z'),
+  ];
+  const proximos = proximosEventos(EVENTOS, ahora);
+  comprobar(
+    '[proximosEventos] los 5 próximos publicados, del más cercano al más lejano (incluye el que está en curso)',
+    proximos.map((e) => e.id).join(',') === 'encurso,e2,e3,e4,e5',
+    `dio ${proximos.map((e) => e.id).join(',')}`,
+  );
+  const panel = pintar(UpcomingEventsPanel, {
+    eventos: proximos,
+    sedePorId: new Map([['v1', 'Estadio Centenario']]),
+    estado: 'listo',
+  });
+  const visiblePanel = texto(panel);
+  comprobar(
+    '[UpcomingEventsPanel] lista los títulos reales del calendario bajo un h2',
+    proximos.every((e) => visiblePanel.includes(e.title)) && niveles(panel).join(',') === '2',
+  );
+  comprobar(
+    '[UpcomingEventsPanel] la sede sale del catálogo y una sede que no resuelve no se inventa',
+    visiblePanel.includes('Estadio Centenario') &&
+      (visiblePanel.match(/Sede:/g) ?? []).length === 1,
+  );
+  comprobar(
+    '[UpcomingEventsPanel] la etapa sólo aparece si el evento la tiene',
+    (visiblePanel.match(/Etapa /g) ?? []).length === 1 && visiblePanel.includes('Zonal'),
+  );
+  comprobar(
+    '[UpcomingEventsPanel] "Ver todos" lleva al calendario y no hay marcadores inventados',
+    /href="\/calendario"/.test(panel) && !/Top Scores|\bvs\.?\s|marcador/i.test(visiblePanel),
+  );
+  const panelVacio = pintar(UpcomingEventsPanel, { eventos: [], sedePorId: new Map(), estado: 'listo' });
+  comprobar(
+    '[UpcomingEventsPanel] sin eventos próximos el panel sigue ahí, lo dice y lleva al calendario',
+    /Próximos eventos/.test(texto(panelVacio)) &&
+      /No hay eventos próximos/.test(texto(panelVacio)) &&
+      /href="\/calendario"/.test(panelVacio),
+  );
+  const pagina = sinComentarios(fuentes.get('pages/public/NewsPage.tsx'));
+  comprobar(
+    '[NewsPage] el panel se alimenta del hook real del calendario (useAllCalendarEvents + proximosEventos)',
+    /useAllCalendarEvents\(\{\s*isPublished:\s*true\s*\}\)/.test(pagina) &&
+      /proximosEventos\(/.test(pagina) &&
+      /<UpcomingEventsPanel/.test(pagina),
+  );
+
+  // ---- 13.d Sin secciones sin datos detrás: videos ni suscripción por correo.
+  for (const [relativo, fuente] of fuentes) {
+    comprobar(
+      `[${relativo}] no tiene secciones de videos ni de suscripción por correo`,
+      !/(?<![-\w])videos?\b|suscrib|suscripci|newsletter|bolet[ií]n|type="email"/i.test(sinComentarios(fuente)),
+    );
+  }
+
+  // ---- 13.e Carrusel accesible.
+  const CON_FOTO = (i) => nota(i, { imageKey: `https://example.org/foto-${i}.jpg` });
+  const carrusel = pintar(NewsHeroCarousel, { noticias: [1, 2, 3, 4].map(CON_FOTO) });
+  comprobar(
+    '[NewsHeroCarousel] declara rol de carrusel y una diapositiva visible de 4',
+    /aria-roledescription="carrusel"/.test(carrusel) &&
+      (carrusel.match(/aria-roledescription="diapositiva"/g) ?? []).length === 4 &&
+      (carrusel.match(/aria-hidden="false"/g) ?? []).length === 1,
+  );
+  comprobar(
+    '[NewsHeroCarousel] flechas, pausa y puntos con etiqueta',
+    /aria-label="Nota anterior"/.test(carrusel) &&
+      /aria-label="Nota siguiente"/.test(carrusel) &&
+      /aria-label="Pausar el pase automático de notas"/.test(carrusel) &&
+      (carrusel.match(/aria-label="Ir a la nota \d de 4/g) ?? []).length === 4 &&
+      (carrusel.match(/aria-current="true"/g) ?? []).length === 1,
+  );
+  comprobar(
+    '[NewsHeroCarousel] h2 de sección y diapositivas en h3',
+    niveles(carrusel)[0] === 2 && niveles(carrusel).slice(1).every((n) => n === 3),
+    `niveles: ${niveles(carrusel).join(',')}`,
+  );
+  comprobar(
+    '[NewsHeroCarousel] la primera foto carga ya y las demás perezosas',
+    (carrusel.match(/loading="eager"/g) ?? []).length === 1 &&
+      (carrusel.match(/loading="lazy"/g) ?? []).length === 3,
+  );
+  const fuenteCarrusel = sinComentarios(fuentes.get('pages/public/news/NewsHeroCarousel.tsx'));
+  comprobar(
+    '[NewsHeroCarousel] región aria-live polite, pausa en hover/foco, teclado y prefers-reduced-motion',
+    /aria-live=\{rota \? 'off' : 'polite'\}/.test(fuenteCarrusel) &&
+      /onMouseEnter/.test(fuenteCarrusel) &&
+      /onFocus/.test(fuenteCarrusel) &&
+      /ArrowLeft/.test(fuenteCarrusel) &&
+      /ArrowRight/.test(fuenteCarrusel) &&
+      /prefers-reduced-motion: reduce/.test(fuenteCarrusel) &&
+      /!reducirMovimiento/.test(fuenteCarrusel),
+  );
+  comprobar(
+    '[NewsHeroCarousel] con una sola nota no hay controles de carrusel',
+    !/Nota siguiente/.test(pintar(NewsHeroCarousel, { noticias: [CON_FOTO(1)] })),
+  );
+  comprobar(
+    '[NewsMosaicCard] la foto del mosaico carga perezosa',
+    /loading="lazy"/.test(pintar(NewsMosaicCard, { news: CON_FOTO(1) })),
+  );
+
+  // ---- 13.f Encabezados, clases, paleta y contraste de todo /noticias.
+  comprobar(
+    '[NewsPage] el h1 lo pone PublicPageHeader, no la página',
+    !/<h1[\s>]/.test(pagina) && pagina.includes('PublicPageHeader'),
+  );
+  comprobar(
+    '[NewsPage] declara h2 por sección y no emite h4/h5/h6',
+    /<h2[\s>]/.test(pagina) && !/<h[456][\s>]/.test(pagina),
+  );
+  const INTERPOLADA =
+    /(?:^|[\s"'`])(?:hover:|focus:|group-hover:|focus-visible:|sm:|md:|lg:|xl:)*(?:bg|text|border|from|to|via|grid-cols|col-span|row-span|w|h|p|m|gap|rounded|shadow|ring|opacity|outline)-\$\{/;
+  const FUERA_DE_PALETA =
+    /\b(?:text|bg|border|from|to|via|ring|outline|divide)-(?:amber|yellow|orange|sky|indigo|emerald|teal|rose|violet|slate|gray|zinc|neutral|stone|red|blue|green|cyan|lime|pink|purple|fuchsia)-\d{2,3}\b/g;
+  // Tonos que el tema no define: Tailwind no genera nada y el degradé "existe"
+  // sólo en el fuente (pasó con `from-primary-950`).
+  const TONO_INEXISTENTE = /\b(?:primary|celeste|secondary|accent)-950\b/g;
+  for (const [relativo, fuente] of fuentes) {
+    const limpio = sinComentarios(fuente);
+    const linea = fuente
+      .split('\n')
+      .find((l) => INTERPOLADA.test(l) && !l.trimStart().startsWith('*'));
+    comprobar(
+      `[${relativo}] no arma clases de Tailwind por interpolación`,
+      linea === undefined,
+      linea && `Tailwind no genera esa clase: ${linea.trim()}`,
+    );
+    const fuera = limpio.match(FUERA_DE_PALETA);
+    comprobar(
+      `[${relativo}] usa sólo los tokens de la paleta institucional`,
+      fuera === null,
+      fuera && `fuera de paleta: ${[...new Set(fuera)].join(', ')}`,
+    );
+    const inexistentes = limpio.match(TONO_INEXISTENTE);
+    comprobar(
+      `[${relativo}] no usa tonos que el tema no define`,
+      inexistentes === null,
+      inexistentes && `sin token: ${[...new Set(inexistentes)].join(', ')}`,
+    );
+    comprobar(
+      `[${relativo}] no pinta texto con primary-300/400 (< 4.5:1 sobre fondo claro)`,
+      !/\btext-primary-(?:300|400)\b/.test(limpio),
+      'usar primary-500 o más oscuro',
+    );
+    comprobar(
+      `[${relativo}] no simula un enlace con onClick sobre un div`,
+      !/<div[^>]*onClick/.test(limpio),
     );
   }
 }

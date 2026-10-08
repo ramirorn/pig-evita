@@ -23,11 +23,19 @@ export const NEWS_KEYS = {
   slug: (slug: string) => [...NEWS_KEYS.slugs(), slug] as const,
 };
 
-export function useNewsList(filters?: NewsFilters) {
+/**
+ * `enabled` deja que una página con varias vistas (la portada editorial de
+ * `/noticias` y su grilla de resultados) pida sólo la que está mostrando.
+ */
+export function useNewsList(
+  filters?: NewsFilters,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: NEWS_KEYS.list(filters),
     queryFn: () => newsApi.findAll(filters),
     staleTime: STALE_TIME.CATALOG,
+    enabled: options.enabled ?? true,
   });
 }
 

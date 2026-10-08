@@ -9,10 +9,22 @@ import { safeImageSrc } from "@/lib/utils";
 function NewsImagePlaceholder({
   title,
   isLarge = false,
+  compacta = false,
 }: {
   title: string;
   isLarge?: boolean;
+  compacta?: boolean;
 }) {
+  // En una miniatura (tira superior, lista numerada) el cartel con texto no
+  // entra: queda sólo el icono sobre el degradé institucional.
+  if (compacta) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary-900 via-primary-800 to-celeste-900">
+        <Newspaper className="h-5 w-5 text-celeste-300" aria-hidden="true" />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary-900 via-primary-800 to-celeste-900 p-6 text-center relative overflow-hidden select-none">
       {/* Patrón decorativo de fondo */}
@@ -21,7 +33,7 @@ function NewsImagePlaceholder({
 
       <div className="relative z-10 flex flex-col items-center">
         <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 flex items-center justify-center mb-3 shadow-inner">
-          <Newspaper className="w-7 h-7 text-celeste-300" />
+          <Newspaper className="w-7 h-7 text-celeste-300" aria-hidden="true" />
         </div>
         <span className="text-white/80 font-bold uppercase tracking-wider text-[11px]">
           Juegos Evita Formosa
@@ -41,10 +53,19 @@ export function SafeNewsImage({
   src,
   alt,
   isLarge = false,
+  prioritaria = false,
+  compacta = false,
 }: {
   src?: string | null;
   alt: string;
   isLarge?: boolean;
+  /**
+   * Sólo la primera diapositiva del carrusel: es lo primero que se ve y
+   * diferirla demora el pintado principal. El resto carga perezosa.
+   */
+  prioritaria?: boolean;
+  /** Miniatura: placeholder reducido a un icono. */
+  compacta?: boolean;
 }) {
   // Se guarda **qué** src falló, no un booleano (hallazgo R30): con un
   // `hasError` suelto, reutilizar el componente con otra imagen sin
@@ -60,13 +81,16 @@ export function SafeNewsImage({
   const hasError = failedSrc !== null && failedSrc === safeSrc;
 
   if (!safeSrc || hasError) {
-    return <NewsImagePlaceholder title={alt} isLarge={isLarge} />;
+    return <NewsImagePlaceholder title={alt} isLarge={isLarge} compacta={compacta} />;
   }
 
   return (
     <img
       src={safeSrc}
       alt={alt}
+      loading={prioritaria ? 'eager' : 'lazy'}
+      fetchPriority={prioritaria ? 'high' : 'auto'}
+      decoding="async"
       onError={() => setFailedSrc(safeSrc)}
       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
     />
