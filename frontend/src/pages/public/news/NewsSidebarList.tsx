@@ -2,8 +2,8 @@
 // NewsSidebarList — lista numerada que acompaña a la destacada
 // ===========================================
 import type { News } from '@/types';
-import { formatDate } from '@/lib/utils';
 import { BadgeNoticiaExterna, NewsLink } from './NewsLink';
+import { fechaDeNoticia } from './newsSource';
 
 interface NewsSidebarListProps {
   news: News[];
@@ -40,7 +40,7 @@ export function NewsSidebarList({ news }: NewsSidebarListProps) {
               <div className="min-w-0">
                 <div className="mb-1 flex flex-wrap items-center gap-2">
                   <span className="text-[11px] font-semibold text-primary-500">
-                    {formatDate(item.createdAt)}
+                    {fechaDeNoticia(item)}
                   </span>
                   <BadgeNoticiaExterna news={item} />
                 </div>

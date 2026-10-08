@@ -25,7 +25,7 @@
 // Corre con: npm run check:cards
 // ===========================================
 import { execSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { createElement as h } from 'react';
@@ -75,6 +75,14 @@ const {
   rangoDeDias,
   ocurreHoy,
   columnasSegunVolumen,
+  NewsCard,
+  FeaturedNewsCard,
+  NewsMosaicCard,
+  NewsSidebarList,
+  antiguedadDeNoticia,
+  fechaDeNoticia,
+  fechaDePublicacion,
+  formatDate,
 } = await import(pathToFileURL(SALIDA).href);
 
 /** Renderiza una tarjeta a HTML. El router hace falta por los `<Link>`. */
@@ -1070,6 +1078,131 @@ const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec
     !/BORRADOR:/.test(tarjetaCompetencia),
     'la página descarta los borradores antes de pintar: esa rama no se alcanza nunca',
   );
+}
+
+// =================================================
+// 12. Noticias — la fecha es la de PUBLICACIÓN, nunca la del sync
+// =================================================
+//
+// El bug: las tarjetas mostraban `createdAt`, que para una nota del portal
+// oficial es el momento en que el sync la trajo. Una nota del 23/9 sincronizada
+// hoy se veía "de hoy" en la grilla y "hace 1 min" en el mosaico. La fecha real
+// está en `publishedAt` (el portal da sólo el día, anclado a las 12:00 UTC).
+{
+  const ahora = new Date();
+  // Más de una semana atrás siempre: el mosaico tiene que mostrar la fecha.
+  const PUBLICADA = '2026-08-20T12:00:00.000Z';
+  const NOTA_DEL_PORTAL = {
+    id: 'n1',
+    title: 'Las chicas de Belgrano, campeonas',
+    slug: 'las-chicas-de-belgrano-campeonas-formosa-34709',
+    content: 'Bajada de la nota.',
+    excerpt: 'Bajada de la nota.',
+    imageKey: null,
+    isPublished: true,
+    publishedAt: PUBLICADA,
+    authorId: null,
+    sourceUrl: 'https://www.formosa.gob.ar/noticia/34709/0/x',
+    sourceName: 'Secretaría de Deportes',
+    isExternal: true,
+    // El momento del sync: hace un minuto.
+    createdAt: new Date(ahora.getTime() - 60_000).toISOString(),
+    updatedAt: new Date(ahora.getTime() - 60_000).toISOString(),
+  };
+  const fechaReal = formatDate(PUBLICADA);
+  const fechaDelSync = formatDate(NOTA_DEL_PORTAL.createdAt);
+  const relativaDelSync = /\b(recién|hace \d+ (min|h))\b/;
+
+  const tarjetas = [
+    ['NewsCard', pintar(NewsCard, { news: NOTA_DEL_PORTAL, index: 0 })],
+    ['FeaturedNewsCard', pintar(FeaturedNewsCard, { news: NOTA_DEL_PORTAL })],
+    ['NewsMosaicCard', pintar(NewsMosaicCard, { news: NOTA_DEL_PORTAL, tamano: 'grande' })],
+    ['NewsSidebarList', pintar(NewsSidebarList, { news: [NOTA_DEL_PORTAL] })],
+  ];
+
+  for (const [nombre, html] of tarjetas) {
+    const visible = texto(html);
+    comprobar(
+      `[${nombre}] muestra la fecha de publicación del portal (${fechaReal})`,
+      visible.includes(fechaReal),
+      `texto visible: "${visible.slice(0, 160)}"`,
+    );
+    comprobar(
+      `[${nombre}] no muestra la fecha en que la trajo el sync (${fechaDelSync})`,
+      !visible.includes(fechaDelSync),
+    );
+    comprobar(
+      `[${nombre}] no dice "hace N min/h" a partir del momento del sync`,
+      !relativaDelSync.test(visible),
+      `texto visible: "${visible.slice(0, 160)}"`,
+    );
+  }
+
+  // Antigüedad del mosaico: en días para las del portal (el portal sólo da el
+  // día), y "hoy/ayer" según el calendario de Formosa, no el UTC.
+  const delPortal = (publishedAt) => ({ ...NOTA_DEL_PORTAL, publishedAt });
+  const mediodiaFormosa = new Date('2026-10-01T15:00:00.000Z'); // 12:00 ART
+  const casiMedianoche = new Date('2026-10-02T02:30:00.000Z'); // 23:30 ART del 1/10
+  const casos = [
+    ['2026-10-01T12:00:00.000Z', mediodiaFormosa, 'hoy'],
+    ['2026-09-30T12:00:00.000Z', mediodiaFormosa, 'ayer'],
+    ['2026-09-28T12:00:00.000Z', mediodiaFormosa, 'hace 3 d'],
+    ['2026-10-01T12:00:00.000Z', casiMedianoche, 'hoy'],
+    ['2026-09-10T12:00:00.000Z', mediodiaFormosa, formatDate('2026-09-10T12:00:00.000Z')],
+  ];
+  for (const [publicada, momento, esperado] of casos) {
+    const obtenido = antiguedadDeNoticia(
+      { ...delPortal(publicada), createdAt: new Date(momento.getTime() - 60_000).toISOString() },
+      momento,
+    );
+    comprobar(
+      `[antiguedadDeNoticia] nota del portal del ${publicada.slice(0, 10)} vista el ${momento.toISOString()} → "${esperado}"`,
+      obtenido === esperado,
+      `dio "${obtenido}"`,
+    );
+  }
+
+  // Una nota propia sí tiene hora real de publicación: ahí la antigüedad en
+  // horas es cierta, y sale de `publishedAt`, no de cuándo se creó el borrador.
+  const propia = {
+    ...NOTA_DEL_PORTAL,
+    isExternal: false,
+    sourceUrl: null,
+    sourceName: null,
+    publishedAt: new Date(ahora.getTime() - 3 * 3_600_000).toISOString(),
+    createdAt: new Date(ahora.getTime() - 5 * 86_400_000).toISOString(),
+  };
+  comprobar(
+    '[antiguedadDeNoticia] nota propia: cuenta desde que se publicó (hace 3 h), no desde el borrador',
+    antiguedadDeNoticia(propia, ahora) === 'hace 3 h',
+    `dio "${antiguedadDeNoticia(propia, ahora)}"`,
+  );
+  comprobar(
+    '[fechaDePublicacion] cae a createdAt sólo si no hay publishedAt',
+    fechaDePublicacion({ publishedAt: null, createdAt: PUBLICADA }) === PUBLICADA &&
+      fechaDePublicacion(NOTA_DEL_PORTAL) === PUBLICADA &&
+      fechaDeNoticia(NOTA_DEL_PORTAL) === fechaReal,
+  );
+
+  // Las vistas que no se pueden pintar sin la API (detalle, portada de la
+  // landing) y cualquier componente nuevo de noticias: ninguno lee `createdAt`
+  // directo. La fecha sale del helper único de `newsSource.ts`.
+  const vistasDeNoticias = [
+    'pages/public/NewsDetailPage.tsx',
+    'pages/public/NewsPage.tsx',
+    'pages/public/home/LatestNewsSection.tsx',
+    ...(await readdir(path.join(SRC, 'pages/public/news')))
+      .filter((f) => f.endsWith('.tsx'))
+      .map((f) => `pages/public/news/${f}`),
+  ];
+  for (const archivo of vistasDeNoticias) {
+    const fuente = sinComentarios(await readFile(path.join(SRC, archivo), 'utf8'));
+    comprobar(
+      `[${archivo}] no muestra \`createdAt\` (la fecha es la de publicación)`,
+      !/\.createdAt\b/.test(fuente),
+      'usar fechaDeNoticia / antiguedadDeNoticia de news/newsSource.ts',
+    );
+  }
 }
 
 // -------------------------------------------------

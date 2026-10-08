@@ -44,8 +44,21 @@ export type UpdateNewsPayload = Partial<CreateNewsPayload>;
 export interface ReporteSyncNoticias {
   estado: 'ok' | 'alerta';
   motivo: 'manual' | 'programada';
-  desdeId: number;
-  hastaId: number;
+  /**
+   * `portada`: se leyó en la portada del portal la nota más nueva y se recorrió
+   * de ahí hacia atrás (lo normal). `secuencial`: la portada no se pudo leer y
+   * se recorrió hacia adelante desde el último ID revisado (respaldo).
+   */
+  modo: 'portada' | 'secuencial';
+  /** ID más alto enlazado desde la portada del portal; `null` si no se pudo leer. */
+  idMasRecientePortal: number | null;
+  /** ID más bajo y más alto pedidos en la corrida; `null` si no se pidió ninguno. */
+  desdeId: number | null;
+  hastaId: number | null;
+  /** IDs del portal efectivamente pedidos en la corrida. */
+  idsRevisados: number;
+  /** Tramo que quedó sin revisar (tope por corrida o errores de red); lo completan las siguientes. */
+  pendiente: { desdeId: number; hastaId: number } | null;
   paginasLeidas: number;
   notasEncontradas: number;
   clasificadas: number;

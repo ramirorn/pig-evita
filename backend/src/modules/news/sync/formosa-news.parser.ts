@@ -39,6 +39,37 @@ export function urlDeNota(id: number): string {
   return `${BASE_PORTAL}/noticia/${id}/0/x`;
 }
 
+/** URL de la portada del portal: es la que enlaza las notas más recientes. */
+export const URL_PORTADA = `${BASE_PORTAL}/`;
+
+/**
+ * ID más alto enlazado desde la portada (`/noticia/<id>/...`), o `null` si no
+ * hay ninguno.
+ *
+ * Es lo que le dice al sync **hasta dónde llega hoy el portal**, para recorrer
+ * de lo más nuevo hacia atrás en vez de avanzar a ciegas desde el cursor. La
+ * portada también enlaza alguna nota vieja (banners, "Ingresar" de eventos), por
+ * eso se toma el máximo y no el primero.
+ *
+ * Se acepta tanto la URL absoluta como la relativa, y sólo IDs de hasta nueve
+ * dígitos: un número absurdo no puede convertirse en el techo del recorrido.
+ */
+export function idMasRecienteDePortada(html: string): number | null {
+  let maximo: number | null = null;
+  const patron = /\/noticia\/(\d{1,9})(?=[/'"?#\s]|$)/g;
+  for (const coincidencia of html.matchAll(patron)) {
+    const id = Number(coincidencia[1]);
+    if (
+      Number.isSafeInteger(id) &&
+      id > 0 &&
+      (maximo === null || id > maximo)
+    ) {
+      maximo = id;
+    }
+  }
+  return maximo;
+}
+
 /** Datos de una nota, tal como se guardan. Nunca incluye el cuerpo del artículo. */
 export interface NotaDelPortal {
   /** ID en el portal. */

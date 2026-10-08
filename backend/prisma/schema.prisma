@@ -524,16 +524,26 @@ model News {
 /// esos se volverían a recorrer todos los días.
 model SyncState {
   /// Identificador del sincronizador (por ahora "formosa-news").
-  key           String    @id
-  /// Último ID del portal efectivamente inspeccionado.
-  lastScannedId Int       @map("last_scanned_id")
+  key              String    @id
+  /// Piso cubierto: todo ID <= éste ya fue inspeccionado. Nunca saltea un ID
+  /// pendiente (ni por presupuesto ni por error de red).
+  lastScannedId    Int       @map("last_scanned_id")
+  /// Frente: el ID más alto inspeccionado. El sync recorre de lo más nuevo
+  /// hacia atrás, así que puede estar por encima del piso. NULL = igual al piso
+  /// (filas anteriores a esta columna).
+  highestScannedId Int?      @map("highest_scanned_id")
+  /// Techo del tramo pendiente: los IDs en (lastScannedId, pendingTopId]
+  /// todavía no se inspeccionaron y las corridas siguientes los completan. Por
+  /// encima, hasta `highestScannedId`, está cubierto. NULL = no hay tramo
+  /// pendiente.
+  pendingTopId     Int?      @map("pending_top_id")
   /// Cuándo corrió por última vez, haya traído algo o no.
-  lastRunAt     DateTime? @map("last_run_at")
+  lastRunAt        DateTime? @map("last_run_at")
   /// Cuándo entró por última vez una nota clasificable. Es lo que permite
   /// gritar cuando el sync lleva semanas "exitoso" trayendo cero.
-  lastFoundAt   DateTime? @map("last_found_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  lastFoundAt      DateTime? @map("last_found_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   @@map("sync_state")
 }

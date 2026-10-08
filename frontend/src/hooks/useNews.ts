@@ -107,6 +107,28 @@ export function useDeleteNews() {
  */
 const SYNC_TOAST_ID = 'news-sync';
 
+/**
+ * Qué miró la corrida, con números reales: cuántos IDs, de cuál a cuál, y si
+ * quedó un tramo pendiente para las próximas (el recorrido va de lo más nuevo
+ * hacia atrás y tiene tope por corrida).
+ */
+function detalleDelSync(reporte: ReporteSyncNoticias): string {
+  const rango =
+    reporte.desdeId === null
+      ? 'No había IDs nuevos que revisar en el portal.'
+      : `Se revisaron ${reporte.idsRevisados} IDs del portal ` +
+        `(entre ${reporte.desdeId} y ${reporte.hastaId}` +
+        (reporte.idMasRecientePortal !== null
+          ? `; la más reciente publicada es la ${reporte.idMasRecientePortal}).`
+          : ').');
+  const pendiente = reporte.pendiente
+    ? ` Quedan ${reporte.pendiente.hastaId - reporte.pendiente.desdeId + 1} IDs ` +
+      `anteriores (${reporte.pendiente.desdeId}-${reporte.pendiente.hastaId}) ` +
+      'para las próximas corridas.'
+    : '';
+  return rango + pendiente;
+}
+
 export function useSyncNews() {
   const queryClient = useQueryClient();
 
@@ -126,9 +148,7 @@ export function useSyncNews() {
       queryClient.invalidateQueries({ queryKey: NEWS_KEYS.lists() });
 
       const nuevas = reporte.creadas;
-      const detalle =
-        `Se revisaron ${reporte.paginasLeidas} noticias del portal ` +
-        `(IDs ${reporte.desdeId}-${reporte.hastaId}).`;
+      const detalle = detalleDelSync(reporte);
 
       if (reporte.estado === 'alerta') {
         toast.warning(

@@ -3,10 +3,9 @@
 // ===========================================
 import { ArrowRight, Calendar, ExternalLink } from "lucide-react";
 import type { News } from "@/types";
-import { formatDate } from "@/lib/utils";
 import { SafeNewsImage } from "./SafeNewsImage";
 import { BadgeNoticiaExterna, NewsLink } from "./NewsLink";
-import { esNoticiaExterna } from "./newsSource";
+import { esNoticiaExterna, fechaDeNoticia } from "./newsSource";
 
 interface NewsCardProps {
   news: News;
@@ -42,7 +41,7 @@ export function NewsCard({ news, index }: NewsCardProps) {
           <div>
             <div className="flex items-center gap-2 text-xs text-primary-400 mb-2">
               <Calendar className="w-3.5 h-3.5" />
-              <span>{formatDate(news.createdAt)}</span>
+              <span>{fechaDeNoticia(news)}</span>
             </div>
 
             <h4 className="font-bold text-primary-900 text-lg mb-2.5 line-clamp-2 group-hover:text-primary-600 transition-colors leading-snug">

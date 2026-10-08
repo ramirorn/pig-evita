@@ -65,7 +65,8 @@ export class NewsFilterDto extends PaginationQueryDto {
    * Resultados" sería una etiqueta inventada sobre datos que no la respaldan.
    */
   @ApiPropertyOptional({
-    description: 'Filtrar por origen: true = del portal oficial, false = propias',
+    description:
+      'Filtrar por origen: true = del portal oficial, false = propias',
   })
   @IsOptional()
   @ToBoolean()
@@ -75,11 +76,15 @@ export class NewsFilterDto extends PaginationQueryDto {
   // R11 — whitelist de orden. Sin esto el string del cliente entra crudo al
   // `orderBy` de Prisma y una columna inexistente termina en un 500 con la
   // ruta del archivo y el fragmento de la consulta adentro del mensaje.
+  //
+  // El default es la fecha de PUBLICACIÓN, no `createdAt`: para una nota del
+  // portal, `createdAt` es cuándo la trajo el sync (ver `ordenDelListado`).
   @ApiPropertyOptional({
-    description: 'Campo para ordenar',
+    description:
+      'Campo para ordenar. Por defecto, fecha de publicación (más nueva primero).',
     enum: CAMPOS_ORDEN_NEWS,
-    default: 'createdAt',
+    default: 'publishedAt',
   })
   @SortableBy(CAMPOS_ORDEN_NEWS)
-  sortBy?: string = 'createdAt';
+  sortBy?: string = 'publishedAt';
 }

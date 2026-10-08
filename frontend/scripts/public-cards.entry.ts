@@ -12,3 +12,13 @@ export { agruparPorMes, rangoDeDias, ocurreHoy } from '@/pages/public/calendar/a
 export { columnasSegunVolumen, retrasoDeEntrada } from '@/lib/gridVolumen';
 export { PublicListState } from '@/components/shared/PublicListState';
 export { CardGridSkeleton } from '@/components/shared/CardGridSkeleton';
+export { NewsCard } from '@/pages/public/news/NewsCard';
+export { FeaturedNewsCard } from '@/pages/public/news/FeaturedNewsCard';
+export { NewsMosaicCard } from '@/pages/public/news/NewsMosaicCard';
+export { NewsSidebarList } from '@/pages/public/news/NewsSidebarList';
+export {
+  antiguedadDeNoticia,
+  fechaDeNoticia,
+  fechaDePublicacion,
+} from '@/pages/public/news/newsSource';
+export { formatDate } from '@/lib/utils';

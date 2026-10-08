@@ -5,8 +5,9 @@ import { Link } from 'react-router';
 import { ArrowRight, Newspaper } from 'lucide-react';
 import { ROUTES } from '@/lib/constants';
 import { useNewsList } from '@/hooks/useNews';
-import { formatDate, safeImageSrc } from '@/lib/utils';
+import { safeImageSrc } from '@/lib/utils';
 import { BadgeNoticiaExterna, NewsLink } from '@/pages/public/news/NewsLink';
+import { fechaDeNoticia } from '@/pages/public/news/newsSource';
 
 /**
  * La sección se trae sus propios datos porque es la única consumidora de
@@ -70,7 +71,7 @@ export function LatestNewsSection() {
                   <BadgeNoticiaExterna news={news} />
                 </span>
                 <span className="text-xs text-primary-400">
-                  {formatDate(news.createdAt)}
+                  {fechaDeNoticia(news)}
                 </span>
               </div>
               <h3 className="font-bold text-primary-900 text-lg mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">

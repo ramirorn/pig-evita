@@ -3,10 +3,9 @@
 // ===========================================
 import { ArrowRight, Calendar, ExternalLink, Sparkles } from 'lucide-react';
 import type { News } from '@/types';
-import { formatDate } from '@/lib/utils';
 import { SafeNewsImage } from './SafeNewsImage';
 import { BadgeNoticiaExterna, NewsLink } from './NewsLink';
-import { esNoticiaExterna } from './newsSource';
+import { esNoticiaExterna, fechaDeNoticia } from './newsSource';
 
 /**
  * La primera noticia del listado se muestra con un layout propio (imagen
@@ -56,7 +55,7 @@ export function FeaturedNewsCard({ news }: { news: News }) {
               <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary-500">
                   <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-                  {formatDate(news.createdAt)}
+                  {fechaDeNoticia(news)}
                 </span>
                 <BadgeNoticiaExterna news={news} />
               </div>

@@ -13,9 +13,13 @@ import {
 import { useNewsBySlug } from '@/hooks/useNews';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { formatDate, safeImageSrc } from '@/lib/utils';
+import { safeImageSrc } from '@/lib/utils';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
-import { esNoticiaExterna, hostDeLaFuente } from './news/newsSource';
+import {
+  esNoticiaExterna,
+  fechaDeNoticia,
+  hostDeLaFuente,
+} from './news/newsSource';
 import { logError } from '@/lib/logger';
 import { copiarAlPortapapeles, MENSAJE_COPIA_FALLIDA } from '@/lib/clipboard';
 import { toast } from 'sonner';
@@ -108,7 +112,7 @@ export function NewsDetailPage() {
           </Badge>
           <span className="flex items-center gap-1.5 text-xs font-semibold text-primary-500">
             <Calendar className="w-3.5 h-3.5" />
-            {formatDate(news.createdAt)}
+            {fechaDeNoticia(news)}
           </span>
           {!externa && (
             <span className="flex items-center gap-1.5 text-xs font-semibold text-primary-400">

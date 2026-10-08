@@ -88,6 +88,12 @@ export const envSchema = z
     NEWS_SYNC_MAX_IDS: z.coerce.number().min(1).max(500).default(60),
     /** IDs inexistentes seguidos que alcanzan para asumir que llegamos al final. */
     NEWS_SYNC_MAX_FALLOS: z.coerce.number().min(1).max(100).default(10),
+    /**
+     * Salto maximo creible entre el ultimo ID revisado y la nota mas nueva que
+     * enlaza la portada. Por encima, el ID se ignora (y se avisa): un enlace
+     * roto no puede dejar miles de IDs pendientes.
+     */
+    NEWS_SYNC_MAX_SALTO: z.coerce.number().min(1).default(5000),
     /** Pausa entre requests al sitio ajeno, en ms. */
     NEWS_SYNC_DELAY_MS: z.coerce.number().min(0).max(60000).default(1000),
     NEWS_SYNC_TIMEOUT_MS: z.coerce

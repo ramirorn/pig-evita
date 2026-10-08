@@ -3,10 +3,13 @@
 // ===========================================
 import { ExternalLink } from 'lucide-react';
 import type { News } from '@/types';
-import { tiempoRelativo } from '@/lib/utils';
 import { SafeNewsImage } from './SafeNewsImage';
 import { NewsLink } from './NewsLink';
-import { esNoticiaExterna, hostDeLaFuente } from './newsSource';
+import {
+  antiguedadDeNoticia,
+  esNoticiaExterna,
+  hostDeLaFuente,
+} from './newsSource';
 
 type Tamano = 'grande' | 'media';
 
@@ -33,8 +36,9 @@ const ALTO: Record<Tamano, string> = {
  *
  * **La atribución de fuente es la parte que más aporta** y sale de datos reales:
  * `sourceName` para las que vienen del portal oficial (S19) y la plataforma para
- * las propias. Junto a la antigüedad relativa arma la línea "Secretaría de
- * Deportes · hace 5 h", que es lo que le da carácter de feed.
+ * las propias. Junto a la antigüedad arma la línea "Secretaría de Deportes ·
+ * ayer", que es lo que le da carácter de feed. La antigüedad sale de la fecha
+ * de publicación (en días para las del portal, que sólo publican el día).
  *
  * No lleva contadores de likes ni de comentarios: la plataforma no tiene
  * reacciones ni comentarios, y unos números ahí serían inventados.
@@ -48,7 +52,8 @@ export function NewsMosaicCard({
   const fuente = externa
     ? (news.sourceName ?? hostDeLaFuente(news.sourceUrl) ?? 'Portal oficial')
     : 'Juegos Evita Formoseños';
-  const antiguedad = tiempoRelativo(news.createdAt);
+  // Fecha de publicación, nunca la del sync: ver `antiguedadDeNoticia`.
+  const antiguedad = antiguedadDeNoticia(news);
   const esGrande = tamano === 'grande';
 
   return (

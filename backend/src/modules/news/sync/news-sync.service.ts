@@ -11,6 +11,7 @@ import { PrismaService } from '../../../database/prisma.service';
 import { FormosaPortalClient } from './formosa-portal.client';
 import {
   esDeJuegosEvita,
+  idMasRecienteDePortada,
   parsearNota,
   slugDeNotaExterna,
   urlDeNota,
@@ -23,12 +24,46 @@ export const CLAVE_SYNC_NOTICIAS = 'formosa-news';
 
 export type MotivoCorrida = 'manual' | 'programada';
 
+/**
+ * Cómo se eligió qué IDs mirar.
+ *
+ *   · `portada`: se leyó en la portada del portal cuál es la nota más nueva y se
+ *     recorrió de ahí hacia atrás. Es el modo normal.
+ *   · `secuencial`: la portada no se pudo leer (o dio un ID absurdo) y se cayó
+ *     al recorrido anterior: hacia adelante desde el frente, cortando tras
+ *     varios IDs inexistentes seguidos.
+ */
+export type ModoRecorrido = 'portada' | 'secuencial';
+
+/** Un rango cerrado de IDs del portal. */
+export interface RangoIds {
+  desdeId: number;
+  hastaId: number;
+}
+
 export interface ReporteSync {
   /** `alerta` = terminó, pero hay algo que mirar. Se loguea como error. */
   estado: 'ok' | 'alerta';
   motivo: MotivoCorrida;
-  desdeId: number;
-  hastaId: number;
+  modo: ModoRecorrido;
+  /** ID más alto enlazado desde la portada del portal; `null` si no se pudo leer. */
+  idMasRecientePortal: number | null;
+  /**
+   * ID más bajo y más alto que se pidieron en esta corrida (`null` si no se
+   * pidió ninguno). Como el recorrido va de lo más nuevo hacia atrás y puede
+   * retomar un tramo pendiente, no todos los IDs del medio se miraron
+   * necesariamente: el número exacto es `idsRevisados`.
+   */
+  desdeId: number | null;
+  hastaId: number | null;
+  /** IDs pedidos al portal en esta corrida (sin contar el canario ni la portada). */
+  idsRevisados: number;
+  /**
+   * Tramo que quedó sin revisar al terminar —por tope de IDs por corrida o por
+   * errores de red— y que completan las corridas siguientes. `null` = todo lo
+   * publicado hasta `idMasRecientePortal` está cubierto.
+   */
+  pendiente: RangoIds | null;
   /** Páginas efectivamente bajadas del portal. */
   paginasLeidas: number;
   /** Páginas que resultaron ser una nota real (no la plantilla vacía). */
@@ -48,6 +83,22 @@ export interface ReporteSync {
 }
 
 /**
+ * Qué parte del portal ya está revisada. Ver el modelo `SyncState`.
+ *
+ *   (-inf, piso]                 cubierto
+ *   (piso, techoPendiente]       pendiente (vacío si techoPendiente === piso)
+ *   (techoPendiente, frente]     cubierto
+ */
+interface Cobertura {
+  piso: number;
+  techoPendiente: number;
+  frente: number;
+}
+
+/** Resultado de mirar un ID. `red` = no se pudo leer: el ID sigue pendiente. */
+type ResultadoId = 'red' | 'inexistente' | 'otra-seccion' | 'juegos-evita';
+
+/**
  * El sync.
  *
  * ## Cómo descubre
@@ -57,6 +108,25 @@ export interface ReporteSync {
  * categoría acepta cualquier número inventado y no hay RSS. Lo único
  * determinista que se encontró es que `/noticia/{id}/0/x` devuelve la nota del
  * ID. El detalle de las tres vías descartadas está en S19 de `tasks.md`.
+ *
+ * ## En qué orden: lo más nuevo primero
+ *
+ * Al empezar, se baja la portada del portal y se toma el ID más alto que enlaza
+ * (`/noticia/<id>`): hasta ahí llega hoy el portal. Se recorre **de ese ID hacia
+ * abajo** hasta el frente ya cubierto y, si queda presupuesto, se sigue con el
+ * tramo pendiente de corridas anteriores, también de arriba hacia abajo. Así la
+ * nota publicada ayer entra en la primera corrida aunque haya cientos de IDs
+ * viejos sin revisar.
+ *
+ * El tope por corrida (`NEWS_SYNC_MAX_IDS`) se respeta igual: lo que no entra
+ * queda guardado como tramo pendiente en `sync_state` y lo completan las
+ * corridas siguientes. **Ningún ID se da por visto sin haberse leído**: ni por
+ * presupuesto ni por un error de red. A lo sumo, un ID ya leído vuelve a
+ * leerse (el `upsert` por `sourceUrl` lo hace inocuo).
+ *
+ * Si la portada no se puede leer, se cae al recorrido anterior: hacia adelante
+ * desde el frente, cortando tras `NEWS_SYNC_MAX_FALLOS` IDs inexistentes
+ * seguidos.
  *
  * ## Por qué no puede terminar "en verde" trayendo cero
  *
@@ -140,6 +210,11 @@ export class NewsSyncService {
     }
   }
 
+  /** Salto máximo creíble entre el frente y la nota más nueva de la portada. */
+  private get maxSalto(): number {
+    return this.num('NEWS_SYNC_MAX_SALTO', 5000);
+  }
+
   private async correr(
     motivo: MotivoCorrida,
     arranque: number,
@@ -149,13 +224,17 @@ export class NewsSyncService {
     const estado = await this.prisma.syncState.findUnique({
       where: { key: CLAVE_SYNC_NOTICIAS },
     });
-    const cursor = estado?.lastScannedId ?? this.idInicial;
+    const cobertura = this.coberturaDe(estado);
 
     const reporte: ReporteSync = {
       estado: 'ok',
       motivo,
-      desdeId: cursor + 1,
-      hastaId: cursor,
+      modo: 'secuencial',
+      idMasRecientePortal: null,
+      desdeId: null,
+      hastaId: null,
+      idsRevisados: 0,
+      pendiente: null,
       paginasLeidas: 0,
       notasEncontradas: 0,
       clasificadas: 0,
@@ -168,69 +247,100 @@ export class NewsSyncService {
       duracionMs: 0,
     };
 
-    let cursorNuevo = cursor;
-    let fallosSeguidos = 0;
+    const masReciente = await this.leerPortada(reporte, cobertura);
+
+    /** IDs que esta corrida dejó resueltos (leídos, existan o no). */
+    const resueltos = new Set<number>();
     let ultimaEncontrada: Date | null = null;
+    let presupuesto = this.maxIdsPorCorrida;
 
-    for (let i = 0; i < this.maxIdsPorCorrida; i++) {
-      if (fallosSeguidos >= this.maxFallosSeguidos) break;
+    const mirar = async (id: number): Promise<ResultadoId> => {
+      // La portada ya fue un request: la pausa va antes de cada nota.
+      await this.portal.esperarEntreRequests();
+      presupuesto--;
+      reporte.idsRevisados++;
+      reporte.desdeId = Math.min(reporte.desdeId ?? id, id);
+      reporte.hastaId = Math.max(reporte.hastaId ?? id, id);
 
-      const id = cursor + 1 + i;
-      reporte.hastaId = id;
+      const resultado = await this.procesarId(id, reporte);
+      if (resultado !== 'red') resueltos.add(id);
+      if (resultado === 'juegos-evita') ultimaEncontrada ??= new Date();
+      return resultado;
+    };
 
-      if (i > 0) await this.portal.esperarEntreRequests();
-
-      const respuesta = await this.portal.traerNota(id);
-
-      if (!respuesta.ok) {
-        // Un error de red **no** avanza el cursor: si se lo diera por leído, ese
-        // ID no se vuelve a mirar nunca y la nota se pierde en silencio.
-        reporte.erroresDeRed++;
-        fallosSeguidos++;
-        continue;
+    /**
+     * Recorre `ids` en orden mientras haya presupuesto. Con `cortarEnInexistentes`
+     * (sólo el recorrido hacia adelante, que no sabe dónde termina el portal)
+     * también corta tras varios IDs sin nota seguidos; si no, sólo tras varios
+     * errores de red seguidos, que es el portal caído.
+     */
+    const recorrer = async (
+      ids: Iterable<number>,
+      cortarEnInexistentes: boolean,
+    ): Promise<void> => {
+      let fallosSeguidos = 0;
+      for (const id of ids) {
+        if (presupuesto <= 0 || fallosSeguidos >= this.maxFallosSeguidos) {
+          return;
+        }
+        const resultado = await mirar(id);
+        const fallo =
+          resultado === 'red' ||
+          (cortarEnInexistentes && resultado === 'inexistente');
+        fallosSeguidos = fallo ? fallosSeguidos + 1 : 0;
       }
+    };
 
-      reporte.paginasLeidas++;
-      const resultado = parsearNota(respuesta.html, id);
+    let techo: number;
 
-      // El ID quedó resuelto. El cursor sólo avanza sobre el tramo contiguo
-      // resuelto, así que un agujero por error de red frena el avance ahí.
-      if (cursorNuevo === id - 1) cursorNuevo = id;
-
-      if (!resultado.ok) {
-        fallosSeguidos++;
-        this.contarDescarte(reporte, resultado.motivo, id);
-        continue;
-      }
-
-      fallosSeguidos = 0;
-      reporte.notasEncontradas++;
-
-      if (!esDeJuegosEvita(resultado.nota)) {
-        // El caso de la 33163: misma forma de URL, otra sección. Se descarta.
-        reporte.descartadasPorSeccion++;
-        continue;
-      }
-
-      reporte.clasificadas++;
-      ultimaEncontrada = new Date();
-
-      const { creada } = await this.guardar(resultado.nota);
-      if (creada) reporte.creadas++;
-      else reporte.actualizadas++;
+    if (masReciente !== null) {
+      // Lo más nuevo primero: de la nota más reciente hacia el frente cubierto.
+      reporte.modo = 'portada';
+      techo = Math.max(masReciente, cobertura.frente);
+      await recorrer(descendente(techo, cobertura.frente + 1), false);
+    } else {
+      // Comportamiento anterior: hacia adelante desde el frente. Sólo se da por
+      // cubierto el tramo contiguo resuelto, así que un error de red frena el
+      // avance ahí y ese ID se vuelve a mirar en la próxima corrida.
+      reporte.modo = 'secuencial';
+      await recorrer(ascendente(cobertura.frente + 1), true);
+      techo = cobertura.frente;
+      while (resueltos.has(techo + 1)) techo++;
     }
 
-    await this.guardarCursor(cursorNuevo, ultimaEncontrada);
+    // Con lo que sobre de presupuesto, el tramo pendiente de corridas
+    // anteriores, también de arriba hacia abajo.
+    await recorrer(
+      descendente(cobertura.techoPendiente, cobertura.piso + 1),
+      false,
+    );
+
+    const nueva = this.nuevaCobertura(cobertura, techo, resueltos);
+    reporte.pendiente =
+      nueva.techoPendiente > nueva.piso
+        ? { desdeId: nueva.piso + 1, hastaId: nueva.techoPendiente }
+        : null;
+
+    await this.guardarCursor(nueva, ultimaEncontrada);
     this.evaluarSalud(reporte, estado?.lastFoundAt ?? null, ultimaEncontrada);
 
     reporte.duracionMs = Date.now() - arranque;
 
+    const rango =
+      reporte.desdeId === null
+        ? 'ningún ID nuevo'
+        : `${reporte.idsRevisados} IDs entre ${reporte.desdeId} y ${reporte.hastaId}`;
     const resumen =
-      `sync ${motivo}: IDs ${reporte.desdeId}-${reporte.hastaId} · ` +
+      `sync ${motivo} (${reporte.modo}, portada: ${reporte.idMasRecientePortal ?? 'ilegible'}): ` +
+      `${rango} · ` +
       `${reporte.notasEncontradas} notas · ${reporte.clasificadas} de Juegos Evita ` +
       `(${reporte.creadas} nuevas, ${reporte.actualizadas} actualizadas) · ` +
       `${reporte.descartadasPorSeccion} de otras secciones · ` +
-      `${reporte.erroresDeRed} errores de red · ${reporte.duracionMs}ms`;
+      `${reporte.erroresDeRed} errores de red · ` +
+      (reporte.pendiente
+        ? `pendiente ${reporte.pendiente.desdeId}-${reporte.pendiente.hastaId} · `
+        : 'sin pendientes · ') +
+      `${reporte.duracionMs}ms`;
 
     if (reporte.estado === 'alerta') {
       this.logger.error(`${resumen} — ALERTAS: ${reporte.alertas.join(' | ')}`);
@@ -239,6 +349,141 @@ export class NewsSyncService {
     }
 
     return reporte;
+  }
+
+  /** Lee la cobertura guardada, tolerando filas de antes del recorrido descendente. */
+  private coberturaDe(
+    estado: {
+      lastScannedId: number;
+      highestScannedId?: number | null;
+      pendingTopId?: number | null;
+    } | null,
+  ): Cobertura {
+    const piso = estado?.lastScannedId ?? this.idInicial;
+    const frente = Math.max(estado?.highestScannedId ?? piso, piso);
+    const techoPendiente = Math.min(
+      Math.max(estado?.pendingTopId ?? piso, piso),
+      frente,
+    );
+    return { piso, techoPendiente, frente };
+  }
+
+  /**
+   * ID más nuevo según la portada, o `null` para caer al recorrido anterior.
+   *
+   * Que la portada no se lea **no** aborta la corrida —el canario ya probó que
+   * las notas se leen—, pero queda como alerta: si no, el sync volvería en
+   * silencio a traer primero lo más viejo.
+   */
+  private async leerPortada(
+    reporte: ReporteSync,
+    cobertura: Cobertura,
+  ): Promise<number | null> {
+    await this.portal.esperarEntreRequests();
+    const respuesta = await this.portal.traerPortada();
+
+    if (!respuesta.ok) {
+      reporte.alertas.push(
+        `No se pudo leer la portada del portal (${respuesta.error}); se recorrió ` +
+          'hacia adelante desde el último ID revisado, como antes.',
+      );
+      return null;
+    }
+
+    const id = idMasRecienteDePortada(respuesta.html);
+    if (id === null) {
+      reporte.alertas.push(
+        'La portada del portal no enlaza ninguna nota (/noticia/<id>): puede ' +
+          'haber cambiado el markup. Se recorrió hacia adelante, como antes.',
+      );
+      return null;
+    }
+
+    reporte.idMasRecientePortal = id;
+
+    // Un ID desproporcionado (un enlace roto, un número de otra cosa) no puede
+    // convertirse en el techo del recorrido: dejaría miles de IDs "pendientes".
+    if (id > cobertura.frente + this.maxSalto) {
+      reporte.alertas.push(
+        `La portada enlaza la nota ${id}, ${id - cobertura.frente} IDs por encima ` +
+          `del último revisado (${cobertura.frente}); se ignoró por desproporcionado ` +
+          'y se recorrió hacia adelante, como antes.',
+      );
+      return null;
+    }
+
+    return id;
+  }
+
+  /** Lee un ID, lo clasifica y, si es de Juegos Evita, lo guarda. */
+  private async procesarId(
+    id: number,
+    reporte: ReporteSync,
+  ): Promise<ResultadoId> {
+    const respuesta = await this.portal.traerNota(id);
+
+    if (!respuesta.ok) {
+      // Un error de red **no** da el ID por leído: si se lo marcara, ese ID no
+      // se vuelve a mirar nunca y la nota se pierde en silencio.
+      reporte.erroresDeRed++;
+      return 'red';
+    }
+
+    reporte.paginasLeidas++;
+    const resultado = parsearNota(respuesta.html, id);
+
+    if (!resultado.ok) {
+      this.contarDescarte(reporte, resultado.motivo, id);
+      return 'inexistente';
+    }
+
+    reporte.notasEncontradas++;
+
+    if (!esDeJuegosEvita(resultado.nota)) {
+      // El caso de la 33163: misma forma de URL, otra sección. Se descarta.
+      reporte.descartadasPorSeccion++;
+      return 'otra-seccion';
+    }
+
+    reporte.clasificadas++;
+    const { creada } = await this.guardar(resultado.nota);
+    if (creada) reporte.creadas++;
+    else reporte.actualizadas++;
+    return 'juegos-evita';
+  }
+
+  /**
+   * La cobertura después de la corrida.
+   *
+   * El rango a cubrir es (piso, techo]. Lo cubierto es lo que ya estaba en el
+   * frente más lo que esta corrida resolvió; todo lo demás queda pendiente.
+   * Si queda más de un hueco (p. ej. un error de red en el medio, o una
+   * corrida que no alcanzó a cubrir lo nuevo), el tramo pendiente los abarca a
+   * todos: se releen algunos IDs ya vistos, pero no se pierde ninguno.
+   */
+  private nuevaCobertura(
+    anterior: Cobertura,
+    techo: number,
+    resueltos: ReadonlySet<number>,
+  ): Cobertura {
+    let primerPendiente: number | null = null;
+    let ultimoPendiente: number | null = null;
+
+    for (let id = anterior.piso + 1; id <= techo; id++) {
+      const yaCubierto = id > anterior.techoPendiente && id <= anterior.frente;
+      if (yaCubierto || resueltos.has(id)) continue;
+      primerPendiente ??= id;
+      ultimoPendiente = id;
+    }
+
+    if (primerPendiente === null || ultimoPendiente === null) {
+      return { piso: techo, techoPendiente: techo, frente: techo };
+    }
+    return {
+      piso: primerPendiente - 1,
+      techoPendiente: ultimoPendiente,
+      frente: techo,
+    };
   }
 
   /**
@@ -336,21 +581,28 @@ export class NewsSyncService {
   }
 
   private async guardarCursor(
-    lastScannedId: number,
+    cobertura: Cobertura,
     encontrada: Date | null,
   ): Promise<void> {
     const ahora = new Date();
+    const posicion = {
+      lastScannedId: cobertura.piso,
+      highestScannedId: cobertura.frente,
+      pendingTopId:
+        cobertura.techoPendiente > cobertura.piso
+          ? cobertura.techoPendiente
+          : null,
+      lastRunAt: ahora,
+    };
     await this.prisma.syncState.upsert({
       where: { key: CLAVE_SYNC_NOTICIAS },
       create: {
         key: CLAVE_SYNC_NOTICIAS,
-        lastScannedId,
-        lastRunAt: ahora,
+        ...posicion,
         lastFoundAt: encontrada,
       },
       update: {
-        lastScannedId,
-        lastRunAt: ahora,
+        ...posicion,
         ...(encontrada ? { lastFoundAt: encontrada } : {}),
       },
     });
@@ -399,8 +651,24 @@ export class NewsSyncService {
       reporte.estado = 'alerta';
       reporte.alertas.push(
         `${reporte.erroresDeRed} IDs no se pudieron leer por errores de red; ` +
-          'el cursor no avanzó sobre ellos y se vuelven a intentar.',
+          'quedaron pendientes y se vuelven a intentar en la próxima corrida.',
       );
     }
+
+    // Cualquier alerta anotada en el camino (p. ej. la portada ilegible) deja
+    // la corrida en `alerta`: un reporte con alertas y estado `ok` se ignora.
+    if (reporte.alertas.length > 0) {
+      reporte.estado = 'alerta';
+    }
   }
+}
+
+/** `desde`, `desde - 1`, … `hasta` (vacío si `desde < hasta`). */
+function* descendente(desde: number, hasta: number): Generator<number> {
+  for (let id = desde; id >= hasta; id--) yield id;
+}
+
+/** `desde`, `desde + 1`, … sin fin: lo corta el presupuesto. */
+function* ascendente(desde: number): Generator<number> {
+  for (let id = desde; ; id++) yield id;
 }

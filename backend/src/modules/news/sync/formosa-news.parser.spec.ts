@@ -18,6 +18,7 @@ import {
   decodificarHtml,
   esDeJuegosEvita,
   esPlantillaSinNota,
+  idMasRecienteDePortada,
   leerOpenGraph,
   parsearNota,
   preferirImagenGrande,
@@ -38,6 +39,11 @@ const HTML_JUEGOS_EVITA = fixture('noticia-34709-juegos-evita.html');
 const HTML_OTRA_SECCION = fixture('noticia-33163-otra-seccion.html');
 /** 34710 — un ID que todavía no existe. El portal devuelve 200 igual. */
 const HTML_INEXISTENTE = fixture('noticia-inexistente.html');
+/**
+ * La portada del portal tal como la sirvió el 2026-10-01. Enlaza la 34921 como
+ * la más nueva y, de paso, notas viejas (34572, 34582) en banners de eventos.
+ */
+const HTML_PORTADA = fixture('portada.html');
 
 describe('formosa-news.parser (contra HTML real del portal)', () => {
   describe('la nota 34709, que sí es de Juegos Evita', () => {
@@ -174,6 +180,35 @@ describe('formosa-news.parser (contra HTML real del portal)', () => {
       const resultado = parsearNota(otroSlug, 34709);
       if (!resultado.ok) throw new Error('no parseó');
       expect(esDeJuegosEvita(resultado.nota)).toBe(false);
+    });
+  });
+
+  describe('idMasRecienteDePortada (de dónde arranca el recorrido)', () => {
+    it('toma el ID más alto enlazado desde la portada real', () => {
+      expect(idMasRecienteDePortada(HTML_PORTADA)).toBe(34921);
+    });
+
+    it('no se queda con la primera nota enlazada sino con la máxima', () => {
+      const html =
+        "<a href='https://www.formosa.gob.ar/noticia/34572/427/x'>vieja</a>" +
+        '<a href="/noticia/34921/12/nueva">nueva</a>' +
+        '<a href="/noticia/34900">otra</a>';
+      expect(idMasRecienteDePortada(html)).toBe(34921);
+    });
+
+    it('una página sin enlaces a notas devuelve null (el sync cae al recorrido anterior)', () => {
+      expect(
+        idMasRecienteDePortada('<html><body>mantenimiento</body></html>'),
+      ).toBeNull();
+      expect(
+        idMasRecienteDePortada(HTML_INEXISTENTE.replace(/\/noticia\/\d+/g, '')),
+      ).toBeNull();
+    });
+
+    it('ignora números absurdos que no pueden ser un ID', () => {
+      expect(
+        idMasRecienteDePortada('<a href="/noticia/12345678901234/0/x">'),
+      ).toBeNull();
     });
   });
 

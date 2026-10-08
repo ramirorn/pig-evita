@@ -89,14 +89,7 @@ export class NewsService {
         where,
         skip: filterDto.skip,
         take: filterDto.take,
-        // R11 — el campo de orden se valida contra la whitelist antes de
-        // llegar a Prisma; lo desconocido cae al default en vez de explotar.
-        orderBy: buildOrderBy(
-          CAMPOS_ORDEN_NEWS,
-          'createdAt',
-          filterDto.sortBy,
-          filterDto.sortOrder,
-        ),
+        orderBy: ordenDelListado(filterDto, verBorradores),
       }),
       this.prisma.news.count({ where }),
     ]);
@@ -214,4 +207,55 @@ export class NewsService {
     this.logger.log(`News deleted: ${news.title}`);
     return news;
   }
+}
+
+/**
+ * Orden del listado de noticias.
+ *
+ * Por defecto, **fecha de publicación descendente**. Antes era `createdAt`, que
+ * para una nota del portal es el momento en que el sync la trajo: una nota de
+ * hace un mes sincronizada hoy aparecía primera. `publishedAt` es la fecha real
+ * en las dos clases de noticia (la del portal y la de publicación de una
+ * propia).
+ *
+ * Desempates fijos (`createdAt`, `id`): varias notas del portal comparten fecha
+ * —el portal sólo da el día—, y sin un desempate estable la paginación puede
+ * repetir o saltear una nota entre página y página.
+ *
+ * Los borradores no tienen `publishedAt`. En el listado público no existen; en
+ * el panel van **primero** (son trabajo en curso), y nunca al final de una
+ * paginación donde no se los encuentra.
+ *
+ * R11 — el campo se valida contra la whitelist antes de llegar a Prisma; lo
+ * desconocido cae al default en vez de explotar.
+ */
+export function ordenDelListado(
+  filterDto: Pick<NewsFilterDto, 'sortBy' | 'sortOrder'>,
+  verBorradores = false,
+): Prisma.NewsOrderByWithRelationInput[] {
+  const [[campo, direccion]] = Object.entries(
+    buildOrderBy(
+      CAMPOS_ORDEN_NEWS,
+      'publishedAt',
+      filterDto.sortBy,
+      filterDto.sortOrder,
+    ),
+  );
+
+  const principal: Prisma.NewsOrderByWithRelationInput =
+    campo === 'publishedAt'
+      ? {
+          publishedAt: {
+            sort: direccion,
+            nulls: verBorradores && direccion === 'desc' ? 'first' : 'last',
+          },
+        }
+      : { [campo]: direccion };
+
+  const desempates: Prisma.NewsOrderByWithRelationInput[] =
+    campo === 'createdAt'
+      ? [{ id: 'desc' }]
+      : [{ createdAt: 'desc' }, { id: 'desc' }];
+
+  return [principal, ...desempates];
 }

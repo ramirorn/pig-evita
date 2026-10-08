@@ -17,7 +17,7 @@
 // Allow: /`: no hay ninguna regla que prohíba `/noticia/`.
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { decodificarHtml, urlDeNota } from './formosa-news.parser';
+import { decodificarHtml, URL_PORTADA, urlDeNota } from './formosa-news.parser';
 
 export type RespuestaDelPortal =
   { ok: true; html: string } | { ok: false; error: string };
@@ -57,9 +57,21 @@ export class FormosaPortalClient {
    * 200 con la plantilla sin rellenar para cualquier ID inventado; eso lo
    * detecta el parser (`esPlantillaSinNota`), no el status code.
    */
-  async traerNota(id: number): Promise<RespuestaDelPortal> {
-    const url = urlDeNota(id);
+  traerNota(id: number): Promise<RespuestaDelPortal> {
+    return this.traer(urlDeNota(id));
+  }
 
+  /**
+   * Baja la portada del portal. El sync la usa para saber cuál es la nota más
+   * nueva publicada y recorrer desde ahí hacia atrás. Mismo User-Agent, mismo
+   * timeout y misma decodificación que una nota: es un request más de la
+   * corrida, no una excepción a las reglas de invitado.
+   */
+  traerPortada(): Promise<RespuestaDelPortal> {
+    return this.traer(URL_PORTADA);
+  }
+
+  private async traer(url: string): Promise<RespuestaDelPortal> {
     try {
       const respuesta = await fetch(url, {
         redirect: 'follow',
