@@ -7,7 +7,10 @@ import { UserPlus, Save, X, AlertCircle, Star } from 'lucide-react';
 import { Sex } from '@/types';
 import type { TeamMemberValues } from '@/schemas';
 import type { PlantelRequerido, RosterMember } from './rosterModel';
-import { DEPARTMENTS_FORMOSA } from '@/lib/constants';
+import { DEPARTMENT_OPTIONS } from '@/lib/constants';
+import { todayIso } from '@/lib/datePicker';
+import { SelectField } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 
 /**
  * Estado del formulario: los mismos campos que `TeamMemberValues`, pero con los
@@ -95,6 +98,9 @@ function aValores(estado: MemberFormState): TeamMemberValues {
 
 const CLASE_INPUT =
   'w-full px-3 py-2 rounded-xl border border-primary-200 text-primary-900 placeholder:text-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm font-medium';
+/** El campo de fecha usa el mismo borde y radio que los inputs de esta ficha. */
+const CLASE_FECHA =
+  'rounded-xl border-primary-200 bg-white sm:h-10 text-sm font-medium text-primary-900 placeholder:text-primary-300';
 const CLASE_LABEL =
   'block text-[11px] font-bold text-primary-700 uppercase tracking-wider mb-1';
 
@@ -323,13 +329,14 @@ export function RosterMemberForm({
           <label className={CLASE_LABEL} htmlFor="integrante-nacimiento">
             Fecha de nacimiento *
           </label>
-          <input
+          <DatePicker
             id="integrante-nacimiento"
-            type="date"
             required
+            max={todayIso()}
             value={estado.birthDate}
-            onChange={(e) => patch({ birthDate: e.target.value })}
-            className={CLASE_INPUT}
+            onChange={(birthDate) => patch({ birthDate })}
+            pickerLabel="Elegir fecha de nacimiento"
+            className={CLASE_FECHA}
           />
         </div>
 
@@ -368,18 +375,13 @@ export function RosterMemberForm({
           <label className={CLASE_LABEL} htmlFor="integrante-departamento">
             Departamento *
           </label>
-          <select
+          <SelectField
             id="integrante-departamento"
+            required
             value={estado.department}
-            onChange={(e) => patch({ department: e.target.value })}
-            className={`${CLASE_INPUT} bg-white`}
-          >
-            {DEPARTMENTS_FORMOSA.map((departamento) => (
-              <option key={departamento} value={departamento}>
-                {departamento}
-              </option>
-            ))}
-          </select>
+            onValueChange={(department) => patch({ department })}
+            options={DEPARTMENT_OPTIONS}
+          />
         </div>
 
         <div>

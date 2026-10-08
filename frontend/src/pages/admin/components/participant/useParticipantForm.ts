@@ -50,7 +50,7 @@ interface UseParticipantFormOptions {
  * Concentra lo que el formulario de participantes *hace*: valores por defecto,
  * la resincronización al cambiar de participante (que además pasa la fecha de
  * nacimiento de ISO a `YYYY-MM-DD`, el único formato que entiende un
- * `<input type="date">`) y el envío al endpoint que corresponda.
+ * `DatePicker`) y el envío al endpoint que corresponda.
  */
 export function useParticipantForm({ initialData, onSuccess }: UseParticipantFormOptions) {
   const createMutation = useCreateParticipant();

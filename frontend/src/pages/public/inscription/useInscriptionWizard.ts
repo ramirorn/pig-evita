@@ -92,7 +92,7 @@ export function useInscriptionWizard({
   // Las categorías se piden **de la disciplina elegida**, no todas. Antes era
   // `useCategories({ limit: 100 })` filtrando en el cliente, y 100 es el máximo
   // que acepta el backend: pasadas las 100 categorías del sistema, las últimas
-  // disciplinas mostraban el `<select>` vacío, sin error ni toast, porque la
+  // disciplinas mostraban el selector vacío, sin error ni toast, porque la
   // query salía bien y `loadingCategories` quedaba en `false` (R09).
   const { data: disciplines, isLoading: loadingDisciplines } = useAllDisciplines();
   const { data: categories, isLoading: loadingCategories } = useAllCategories(

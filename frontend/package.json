@@ -14,6 +14,7 @@
     "check:documents": "node scripts/check-documents.mjs",
     "check:map": "node scripts/check-map.mjs",
     "check:venues": "node scripts/check-venues.mjs",
+    "check:pickers": "node scripts/check-pickers.mjs",
     "geo:build": "node scripts/geo/build-geo.mjs",
     "preview": "vite preview"
   },

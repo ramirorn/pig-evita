@@ -12,7 +12,7 @@ import type { CalendarEvent } from '@/types';
 export interface CalendarPageFilters {
   search: string;
   /**
-   * Mes **con año**, como `'2026-03'`, o `'ALL'`; sale del `<select>`.
+   * Mes **con año**, como `'2026-03'`, o `'ALL'`; sale del selector de mes.
    *
    * Antes viajaba el índice de mes suelto (`'0'..'11'`) y el filtro comparaba
    * con `getMonth()` sin mirar el año: elegir "Marzo" mostraba juntos los

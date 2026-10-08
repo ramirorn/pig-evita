@@ -216,3 +216,9 @@ export const DEPARTMENTS_FORMOSA = [
   'Pirané',
   'Ramón Lista',
 ] as const;
+
+/** Departamentos como opciones de `SelectField` (valor = etiqueta). */
+export const DEPARTMENT_OPTIONS = DEPARTMENTS_FORMOSA.map((departamento) => ({
+  value: departamento,
+  label: departamento,
+}));

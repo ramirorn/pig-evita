@@ -4,14 +4,31 @@
 import { ArrowRight, EyeOff } from 'lucide-react';
 import { CompetitionStage, Sex } from '@/types';
 import { SEX_LABELS, STAGE_LABELS } from '@/lib/constants';
+import { SelectField } from '@/components/ui/select';
 import type { SurveyWizard } from './useSurveyWizard';
 
 interface SurveyContextStepProps {
   wizard: SurveyWizard;
 }
 
+/** Texto grande y borde marcado: la encuesta la contestan chicos desde el celular. */
 const CLASES_SELECT =
-  'mt-2 min-h-14 w-full rounded-xl border-2 border-primary-400 bg-white px-4 text-base text-primary-800 focus:border-primary-700 focus:ring-2 focus:ring-primary-500 focus:outline-none';
+  'mt-2 border-2 border-primary-400 px-4 text-base text-primary-800 focus-visible:border-primary-700';
+const CLASES_LISTA = '[&_[data-slot=select-item]]:min-h-11 [&_[data-slot=select-item]]:text-base';
+
+const STAGE_OPTIONS = Object.values(CompetitionStage).map((etapa) => ({
+  value: etapa,
+  label: STAGE_LABELS[etapa],
+}));
+const SEX_OPTIONS = Object.values(Sex).map((sexo) => ({ value: sexo, label: SEX_LABELS[sexo] }));
+
+function esEtapa(valor: string): valor is CompetitionStage {
+  return (Object.values(CompetitionStage) as string[]).includes(valor);
+}
+
+function esSexo(valor: string): valor is Sex {
+  return (Object.values(Sex) as string[]).includes(valor);
+}
 
 /**
  * Sólo la disciplina es obligatoria, y no por trámite: de ella sale el tipo de
@@ -49,20 +66,20 @@ export function SurveyContextStep({ wizard }: SurveyContextStepProps) {
           >
             ¿En qué deporte competís?
           </label>
-          <select
+          <SelectField
             id="survey-disciplina"
+            size="xl"
             className={CLASES_SELECT}
+            contentClassName={CLASES_LISTA}
             value={contexto.disciplineId ?? ''}
-            onChange={(e) => wizard.elegirDisciplina(e.target.value)}
+            onValueChange={wizard.elegirDisciplina}
+            placeholder="Elegí tu deporte"
+            options={disciplinas.map((disciplina) => ({
+              value: disciplina.id,
+              label: disciplina.name,
+            }))}
             required
-          >
-            <option value="">Elegí tu deporte</option>
-            {disciplinas.map((disciplina) => (
-              <option key={disciplina.id} value={disciplina.id}>
-                {disciplina.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         {/* La etapa sólo se pregunta si la campaña no la fija: cuando la fija,
@@ -76,22 +93,19 @@ export function SurveyContextStep({ wizard }: SurveyContextStepProps) {
             >
               ¿En qué etapa estás compitiendo?
             </label>
-            <select
+            <SelectField
               id="survey-etapa"
+              size="xl"
               className={CLASES_SELECT}
+              contentClassName={CLASES_LISTA}
               value={contexto.etapa ?? ''}
-              onChange={(e) =>
-                wizard.elegirEtapa(e.target.value as CompetitionStage)
-              }
+              onValueChange={(valor) => {
+                if (esEtapa(valor)) wizard.elegirEtapa(valor);
+              }}
+              placeholder="Elegí la etapa"
+              options={STAGE_OPTIONS}
               required
-            >
-              <option value="">Elegí la etapa</option>
-              {Object.values(CompetitionStage).map((etapa) => (
-                <option key={etapa} value={etapa}>
-                  {STAGE_LABELS[etapa]}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         )}
 
@@ -105,21 +119,19 @@ export function SurveyContextStep({ wizard }: SurveyContextStepProps) {
             >
               Categoría <span className="font-medium">(si la sabés)</span>
             </label>
-            <select
+            <SelectField
               id="survey-categoria"
+              size="xl"
               className={CLASES_SELECT}
+              contentClassName={CLASES_LISTA}
               value={contexto.categoryId ?? ''}
-              onChange={(e) =>
-                wizard.elegirCategoria(e.target.value || undefined)
-              }
-            >
-              <option value="">Prefiero no decirlo</option>
-              {categoriasDisponibles.map((categoria) => (
-                <option key={categoria.id} value={categoria.id}>
-                  {categoria.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={(valor) => wizard.elegirCategoria(valor || undefined)}
+              emptyOptionLabel="Prefiero no decirlo"
+              options={categoriasDisponibles.map((categoria) => ({
+                value: categoria.id,
+                label: categoria.name,
+              }))}
+            />
           </div>
         )}
 
@@ -131,21 +143,16 @@ export function SurveyContextStep({ wizard }: SurveyContextStepProps) {
             ¿En qué rama competís?{' '}
             <span className="font-medium">(opcional)</span>
           </label>
-          <select
+          <SelectField
             id="survey-sexo"
+            size="xl"
             className={CLASES_SELECT}
+            contentClassName={CLASES_LISTA}
             value={contexto.sexo ?? ''}
-            onChange={(e) =>
-              wizard.elegirSexo((e.target.value || undefined) as Sex | undefined)
-            }
-          >
-            <option value="">Prefiero no decirlo</option>
-            {Object.values(Sex).map((sexo) => (
-              <option key={sexo} value={sexo}>
-                {SEX_LABELS[sexo]}
-              </option>
-            ))}
-          </select>
+            onValueChange={(valor) => wizard.elegirSexo(esSexo(valor) ? valor : undefined)}
+            emptyOptionLabel="Prefiero no decirlo"
+            options={SEX_OPTIONS}
+          />
         </div>
       </div>
 

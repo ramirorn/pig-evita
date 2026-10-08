@@ -15,6 +15,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { todayIso } from '@/lib/datePicker';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -121,7 +123,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
             <FormItem>
               <FormLabel>Fecha de Nacimiento</FormLabel>
               <FormControl>
-                <Input type="date" {...field} />
+                <DatePicker {...field} max={todayIso()} pickerLabel="Elegir fecha de nacimiento" />
               </FormControl>
               <FormMessage />
             </FormItem>

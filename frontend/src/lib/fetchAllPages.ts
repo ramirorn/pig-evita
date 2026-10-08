@@ -14,7 +14,7 @@ const LIMITE_MAXIMO_BACKEND = 100;
 
 /**
  * Freno de mano. Un catálogo de más de 2.000 filas no se resuelve trayéndolo
- * entero a un `<select>`: si se llega acá, el problema es de diseño de pantalla
+ * entero a un selector: si se llega acá, el problema es de diseño de pantalla
  * y hace falta un buscador con paginación real.
  */
 const MAX_PAGINAS = 20;

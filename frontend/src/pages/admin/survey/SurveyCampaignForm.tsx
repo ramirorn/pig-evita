@@ -18,6 +18,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { addDays, isValidIso } from '@/lib/datePicker';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,7 +42,7 @@ interface SurveyCampaignFormProps {
  *
  * Acá no hay ningún campo de estado. Publicar y cerrar son decisiones con
  * consecuencias (empieza o deja de recibir respuestas de chicos) y tienen su
- * botón en el editor, con su confirmación. Un `<select>` de estado perdido
+ * botón en el editor, con su confirmación. Un selector de estado perdido
  * entre "Título" y "Año" las volvería un cambio al pasar.
  */
 export function SurveyCampaignForm({
@@ -52,6 +54,8 @@ export function SurveyCampaignForm({
     initialData,
     onSuccess,
   });
+  // Se cierra después de abrir (el schema lo exige): el calendario ya no ofrece antes.
+  const abreEn = form.watch('abreEn');
 
   return (
     <Form {...form}>
@@ -182,7 +186,7 @@ export function SurveyCampaignForm({
                   Se abre el
                 </FormLabel>
                 <FormControl>
-                  <Input type="date" className="bg-white" {...field} value={field.value ?? ''} />
+                  <DatePicker className="bg-white" {...field} pickerLabel="Elegir fecha de apertura" />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -198,7 +202,12 @@ export function SurveyCampaignForm({
                   Se cierra el
                 </FormLabel>
                 <FormControl>
-                  <Input type="date" className="bg-white" {...field} value={field.value ?? ''} />
+                  <DatePicker
+                    className="bg-white"
+                    {...field}
+                    min={abreEn && isValidIso(abreEn) ? addDays(abreEn, 1) : undefined}
+                    pickerLabel="Elegir fecha de cierre"
+                  />
                 </FormControl>
                 <FormDescription className="text-xs text-primary-500">
                   Se puede contestar todo ese día. Si dejás las dos fechas

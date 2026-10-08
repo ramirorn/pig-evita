@@ -171,9 +171,9 @@ const telefonoOpcional = () =>
 // Fechas
 // ------------------------------------------
 
-/** `<input type="date">` siempre entrega `YYYY-MM-DD`. */
+/** El `DatePicker` (como antes el campo de fecha nativo) siempre entrega `YYYY-MM-DD`. */
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-/** `<input type="time">` entrega `HH:MM` (24 h). */
+/** El selector de hora (`ClockTimePicker`) entrega `HH:MM` (24 h). */
 const ISO_TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /**
