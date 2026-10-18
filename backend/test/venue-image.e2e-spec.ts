@@ -30,9 +30,9 @@ import { VenuesController } from '../src/modules/venues/venues.controller';
 import { VenuesService } from '../src/modules/venues/venues.service';
 import { VenueImagesController } from '../src/modules/venues/venue-images.controller';
 import { VenueImagesService } from '../src/modules/venues/venue-images.service';
-import { VenueImageUploadInterceptor } from '../src/modules/venues/venue-image-upload.interceptor';
+import { ImageUploadInterceptor } from '../src/modules/images/image-upload.interceptor';
 import { FileSignaturePipe } from '../src/modules/documents/file-signature.pipe';
-import { ImageSignaturePipe } from '../src/modules/venues/image-signature.pipe';
+import { ImageSignaturePipe } from '../src/modules/images/image-signature.pipe';
 import { MinioService } from '../src/modules/documents/minio.service';
 import { PrismaService } from '../src/database/prisma.service';
 import { JwtStrategy } from '../src/modules/auth/strategies';
@@ -197,7 +197,7 @@ describe('Foto de sede (e2e)', () => {
       providers: [
         VenuesService,
         VenueImagesService,
-        VenueImageUploadInterceptor,
+        ImageUploadInterceptor,
         ImageSignaturePipe,
         JwtStrategy,
         { provide: MinioService, useValue: minio },

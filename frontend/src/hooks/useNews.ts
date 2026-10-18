@@ -1,14 +1,18 @@
 // ===========================================
 // React Query Hooks — News
 // ===========================================
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  newsApi, 
-  type NewsFilters, 
+import {
+  newsApi,
+  type NewsFilters,
   type CreateNewsPayload,
   type UpdateNewsPayload,
   type ReporteSyncNoticias,
+  type UploadNewsImageOptions,
 } from '@/api/news.api';
+import type { News } from '@/types';
+import { newsImageSrc } from '@/lib/news/newsImageRules';
 import { STALE_TIME } from '@/lib/queryClient';
 import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -21,6 +25,8 @@ export const NEWS_KEYS = {
   detail: (id: string) => [...NEWS_KEYS.details(), id] as const,
   slugs: () => [...NEWS_KEYS.all, 'slug'] as const,
   slug: (slug: string) => [...NEWS_KEYS.slugs(), slug] as const,
+  /** Bytes de la imagen subida de un borrador; la URL versionada es parte de la clave. */
+  draftImage: (id: string, imageUrl: string) => [...NEWS_KEYS.all, 'draft-image', id, imageUrl] as const,
 };
 
 /**
@@ -188,4 +194,87 @@ export function useSyncNews() {
       );
     },
   });
+}
+
+// -------------------------------------------------
+// Imagen de la noticia
+// -------------------------------------------------
+
+/**
+ * Deja el detalle en cache con la respuesta del backend (ya trae la
+ * `imageUrl` nueva) y refresca listados y slugs, que la muestran.
+ */
+function syncNews(queryClient: ReturnType<typeof useQueryClient>, news: News) {
+  queryClient.setQueryData(NEWS_KEYS.detail(news.id), news);
+  void queryClient.invalidateQueries({ queryKey: NEWS_KEYS.lists() });
+  void queryClient.invalidateQueries({ queryKey: NEWS_KEYS.slugs() });
+}
+
+/**
+ * Sube o reemplaza la imagen de la noticia.
+ *
+ * Sin toast de error: el uploader explica cada falla en línea (pesada, no es
+ * imagen, red, conflicto) con qué hacer, como la foto de sede.
+ */
+export function useUploadNewsImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, file, options }: { id: string; file: File; options?: UploadNewsImageOptions }) =>
+      newsApi.uploadImage(id, file, options),
+    onSuccess: (news) => {
+      syncNews(queryClient, news);
+      toast.success('Imagen de la noticia actualizada');
+    },
+  });
+}
+
+export function useDeleteNewsImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => newsApi.deleteImage(id),
+    onSuccess: (news) => {
+      syncNews(queryClient, news);
+      toast.success('Imagen quitada');
+    },
+    onError: (error: unknown) => {
+      toast.error(getFriendlyError(error, 'No se pudo quitar la imagen. Probá de nuevo en un rato.'));
+    },
+  });
+}
+
+/**
+ * `src` para MOSTRAR en el panel la imagen actual de una noticia.
+ *
+ * Publicada o con URL externa: la URL resuelta, directo al `<img>`. Imagen
+ * SUBIDA de un borrador: el backend sólo la sirve con sesión, y un `<img>` no
+ * manda el token; se pide con Axios y se muestra como `blob:` (que se suelta
+ * al cambiar o desmontar).
+ */
+export function useNewsImagePreviewSrc(news: Pick<News, 'id' | 'imageUrl' | 'imageSource' | 'isPublished'> | null) {
+  const direct = news ? newsImageSrc(news.imageUrl) : null;
+  const needsSession = Boolean(news && news.imageSource === 'upload' && !news.isPublished && direct);
+
+  const { data: blob } = useQuery({
+    queryKey: NEWS_KEYS.draftImage(news?.id ?? '', news?.imageUrl ?? ''),
+    queryFn: () => newsApi.fetchImageBlob(news?.id ?? ''),
+    enabled: needsSession,
+    // La URL lleva la versión: el contenido de esta clave no cambia nunca.
+    staleTime: Infinity,
+    retry: false,
+  });
+
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!needsSession || !blob) {
+      setObjectUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    setObjectUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [blob, needsSession]);
+
+  return needsSession ? objectUrl : direct;
 }

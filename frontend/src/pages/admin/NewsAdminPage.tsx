@@ -18,7 +18,7 @@ import { usePermisos } from '@/hooks/usePermisos';
 import { useDebounce } from '@/hooks/useDebounce';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import type { News } from '@/types';
-import { NewsForm } from './components/NewsForm';
+import { NewsFormDialog } from './news/NewsFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
@@ -26,12 +26,6 @@ import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -283,14 +277,11 @@ export function NewsAdminPage() {
       />
 
       {/* Modal Crear / Editar */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[650px]">
-          <DialogHeader>
-            <DialogTitle>{editingNews ? 'Editar Noticia' : 'Nueva Noticia'}</DialogTitle>
-          </DialogHeader>
-          <NewsForm initialData={editingNews} onSuccess={closeModal} onCancel={closeModal} />
-        </DialogContent>
-      </Dialog>
+      <NewsFormDialog
+        open={isModalOpen}
+        onOpenChange={(open) => (open ? setIsModalOpen(true) : closeModal())}
+        news={editingNews}
+      />
 
       {/* Modal Confirmación de Eliminación */}
       <ConfirmDeleteDialog

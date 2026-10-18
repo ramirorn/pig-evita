@@ -410,7 +410,15 @@ export interface News {
   slug: string;
   content: string;
   excerpt?: string | null;
-  imageKey?: string | null;
+  /**
+   * Imagen lista para usar (pasala por `newsImageSrc`): ruta relativa a la
+   * API (`/api/v1/news/<id>/image?v=…`) si se subió desde el panel, o la URL
+   * `https` externa tal cual (pegada, o la del portal oficial). `null` si no
+   * hay. La clave interna de MinIO (`imageKey`) no sale de la API.
+   */
+  imageUrl: string | null;
+  /** De dónde viene la imagen: `'upload'` (archivo subido), `'url'` (externa), `null`. */
+  imageSource: 'upload' | 'url' | null;
   isPublished: boolean;
   publishedAt?: string | null;
   authorId?: string | null;

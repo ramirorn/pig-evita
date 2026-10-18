@@ -845,6 +845,7 @@ const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec
     'components/shared/CardGridSkeleton.tsx',
     'components/venues/VenuePhoto.tsx',
     'lib/gridVolumen.ts',
+    'pages/public/home/LatestNewsSection.tsx',
   ];
 
   // Prefijos de utilidades de Tailwind seguidos de una interpolación: es la
@@ -1106,7 +1107,8 @@ const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec
     slug: 'las-chicas-de-belgrano-campeonas-formosa-34709',
     content: 'Bajada de la nota.',
     excerpt: 'Bajada de la nota.',
-    imageKey: null,
+    imageUrl: null,
+    imageSource: null,
     isPublished: true,
     publishedAt: PUBLICADA,
     authorId: null,
@@ -1243,7 +1245,8 @@ const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec
     slug: `nota-${i}`,
     content: 'Cuerpo.',
     excerpt: 'Bajada.',
-    imageKey: null,
+    imageUrl: null,
+    imageSource: null,
     isPublished: true,
     publishedAt: new Date(Date.UTC(2026, 7, 20) - i * 86_400_000).toISOString(),
     authorId: null,
@@ -1429,7 +1432,7 @@ const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec
   }
 
   // ---- 13.e Carrusel accesible.
-  const CON_FOTO = (i) => nota(i, { imageKey: `https://example.org/foto-${i}.jpg` });
+  const CON_FOTO = (i) => nota(i, { imageUrl: `https://example.org/foto-${i}.jpg`, imageSource: 'url' });
   const carrusel = pintar(NewsHeroCarousel, { noticias: [1, 2, 3, 4].map(CON_FOTO) });
   comprobar(
     '[NewsHeroCarousel] declara rol de carrusel y una diapositiva visible de 4',
@@ -1523,6 +1526,54 @@ const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec
       !/<div[^>]*onClick/.test(limpio),
     );
   }
+}
+
+// =================================================
+// 14. Inicio — noticias sobre el hero, sin la franja de cifras
+// =================================================
+//
+// La franja de tres tarjetas ("+40 Disciplinas", "3 Etapas", "+15.000
+// Atletas") se quitó por pedido: eran cifras fijas, no datos. En su lugar van
+// las últimas noticias, montadas sobre el hero y con aparición al hacer
+// scroll. Se fija que la franja no vuelva, que las noticias no queden
+// duplicadas y que la animación nunca deje contenido oculto para siempre.
+{
+  const home = sinComentarios(await readFile(path.join(SRC, 'pages/public/HomePage.tsx'), 'utf8'));
+  const seccionesHome = (await readdir(path.join(SRC, 'pages/public/home'))).filter((f) => f.endsWith('.tsx'));
+
+  comprobar('[inicio] no existe StatsSection', !seccionesHome.includes('StatsSection.tsx'));
+  comprobar('[inicio] HomePage no monta StatsSection', !home.includes('StatsSection'));
+  comprobar(
+    '[inicio] las noticias van inmediatamente después del hero (se montan sobre él)',
+    // `sinComentarios` deja los `{}` vacíos de los comentarios JSX.
+    /<HomeHero\s*\/>(?:\s*\{\s*\})*\s*<LatestNewsSection\s*\/>/.test(home),
+  );
+  comprobar(
+    '[inicio] las noticias se montan una sola vez',
+    (home.match(/<LatestNewsSection\b/g) ?? []).length === 1,
+  );
+
+  const noticias = sinComentarios(
+    await readFile(path.join(SRC, 'pages/public/home/LatestNewsSection.tsx'), 'utf8'),
+  );
+  comprobar('[inicio] las tarjetas usan useRevealOnScroll', noticias.includes('useRevealOnScroll<'));
+  const oculto = noticias.match(/oculto:\s*'([^']*)'/)?.[1] ?? '';
+  comprobar(
+    '[inicio] la fase oculta sólo toca opacity/transform (sin invisible, hidden ni aria-hidden)',
+    oculto.includes('opacity-0') && !/\b(?:invisible|hidden|sr-only)\b/.test(oculto) && !noticias.includes('aria-hidden={phase'),
+    oculto,
+  );
+
+  const hook = sinComentarios(await readFile(path.join(SRC, 'hooks/useRevealOnScroll.ts'), 'utf8'));
+  comprobar(
+    '[useRevealOnScroll] arranca visible: sin efecto (SSR, JS roto) no oculta nada',
+    /useState<RevealPhase>\('estatico'\)/.test(hook),
+  );
+  comprobar(
+    '[useRevealOnScroll] sin IntersectionObserver o con reduced motion no anima',
+    hook.includes("'IntersectionObserver' in window") && hook.includes('prefers-reduced-motion: reduce'),
+  );
+  comprobar('[useRevealOnScroll] se revela una sola vez (deja de observar)', hook.includes('observer.disconnect()'));
 }
 
 // -------------------------------------------------

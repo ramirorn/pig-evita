@@ -6,9 +6,9 @@ import { VenuesService } from './venues.service';
 import { VenuesController } from './venues.controller';
 import { VenueImagesController } from './venue-images.controller';
 import { VenueImagesService } from './venue-images.service';
-import { VenueImageUploadInterceptor } from './venue-image-upload.interceptor';
+import { ImageUploadInterceptor } from '../images/image-upload.interceptor';
 import { DocumentsModule } from '../documents/documents.module';
-import { ImageSignaturePipe } from './image-signature.pipe';
+import { ImageSignaturePipe } from '../images/image-signature.pipe';
 
 @Module({
   // `DocumentsModule` exporta el `MinioService` (una sola instancia, con la
@@ -18,7 +18,7 @@ import { ImageSignaturePipe } from './image-signature.pipe';
   providers: [
     VenuesService,
     VenueImagesService,
-    VenueImageUploadInterceptor,
+    ImageUploadInterceptor,
     ImageSignaturePipe,
   ],
   exports: [VenuesService],

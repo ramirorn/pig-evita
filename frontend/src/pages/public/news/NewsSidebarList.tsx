@@ -57,7 +57,7 @@ export function NewsSidebarList({ news }: NewsSidebarListProps) {
                   </p>
                 </div>
                 <div className="aspect-[5/4] w-16 shrink-0 overflow-hidden rounded-md bg-primary-900">
-                  <SafeNewsImage src={item.imageKey} alt={item.title} compacta />
+                  <SafeNewsImage imageUrl={item.imageUrl} alt={item.title} compacta />
                 </div>
               </article>
             </NewsLink>

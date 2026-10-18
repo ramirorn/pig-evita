@@ -39,7 +39,7 @@ export function NewsMosaicCard({ news, tamano = 'chica' }: NewsMosaicCardProps) 
     >
       <article className="relative isolate flex h-full min-h-56 w-full flex-col justify-end overflow-hidden rounded-2xl bg-primary-900 shadow-sm transition-shadow duration-300 group-hover:shadow-xl">
         <div className="absolute inset-0 -z-10">
-          <SafeNewsImage src={news.imageKey} alt={news.title} isLarge={esGrande} />
+          <SafeNewsImage imageUrl={news.imageUrl} alt={news.title} isLarge={esGrande} />
         </div>
         <div
           aria-hidden="true"

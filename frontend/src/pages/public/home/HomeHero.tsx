@@ -8,9 +8,10 @@ import { ROUTES } from '@/lib/constants';
 /**
  * Bloque de apertura del sitio público.
  *
- * El `pb-64` no es decorativo: `StatsSection` se monta encima con un margen
- * negativo y necesita ese aire para no taparle el texto al hero. Las dos
- * secciones están acopladas por diseño y por eso van seguidas en `HomePage`.
+ * El `pb` no es decorativo: `LatestNewsSection` se monta encima con un margen
+ * negativo (encabezado sobre el azul, tarjetas sobre el borde) y necesita ese
+ * aire para no taparle el texto al hero. Las dos secciones están acopladas por
+ * diseño y por eso van seguidas en `HomePage`.
  */
 export function HomeHero() {
   return (

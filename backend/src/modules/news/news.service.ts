@@ -2,13 +2,22 @@
 // News Service
 // ===========================================
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { MinioService } from '../documents/minio.service';
+import { borrarObjetoSinFallar } from '../images/image.util';
+import {
+  esImagenSubida,
+  normalizarUrlDeImagen,
+  toNewsResponse,
+} from './news-image.util';
 import {
   CreateNewsDto,
   UpdateNewsDto,
@@ -17,11 +26,49 @@ import {
 } from './dto';
 import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
 
+export const MSG_IMAGEN_EN_CONFLICTO =
+  'La imagen de la noticia cambió mientras se procesaba el pedido. Volvé a intentarlo.';
+
+/**
+ * S19 — una noticia externa no se edita ni se despublica como una propia.
+ *
+ * Lo que se ve aca es un **reflejo** de una nota que vive en
+ * formosa.gob.ar: el titulo, la bajada y la imagen son los de alla, y el
+ * link lleva alla. Dejar editarlos produciria una tarjeta que dice una cosa
+ * y un destino que dice otra, con el agregado de que la proxima corrida del
+ * sync pisaria la edicion sin avisar (el `upsert` es por `sourceUrl`).
+ *
+ * El borrado esta cerrado por el mismo motivo, y es el que menos se ve venir:
+ * borrar la fila **no** saca la noticia, porque el sync la vuelve a crear en
+ * la corrida siguiente. Un boton que promete "eliminar" y no elimina es peor
+ * que no tener el boton. Si hay que dejar de mostrar una nota del portal, se
+ * saca del portal, o se acota lo que el sync trae.
+ *
+ * Exportada porque la imagen subida (`NewsImagesService`) sigue la misma regla.
+ */
+export function rechazarSiEsExterna(
+  news: { isExternal: boolean; sourceUrl: string | null },
+  verbo: string,
+): void {
+  if (!news.isExternal) return;
+
+  throw new ForbiddenException(
+    `Esta noticia viene del portal oficial (${news.sourceUrl ?? 'formosa.gob.ar'}) y no se puede ${verbo} desde acá. ` +
+      'Se sincroniza automáticamente: lo que se publique allá se refleja acá.',
+  );
+}
+
 @Injectable()
 export class NewsService {
   private readonly logger = new Logger(NewsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    // Opcional: sólo se usa para borrar la imagen SUBIDA cuando deja de usarse
+    // (se reemplaza por una URL, se quita o se borra la noticia). Los specs
+    // que montan este service sin MinIO siguen andando.
+    @Optional() private readonly minio?: MinioService,
+  ) {}
 
   private generateSlug(title: string): string {
     return title
@@ -43,7 +90,9 @@ export class NewsService {
         slug: finalSlug,
         content: createDto.content,
         excerpt: createDto.excerpt,
-        imageKey: createDto.imageKey,
+        // Sólo una URL externa: la imagen subida necesita el id y va después
+        // por `POST /news/:id/image`.
+        imageKey: normalizarUrlDeImagen(createDto.imageKey),
         isPublished: createDto.isPublished || false,
         publishedAt: createDto.isPublished ? new Date() : null,
         authorId,
@@ -51,7 +100,7 @@ export class NewsService {
     });
 
     this.logger.log(`News created: ${news.title}`);
-    return news;
+    return toNewsResponse(news);
   }
 
   /**
@@ -94,7 +143,11 @@ export class NewsService {
       this.prisma.news.count({ where }),
     ]);
 
-    return buildPaginatedResponse(newsList, total, filterDto);
+    return buildPaginatedResponse(
+      newsList.map((news) => toNewsResponse(news)),
+      total,
+      filterDto,
+    );
   }
 
   /**
@@ -106,6 +159,11 @@ export class NewsService {
    * el borrador devuelva **404** y no confirme siquiera que el id existe.
    */
   async findOne(id: string, verBorradores = false) {
+    return toNewsResponse(await this.findOneRaw(id, verBorradores));
+  }
+
+  /** Noticia con `imageKey` (uso interno: nunca devolverla tal cual). */
+  private async findOneRaw(id: string, verBorradores = false) {
     const news = await this.prisma.news.findFirst({
       where: verBorradores ? { id } : { id, isPublished: true },
     });
@@ -131,42 +189,27 @@ export class NewsService {
       throw new NotFoundException('Noticia no encontrada');
     }
 
-    return news;
-  }
-
-  /**
-   * S19 — una noticia externa no se edita ni se despublica como una propia.
-   *
-   * Lo que se ve aca es un **reflejo** de una nota que vive en
-   * formosa.gob.ar: el titulo, la bajada y la imagen son los de alla, y el
-   * link lleva alla. Dejar editarlos produciria una tarjeta que dice una cosa
-   * y un destino que dice otra, con el agregado de que la proxima corrida del
-   * sync pisaria la edicion sin avisar (el `upsert` es por `sourceUrl`).
-   *
-   * El borrado esta cerrado por el mismo motivo, y es el que menos se ve venir:
-   * borrar la fila **no** saca la noticia, porque el sync la vuelve a crear en
-   * la corrida siguiente. Un boton que promete "eliminar" y no elimina es peor
-   * que no tener el boton. Si hay que dejar de mostrar una nota del portal, se
-   * saca del portal, o se acota lo que el sync trae.
-   */
-  private rechazarSiEsExterna(
-    news: { isExternal: boolean; sourceUrl: string | null },
-    verbo: string,
-  ): void {
-    if (!news.isExternal) return;
-
-    throw new ForbiddenException(
-      `Esta noticia viene del portal oficial (${news.sourceUrl ?? 'formosa.gob.ar'}) y no se puede ${verbo} desde acá. ` +
-        'Se sincroniza automáticamente: lo que se publique allá se refleja acá.',
-    );
+    return toNewsResponse(news);
   }
 
   async update(id: string, updateDto: UpdateNewsDto) {
     // `true`: el camino administrativo tiene que poder editar un borrador.
-    const news = await this.findOne(id, true);
-    this.rechazarSiEsExterna(news, 'editar');
+    const news = await this.findOneRaw(id, true);
+    rechazarSiEsExterna(news, 'editar');
 
-    const updateData: Prisma.NewsUpdateInput = { ...updateDto };
+    const { imageKey: imagenPedida, ...resto } = updateDto;
+    const updateData: Prisma.NewsUpdateInput = { ...resto };
+
+    // La imagen sólo se toca si vino en el body y cambia. Si la anterior era
+    // un archivo SUBIDO, pasa a ser basura en el bucket: se borra al final.
+    let cambiaImagen = false;
+    if (imagenPedida !== undefined) {
+      const nueva = normalizarUrlDeImagen(imagenPedida);
+      if (nueva !== news.imageKey) {
+        updateData.imageKey = nueva;
+        cambiaImagen = true;
+      }
+    }
 
     // Si cambia el estado a publicado y no tenía fecha
     if (updateDto.isPublished && !news.publishedAt) {
@@ -187,25 +230,54 @@ export class NewsService {
       updateData.slug = newSlug;
     }
 
-    const updated = await this.prisma.news.update({
-      where: { id },
-      data: updateData,
-    });
+    let updated;
+    try {
+      updated = await this.prisma.news.update({
+        // Condicional sobre la imagen leída: si una subida se cruzó en el
+        // medio, no se la pisa (ni se borra su objeto) sin avisar.
+        where: cambiaImagen ? { id, imageKey: news.imageKey } : { id },
+        data: updateData,
+      });
+    } catch (error) {
+      if (
+        cambiaImagen &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new ConflictException(MSG_IMAGEN_EN_CONFLICTO);
+      }
+      throw error;
+    }
+
+    if (cambiaImagen && esImagenSubida(news.imageKey)) {
+      await this.borrarImagenSubida(news.imageKey);
+    }
 
     this.logger.log(`News updated: ${updated.title}`);
-    return updated;
+    return toNewsResponse(updated);
   }
 
   async remove(id: string) {
-    const existente = await this.findOne(id, true);
-    this.rechazarSiEsExterna(existente, 'eliminar');
+    const existente = await this.findOneRaw(id, true);
+    rechazarSiEsExterna(existente, 'eliminar');
 
     const news = await this.prisma.news.delete({
       where: { id },
     });
 
+    // La noticia ya no existe: su imagen subida quedaría huérfana. Se borra
+    // después del DELETE y en modo best-effort, como la foto de una sede.
+    if (esImagenSubida(news.imageKey)) {
+      await this.borrarImagenSubida(news.imageKey);
+    }
+
     this.logger.log(`News deleted: ${news.title}`);
-    return news;
+    return toNewsResponse(news);
+  }
+
+  private async borrarImagenSubida(clave: string): Promise<void> {
+    if (!this.minio) return;
+    await borrarObjetoSinFallar(this.minio, clave, this.logger);
   }
 }
 

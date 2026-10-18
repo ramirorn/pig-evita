@@ -15,8 +15,7 @@ import {
 import { GEO_DEPARTMENTS } from '@/lib/geo/formosa.generated';
 
 /**
- * Misma familia que las tarjetas de cifras de la home (`StatsSection`): vidrio
- * blanco con sombra azulada, ícono en bg-primary-50 que se vuelve dorado al
+ * Vidrio blanco con sombra azulada, ícono en bg-primary-50 que se vuelve dorado al
  * pasar el mouse, número en tipografía display y etiqueta en versalitas.
  */
 function Kpi({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {

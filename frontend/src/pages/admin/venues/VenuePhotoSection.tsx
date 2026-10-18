@@ -22,12 +22,12 @@ import {
   resolveVenueImageUrl,
   venueImageAlt,
 } from '@/lib/venues/venueImageRules';
-import { optimizeVenueImage } from '@/lib/venues/optimizeVenueImage';
+import { optimizeImage } from '@/lib/images/optimizeImage';
 
 /** Reglas puras + la reducción con canvas (lo único que necesita DOM). */
 const VENUE_PHOTO_RULES: UploaderRules = {
   ...VENUE_IMAGE_UPLOADER_RULES,
-  prepare: optimizeVenueImage,
+  prepare: (file) => optimizeImage(file, 'foto-sede'),
 };
 
 interface VenuePhotoSectionProps {

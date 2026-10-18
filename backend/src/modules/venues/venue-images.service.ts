@@ -14,12 +14,12 @@ import { MinioService } from '../documents/minio.service';
 import {
   EXTENSION_CANONICA_IMAGEN,
   detectarTipoDeImagen,
-} from './image-signature.pipe';
+} from '../images/image-signature.pipe';
 import {
-  VENUE_IMAGE_FOLDER,
+  borrarObjetoSinFallar,
   contentTypeDeClave,
-  toVenueResponse,
-} from './venue-image.util';
+} from '../images/image.util';
+import { VENUE_IMAGE_FOLDER, toVenueResponse } from './venue-image.util';
 
 export const MSG_SEDE_NO_ENCONTRADA = 'Sede no encontrada';
 export const MSG_SEDE_SIN_FOTO = 'La sede no tiene foto';
@@ -175,17 +175,7 @@ export class VenueImagesService {
     return toVenueResponse(venue);
   }
 
-  /**
-   * Borra un objeto sin propagar el error: la base ya quedó consistente y un
-   * objeto huérfano en el bucket no justifica fallar el pedido. Queda en log.
-   */
-  private async borrarSinFallar(clave: string): Promise<void> {
-    try {
-      await this.minio.deleteFile(clave);
-    } catch (error) {
-      this.logger.warn(
-        `No se pudo borrar el objeto ${clave} de MinIO: ${(error as Error).message}`,
-      );
-    }
+  private borrarSinFallar(clave: string): Promise<void> {
+    return borrarObjetoSinFallar(this.minio, clave, this.logger);
   }
 }

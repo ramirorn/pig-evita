@@ -1,5 +1,5 @@
 // ===========================================
-// Validación por magic bytes de la FOTO de sede
+// Validación por magic bytes de las IMÁGENES (foto de sede, imagen de noticia)
 // ===========================================
 //
 // Mismo criterio que los documentos (R14: el tipo sale del contenido, no del
@@ -74,6 +74,6 @@ export const REGLA_IMAGENES: ReglaDeFirma<TipoImagen> = {
   nombreExtensiones: '.jpg, .jpeg, .png y .webp',
 };
 
-/** Pipe de la foto de sede: JPEG, PNG o WebP por contenido; 400 si no. */
+/** Pipe de imágenes (sedes y noticias): JPEG, PNG o WebP por contenido; 400 si no. */
 @Injectable()
 export class ImageSignaturePipe extends crearPipeDeFirma(REGLA_IMAGENES) {}

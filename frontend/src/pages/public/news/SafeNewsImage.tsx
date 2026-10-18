@@ -3,7 +3,7 @@
 // ===========================================
 import { useState } from "react";
 import { Newspaper } from "lucide-react";
-import { safeImageSrc } from "@/lib/utils";
+import { newsImageSrc } from "@/lib/news/newsImageRules";
 
 // Fallback visual elegante cuando no hay imagen o falla la carga
 function NewsImagePlaceholder({
@@ -50,13 +50,14 @@ function NewsImagePlaceholder({
 
 // Componente de Imagen con manejo seguro de errores
 export function SafeNewsImage({
-  src,
+  imageUrl,
   alt,
   isLarge = false,
   prioritaria = false,
   compacta = false,
 }: {
-  src?: string | null;
+  /** `imageUrl` de la noticia tal como la manda la API (subida o externa). */
+  imageUrl?: string | null;
   alt: string;
   isLarge?: boolean;
   /**
@@ -74,9 +75,9 @@ export function SafeNewsImage({
   // eso el día que alguien agregue paginación o keyee por índice.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
-  // `imageKey` es texto libre del backend y acá es la URL entera, no un
-  // parámetro dentro de una base fija: hay que validar el schema antes de usarla.
-  const safeSrc = safeImageSrc(src);
+  // Subida: ruta de la API, resuelta contra su origen. Externa: URL entera que
+  // viene del backend, así que pasa por `safeImageSrc` (sólo `https:`).
+  const safeSrc = newsImageSrc(imageUrl);
 
   const hasError = failedSrc !== null && failedSrc === safeSrc;
 

@@ -43,6 +43,7 @@ import { UsersController } from '../src/modules/users/users.controller';
 import { UsersService } from '../src/modules/users/users.service';
 import { CompetitionsController } from '../src/modules/competitions/competitions.controller';
 import { NewsController } from '../src/modules/news/news.controller';
+import { NewsImagesController } from '../src/modules/news/news-images.controller';
 import { CalendarController } from '../src/modules/calendar/calendar.controller';
 import { VenuesController } from '../src/modules/venues/venues.controller';
 import { VenueImagesController } from '../src/modules/venues/venue-images.controller';
@@ -88,6 +89,7 @@ const CONTROLLERS = [
   UsersController,
   CompetitionsController,
   NewsController,
+  NewsImagesController,
   CalendarController,
   VenuesController,
   VenueImagesController,

@@ -44,7 +44,7 @@ export function FeaturedNewsCard({ news, prioritaria = false }: FeaturedNewsCard
     <article className="relative isolate flex h-full w-full flex-col justify-end overflow-hidden bg-primary-900">
       <div className="absolute inset-0 -z-10">
         <SafeNewsImage
-          src={news.imageKey}
+          imageUrl={news.imageUrl}
           alt={news.title}
           isLarge
           prioritaria={prioritaria}

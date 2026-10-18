@@ -428,16 +428,17 @@ export function safeExternalUrl(
 /**
  * Valida una URL de imagen que llega del backend como texto libre.
  *
- * `News.imageKey` está tipado como `String?` en Prisma y validado sólo con
- * `@IsString()`, así que su contenido es **la URL entera**, no un parámetro
- * dentro de una base fija. Ése es el caso realmente riesgoso del hallazgo F15:
+ * La `imageUrl` EXTERNA de una noticia (pegada en el formulario o traída del
+ * portal) es **la URL entera**, no un parámetro dentro de una base fija; el
+ * backend hoy exige `https://`, pero el dato viejo o el del sync no pasaron
+ * por ese DTO. Ése es el caso realmente riesgoso del hallazgo F15:
  * acá no hay `encodeURIComponent()` que valga, porque no estamos escapando un
  * dato *dentro* de una URL sino usando el dato *como* la URL.
  *
  * Qué se acepta:
  * - URLs absolutas `https://` (el caso que documenta el placeholder del form).
- * - Rutas relativas al propio origen (`/uploads/foo.jpg`, `noticias/foo.jpg`),
- *   que es lo que sería una "clave de MinIO" servida por un reverse proxy.
+ * - Rutas relativas al propio origen (`/api/v1/news/<id>/image?v=…`), que
+ *   es la imagen subida servida por la API (ver `resolveApiImageUrl`).
  *
  * Qué se rechaza:
  * - `javascript:` / `vbscript:` — inertes en `<img src>` en navegadores

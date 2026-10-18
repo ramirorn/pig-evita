@@ -27,9 +27,21 @@ export interface CreateNewsPayload {
   title: string;
   content: string;
   excerpt?: string;
-  imageKey?: string;
+  /**
+   * Sólo URL externa `https://…`; `null` la quita. El archivo subido va aparte
+   * por `uploadImage` (necesita el id de la noticia).
+   */
+  imageKey?: string | null;
   isPublished?: boolean;
 }
+
+export interface UploadNewsImageOptions {
+  onProgress?: (loaded: number, total: number | undefined) => void;
+  signal?: AbortSignal;
+}
+
+/** Mismo margen que la foto de sede: 5 MB con señal mala tardan. */
+const UPLOAD_TIMEOUT_MS = 2 * 60 * 1000;
 
 export type UpdateNewsPayload = Partial<CreateNewsPayload>;
 
@@ -102,6 +114,42 @@ export const newsApi = {
 
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/news/${id}`);
+  },
+
+  /**
+   * Sube o reemplaza la imagen de la noticia (multipart `file`, JPG/PNG/WebP
+   * hasta 5 MB). Devuelve la noticia con la `imageUrl` nueva. Las notas del
+   * portal responden 403.
+   */
+  async uploadImage(id: string, file: File, options: UploadNewsImageOptions = {}): Promise<News> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const { data } = await apiClient.post<News>(`/news/${id}/image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: UPLOAD_TIMEOUT_MS,
+      signal: options.signal,
+      onUploadProgress: options.onProgress
+        ? (event) => options.onProgress?.(event.loaded, event.total)
+        : undefined,
+    });
+    return data;
+  },
+
+  /** Quita la imagen, subida o URL (idempotente). Devuelve la noticia con `imageUrl: null`. */
+  async deleteImage(id: string): Promise<News> {
+    const { data } = await apiClient.delete<News>(`/news/${id}/image`);
+    return data;
+  },
+
+  /**
+   * Bytes de la imagen SUBIDA de un borrador, con la sesión. Un `<img>` no
+   * manda el token, y el backend sólo sirve la imagen de un borrador a quien
+   * puede verlo: el panel la pide así y la muestra como `blob:`.
+   */
+  async fetchImageBlob(id: string): Promise<Blob> {
+    const { data } = await apiClient.get<Blob>(`/news/${id}/image`, { responseType: 'blob' });
+    return data;
   },
 
   /**

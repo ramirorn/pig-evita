@@ -24,7 +24,7 @@ export function NewsTickerCard({ news }: { news: News }) {
     >
       <article className="flex h-full items-center gap-3 rounded-xl border border-primary-100 bg-surface-elevated p-2.5 shadow-sm transition-shadow duration-300 group-hover:shadow-md">
         <div className="aspect-[5/4] w-20 shrink-0 overflow-hidden rounded-lg bg-primary-900">
-          <SafeNewsImage src={news.imageKey} alt={news.title} compacta />
+          <SafeNewsImage imageUrl={news.imageUrl} alt={news.title} compacta />
         </div>
         <div className="min-w-0">
           <h3 className="line-clamp-2 text-sm leading-snug font-bold text-primary-900 transition-colors group-hover:text-primary-600">

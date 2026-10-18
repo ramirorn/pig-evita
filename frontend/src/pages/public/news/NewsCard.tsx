@@ -28,7 +28,7 @@ export function NewsCard({ news, index }: NewsCardProps) {
       <div className="bg-surface-elevated rounded-2xl border border-primary-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col h-full">
         {/* Cabecera de Imagen (16:9) */}
         <div className="aspect-video relative overflow-hidden bg-primary-900">
-          <SafeNewsImage src={news.imageKey} alt={news.title} />
+          <SafeNewsImage imageUrl={news.imageUrl} alt={news.title} />
           {/* Origen y no "Actualidad": ese chip era una categoría fija pintada
               en todas las notas, y el modelo no tiene categorías. */}
           <NewsOriginChip news={news} className="absolute top-3 left-3 z-10" />
