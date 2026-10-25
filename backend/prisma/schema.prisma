@@ -30,6 +30,14 @@ enum Sex {
   MIXTO
 }
 
+/// Cómo define una categoría quién entra: por edad cumplida al día de la
+/// inscripción, o por año de nacimiento (el chico que cumple la edad de la
+/// categoría superior ese mismo año ya no entra en la de abajo).
+enum AgeCriterion {
+  AGE
+  BIRTH_YEAR
+}
+
 enum DisciplineType {
   INDIVIDUAL
   EQUIPO
@@ -245,8 +253,13 @@ model Category {
   id           String   @id @default(uuid()) @db.Uuid
   disciplineId String   @map("discipline_id") @db.Uuid
   name         String /// e.g., "Sub-14 Masculino"
-  minAge       Int      @map("min_age")
-  maxAge       Int      @map("max_age")
+  ageCriterion AgeCriterion @default(AGE) @map("age_criterion")
+  /// Rango por edad: sólo con `ageCriterion = AGE`, NULL en el otro caso.
+  minAge       Int?     @map("min_age")
+  maxAge       Int?     @map("max_age")
+  /// Rango por año de nacimiento: sólo con `ageCriterion = BIRTH_YEAR`.
+  minBirthYear Int?     @map("min_birth_year")
+  maxBirthYear Int?     @map("max_birth_year")
   sex          Sex
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")

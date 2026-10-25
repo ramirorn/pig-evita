@@ -5,6 +5,7 @@ import React from 'react';
 import { Trophy, ArrowLeft, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Sex, type Discipline, type Category } from '@/types';
 import type { InscriptionFormData } from './StepPersonalData';
+import { evaluarRango, formatCategoryRange } from '@/lib/categoryRange';
 
 interface StepSportSelectionProps {
   formData: InscriptionFormData;
@@ -97,10 +98,7 @@ export function StepSportSelection({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {availableCategories.map((category) => {
                 const isSelected = formData.categoryId === category.id;
-                const isAgeValid =
-                  calculatedAge !== null &&
-                  calculatedAge >= category.minAge &&
-                  calculatedAge <= category.maxAge;
+                const isAgeValid = evaluarRango(category, formData.birthDate).ok === true;
                 const isSexValid =
                   category.sex === Sex.MIXTO || category.sex === formData.sex;
                 const isValid = isAgeValid && isSexValid;
@@ -121,7 +119,7 @@ export function StepSportSelection({
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm">{category.name}</span>
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-primary-100 text-primary-700">
-                        {category.minAge} - {category.maxAge} años
+                        {formatCategoryRange(category)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-2 text-xs">

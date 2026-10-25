@@ -32,6 +32,11 @@ import {
   USER_SUMMARY,
 } from '../../common/prisma-selects';
 import { Alcance, ScopeService } from '../../common/scope';
+import {
+  CategoryRange,
+  describirRango,
+  evaluarRango,
+} from '../categories/category-range';
 
 @Injectable()
 export class InscriptionsService {
@@ -93,13 +98,13 @@ export class InscriptionsService {
       throw new BadRequestException('La categoría seleccionada no está activa');
     }
 
-    // 2. Validar edad del participante
+    // 2. Validar edad (o año de nacimiento) del participante
     const birthDateObj = new Date(birthDate);
-    const age = this.calculateAge(birthDateObj);
+    const rango = evaluarRango(category, birthDateObj);
 
-    if (age < category.minAge || age > category.maxAge) {
+    if (!rango.ok) {
       throw new BadRequestException(
-        `La edad del participante (${age} años) no cumple con el rango de la categoría (${category.minAge}-${category.maxAge} años)`,
+        `El participante ${rango.dato} y la categoría admite ${describirRango(category)}`,
       );
     }
 
@@ -682,8 +687,11 @@ export class InscriptionsService {
       select: {
         id: true,
         name: true,
+        ageCriterion: true,
         minAge: true,
         maxAge: true,
+        minBirthYear: true,
+        maxBirthYear: true,
         sex: true,
         isActive: true,
         disciplineId: true,
@@ -1006,8 +1014,11 @@ export class InscriptionsService {
       category: {
         id: category.id,
         name: category.name,
+        ageCriterion: category.ageCriterion,
         minAge: category.minAge,
         maxAge: category.maxAge,
+        minBirthYear: category.minBirthYear,
+        maxBirthYear: category.maxBirthYear,
         sex: category.sex,
       },
       totals: {
@@ -1042,15 +1053,15 @@ export class InscriptionsService {
   /**
    * Edad y sexo de una persona contra el rango de la categoría.
    *
-   * Mismo criterio de edad que el alta individual —`calculateAge`, edad cumplida
-   * al día de hoy— a propósito: dos criterios distintos para la misma pregunta
+   * Mismo criterio que el alta individual —`evaluarRango`: edad cumplida al
+   * día de hoy, o año de nacimiento si la categoría es por año— a propósito: dos criterios distintos para la misma pregunta
    * harían que un chico entre por una puerta y no por la otra.
    *
    * `origen` sólo cambia el texto: el mismo rechazo se lee distinto si el dato
    * vino en el request o si ya estaba en el padrón.
    */
   private validarElegibilidad(
-    category: { name: string; minAge: number; maxAge: number; sex: Sex },
+    category: CategoryRange & { name: string; sex: Sex },
     persona: {
       dni: string;
       firstName: string;
@@ -1064,11 +1075,11 @@ export class InscriptionsService {
     const segun =
       origen === 'padron' ? ' según los datos cargados en el padrón' : '';
 
-    const age = this.calculateAge(persona.birthDate);
-    if (age < category.minAge || age > category.maxAge) {
+    const rango = evaluarRango(category, persona.birthDate);
+    if (!rango.ok) {
       throw new BadRequestException(
-        `${quien} tiene ${age} años${segun} y la categoría ` +
-          `"${category.name}" admite de ${category.minAge} a ${category.maxAge}.`,
+        `${quien} ${rango.dato}${segun} y la categoría ` +
+          `"${category.name}" admite ${describirRango(category)}.`,
       );
     }
 
@@ -1089,24 +1100,6 @@ export class InscriptionsService {
    */
   private generarQrCode(): string {
     return `EVITA-${uuidv4().slice(0, 8).toUpperCase()}`;
-  }
-
-  /**
-   * Calcula la edad basada en la fecha de nacimiento.
-   */
-  private calculateAge(birthDate: Date): number {
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birthDate.getDate())
-    ) {
-      age--;
-    }
-
-    return age;
   }
 }
 

@@ -80,8 +80,11 @@ export const CATEGORY_WITH_DISCIPLINE = {
   id: true,
   name: true,
   sex: true,
+  ageCriterion: true,
   minAge: true,
   maxAge: true,
+  minBirthYear: true,
+  maxBirthYear: true,
   discipline: { select: DISCIPLINE_SUMMARY },
 } satisfies Prisma.CategorySelect;
 
@@ -191,8 +194,11 @@ export const CATEGORY_IN_COMPETITION = {
   id: true,
   name: true,
   sex: true,
+  ageCriterion: true,
   minAge: true,
   maxAge: true,
+  minBirthYear: true,
+  maxBirthYear: true,
 } satisfies Prisma.CategorySelect;
 
 /** Competencia con su fixture, tal como la sirve el endpoint público. */

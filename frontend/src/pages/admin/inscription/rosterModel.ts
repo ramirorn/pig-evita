@@ -18,6 +18,12 @@
 import { Sex, DisciplineType, type Category, type Discipline } from '@/types';
 import { teamMemberSchema, type TeamMemberValues } from '@/schemas';
 import type { CreateTeamInscriptionPayload } from '@/api/inscriptions.api';
+import {
+  calcularEdad,
+  evaluarRango,
+  formatCategoryRange,
+  type CategoryRange,
+} from '@/lib/categoryRange';
 
 // ===========================================
 // Plantel requerido por la disciplina
@@ -82,28 +88,8 @@ export function nuevoIdIntegrante(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/**
- * Edad cumplida a la fecha de referencia (hoy, salvo en los chequeos).
- *
- * `'2013-09-16'` se lee como fecha **local**: `new Date('2013-09-16')` es
- * medianoche UTC, que en Argentina (UTC−3) cae el 15 a las 21 h, y la víspera
- * del cumpleaños ya contaba un año más.
- */
-export function calcularEdad(birthDate: string, referencia = new Date()): number | null {
-  if (!birthDate) return null;
-  const soloFecha = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthDate);
-  const nacimiento = soloFecha
-    ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
-    : new Date(birthDate);
-  if (Number.isNaN(nacimiento.getTime())) return null;
-
-  let edad = referencia.getFullYear() - nacimiento.getFullYear();
-  const meses = referencia.getMonth() - nacimiento.getMonth();
-  if (meses < 0 || (meses === 0 && referencia.getDate() < nacimiento.getDate())) {
-    edad--;
-  }
-  return edad;
-}
+/** Vive en `lib/categoryRange`; se reexporta para `scripts/roster.entry.ts`. */
+export { calcularEdad };
 
 export interface ConteoPlantel {
   titulares: number;
@@ -158,7 +144,7 @@ export type ResultadoValidacion =
 export interface EntradaValidacion {
   valores: TeamMemberValues;
   integrantes: readonly RosterMember[];
-  categoria: Pick<Category, 'minAge' | 'maxAge' | 'sex' | 'name'>;
+  categoria: CategoryRange & Pick<Category, 'sex' | 'name'>;
   requerido: PlantelRequerido;
   /** Id del integrante que se está editando, si no es un alta. */
   editandoId?: string;
@@ -206,14 +192,14 @@ export function validarIntegrante({
     };
   }
 
-  const edad = calcularEdad(datos.birthDate, hoy);
-  if (edad === null) {
+  const rango = evaluarRango(categoria, datos.birthDate, hoy);
+  if (rango.ok === null) {
     return { ok: false, mensaje: 'Revisá la fecha de nacimiento: no se puede calcular la edad.' };
   }
-  if (edad < categoria.minAge || edad > categoria.maxAge) {
+  if (!rango.ok) {
     return {
       ok: false,
-      mensaje: `${datos.firstName} ${datos.lastName} tiene ${edad} años y ${categoria.name} va de ${categoria.minAge} a ${categoria.maxAge}. No puede integrar este plantel.`,
+      mensaje: `${datos.firstName} ${datos.lastName} ${rango.dato} y ${categoria.name} admite ${formatCategoryRange(categoria).toLowerCase()}. No puede integrar este plantel.`,
     };
   }
   if (categoria.sex !== Sex.MIXTO && categoria.sex !== datos.sex) {

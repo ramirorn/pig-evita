@@ -6,6 +6,7 @@ import { Trophy, ArrowRight, AlertTriangle, Users, User, Settings2 } from 'lucid
 import { DisciplineType, type Category, type Discipline } from '@/types';
 import { DISCIPLINE_TYPE_LABELS, ROUTES, SEX_LABELS } from '@/lib/constants';
 import type { PlantelRequerido } from './rosterModel';
+import { formatCategoryRange } from '@/lib/categoryRange';
 
 interface StepDisciplineCategoryProps {
   disciplineId: string;
@@ -124,7 +125,7 @@ export function StepDisciplineCategory({
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm">{category.name}</span>
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-primary-100 text-primary-700">
-                        {category.minAge} - {category.maxAge} años
+                        {formatCategoryRange(category)}
                       </span>
                     </div>
                     <p className="mt-2 text-xs font-medium text-primary-600">

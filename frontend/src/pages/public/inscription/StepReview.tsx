@@ -4,6 +4,7 @@
 import { FileCheck2, User, Trophy, CheckCircle2, ArrowLeft } from 'lucide-react';
 import type { Discipline, Category } from '@/types';
 import type { InscriptionFormData } from './StepPersonalData';
+import { formatCategoryRange } from '@/lib/categoryRange';
 
 interface StepReviewProps {
   formData: InscriptionFormData;
@@ -70,7 +71,7 @@ export function StepReview({
           </div>
           <div className="text-xs text-primary-700 space-y-1">
             <p><span className="font-semibold">Categoría:</span> {selectedCategory?.name}</p>
-            <p><span className="font-semibold">Rango de Edad:</span> {selectedCategory?.minAge} a {selectedCategory?.maxAge} años</p>
+            <p><span className="font-semibold">Rango:</span> {selectedCategory ? formatCategoryRange(selectedCategory) : '—'}</p>
             <p><span className="font-semibold">Modalidad:</span> {selectedDiscipline?.type}</p>
             <p><span className="font-semibold">Sistema de Puntuación:</span> {selectedDiscipline?.resultType}</p>
             <p className="inline-flex items-center gap-1 text-secondary-700 font-bold bg-secondary-50 px-2 py-0.5 rounded-md mt-1">

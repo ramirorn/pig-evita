@@ -2,6 +2,7 @@
 // Application Constants
 // ===========================================
 import {
+  AgeCriterion,
   UserRole,
   InscriptionStatus,
   DocumentStatus,
@@ -159,6 +160,11 @@ export const RESULT_TYPE_LABELS: Record<ResultType, string> = {
   [ResultType.SETS]: 'Sets',
   [ResultType.PUNTOS]: 'Puntos',
   [ResultType.POSICIONES]: 'Posiciones',
+};
+
+export const AGE_CRITERION_LABELS: Record<AgeCriterion, string> = {
+  [AgeCriterion.AGE]: 'Por edad',
+  [AgeCriterion.BIRTH_YEAR]: 'Por año de nacimiento',
 };
 
 export const SEX_LABELS: Record<Sex, string> = {

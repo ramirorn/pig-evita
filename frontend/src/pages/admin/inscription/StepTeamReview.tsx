@@ -6,6 +6,7 @@ import { FileCheck2, ArrowLeft, CheckCircle2, Star, Users, Trophy } from 'lucide
 import { SEX_LABELS } from '@/lib/constants';
 import { calcularEdad, type RosterMember } from './rosterModel';
 import type { TeamInscriptionWizard } from './useTeamInscriptionWizard';
+import { formatCategoryRange } from '@/lib/categoryRange';
 
 function ListaIntegrantes({
   titulo,
@@ -98,8 +99,8 @@ export function StepTeamReview({ wizard }: { wizard: TeamInscriptionWizard }) {
               <span className="font-semibold">Categoría:</span> {wizard.selectedCategory?.name}
             </p>
             <p>
-              <span className="font-semibold">Rango de edad:</span>{' '}
-              {wizard.selectedCategory?.minAge} a {wizard.selectedCategory?.maxAge} años
+              <span className="font-semibold">Rango:</span>{' '}
+              {wizard.selectedCategory ? formatCategoryRange(wizard.selectedCategory) : '—'}
             </p>
             {wizard.selectedCategory && (
               <p>

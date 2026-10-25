@@ -20,7 +20,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { InscriptionStatus, Sex } from '@prisma/client';
+import { AgeCriterion, InscriptionStatus, Sex } from '@prisma/client';
 import { IsDni } from '../../../common/validators';
 import { PaginationQueryDto } from '../../../common/dto';
 
@@ -262,9 +262,15 @@ export class TeamInscriptionCategoryDto {
 
   @ApiProperty() name: string;
 
-  @ApiProperty() minAge: number;
+  @ApiProperty({ enum: ['AGE', 'BIRTH_YEAR'] }) ageCriterion: AgeCriterion;
 
-  @ApiProperty() maxAge: number;
+  @ApiProperty({ nullable: true, type: Number }) minAge: number | null;
+
+  @ApiProperty({ nullable: true, type: Number }) maxAge: number | null;
+
+  @ApiProperty({ nullable: true, type: Number }) minBirthYear: number | null;
+
+  @ApiProperty({ nullable: true, type: Number }) maxBirthYear: number | null;
 
   @ApiProperty({ enum: ['MASCULINO', 'FEMENINO', 'MIXTO'] }) sex: Sex;
 }

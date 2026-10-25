@@ -23,6 +23,12 @@ export enum Sex {
   MIXTO = 'MIXTO',
 }
 
+/** Cómo define una categoría su rango: edad cumplida o año de nacimiento. */
+export enum AgeCriterion {
+  AGE = 'AGE',
+  BIRTH_YEAR = 'BIRTH_YEAR',
+}
+
 export enum DisciplineType {
   INDIVIDUAL = 'INDIVIDUAL',
   EQUIPO = 'EQUIPO',
@@ -159,8 +165,14 @@ export interface Category {
   id: string;
   disciplineId: string;
   name: string;
-  minAge: number;
-  maxAge: number;
+  /** Las categorías anteriores al criterio llegan como `AGE`. */
+  ageCriterion: AgeCriterion;
+  /** Rango por edad: sólo con `AGE`, `null` en el otro criterio. */
+  minAge: number | null;
+  maxAge: number | null;
+  /** Rango por año de nacimiento: sólo con `BIRTH_YEAR`. */
+  minBirthYear: number | null;
+  maxBirthYear: number | null;
   sex: Sex;
   isActive: boolean;
   createdAt: string;
@@ -265,7 +277,10 @@ export interface TeamInscriptionMember {
 export interface TeamInscriptionResult {
   team: { id: string; name: string; locality: string; department: string };
   discipline: { id: string; name: string; titulares: number; maxSuplentes: number };
-  category: { id: string; name: string; minAge: number; maxAge: number; sex: Sex };
+  category: Pick<
+    Category,
+    'id' | 'name' | 'ageCriterion' | 'minAge' | 'maxAge' | 'minBirthYear' | 'maxBirthYear' | 'sex'
+  >;
   totals: { titulares: number; suplentes: number; total: number };
   /** Un elemento por integrante, en el mismo orden del request. */
   members: TeamInscriptionMember[];

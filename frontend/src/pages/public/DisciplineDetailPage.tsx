@@ -5,6 +5,7 @@ import { useAllCategories } from '@/hooks/useCategories';
 import { Button } from '@/components/ui/button';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
 import { Link } from 'react-router';
+import { formatCategoryRange } from '@/lib/categoryRange';
 
 export function DisciplineDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -100,7 +101,7 @@ export function DisciplineDetailPage() {
                   <div key={category.id} className="p-4 border border-primary-200 rounded-xl bg-primary-50/50 hover:bg-primary-50 transition-colors">
                     <h3 className="font-bold text-primary-800 text-lg">{category.name}</h3>
                     <div className="mt-2 space-y-1 text-sm text-primary-600">
-                      <p>Edades: {category.minAge} a {category.maxAge} años</p>
+                      <p>Rango: {formatCategoryRange(category)}</p>
                       <p>Modalidad: {category.sex}</p>
                     </div>
                   </div>

@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { logError } from '@/lib/logger';
+import { formatCategoryRange } from '@/lib/categoryRange';
 
 export function CategoriesAdminPage() {
   const [disciplineId, setDisciplineId] = useState<string>('all');
@@ -109,8 +110,8 @@ export function CategoriesAdminPage() {
     },
     {
       id: 'ages',
-      header: 'Edades',
-      cell: (category) => `${category.minAge} a ${category.maxAge} años`,
+      header: 'Rango',
+      cell: (category) => formatCategoryRange(category),
     },
     {
       id: 'sex',

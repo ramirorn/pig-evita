@@ -9,8 +9,8 @@ import { Loader2 } from 'lucide-react';
 import { categorySchema } from '@/schemas';
 import { useCreateCategory, useUpdateCategory } from '@/hooks/useCategories';
 import { useAllDisciplines } from '@/hooks/useDisciplines';
-import { Sex, type Category } from '@/types';
-import { SEX_LABELS } from '@/lib/constants';
+import { AgeCriterion, Sex, type Category } from '@/types';
+import { AGE_CRITERION_LABELS, SEX_LABELS } from '@/lib/constants';
 
 import {
   Form,
@@ -33,6 +33,20 @@ import { logError } from '@/lib/logger';
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
+/** Input numérico vacío → `null`, que es lo que el schema y la API esperan. */
+const aEntero = (valor: string) => (valor ? parseInt(valor, 10) : null);
+
+/**
+ * El par del criterio que no se eligió viaja en `null`. En el formulario se
+ * conserva mientras se edita (ir y volver de criterio no borra lo tipeado),
+ * pero no se guarda: una categoría por año no tiene rango de edad.
+ */
+function aPayload(values: CategoryFormValues): CategoryFormValues {
+  return values.ageCriterion === AgeCriterion.BIRTH_YEAR
+    ? { ...values, minAge: null, maxAge: null }
+    : { ...values, minBirthYear: null, maxBirthYear: null };
+}
+
 interface CategoryFormProps {
   initialData?: Category;
   onSuccess?: () => void;
@@ -53,8 +67,11 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
     defaultValues: (initialData as any) || {
       disciplineId: '',
       name: '',
+      ageCriterion: AgeCriterion.AGE,
       minAge: 5,
       maxAge: 99,
+      minBirthYear: null,
+      maxBirthYear: null,
       sex: Sex.MIXTO,
       isActive: true,
     },
@@ -65,20 +82,43 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
       form.reset({
         disciplineId: initialData.disciplineId,
         name: initialData.name,
-        minAge: initialData.minAge,
-        maxAge: initialData.maxAge,
+        // Las categorías creadas antes del criterio no lo traen: eran por edad.
+        ageCriterion: initialData.ageCriterion ?? AgeCriterion.AGE,
+        minAge: initialData.minAge ?? null,
+        maxAge: initialData.maxAge ?? null,
+        minBirthYear: initialData.minBirthYear ?? null,
+        maxBirthYear: initialData.maxBirthYear ?? null,
         sex: initialData.sex,
         isActive: initialData.isActive,
       });
     }
   }, [initialData, form]);
 
+  const ageCriterion = form.watch('ageCriterion');
+
+  /**
+   * Al pasar de edad a año de nacimiento, propone los años equivalentes en el
+   * año en curso (12 a 14 años hoy → nacidos de 2012 a 2014) si todavía no hay
+   * años cargados. Es un punto de partida editable, no una conversión exacta.
+   */
+  const cambiarCriterio = (siguiente: AgeCriterion) => {
+    form.setValue('ageCriterion', siguiente, { shouldDirty: true });
+    if (siguiente !== AgeCriterion.BIRTH_YEAR) return;
+    const { minAge, maxAge, minBirthYear, maxBirthYear } = form.getValues();
+    if (minBirthYear === null && maxBirthYear === null && minAge !== null && maxAge !== null) {
+      const anio = new Date().getFullYear();
+      form.setValue('minBirthYear', anio - maxAge, { shouldDirty: true });
+      form.setValue('maxBirthYear', anio - minAge, { shouldDirty: true });
+    }
+  };
+
   const onSubmit = async (values: CategoryFormValues) => {
+    const payload = aPayload(values);
     try {
       if (initialData) {
-        await updateMutation.mutateAsync({ id: initialData.id, payload: values });
+        await updateMutation.mutateAsync({ id: initialData.id, payload });
       } else {
-        await createMutation.mutateAsync(values);
+        await createMutation.mutateAsync(payload);
       }
       onSuccess?.();
     } catch (error) {
@@ -128,43 +168,126 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="minAge"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Edad Mínima</FormLabel>
+        <FormField
+          control={form.control}
+          name="ageCriterion"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Criterio de edad</FormLabel>
+              <Select
+                onValueChange={(valor) => cambiarCriterio(valor as AgeCriterion)}
+                value={field.value}
+              >
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    {...field} 
-                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} 
-                  />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar criterio" />
+                  </SelectTrigger>
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <SelectContent>
+                  {Object.values(AgeCriterion).map((criterio) => (
+                    <SelectItem key={criterio} value={criterio}>
+                      {AGE_CRITERION_LABELS[criterio]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {field.value === AgeCriterion.BIRTH_YEAR
+                  ? 'Entran los nacidos entre los años indicados, sin importar si ya cumplieron años.'
+                  : 'Entran quienes tengan la edad indicada al momento de inscribirse.'}
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <FormField
-            control={form.control}
-            name="maxAge"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Edad Máxima</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    {...field} 
-                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {ageCriterion === AgeCriterion.BIRTH_YEAR ? (
+          <div className="grid grid-cols-2 items-start gap-4">
+            <FormField
+              key="minBirthYear"
+              control={form.control}
+              name="minBirthYear"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Año de nacimiento desde</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Ej. 2012"
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              key="maxBirthYear"
+              control={form.control}
+              name="maxBirthYear"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Año de nacimiento hasta</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Ej. 2014"
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 items-start gap-4">
+            <FormField
+              key="minAge"
+              control={form.control}
+              name="minAge"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Edad Mínima</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              key="maxAge"
+              control={form.control}
+              name="maxAge"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Edad Máxima</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      {...field}
+                      value={field.value ?? ''}
+                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
 
         <FormField
           control={form.control}

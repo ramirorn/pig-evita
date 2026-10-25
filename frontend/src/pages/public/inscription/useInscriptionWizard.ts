@@ -12,6 +12,12 @@ import { logError } from '@/lib/logger';
 import { participantSchema } from '@/schemas';
 import { copiarAlPortapapeles, MENSAJE_COPIA_FALLIDA } from '@/lib/clipboard';
 import type { InscriptionFormData } from './StepPersonalData';
+import {
+  anioDeNacimiento,
+  esPorAnioDeNacimiento,
+  evaluarRango,
+  formatCategoryRange,
+} from '@/lib/categoryRange';
 
 /** 1: Personal, 2: Disciplina, 3: Confirmación, 4: Credencial. */
 export type WizardStep = 1 | 2 | 3 | 4;
@@ -136,10 +142,15 @@ export function useInscriptionWizard({
   const categoryCompatibility = useMemo(() => {
     if (!selectedCategory || calculatedAge === null) return { valid: true, message: '' };
 
-    if (calculatedAge < selectedCategory.minAge || calculatedAge > selectedCategory.maxAge) {
+    if (evaluarRango(selectedCategory, formData.birthDate).ok === false) {
+      // `ageSubject` habla de edad ("Tu edad", "La edad del participante"):
+      // en una categoría por año lo que no entra es el año de nacimiento.
+      const sujeto = esPorAnioDeNacimiento(selectedCategory)
+        ? `El año de nacimiento (${anioDeNacimiento(formData.birthDate)})`
+        : `${ageSubject} (${calculatedAge} años)`;
       return {
         valid: false,
-        message: `${ageSubject} (${calculatedAge} años) no está dentro del rango permitido (${selectedCategory.minAge} a ${selectedCategory.maxAge} años).`,
+        message: `${sujeto} no está dentro del rango permitido (${formatCategoryRange(selectedCategory)}).`,
       };
     }
 
@@ -151,7 +162,7 @@ export function useInscriptionWizard({
     }
 
     return { valid: true, message: '¡Cumple todos los requisitos de edad y categoría!' };
-  }, [selectedCategory, calculatedAge, formData.sex, ageSubject]);
+  }, [selectedCategory, calculatedAge, formData.sex, formData.birthDate, ageSubject]);
 
   /** Cada avance de paso vuelve al tope: el formulario es más alto que la pantalla. */
   const goToStep = (next: WizardStep) => {

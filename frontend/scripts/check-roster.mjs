@@ -358,6 +358,47 @@ function armarPlantel(cantidad, suplentes = 0) {
     muyGrande.ok === false ? muyGrande.mensaje : '',
   );
 
+  // Categoría por año de nacimiento: nacidos de 2012 a 2014. El de dic/2011
+  // tiene 14 al 15/09/2026 —por edad entraría— pero cumple 15 este año.
+  const SUB14_POR_ANIO = {
+    ...SUB14,
+    ageCriterion: 'BIRTH_YEAR',
+    minAge: null,
+    maxAge: null,
+    minBirthYear: 2012,
+    maxBirthYear: 2014,
+  };
+  const leDaLaEdad = validarIntegrante({
+    valores: ficha({ birthDate: '2011-12-20' }),
+    integrantes: plantel,
+    categoria: SUB14,
+    requerido: FUTBOL,
+    hoy: HOY,
+  });
+  const porAnio = validarIntegrante({
+    valores: ficha({ birthDate: '2011-12-20' }),
+    integrantes: plantel,
+    categoria: SUB14_POR_ANIO,
+    requerido: FUTBOL,
+    hoy: HOY,
+  });
+  comprobar('por edad, el nacido en dic/2011 todavía entra en Sub-14', leDaLaEdad.ok === true);
+  comprobar(
+    'por año de nacimiento, el nacido en 2011 queda afuera y el mensaje dice el año',
+    porAnio.ok === false && /2011/.test(porAnio.mensaje) && /2012/.test(porAnio.mensaje),
+    porAnio.ok === false ? porAnio.mensaje : '',
+  );
+  comprobar(
+    'por año de nacimiento, el 1 de enero del primer año entra (sin corrimiento de zona horaria)',
+    validarIntegrante({
+      valores: ficha({ birthDate: '2012-01-01' }),
+      integrantes: plantel,
+      categoria: SUB14_POR_ANIO,
+      requerido: FUTBOL,
+      hoy: HOY,
+    }).ok === true,
+  );
+
   const otraRama = validarIntegrante({
     valores: ficha({ sex: Sex.FEMENINO }),
     integrantes: plantel,
