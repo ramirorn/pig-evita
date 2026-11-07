@@ -1,0 +1,22 @@
+{
+  "name": "evita-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Auditoría funcional: pruebas API + navegador contra el stack aislado evita-e2e",
+  "type": "module",
+  "scripts": {
+    "stack:env": "node scripts/gen-env.mjs",
+    "stack:up": "node scripts/gen-env.mjs && docker compose -p evita-e2e -f docker-compose.e2e.yml --env-file .env.e2e up -d --build --wait",
+    "stack:down": "docker compose -p evita-e2e -f docker-compose.e2e.yml --env-file .env.e2e down -v --remove-orphans",
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=desktop --project=mobile",
+    "stack:empty": "node scripts/stack-empty.mjs",
+    "test:empty": "node scripts/run-empty.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

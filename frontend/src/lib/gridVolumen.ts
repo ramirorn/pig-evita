@@ -14,7 +14,7 @@
  * Devuelve las clases de columnas de la grilla en función de **cuántos ítems
  * hay que repartir**.
  *
- * Es el mismo principio que `repartir()` en noticias: el layout es función del
+ * Es el mismo principio que `repartirPortada()` en noticias: el layout es función del
  * volumen, para que la pantalla se vea deliberada hoy con 3 filas y siga
  * viéndose bien cuando haya 60, sin que nadie vuelva a tocar la grilla a mano.
  *

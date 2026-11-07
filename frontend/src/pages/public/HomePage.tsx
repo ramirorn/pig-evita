@@ -2,9 +2,8 @@
 // Home Page — Public Landing
 // ===========================================
 import { HomeHero } from './home/HomeHero';
-import { QuickLinksSection } from './home/QuickLinksSection';
-import { StatsSection } from './home/StatsSection';
 import { LatestNewsSection } from './home/LatestNewsSection';
+import { QuickLinksSection } from './home/QuickLinksSection';
 import { HomeCtaSection } from './home/HomeCtaSection';
 
 /**
@@ -18,17 +17,14 @@ export function HomePage() {
       {/* Hero Section */}
       <HomeHero />
 
-      {/* Cifras de la edición.
+      {/* Últimas noticias.
           Va inmediatamente después del hero **por diseño**: se monta sobre él
           con un margen negativo que depende del `pb` del hero. Meter una sección
           en el medio rompe el solapamiento. */}
-      <StatsSection />
+      <LatestNewsSection />
 
       {/* Quick Links Grid */}
       <QuickLinksSection />
-
-      {/* Latest News Section */}
-      <LatestNewsSection />
 
       {/* CTA */}
       <HomeCtaSection />

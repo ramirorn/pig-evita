@@ -4,8 +4,8 @@
 import type { CalendarEventFormApi } from './useCalendarEventForm';
 
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import { ClockTimePicker } from '@/components/ui/clock-time-picker';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Calendar as CalendarIcon, Sparkles } from 'lucide-react';
 
 const COMMON_START_HOURS = ['08:00', '09:00', '10:00', '11:00', '14:00', '16:00', '18:00', '19:00', '20:00'];
@@ -83,9 +83,10 @@ function shiftEndByHours(form: CalendarEventFormApi, hours: number) {
 export function EventScheduleFields({ form }: { form: CalendarEventFormApi }) {
   const watchStartTime = form.watch('startTime');
   const watchHasEndDate = form.watch('hasEndDate');
+  const watchStartDate = form.watch('startDate');
 
   const previewText = formatHumanReadableRange(
-    form.watch('startDate'),
+    watchStartDate,
     watchStartTime,
     watchHasEndDate,
     form.watch('endDate'),
@@ -108,7 +109,7 @@ export function EventScheduleFields({ form }: { form: CalendarEventFormApi }) {
             <FormItem>
               <FormLabel className="text-xs font-semibold text-primary-800">Fecha de Inicio *</FormLabel>
               <FormControl>
-                <Input type="date" className="bg-white h-11" {...field} />
+                <DatePicker className="bg-white h-11 sm:h-11" {...field} pickerLabel="Elegir fecha de inicio" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -188,7 +189,12 @@ export function EventScheduleFields({ form }: { form: CalendarEventFormApi }) {
                   <FormItem>
                     <FormLabel className="text-xs font-semibold text-primary-800">Fecha de Fin</FormLabel>
                     <FormControl>
-                      <Input type="date" className="bg-white h-11" {...field} />
+                      <DatePicker
+                        className="bg-white h-11 sm:h-11"
+                        {...field}
+                        min={watchStartDate || undefined}
+                        pickerLabel="Elegir fecha de fin"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

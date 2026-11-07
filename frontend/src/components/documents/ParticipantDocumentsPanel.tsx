@@ -21,6 +21,7 @@ import {
   missingFeaturedTypes,
 } from '@/lib/documents/documentRules';
 import { DocumentType } from '@/types';
+import { SelectField } from '@/components/ui/select';
 
 interface ParticipantDocumentsPanelProps {
   participantId: string;
@@ -29,9 +30,6 @@ interface ParticipantDocumentsPanelProps {
   /** Mostrar el selector "Otro documento". */
   showSecondary?: boolean;
 }
-
-const CLASE_SELECT =
-  'w-full px-3 py-2 rounded-xl border border-primary-200 bg-white text-primary-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 text-sm font-medium';
 
 export function ParticipantDocumentsPanel({
   participantId,
@@ -106,20 +104,17 @@ export function ParticipantDocumentsPanel({
               >
                 Tipo de documento
               </label>
-              <select
+              <SelectField
                 id={selectId}
                 value={otherType}
-                onChange={(event) => {
-                  if (isDocumentType(event.target.value)) setOtherType(event.target.value);
+                onValueChange={(next) => {
+                  if (isDocumentType(next)) setOtherType(next);
                 }}
-                className={CLASE_SELECT}
-              >
-                {SECONDARY_DOCUMENT_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {DOCUMENT_TYPE_LABELS[type]}
-                  </option>
-                ))}
-              </select>
+                options={SECONDARY_DOCUMENT_TYPES.map((type) => ({
+                  value: type,
+                  label: DOCUMENT_TYPE_LABELS[type],
+                }))}
+              />
             </div>
             {/* `key`: al cambiar de tipo se descarta lo elegido para el anterior. */}
             <DocumentUploader

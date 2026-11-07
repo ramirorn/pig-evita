@@ -30,7 +30,7 @@ export function useCategories(filters: CategoryFilters = {}) {
  *
  * Se usa para poblar selectores que necesitan el conjunto completo —típicamente
  * acotado por `disciplineId`—, donde un corte silencioso a la página 1 deja el
- * `<select>` vacío sin error ni toast.
+ * selector vacío sin error ni toast.
  *
  * `enabled` en `false` mientras no haya con qué filtrar: pedir el catálogo
  * entero de categorías para descartarlo en el cliente es justamente lo que

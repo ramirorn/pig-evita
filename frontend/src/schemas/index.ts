@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidExternalImageUrl } from '@/lib/news/newsImageRules';
 import {
   AgeCriterion,
   UserRole,
@@ -172,9 +173,9 @@ const telefonoOpcional = () =>
 // Fechas
 // ------------------------------------------
 
-/** `<input type="date">` siempre entrega `YYYY-MM-DD`. */
+/** El `DatePicker` (como antes el campo de fecha nativo) siempre entrega `YYYY-MM-DD`. */
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-/** `<input type="time">` entrega `HH:MM` (24 h). */
+/** El selector de hora (`ClockTimePicker`) entrega `HH:MM` (24 h). */
 const ISO_TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /**
@@ -748,8 +749,24 @@ export const newsSchema = z.object({
     'El contenido debe tener al menos 10 caracteres',
     'El contenido',
   ),
-  imageKey: z.string().optional().nullable().or(z.literal('')),
+  /**
+   * Pestaña elegida en "Imagen de la noticia". En "Subir archivo" la imagen se
+   * guarda sola (`POST /news/:id/image`) y `imageUrl` no se valida ni se manda.
+   */
+  imageMode: z.enum(['upload', 'url']).default('upload'),
+  /** "Pegar URL": sólo `https://`, igual que `@IsUrl` del backend. Vacía = sin URL. */
+  imageUrl: z.string().max(2048, 'La URL de la imagen es demasiado larga').optional().or(z.literal('')),
   isPublished: z.boolean().default(false),
+}).superRefine((valores, ctx) => {
+  if (valores.imageMode !== 'url') return;
+  const url = (valores.imageUrl ?? '').trim();
+  if (url !== '' && !isValidExternalImageUrl(url)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['imageUrl'],
+      message: 'Pegá una dirección que empiece con https:// (por ejemplo, https://sitio.gob.ar/foto.jpg).',
+    });
+  }
 });
 
 export type NewsFormValues = z.infer<typeof newsSchema>;

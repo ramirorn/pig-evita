@@ -76,8 +76,8 @@ function extensionDe(nombre: string): string {
  *
  * El pipe es configurable por uso: documentos (DNI, ficha médica) y fotos de
  * sedes aceptan listas DISTINTAS y ninguna agranda a la otra. La regla de
- * documentos es `REGLA_DOCUMENTOS`, de abajo; la de fotos vive en el módulo de
- * sedes (`venues/image-signature.pipe.ts`).
+ * documentos es `REGLA_DOCUMENTOS`, de abajo; la de imágenes (sedes y
+ * noticias) vive en `images/image-signature.pipe.ts`.
  */
 export interface ReglaDeFirma<T extends string> {
   /** Tipo real por magic bytes, o `null` si no es ninguno aceptado. */

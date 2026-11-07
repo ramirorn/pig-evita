@@ -19,7 +19,7 @@ export type CompetitionFormValues = z.infer<typeof competitionSchema>;
 /** Tipo del objeto de RHF, por si alguna sección de campos necesita recibirlo. */
 export type CompetitionFormApi = UseFormReturn<CompetitionFormValues>;
 
-/** Recorta un ISO del backend al `YYYY-MM-DD` que espera un `<input type="date">`. */
+/** Recorta un ISO del backend al `YYYY-MM-DD` que espera el `DatePicker`. */
 function formatDateForInput(dateValue?: string | Date | null): string {
   if (!dateValue) return '';
   const dateStr = typeof dateValue === 'string' ? dateValue : dateValue.toISOString();

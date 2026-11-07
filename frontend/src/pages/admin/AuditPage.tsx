@@ -2,8 +2,10 @@
 // Audit Page
 // ===========================================
 import { useState } from 'react';
-import { Shield, Search, Calendar } from 'lucide-react';
+import { Shield, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { localIsoFromDate } from '@/lib/datePicker';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -26,6 +28,7 @@ const MOCK_AUDIT_LOGS = [
 
 export function AuditPage() {
   const [search, setSearch] = useState('');
+  const [day, setDay] = useState('');
 
   const getActionColor = (action: string) => {
     switch (action) {
@@ -39,9 +42,11 @@ export function AuditPage() {
 
   const filtered = MOCK_AUDIT_LOGS.filter(
     (log) =>
-      log.user.toLowerCase().includes(search.toLowerCase()) ||
-      log.action.toLowerCase().includes(search.toLowerCase()) ||
-      log.details.toLowerCase().includes(search.toLowerCase()),
+      (log.user.toLowerCase().includes(search.toLowerCase()) ||
+        log.action.toLowerCase().includes(search.toLowerCase()) ||
+        log.details.toLowerCase().includes(search.toLowerCase())) &&
+      // El día se compara en hora local: un evento de las 22 h de Argentina es de ese día.
+      (!day || localIsoFromDate(new Date(log.timestamp)) === day),
   );
 
   return (
@@ -64,10 +69,13 @@ export function AuditPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <div className="relative w-40">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-              <Input type="date" className="pl-9" />
-            </div>
+            <DatePicker
+              aria-label="Filtrar por día"
+              value={day}
+              onChange={setDay}
+              wrapperClassName="w-48"
+              pickerLabel="Elegir día"
+            />
           </div>
         </div>
 

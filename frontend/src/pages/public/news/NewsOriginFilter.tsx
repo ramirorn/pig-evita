@@ -42,7 +42,7 @@ export function NewsOriginFilter({ valor, onChange }: NewsOriginFilterProps) {
     <div
       role="group"
       aria-label="Filtrar noticias por origen"
-      className="mb-8 flex flex-wrap gap-2"
+      className="mb-6 flex flex-wrap gap-2"
     >
       {OPCIONES.map((opcion) => {
         const activo = opcion.valor === valor;
@@ -56,8 +56,8 @@ export function NewsOriginFilter({ valor, onChange }: NewsOriginFilterProps) {
             onClick={() => onChange(opcion.valor)}
             className={
               activo
-                ? 'rounded-full bg-primary-800 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors'
-                : 'rounded-full border border-primary-200 bg-white px-5 py-2 text-sm font-semibold text-primary-600 shadow-sm transition-colors hover:bg-primary-50'
+                ? 'rounded-full bg-primary-800 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600'
+                : 'rounded-full border border-primary-200 bg-surface-elevated px-4 py-1.5 text-sm font-semibold text-primary-700 shadow-sm transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600'
             }
           >
             {opcion.label}

@@ -17,7 +17,8 @@ import {
 import { RosterMemberForm } from './RosterMemberForm';
 import { calcularEdad, hayLugar, type RosterMember } from './rosterModel';
 import type { TeamInscriptionWizard } from './useTeamInscriptionWizard';
-import { DEPARTMENTS_FORMOSA } from '@/lib/constants';
+import { DEPARTMENT_OPTIONS } from '@/lib/constants';
+import { SelectField } from '@/components/ui/select';
 
 /** Contador siempre visible: es la única forma de saber cuánto falta. */
 function ContadorPlantel({
@@ -327,20 +328,15 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
             >
               Departamento *
             </label>
-            <select
+            <SelectField
               id="equipo-departamento"
+              required
               value={wizard.equipo.department}
-              onChange={(e) =>
-                wizard.setEquipo((actual) => ({ ...actual, department: e.target.value }))
+              onValueChange={(department) =>
+                wizard.setEquipo((actual) => ({ ...actual, department }))
               }
-              className="w-full px-3 py-2 rounded-xl border border-primary-200 text-primary-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm font-medium"
-            >
-              {DEPARTMENTS_FORMOSA.map((departamento) => (
-                <option key={departamento} value={departamento}>
-                  {departamento}
-                </option>
-              ))}
-            </select>
+              options={DEPARTMENT_OPTIONS}
+            />
           </div>
           <div>
             <label

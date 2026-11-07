@@ -4,7 +4,10 @@
 import React from 'react';
 import { User, ArrowRight } from 'lucide-react';
 import { Sex } from '@/types';
-import { DEPARTMENTS_FORMOSA } from '@/lib/constants';
+import { DEPARTMENT_OPTIONS } from '@/lib/constants';
+import { todayIso } from '@/lib/datePicker';
+import { SelectField } from '@/components/ui/select';
+import { DatePicker } from '@/components/ui/date-picker';
 
 export interface InscriptionFormData {
   dni: string;
@@ -125,7 +128,10 @@ export function StepPersonalData({
         {/* Fecha de Nacimiento */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-xs font-bold text-primary-700 uppercase tracking-wider">
+            <label
+              htmlFor="inscripcion-nacimiento"
+              className="block text-xs font-bold text-primary-700 uppercase tracking-wider"
+            >
               Fecha de Nacimiento *
             </label>
             {calculatedAge !== null && (
@@ -134,12 +140,14 @@ export function StepPersonalData({
               </span>
             )}
           </div>
-          <input
-            type="date"
+          <DatePicker
+            id="inscripcion-nacimiento"
             required
+            max={todayIso()}
             value={formData.birthDate}
-            onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-xl border border-primary-200 text-primary-900 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm font-medium"
+            onChange={(birthDate) => setFormData((actual) => ({ ...actual, birthDate }))}
+            pickerLabel="Elegir fecha de nacimiento"
+            className="h-11 rounded-xl border-primary-200 bg-white pl-4 text-sm font-medium text-primary-900 placeholder:text-primary-300 sm:h-11"
           />
         </div>
 
@@ -173,20 +181,21 @@ export function StepPersonalData({
 
         {/* Departamento */}
         <div>
-          <label className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1.5">
+          <label
+            htmlFor="inscripcion-departamento"
+            className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1.5"
+          >
             Departamento de Formosa *
           </label>
-          <select
+          <SelectField
+            id="inscripcion-departamento"
+            required
+            size="lg"
             value={formData.department}
-            onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-            className="w-full px-4 py-2.5 rounded-xl border border-primary-200 text-primary-900 focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm font-medium bg-white"
-          >
-            {DEPARTMENTS_FORMOSA.map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
-              </option>
-            ))}
-          </select>
+            onValueChange={(department) => setFormData((actual) => ({ ...actual, department }))}
+            options={DEPARTMENT_OPTIONS}
+            className="px-4"
+          />
         </div>
 
         {/* Localidad */}

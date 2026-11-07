@@ -4,6 +4,9 @@
 import { RotateCcw, Search, X } from 'lucide-react';
 import type { Discipline } from '@/types';
 import { Input } from '@/components/ui/input';
+import { SelectField } from '@/components/ui/select';
+import { STAGE_LABELS } from '@/lib/constants';
+import { CompetitionStage } from '@/types';
 import type { CalendarPageFilters, OpcionDeMes } from './calendarFilters';
 
 interface CalendarFiltersPanelProps {
@@ -23,8 +26,13 @@ interface CalendarFiltersPanelProps {
   monthOptions: OpcionDeMes[];
 }
 
-const SELECT =
-  'h-11 w-full cursor-pointer rounded-xl border border-primary-200 bg-white px-3 text-sm font-medium text-primary-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 sm:h-10';
+/** Valor de "sin filtro" que la página ya usa en la URL para mes, etapa y disciplina. */
+const TODOS = 'ALL';
+
+const STAGE_OPTIONS = Object.values(CompetitionStage).map((stage) => ({
+  value: stage,
+  label: `Etapa ${STAGE_LABELS[stage]}`,
+}));
 
 /**
  * Una barra compacta: 1 columna en el celular, 2 en tablet y 4 en escritorio.
@@ -72,45 +80,29 @@ export function CalendarFiltersPanel({
           )}
         </div>
 
-        <select
-          value={filters.month}
-          onChange={(e) => onChange({ month: e.target.value })}
+        <SelectField
           aria-label="Filtrar por mes"
-          className={SELECT}
-        >
-          <option value="ALL">Todos los meses</option>
-          {monthOptions.map((mes) => (
-            <option key={mes.value} value={mes.value}>
-              {mes.label}
-            </option>
-          ))}
-        </select>
+          value={filters.month}
+          onValueChange={(month) => onChange({ month })}
+          options={[{ value: TODOS, label: 'Todos los meses' }, ...monthOptions]}
+        />
 
-        <select
-          value={filters.stage}
-          onChange={(e) => onChange({ stage: e.target.value })}
+        <SelectField
           aria-label="Filtrar por etapa"
-          className={SELECT}
-        >
-          <option value="ALL">Todas las etapas</option>
-          <option value="ZONAL">Etapa Zonal</option>
-          <option value="DEPARTAMENTAL">Etapa Departamental</option>
-          <option value="PROVINCIAL">Etapa Provincial</option>
-        </select>
+          value={filters.stage}
+          onValueChange={(stage) => onChange({ stage })}
+          options={[{ value: TODOS, label: 'Todas las etapas' }, ...STAGE_OPTIONS]}
+        />
 
-        <select
-          value={filters.disciplineId}
-          onChange={(e) => onChange({ disciplineId: e.target.value })}
+        <SelectField
           aria-label="Filtrar por disciplina"
-          className={SELECT}
-        >
-          <option value="ALL">Todas las disciplinas</option>
-          {disciplines.map((disc) => (
-            <option key={disc.id} value={disc.id}>
-              {disc.name}
-            </option>
-          ))}
-        </select>
+          value={filters.disciplineId}
+          onValueChange={(disciplineId) => onChange({ disciplineId })}
+          options={[
+            { value: TODOS, label: 'Todas las disciplinas' },
+            ...disciplines.map((disc) => ({ value: disc.id, label: disc.name })),
+          ]}
+        />
       </div>
 
       <div className="mb-8 flex flex-wrap items-center justify-between gap-2 px-1">

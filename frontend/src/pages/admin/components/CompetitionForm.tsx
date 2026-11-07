@@ -15,6 +15,7 @@ import {
   FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -202,7 +203,11 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
                   Fecha de Inicio (Opcional)
                 </FormLabel>
                 <FormControl>
-                  <Input type="date" className="bg-white h-10" {...field} value={field.value || ''} />
+                  <DatePicker
+                    className="bg-white sm:h-10"
+                    {...field}
+                    pickerLabel="Elegir fecha de inicio"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -218,7 +223,12 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
                   Fecha de Fin (Opcional)
                 </FormLabel>
                 <FormControl>
-                  <Input type="date" className="bg-white h-10" {...field} value={field.value || ''} />
+                  <DatePicker
+                    className="bg-white sm:h-10"
+                    {...field}
+                    min={form.watch('startDate') || undefined}
+                    pickerLabel="Elegir fecha de fin"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

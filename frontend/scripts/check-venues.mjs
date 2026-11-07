@@ -88,19 +88,27 @@ const leerBackend = (relativo) => readFile(path.join(BACKEND, relativo), 'utf8')
 // 1. Paridad con el backend
 // -------------------------------------------------
 {
-  const util = await leerBackend('src/modules/venues/venue-image.util.ts');
-  const interceptor = await leerBackend('src/modules/venues/venue-image-upload.interceptor.ts');
-  const pipe = await leerBackend('src/modules/venues/image-signature.pipe.ts');
+  // Lo común de imágenes (límite, multer, firma) vive en `modules/images/`,
+  // compartido con la imagen de noticia; la sede lo usa tal cual.
+  const util = await leerBackend('src/modules/images/image.util.ts');
+  const interceptor = await leerBackend('src/modules/images/image-upload.interceptor.ts');
+  const pipe = await leerBackend('src/modules/images/image-signature.pipe.ts');
+  const controller = await leerBackend('src/modules/venues/venue-images.controller.ts');
 
   comprobar(
-    'el límite del cliente es el del backend (VENUE_IMAGE_MAX_BYTES = 5 MB)',
+    'el límite del cliente es el del backend (IMAGE_MAX_BYTES = 5 MB)',
     MAX_VENUE_IMAGE_BYTES === 5 * MB &&
-      /VENUE_IMAGE_MAX_BYTES\s*=\s*5\s*\*\s*1024\s*\*\s*1024/.test(util),
+      /IMAGE_MAX_BYTES\s*=\s*5\s*\*\s*1024\s*\*\s*1024/.test(util),
     `cliente=${MAX_VENUE_IMAGE_BYTES}`,
   );
   comprobar(
     'multer corta con ese mismo límite',
-    /fileSize:\s*VENUE_IMAGE_MAX_BYTES\s*\+\s*1/.test(interceptor),
+    /fileSize:\s*IMAGE_MAX_BYTES\s*\+\s*1/.test(interceptor),
+  );
+  comprobar(
+    'la sede sube con el interceptor y el pipe de imágenes compartidos',
+    controller.includes('@UseInterceptors(ImageUploadInterceptor)') &&
+      controller.includes('@UploadedFile(ImageSignaturePipe)'),
   );
   comprobar(
     'el exceso de tamaño en el backend sigue siendo 422',
@@ -430,7 +438,11 @@ const leerBackend = (relativo) => readFile(path.join(BACKEND, relativo), 'utf8')
   const seccion = await leer('src/pages/admin/venues/VenuePhotoSection.tsx');
   comprobar('el panel reusa DocumentUploader', seccion.includes('<DocumentUploader'));
   comprobar('el panel le pasa las reglas de sede', seccion.includes('VENUE_IMAGE_UPLOADER_RULES'));
-  comprobar('el panel achica con canvas antes de subir', seccion.includes('prepare: optimizeVenueImage'));
+  comprobar(
+    'el panel achica con el optimizador común (canvas) antes de subir',
+    seccion.includes("prepare: (file) => optimizeImage(file, 'foto-sede')") &&
+      seccion.includes("from '@/lib/images/optimizeImage'"),
+  );
   comprobar('"Quitar foto" pide confirmación', seccion.includes('Quitar foto') && seccion.includes('ConfirmDeleteDialog'));
   comprobar('el panel anuncia los cambios (aria-live)', seccion.includes('aria-live="polite"'));
   comprobar(
@@ -455,7 +467,7 @@ const leerBackend = (relativo) => readFile(path.join(BACKEND, relativo), 'utf8')
   comprobar('el módulo de reglas no depende de React', !/from 'react'/.test(reglas));
   comprobar('el módulo de reglas no toca el DOM', !/\bdocument\.|createImageBitmap|window\./.test(reglas));
 
-  const optimizar = await leer('src/lib/venues/optimizeVenueImage.ts');
+  const optimizar = await leer('src/lib/images/optimizeImage.ts');
   comprobar(
     'la reducción respeta la orientación EXIF',
     /imageOrientation:\s*'from-image'/.test(optimizar),

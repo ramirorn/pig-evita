@@ -25,7 +25,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { pipeline } from 'node:stream/promises';
 import {
   Audit,
   Public,
@@ -33,13 +32,11 @@ import {
   Roles,
 } from '../../common/decorators';
 import { ACCIONES, AuditAction } from '../../common/constants';
-import { ImageSignaturePipe } from './image-signature.pipe';
+import { ImageSignaturePipe } from '../images/image-signature.pipe';
+import { ImageUploadInterceptor } from '../images/image-upload.interceptor';
+import { enviarImagen } from '../images/image.util';
 import { UploadVenueImageDto } from './dto';
-import { VenueImageUploadInterceptor } from './venue-image-upload.interceptor';
 import { VenueImagesService } from './venue-images.service';
-
-/** La URL lleva `?v=<versión>`: el contenido de una URL no cambia nunca. */
-const CACHE_INMUTABLE = 'public, max-age=31536000, immutable';
 
 @ApiTags('Venues')
 @Controller('venues')
@@ -52,7 +49,7 @@ export class VenueImagesController {
   // Para el negocio es un cambio de la sede, no el alta de una: sin esto el
   // interceptor lo registraría como CREATE sobre `venues`.
   @Audit({ action: AuditAction.UPLOAD })
-  @UseInterceptors(VenueImageUploadInterceptor)
+  @UseInterceptors(ImageUploadInterceptor)
   @ApiOperation({
     summary: 'Subir o reemplazar la foto de la sede',
     description:
@@ -119,20 +116,7 @@ export class VenueImagesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
   ): Promise<void> {
-    const { stream, contentType } = await this.venueImages.getImage(id);
-
-    // Se escriben después del `CacheControlInterceptor`, que a un request con
-    // sesión le pone `no-store`: la foto es la misma para todo el mundo.
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', CACHE_INMUTABLE);
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Disposition', 'inline');
-
-    try {
-      await pipeline(stream, res);
-    } catch {
-      // Headers ya enviados: no hay respuesta de error posible. `pipeline`
-      // destruye el socket, y el cliente ve una respuesta truncada.
-    }
+    // `?v=<versión>` en la URL: se cachea un año (`immutable`), con o sin sesión.
+    await enviarImagen(res, await this.venueImages.getImage(id));
   }
 }

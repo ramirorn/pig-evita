@@ -1,5 +1,5 @@
 // ===========================================
-// Subida de la foto de sede: multer con límite de tamaño
+// Subida de una imagen (sede, noticia): multer con límite de tamaño
 // ===========================================
 import {
   CallHandler,
@@ -11,9 +11,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Observable } from 'rxjs';
-import { VENUE_IMAGE_MAX_BYTES } from './venue-image.util';
+import { IMAGE_MAX_BYTES } from './image.util';
 
-export const MSG_FOTO_DEMASIADO_GRANDE =
+export const MSG_IMAGEN_DEMASIADO_GRANDE =
   'La imagen supera el tamaño máximo de 5 MB';
 
 /**
@@ -21,11 +21,11 @@ export const MSG_FOTO_DEMASIADO_GRANDE =
  * `ParseFilePipe` posterior: busboy corta el stream apenas se pasa de 5 MB, así
  * que un archivo de 2 GB nunca llega a juntarse entero en memoria.
  */
-const MulterFotoSede = FileInterceptor('file', {
+const MulterImagen = FileInterceptor('file', {
   limits: {
     // +1 porque busboy corta al ALCANZAR el límite, no al pasarlo: con el
-    // valor exacto, una foto de 5 MB justos se rechazaría.
-    fileSize: VENUE_IMAGE_MAX_BYTES + 1,
+    // valor exacto, una imagen de 5 MB justos se rechazaría.
+    fileSize: IMAGE_MAX_BYTES + 1,
     files: 1,
     fields: 5,
     fieldSize: 1024,
@@ -40,8 +40,8 @@ const MulterFotoSede = FileInterceptor('file', {
  * siendo el 400 que arma Nest.
  */
 @Injectable()
-export class VenueImageUploadInterceptor implements NestInterceptor {
-  private readonly multer: NestInterceptor = new MulterFotoSede();
+export class ImageUploadInterceptor implements NestInterceptor {
+  private readonly multer: NestInterceptor = new MulterImagen();
 
   async intercept(
     context: ExecutionContext,
@@ -53,7 +53,7 @@ export class VenueImageUploadInterceptor implements NestInterceptor {
       >);
     } catch (error) {
       if (error instanceof PayloadTooLargeException) {
-        throw new UnprocessableEntityException(MSG_FOTO_DEMASIADO_GRANDE);
+        throw new UnprocessableEntityException(MSG_IMAGEN_DEMASIADO_GRANDE);
       }
       throw error;
     }

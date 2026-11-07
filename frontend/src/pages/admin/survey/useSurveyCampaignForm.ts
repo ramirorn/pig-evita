@@ -19,7 +19,7 @@ import {
   useUpdateSurveyCampaign,
 } from '@/hooks/useSurvey';
 
-/** ISO del backend → `YYYY-MM-DD` para el `<input type="date">`. */
+/** ISO del backend → `YYYY-MM-DD` para el `DatePicker`. */
 function isoAFecha(iso?: string | null): string {
   if (!iso) return '';
   const fecha = new Date(iso);

@@ -1,0 +1,115 @@
+# ===========================================
+# Stack AISLADO para la auditoría funcional (proyecto `evita-e2e`)
+# ===========================================
+# No comparte nombres, redes, volúmenes ni puertos con `pgd-evita`.
+#   Web (nginx + /api):   http://localhost:18080
+#   MinIO (links firmados): http://localhost:19100
+# El backend vive SOLO en la red `interna` (internal: true): no tiene salida a
+# Internet, así que la sincronización de noticias jamás puede llegar al portal
+# real (formosa.gob.ar) aunque alguien la dispare.
+# Secretos: e2e/.env.e2e (generado por `npm run stack:up`, no se commitea).
+name: evita-e2e
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: evita_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?}
+      POSTGRES_DB: juegos_evita
+    volumes:
+      - e2e_postgres:/var/lib/postgresql/data
+    networks: [interna]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evita_user -d juegos_evita"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    networks: [interna]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?}
+    ports:
+      - "127.0.0.1:19100:9000"
+    volumes:
+      - e2e_minio:/data
+    networks: [interna, externa]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: docker/Dockerfile.local
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      API_PREFIX: api/v1
+      DATABASE_URL: postgresql://evita_user:${DB_PASSWORD}@postgres:5432/juegos_evita?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_PUBLIC_ENDPOINT: localhost
+      MINIO_PUBLIC_PORT: 19100
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: juegos-evita
+      MINIO_USE_SSL: "false"
+      CORS_ORIGINS: http://localhost:18080
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:?}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?}
+      SEED_ON_START: ${SEED_ON_START:-true}
+      NEWS_SYNC_ENABLED: "false"
+    networks: [interna]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: docker/Dockerfile
+    ports:
+      - "127.0.0.1:18080:80"
+    networks: [interna, externa]
+    depends_on:
+      backend: { condition: service_healthy }
+
+  edge:
+    image: nginx:1.27-alpine
+    ports:
+      - "127.0.0.1:18081:80"
+    volumes:
+      - ./edge.nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [interna, externa]
+    depends_on:
+      frontend: { condition: service_started }
+      backend: { condition: service_healthy }
+
+networks:
+  interna:
+    internal: true
+  externa: {}
+
+volumes:
+  e2e_postgres:
+  e2e_minio:

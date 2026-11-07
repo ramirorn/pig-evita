@@ -13,7 +13,7 @@ import {
 import { useNewsBySlug } from '@/hooks/useNews';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { safeImageSrc } from '@/lib/utils';
+import { newsImageSrc } from '@/lib/news/newsImageRules';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
 import {
   esNoticiaExterna,
@@ -84,7 +84,7 @@ export function NewsDetailPage() {
     }
   };
 
-  const coverSrc = safeImageSrc(news.imageKey);
+  const coverSrc = newsImageSrc(news.imageUrl);
 
   // S19 — a esta pantalla se puede llegar por URL directa con el slug de una
   // noticia del portal. De esas **no tenemos el cuerpo del artículo**: lo que
@@ -152,8 +152,8 @@ export function NewsDetailPage() {
         </div>
       </div>
 
-      {/* Imagen Principal de Portada — `imageKey` es texto libre del backend y
-          es la URL entera, así que se valida el schema antes de usarla. */}
+      {/* Imagen Principal de Portada — `imageUrl` es una ruta de la API (subida)
+          o una URL externa entera, que pasa por `safeImageSrc` antes de usarse. */}
       {coverSrc && !imgError ? (
         <div className="w-full h-[360px] md:h-[480px] rounded-3xl overflow-hidden mb-10 shadow-lg border border-primary-100 bg-primary-900">
           <img

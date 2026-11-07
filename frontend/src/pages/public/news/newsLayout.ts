@@ -1,66 +1,93 @@
 // ===========================================
-// Reparto de las noticias en el mosaico
+// Reparto de las noticias en la portada editorial de /noticias
 // ===========================================
 import type { News } from '@/types';
 
 /**
  * Vive aparte de `NewsPage.tsx` por la misma razón que `newsSource.ts`: un
  * módulo que exporta componentes **y** funciones sueltas rompe el fast refresh
- * de Vite y el lint del proyecto lo marca. Además así la función se puede
- * ejercitar sin montar la página.
+ * de Vite y el lint del proyecto lo marca. Además así el reparto se ejercita
+ * sin montar la página (`check:cards` lo recorre con 0 a 40 notas).
  */
 
-interface Reparto {
-  /** La pieza principal, con la foto de fondo. */
-  grande?: News;
-  /** Las que la acompañan arriba, del mismo formato. */
-  medias: News[];
-  /** Lista compacta de texto, sin imagen. */
-  enLista: News[];
-  /** Tarjetas clásicas, con foto arriba y texto abajo. */
-  enGrilla: News[];
+/** Diapositivas del carrusel destacado: las 4 más recientes. */
+export const NOTAS_EN_CARRUSEL = 4;
+/** Tarjetas compactas de la tira superior. */
+export const NOTAS_EN_TIRA = 4;
+/** Piezas del mosaico "No te pierdas": una grande y cuatro chicas en 2×2. */
+export const NOTAS_EN_MOSAICO = 5;
+/** Renglones de la lista numerada "Más recientes". */
+export const NOTAS_EN_LISTA = 5;
+
+/**
+ * Cuántas notas consume la portada cuando hay de sobra. Es también el tamaño de
+ * página del pedido de la portada y del archivo de abajo: con los dos alineados,
+ * "la página 2 del backend" es exactamente "lo que no entró en la portada", sin
+ * desfasajes ni notas repetidas entre la portada y el archivo.
+ */
+export const NOTAS_EN_PORTADA =
+  NOTAS_EN_CARRUSEL + NOTAS_EN_TIRA + NOTAS_EN_MOSAICO + NOTAS_EN_LISTA;
+
+/** Mínimo de renglones para que la lista numerada valga la pena. */
+const MINIMO_EN_LISTA = 3;
+
+export interface RepartoDePortada {
+  carrusel: News[];
+  tira: News[];
+  /** 0, 3 o 5 piezas: el mosaico sólo se arma con formas que llena. */
+  mosaico: News[];
+  lista: News[];
+  /** Lo que no entró en la portada: va a la grilla de abajo. */
+  resto: News[];
 }
 
 /**
- * Decide qué formato le corresponde a cada noticia según cuántas haya.
+ * Reparte las notas (ya ordenadas por fecha de publicación, de la más nueva a
+ * la más vieja) entre las secciones de la portada, **sin repetir ninguna**.
  *
- * Los cortes no son arbitrarios:
+ * El orden de lectura de la pantalla es el orden de fecha: carrusel → tira →
+ * mosaico → lista. Lo que cambia con el volumen es **cuántas** van a cada una:
  *
- * - **1 o 2 noticias**: nada de mosaico. Una grande sola ocupando el ancho, y la
- *   otra debajo. Un mosaico con dos piezas es una grilla con huecos.
- * - **3 a 5**: una grande y hasta dos medias arriba; el resto va a la lista
- *   compacta, que llena poco espacio y no promete más contenido del que hay.
- * - **6**: entran todas entre la grande, las medias y la lista; la grilla no se
- *   pinta, porque una sección "Más artículos" vacía es peor que su ausencia.
- * - **7 o más**: recién ahí aparece la grilla de tarjetas, con lo que sobra.
+ * - El carrusel toma hasta 4.
+ * - El mosaico sólo se arma con 5 (grande + 2×2) o 3 (grande + 2); con menos
+ *   quedaría un hueco con forma de tarjeta.
+ * - La lista numerada pide al menos 3 renglones; con uno o dos se ve rota y
+ *   esas notas van a la tira, que se acomoda a 1–4 columnas.
+ * - Con pocas notas se achica primero la tira y después la lista: el mosaico es
+ *   la pieza que más pesa en la composición.
  *
- * En las páginas siguientes a la primera no hay mosaico: quien llegó ahí ya está
- * recorriendo un listado y espera una grilla pareja, no otra portada.
+ * Con 18 o más, la portada queda completa (4 + 4 + 5 + 5) y lo demás va a
+ * `resto`. Con las ~14 de hoy: carrusel 4, tira 2, mosaico 5, lista 3, y
+ * ninguna nota queda fuera de la pantalla.
  */
-export function repartir(noticias: News[], esPortada: boolean): Reparto {
-  if (!esPortada) {
-    return { medias: [], enLista: [], enGrilla: noticias };
+export function repartirPortada(noticias: readonly News[]): RepartoDePortada {
+  const carrusel = noticias.slice(0, NOTAS_EN_CARRUSEL);
+  const despues = noticias.slice(carrusel.length);
+
+  const enMosaico =
+    despues.length >= NOTAS_EN_MOSAICO ? NOTAS_EN_MOSAICO : despues.length >= 3 ? 3 : 0;
+  const libres = despues.length - enMosaico;
+
+  let enTira: number;
+  let enLista: number;
+  if (libres >= NOTAS_EN_TIRA + NOTAS_EN_LISTA) {
+    enTira = NOTAS_EN_TIRA;
+    enLista = NOTAS_EN_LISTA;
+  } else if (libres >= NOTAS_EN_TIRA + MINIMO_EN_LISTA) {
+    enTira = NOTAS_EN_TIRA;
+    enLista = libres - NOTAS_EN_TIRA;
+  } else if (libres >= MINIMO_EN_LISTA) {
+    enLista = MINIMO_EN_LISTA;
+    enTira = libres - MINIMO_EN_LISTA;
+  } else {
+    enLista = 0;
+    enTira = libres;
   }
 
-  const [primera, ...resto] = noticias;
+  const tira = despues.slice(0, enTira);
+  const mosaico = despues.slice(enTira, enTira + enMosaico);
+  const lista = despues.slice(enTira + enMosaico, enTira + enMosaico + enLista);
+  const resto = despues.slice(enTira + enMosaico + enLista);
 
-  if (noticias.length <= 2) {
-    return { grande: primera, medias: [], enLista: resto, enGrilla: [] };
-  }
-
-  if (noticias.length <= 5) {
-    return {
-      grande: primera,
-      medias: resto.slice(0, 2),
-      enLista: resto.slice(2),
-      enGrilla: [],
-    };
-  }
-
-  return {
-    grande: primera,
-    medias: resto.slice(0, 2),
-    enLista: resto.slice(2, 5),
-    enGrilla: resto.slice(5),
-  };
+  return { carrusel, tira, mosaico, lista, resto };
 }

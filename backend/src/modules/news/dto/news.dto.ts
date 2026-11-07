@@ -2,7 +2,15 @@
 // News DTOs
 // ===========================================
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { ToBoolean } from '../../../common/transformers';
 import { PaginationQueryDto, SortableBy } from '../../../common/dto';
 
@@ -22,10 +30,30 @@ export class CreateNewsDto {
   @IsString()
   excerpt?: string;
 
-  @ApiPropertyOptional({ description: 'Clave o URL de imagen principal' })
+  /**
+   * URL EXTERNA de la imagen (`https://…`). Para subir un archivo se usa
+   * `POST /news/:id/image`, que guarda la clave de MinIO en esta misma columna
+   * (ver `news-image.util.ts`). Por eso acá sólo entra una URL `https`: una
+   * cadena como `news/<otro-id>/…` haría que el GET sirviera un objeto ajeno.
+   *
+   * `null` o `''` quitan la imagen (y, si era subida, se borra el objeto).
+   */
+  @ApiPropertyOptional({
+    description:
+      'URL https de una imagen externa. Para subir un archivo usá POST /news/:id/image. ' +
+      'null o "" quita la imagen.',
+    nullable: true,
+    maxLength: 2048,
+  })
   @IsOptional()
+  @ValidateIf((_objeto, valor) => valor !== '')
   @IsString()
-  imageKey?: string;
+  @MaxLength(2048)
+  @IsUrl(
+    { protocols: ['https'], require_protocol: true },
+    { message: 'La imagen tiene que ser una URL que empiece con https://' },
+  )
+  imageKey?: string | null;
 
   @ApiPropertyOptional({ description: 'Publicar inmediatamente' })
   @IsOptional()
@@ -34,11 +62,20 @@ export class CreateNewsDto {
   isPublished?: boolean;
 }
 
-export class UpdateNewsDto extends PartialType(CreateNewsDto) {
-  @ApiPropertyOptional({ description: 'Clave de imagen principal' })
-  @IsOptional()
-  @IsString()
-  imageKey?: string;
+export class UpdateNewsDto extends PartialType(CreateNewsDto) {}
+
+/**
+ * Sólo documentación de Swagger para `POST /news/:id/image`: el archivo llega
+ * por `@UploadedFile()`, no por `@Body()`, así que este DTO no se valida.
+ */
+export class UploadNewsImageDto {
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    description:
+      'Imagen de la noticia: JPG, PNG o WebP de hasta 5 MB. El tipo se valida por el contenido del archivo.',
+  })
+  file: unknown;
 }
 
 export const CAMPOS_ORDEN_NEWS = [
