@@ -299,6 +299,33 @@ No se modificó código de la aplicación ni dependencias de `frontend/` o `back
 
 ---
 
+## 7. Estado de las correcciones (2026-11-07, rama `dev-santi`)
+
+Todos los hallazgos F-01 a F-43 están corregidos. Las marcas de falla esperada (`knownBug` en `e2e/tests`, `it.failing` en `backend/test`) se quitaron: cada prueba afirma ahora el comportamiento correcto y pasa.
+
+| Hallazgo | Corrección |
+|---|---|
+| F-37 | `CreateVenueDto` admite `isActive` opcional y el formulario ya no lo manda en el alta. |
+| F-32, F-31 | `MatchCard` carga y corrige resultados según `resultType`; el detalle de la competencia se abre para `RESULT_LOADERS` en modo sólo lectura + carga. |
+| F-14 | Motores `ELIMINACION_DIRECTA` (byes a los primeros cabezas de serie, la ronda siguiente se crea al cerrar la anterior) y `FASE_GRUPOS` (grupos de 3–4, todos contra todos). El formulario arranca en `ROUND_ROBIN`. |
+| F-29 | Disciplinas individuales: el fixture se arma con los participantes de inscripciones `APROBADA` (`participantIds`). |
+| F-28 | `formatCalendarDate`: fechas de calendario en `dd/mm/aaaa` sin corrimiento de zona horaria. |
+| F-27 | La mutación de la encuesta usa `networkMode: 'always'` y sin conexión se encola. |
+| F-33, F-34, F-40 | La tabla pública muestra nombre, posición y empates; el fixture público lista los partidos; sin desborde a 375 px. |
+| F-01, F-20, F-21, F-22, F-24 | Filtros validados con DTO (`@IsEnum`, `@IsUUID`, `@Max` en `page`), 413 para bodies grandes, ningún 500 devuelve el mensaje crudo. |
+| F-09, F-13 | El fixture sólo admite inscriptos `APROBADA`, rechaza ids repetidos o inexistentes y se genera en una transacción. |
+| F-10, F-11, F-12 | Carga de resultados validada (400), corrección de un partido finalizado sólo para `SUPER_ADMIN`/`ADMIN_PROVINCIAL` (403 al resto), ranking con empates y orden según `resultType`. |
+| F-15, F-16, F-18, F-24 | Rangos de fechas y coordenadas validados; `toDate=AAAA-MM-DD` incluye todo el día. |
+| F-17 | Orden por título con `Intl.Collator('es')`. |
+| F-19 | Nadie puede darse de baja a sí mismo ni dejar el sistema sin `SUPER_ADMIN` activo. |
+| F-04 a F-08 | `age` en la respuesta del participante; 403 al cambiar DNI sin permiso; motivos sólo con espacios rechazados; la revisión de documentos acepta sólo `APROBADO`/`RECHAZADO`. |
+| F-26, F-30, F-36, F-41, F-42 | Sin `POST /auth/refresh` en visitas anónimas; "Aprobar" sólo en `REVISADA`; nombres accesibles y un solo `<h1>`; documentos reales en el detalle del participante; mensaje explicativo para roles sin pantallas. |
+| F-43 | `app.e2e-spec.ts` es ahora una prueba de arranque contra `/api/v1/health`. |
+
+Observaciones: O-3 (`NEWS_SYNC_PORTAL_URL` configurable), O-4 (mensajes del entrypoint), O-5 (`forRoutes` con `{*path}`), O-7 (sin `fileKey` en el listado) y O-8 (spec actualizada) están resueltas. O-1, O-2 y O-6 son decisiones de diseño sobre los límites por IP y se mantienen.
+
+---
+
 ## Apéndice A — Salidas finales de los comandos
 
 Corridas finales sobre un stack aislado recién creado (`down -v` + `up`), en este orden: API, escritorio, celular. Los resúmenes salen de `node scripts/summarize.mjs` sobre el reporte JSON de Playwright y de la línea final del listado de cada comando.
