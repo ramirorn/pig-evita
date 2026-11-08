@@ -13,10 +13,21 @@ interface FixtureSectionProps {
   format: string;
   /** Tipo de resultado de la disciplina, para leer bien el marcador. */
   resultType: ResultType | undefined;
-  /** Equipos elegibles: por debajo de 2 no se puede generar el fixture. */
+  /**
+   * Competidores elegibles (equipos, o participantes con inscripción APROBADA
+   * en las disciplinas individuales): por debajo de 2 no hay fixture.
+   */
   teamCount: number;
+  /** "equipos" o "participantes", según el tipo de disciplina (F-29). */
+  unidad?: string;
   isGenerating: boolean;
   onGenerate: () => void;
+  /** `COMPETITION_MANAGE`: sin él no se ofrece generar el fixture (F-31). */
+  puedeGestionar?: boolean;
+  /** `RESULT_LOAD`: carga de resultados en cada partido (F-32). */
+  puedeCargar?: boolean;
+  /** Corrección de partidos FINALIZADOS (`RESULT_CORRECTORS`). */
+  puedeCorregir?: boolean;
 }
 
 export function FixtureSection({
@@ -24,8 +35,12 @@ export function FixtureSection({
   format,
   resultType,
   teamCount,
+  unidad = 'equipos',
   isGenerating,
   onGenerate,
+  puedeGestionar = true,
+  puedeCargar = false,
+  puedeCorregir = false,
 }: FixtureSectionProps) {
   const hasMatches = matches.length > 0;
 
@@ -53,7 +68,7 @@ export function FixtureSection({
     <div className="card p-6">
       <div className="flex justify-between items-center mb-6">
         <h3 className="font-bold text-primary-900 text-lg">Fixture y Partidos</h3>
-        {!hasMatches && (
+        {!hasMatches && puedeGestionar && (
           <Button 
             onClick={onGenerate} 
             disabled={isGenerating || teamCount < 2}
@@ -81,7 +96,13 @@ export function FixtureSection({
               </h4>
               <div className="grid gap-3 md:grid-cols-2">
                 {roundMatches.map((match) => (
-                  <MatchCard key={match.id} match={match} resultType={resultType} />
+                  <MatchCard
+                    key={match.id}
+                    match={match}
+                    resultType={resultType}
+                    puedeCargar={puedeCargar}
+                    puedeCorregir={puedeCorregir}
+                  />
                 ))}
               </div>
             </div>
@@ -93,6 +114,14 @@ export function FixtureSection({
             </span>
           </div>
         </div>
+      ) : !puedeGestionar ? (
+        <div className="py-12 text-center border-2 border-dashed border-primary-200 rounded-xl bg-primary-50/30">
+          <LayoutGrid className="w-12 h-12 text-primary-300 mx-auto mb-3" />
+          <h4 className="text-primary-800 font-medium">Todavía no hay fixture</h4>
+          <p className="text-sm text-primary-500 mt-1 max-w-md mx-auto">
+            Cuando la organización genere los partidos vas a poder cargar sus resultados desde acá.
+          </p>
+        </div>
       ) : (
         <div className="py-12 text-center border-2 border-dashed border-primary-200 rounded-xl bg-primary-50/30">
           <LayoutGrid className="w-12 h-12 text-primary-300 mx-auto mb-3" />
@@ -100,7 +129,7 @@ export function FixtureSection({
             <>
               <h4 className="text-primary-800 font-medium">Llaves Eliminatorias</h4>
               <p className="text-sm text-primary-500 mt-1 max-w-md mx-auto">
-                Presione "Generar Fixture Automático" para sortear los cruces eliminatorios entre los {teamCount} equipos inscriptos.
+                Presione "Generar Fixture Automático" para sortear los cruces eliminatorios entre los {teamCount} {unidad} inscriptos.
               </p>
             </>
           ) : (
@@ -108,8 +137,8 @@ export function FixtureSection({
               <h4 className="text-primary-800 font-medium">Tabla de Liga — Todos contra todos</h4>
               <p className="text-sm text-primary-500 mt-1 max-w-md mx-auto">
                 {teamCount >= 2 
-                  ? `Hay ${teamCount} equipos disponibles. Presione "Generar Fixture Automático" para programar las fechas del Round Robin.`
-                  : 'Se necesitan al menos 2 equipos inscriptos para generar el fixture.'
+                  ? `Hay ${teamCount} ${unidad} disponibles. Presione "Generar Fixture Automático" para programar las fechas del Round Robin.`
+                  : `Se necesitan al menos 2 ${unidad} inscriptos para generar el fixture.`
                 }
               </p>
             </>

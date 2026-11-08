@@ -24,6 +24,28 @@ export function formatDate(dateStr: string | null | undefined): string {
 }
 
 /**
+ * Fecha "de calendario" (dd/mm/aaaa) sin corrimiento de zona horaria (F-28).
+ *
+ * Una fecha de nacimiento llega como `2012-05-05T00:00:00.000Z`: medianoche
+ * UTC, que en Formosa (UTC-3) son las 21 h del día anterior. Formatearla en la
+ * zona del navegador mostraba `4/5/2012`. Acá se toma el día tal como se
+ * guardó: se lee `aaaa-mm-dd` del texto, y si no viene así se formatea en UTC.
+ */
+export function formatCalendarDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—';
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const fecha = new Date(dateStr);
+  if (Number.isNaN(fecha.getTime())) return '—';
+  return fecha.toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/**
  * Antigüedad en lenguaje corriente: "hace 5 min", "hace 3 h", "hace 2 d".
  *
  * Es lo que usan los lectores de noticias, y comunica algo que la fecha

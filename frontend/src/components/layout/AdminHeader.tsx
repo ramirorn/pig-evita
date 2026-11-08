@@ -29,9 +29,11 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
           <Menu className="w-5 h-5" />
         </button>
 
-        <h1 className="text-lg font-semibold text-primary-800">
+        {/* F-36b: no es un <h1>. El título de cada pantalla ya lo es, y dos
+            <h1> por vista dejaban al lector de pantalla sin saber cuál manda. */}
+        <p className="text-lg font-semibold text-primary-800">
           Panel de Administración
-        </h1>
+        </p>
       </div>
 
       {/* User info & Actions */}

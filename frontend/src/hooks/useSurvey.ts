@@ -87,6 +87,12 @@ export function useSubmitSurveyResponse() {
     // no guarda identidad). El reintento lo decide el llamador, y sólo cuando
     // sabe que la request nunca llegó a salir.
     retry: false,
+    // F-27: con el `networkMode: 'online'` por defecto, sin señal TanStack
+    // Query **pausa** la mutación: nunca corre la request, nunca falla, y el
+    // `catch` que encola en el teléfono no llega a ejecutarse — el botón quedaba
+    // en "Mandando…" y la respuesta se perdía al cerrar la pestaña. Con
+    // `'always'` la request sale, falla sin status y el llamador la encola.
+    networkMode: 'always',
   });
 }
 

@@ -311,7 +311,8 @@ export interface DocumentEntity {
   id: string;
   participantId: string;
   documentType: DocumentType;
-  fileKey: string;
+  /** El listado por participante ya no la expone (O-7); sólo la usa el backend. */
+  fileKey?: string;
   originalName: string;
   mimeType: string;
   fileSize: number;

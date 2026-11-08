@@ -49,7 +49,7 @@ export function InscriptionDetailPage() {
       />
 
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.INSCRIPTIONS)}>
+        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.INSCRIPTIONS)} aria-label="Volver a inscripciones">
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1">

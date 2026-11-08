@@ -32,7 +32,10 @@ export function InscriptionReviewPanel({ inscription, review }: InscriptionRevie
   // hacer: `INSCRIPTION_APPROVE` es sólo de la línea provincial. Revisar y
   // rechazar sí los tiene, así que el panel se muestra igual, sin ese botón.
   const { puede } = usePermisos();
-  const puedeAprobar = puede('INSCRIPTION_APPROVE');
+  // F-30 — el backend sólo aprueba una inscripción REVISADA (CA-B3.1): en una
+  // PENDIENTE "Aprobar" respondía 400. El camino es "Marcar como Revisada".
+  const puedeAprobar =
+    puede('INSCRIPTION_APPROVE') && inscription.status === InscriptionStatus.REVISADA;
 
   return (
     <div className="card p-6 bg-primary-50/50">

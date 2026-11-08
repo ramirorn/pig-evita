@@ -53,6 +53,15 @@ export const PARTICIPANT_MANAGERS: UserRole[] = [
 /** Carga de resultados: `@Roles(...ADMIN_ROLES, Role.ARBITRO)`. */
 export const RESULT_LOADERS: UserRole[] = [...ADMIN_ROLES, UserRole.ARBITRO];
 
+/**
+ * Corrección de un resultado ya FINALIZADO (CA-C3.4, F-11): sólo la cúpula.
+ * El backend responde 403 al resto; la pantalla no les ofrece el botón.
+ */
+export const RESULT_CORRECTORS: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN_PROVINCIAL,
+];
+
 /** Reportes: `@Roles(...ADMIN_ROLES, Role.DELEGADO)`. */
 export const REPORT_VIEWERS: UserRole[] = [...ADMIN_ROLES, UserRole.DELEGADO];
 

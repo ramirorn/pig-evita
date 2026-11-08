@@ -4,27 +4,40 @@
 import apiClient from './client';
 import type { Result } from '@/types';
 
+/**
+ * Un `MatchResultDto` del backend: qué fila de `Result` se actualiza y con qué.
+ *
+ * Antes este tipo describía otra forma (`teamId`/`scoreData` sueltos) que el
+ * backend rechaza; nadie lo usaba, así que nadie lo notó (F-32).
+ */
 export interface MatchResultPayload {
-  participantId?: string;
-  teamId?: string;
-  scoreData: Record<string, unknown>;
-  ranking?: number;
-  isWinner?: boolean;
+  resultId: string;
+  data: {
+    scoreData?: Record<string, unknown>;
+    ranking?: number;
+    isWinner?: boolean;
+  };
 }
 
+/**
+ * Una fila de `GET /results/rankings/competition/:id` (F-33).
+ *
+ * El backend devuelve `{ id, name, played, won, drawn, lost, points, position }`:
+ * el nombre ya viene armado (equipo o "Nombre Apellido") e `id` es el del
+ * equipo o el participante. `drawn` y `position` son opcionales porque una API
+ * anterior no los mandaba; la página numera por índice si falta `position`.
+ */
 export interface RankingEntry {
-  position: number;
-  participantId?: string;
-  teamId?: string;
-  participant?: { firstName: string; lastName: string; dni: string };
-  team?: { name: string; locality: string };
+  id: string;
+  name: string;
   played: number;
   won: number;
-  drawn: number;
+  drawn?: number;
   lost: number;
   points: number;
-  scoreFor?: number;
-  scoreAgainst?: number;
+  position?: number;
+  /** Sólo en FASE_GRUPOS: la posición se reinicia en cada grupo. */
+  group?: string;
 }
 
 export const resultsApi = {

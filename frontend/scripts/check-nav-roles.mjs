@@ -314,6 +314,15 @@ comprobar(
   'ARBITRO aterriza en Resultados, su única pantalla real',
   rutaInicialPara(UserRole.ARBITRO) === ROUTES.RESULTS,
 );
+// F-31 — "Cargar Resultados" (en Resultados) lleva al detalle de la
+// competencia: quien puede ver Resultados tiene que poder abrirlo.
+for (const role of ROLES) {
+  if (!puedeVerRuta(role, ROUTES.RESULTS)) continue;
+  comprobar(
+    `[${role}] llega desde Resultados al detalle de la competencia para cargar`,
+    puedeVerRuta(role, ROUTES.COMPETITION_DETAIL),
+  );
+}
 
 // -------------------------------------------------
 // 4. La ruta intentada antes del login se respeta sólo si es alcanzable
@@ -451,6 +460,12 @@ const PANTALLAS_QUE_FILTRAN = [
   // la ruta se abre a un rol de sólo lectura, el uploader no puede quedar a la
   // vista devolviendo 403.
   ['src/pages/admin/venues/VenuePhotoSection.tsx', ['VENUE_MANAGE']],
+  // F-31 — el detalle de la competencia lo abre también el ARBITRO para cargar
+  // resultados: la generación del fixture no puede quedarle a la vista.
+  [
+    'src/pages/admin/CompetitionDetailPage.tsx',
+    ['COMPETITION_MANAGE', 'RESULT_LOAD'],
+  ],
 ];
 
 for (const [archivo, acciones] of PANTALLAS_QUE_FILTRAN) {

@@ -16,7 +16,7 @@ import { ResultType, type Result } from '@/types';
  * sin que nada fallara. Leer por clave explícita convierte ese modo de falla
  * silencioso en un guion visible.
  */
-const CLAVE_POR_TIPO: Record<ResultType, string> = {
+export const CLAVE_POR_TIPO: Record<ResultType, string> = {
   [ResultType.GOLES]: 'goals',
   [ResultType.PUNTOS]: 'points',
   [ResultType.TIEMPO]: 'time',

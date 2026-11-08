@@ -38,7 +38,9 @@ function buildDefaultValues(initialData?: Competition): CompetitionFormValues {
     disciplineId: initialData?.disciplineId || '',
     categoryId: initialData?.categoryId || '',
     stage: initialData?.stage || CompetitionStage.ZONAL,
-    format: initialData?.format || CompetitionFormat.ELIMINACION_DIRECTA,
+    // F-14: "Todos contra todos" es el formato más común en las etapas zonales;
+    // antes se preseleccionaba la eliminatoria sin que nadie lo eligiera.
+    format: initialData?.format || CompetitionFormat.ROUND_ROBIN,
     startDate: formatDateForInput(initialData?.startDate),
     endDate: formatDateForInput(initialData?.endDate),
   };

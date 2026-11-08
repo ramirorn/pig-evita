@@ -5,6 +5,7 @@ import { MoreVertical, Pencil } from 'lucide-react';
 import type { Participant } from '@/types';
 import type { DataTableColumn } from '@/components/shared/DataTable';
 import { SEX_LABELS } from '@/lib/constants';
+import { formatCalendarDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -59,7 +60,7 @@ export function createParticipantColumns({
         <div className="flex flex-col text-sm">
           <span>{SEX_LABELS[participant.sex]}</span>
           <span className="text-primary-500">
-            {new Date(participant.birthDate).toLocaleDateString()}
+            {formatCalendarDate(participant.birthDate)}
           </span>
         </div>
       ),

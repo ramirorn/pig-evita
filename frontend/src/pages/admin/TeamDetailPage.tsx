@@ -92,7 +92,7 @@ export function TeamDetailPage() {
       />
 
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.TEAMS)}>
+        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.TEAMS)} aria-label="Volver a equipos">
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1">
@@ -182,6 +182,7 @@ export function TeamDetailPage() {
                         size="icon"
                         className="text-red-500 hover:text-red-700 hover:bg-red-50"
                         onClick={() => setMemberToRemove(member)}
+                        aria-label="Quitar del equipo"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

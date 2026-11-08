@@ -2,7 +2,6 @@
 import { Page } from '@playwright/test';
 import { ROLES, RoleName, roleEmail } from '../../lib/api';
 import { PASSWORD } from '../../lib/env';
-import { knownBug } from '../../lib/bugs';
 import { expect, relevantes, sinDesbordeHorizontal, test } from '../../lib/ui';
 
 const ADMIN: RoleName[] = ['SUPER_ADMIN', 'ADMIN_PROVINCIAL', 'ADMIN_DEPARTAMENTAL', 'ADMIN_ZONAL'];
@@ -100,7 +99,6 @@ test.describe('login', () => {
 
 for (const rol of ['ENTRENADOR', 'OPERADOR_MESA'] as RoleName[]) {
   test(`${rol}: tras iniciar sesión recibe una explicación (no cae mudo en la portada pública)`, async ({ page }) => {
-    knownBug('F-42: ENTRENADOR y OPERADOR_MESA se pueden crear e iniciar sesión pero no tienen ninguna pantalla del panel: el login los deja en la portada pública sin ningún mensaje');
     await loginPorFormulario(page, rol);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000); // el panel redirige a la portada tras evaluar el rol: se espera a que se asiente

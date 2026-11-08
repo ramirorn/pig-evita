@@ -75,11 +75,15 @@ export function useVenueForm({ initialData, onSuccess }: UseVenueFormOptions) {
         capacity: numeroOUndefined(values.capacity),
         latitude: numeroOUndefined(values.latitude),
         longitude: numeroOUndefined(values.longitude),
-        isActive: values.isActive,
       };
 
+      // F-37: `isActive` sólo viaja en la edición. El alta nace activa y
+      // `CreateVenueDto` no declaraba el campo, así que el POST respondía 400.
       const saved = initialData
-        ? await updateMutation.mutateAsync({ id: initialData.id, payload })
+        ? await updateMutation.mutateAsync({
+            id: initialData.id,
+            payload: { ...payload, isActive: values.isActive },
+          })
         : await createMutation.mutateAsync(payload);
       onSuccess?.(saved);
     } catch (error) {

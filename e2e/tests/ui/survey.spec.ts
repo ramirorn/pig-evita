@@ -1,5 +1,4 @@
 // Encuesta pública: landing, cuestionario por QR, validaciones, borrador y cola sin conexión.
-import { knownBug } from '../../lib/bugs';
 import { Api, as, data, newCtx, uniq } from '../../lib/api';
 import { elegir, expect, relevantes, sinDesbordeHorizontal, test } from '../../lib/ui';
 
@@ -116,7 +115,6 @@ test.describe('encuesta pública', () => {
   });
 
   test('sin conexión real (navigator.onLine=false): la respuesta se encola en el teléfono, no queda "Mandando…" para siempre', async ({ page, context }) => {
-    knownBug('F-27: sin conexión la mutación de TanStack Query queda en pausa ("Mandando…") y nunca llega a encolarse en localStorage; si se cierra la pestaña, la respuesta se pierde');
     const s = await prov();
     const c = await campaniaActiva(s);
     await page.goto('/encuesta/responder');

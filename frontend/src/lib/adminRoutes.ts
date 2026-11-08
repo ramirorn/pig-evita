@@ -45,7 +45,10 @@ export const ADMIN_ROUTE_ROLES = {
   [ROUTES.TEAMS]: PARTICIPANT_MANAGERS,
   [ROUTES.TEAM_DETAIL]: PARTICIPANT_MANAGERS,
   [ROUTES.COMPETITIONS]: ADMIN_ROLES,
-  [ROUTES.COMPETITION_DETAIL]: ADMIN_ROLES,
+  // F-31: "Cargar Resultados" (en Resultados) lleva acá, así que la abre quien
+  // carga resultados. Para el ARBITRO es de sólo lectura + carga por partido;
+  // la generación del fixture se decide por `COMPETITION_MANAGE`.
+  [ROUTES.COMPETITION_DETAIL]: RESULT_LOADERS,
   [ROUTES.RESULTS]: RESULT_LOADERS,
   [ROUTES.DOCUMENTS]: PARTICIPANT_MANAGERS,
   [ROUTES.NEWS_ADMIN]: ADMIN_ROLES,

@@ -3,7 +3,6 @@
 //   → competencia → fixture → resultado → ranking → página pública.
 // Datos propios (disciplina de equipo con plantel mínimo de 2 titulares) para no depender del sembrado.
 import { Page } from '@playwright/test';
-import { knownBug } from '../../lib/bugs';
 import { as, data, nextDni, PNG, uniq } from '../../lib/api';
 import { elegir, expect, relevantes, sinDesbordeHorizontal, test } from '../../lib/ui';
 
@@ -141,7 +140,6 @@ test.describe('recorrido completo', () => {
   });
 
   test('4b. una inscripción PENDIENTE no ofrece el botón Aprobar', async () => {
-    knownBug('F-30: el detalle de una inscripción PENDIENTE muestra "Aprobar" aunque el backend sólo aprueba las REVISADA (responde 400)');
     expect(pendienteConAprobar).toBe(0);
   });
 
@@ -180,7 +178,6 @@ test.describe('recorrido completo', () => {
   });
 
   test('7a. el panel ofrece una forma de cargar el resultado de un partido (HU-C3)', async ({ page, loginAs }) => {
-    knownBug('F-32: no existe ninguna pantalla para cargar resultados: MatchCard sólo muestra el marcador y useSubmitMatchResult no se usa en ningún componente');
     await loginAs('ADMIN_PROVINCIAL');
     await page.goto(`/admin/competencias/${competenciaId}`);
     await expect(page.getByText(/Fecha 1/)).toBeVisible();
@@ -188,7 +185,6 @@ test.describe('recorrido completo', () => {
   });
 
   test('7b. el ÁRBITRO llega desde "Resultados" a una pantalla donde puede cargar (no "Acceso Denegado")', async ({ page, loginAs }) => {
-    knownBug('F-31: el enlace "Cargar Resultados" de /admin/resultados lleva a /admin/competencias/:id, que el rol ARBITRO no tiene permitido (Acceso Denegado)');
     await loginAs('ARBITRO');
     await page.goto('/admin/resultados');
     await page.getByRole('link', { name: 'Cargar Resultados' }).first().click();
@@ -218,23 +214,20 @@ test.describe('recorrido completo', () => {
   });
 
   test('8a. la página pública de la competencia no desborda el ancho de la pantalla', async ({ page }) => {
-    if (page.viewportSize()!.width < 400) knownBug('F-40: en 375 px la página pública de una competencia desborda horizontalmente (scrollWidth 425 > 375) por la tabla de posiciones');
     await page.goto(`/competencias/${competenciaId}`);
     await expect(page.getByText('Tabla de Posiciones')).toBeVisible();
     await sinDesbordeHorizontal(page);
   });
 
   test('8b. la tabla pública muestra el NOMBRE de cada equipo y su posición', async ({ page }) => {
-    knownBug('F-33: la tabla de posiciones pública muestra "undefined, undefined" en vez del nombre del equipo y deja vacía la columna #');
     await page.goto(`/competencias/${competenciaId}`);
     const celdas = page.locator('table tbody tr').first();
     await expect(celdas).not.toContainText('undefined');
     await expect(celdas).toContainText(/Los Halcones|Las Aguilas|Los Zorros/);
-    await expect(celdas.locator('td, th').first()).toHaveText(/S/);
+    await expect(celdas.locator('td, th').first()).toHaveText(/\S/);
   });
 
   test('8c. la página pública muestra el fixture con los resultados de cada partido', async ({ page }) => {
-    knownBug('F-34: "Fixture y Resultados" de la página pública es un marcador de posición ("estará disponible próximamente"); no lista partidos ni marcadores');
     await page.goto(`/competencias/${competenciaId}`);
     await expect(page.getByText('Fixture y Resultados')).toBeVisible();
     await page.waitForLoadState('networkidle');
@@ -255,7 +248,6 @@ test.describe('recorrido completo', () => {
   });
 
   test('10. una competencia de disciplina individual puede armar su fixture desde la interfaz', async ({ page, loginAs }) => {
-    knownBug('F-29: la pantalla de la competencia sólo genera fixture con equipos (teamIds); las competencias de disciplinas individuales no pueden armarse desde el panel');
     const s = (await as('SUPER_ADMIN')).api;
     const ind = (await data(await s.get('/disciplines'))).find((d: any) => d.name === 'Ajedrez');
     const cat = await data(await s.post('/categories', { disciplineId: ind.id, name: uniq('CatInd'), minAge: 10, maxAge: 99, sex: 'MIXTO' }), 201);

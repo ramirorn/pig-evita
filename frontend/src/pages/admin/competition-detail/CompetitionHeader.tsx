@@ -9,15 +9,20 @@ import { Badge } from '@/components/ui/badge';
 
 interface CompetitionHeaderProps {
   competition: Competition;
-  /** Cantidad de equipos elegibles; se muestra junto al formato. */
-  teamCount: number;
+  /**
+   * Cantidad de competidores elegibles; se muestra junto al formato. Sin dato
+   * (un rol que no puede leer equipos), no se muestra.
+   */
+  teamCount?: number;
+  /** "equipos" o "participantes". */
+  unidad?: string;
   onBack: () => void;
 }
 
-export function CompetitionHeader({ competition, teamCount, onBack }: CompetitionHeaderProps) {
+export function CompetitionHeader({ competition, teamCount, unidad = 'equipos', onBack }: CompetitionHeaderProps) {
   return (
     <div className="flex items-center gap-4">
-      <Button variant="outline" size="icon" onClick={onBack}>
+      <Button variant="outline" size="icon" onClick={onBack} aria-label="Volver">
         <ArrowLeft className="w-4 h-4" />
       </Button>
       <div className="flex-1">
@@ -46,9 +51,11 @@ export function CompetitionHeader({ competition, teamCount, onBack }: Competitio
           <span className="flex items-center gap-1">
             <LayoutGrid className="w-4 h-4" /> {FORMAT_LABELS[competition.format as keyof typeof FORMAT_LABELS] || competition.format}
           </span>
-          <span className="flex items-center gap-1">
-            <Swords className="w-4 h-4" /> {teamCount} equipos
-          </span>
+          {teamCount !== undefined && (
+            <span className="flex items-center gap-1">
+              <Swords className="w-4 h-4" /> {teamCount} {unidad}
+            </span>
+          )}
         </div>
       </div>
     </div>

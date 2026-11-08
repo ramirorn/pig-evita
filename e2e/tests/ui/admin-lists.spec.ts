@@ -1,6 +1,5 @@
 // Listados del panel: búsqueda, filtros con selectores propios, paginación y detalle.
 import { Page } from '@playwright/test';
-import { knownBug } from '../../lib/bugs';
 import { DEPTO, as, data, nextDni, uniq } from '../../lib/api';
 import { elegir, expect, relevantes, test } from '../../lib/ui';
 
@@ -150,7 +149,6 @@ test.describe('accesibilidad básica del panel', () => {
   const RUTAS = ['/admin/dashboard', '/admin/participantes', '/admin/inscripciones', '/admin/equipos', '/admin/disciplinas', '/admin/categorias', '/admin/competencias', '/admin/noticias', '/admin/calendario', '/admin/sedes', '/admin/encuesta', '/admin/usuarios', '/admin/auditoria'];
 
   test('todos los botones tienen nombre accesible (los de sólo ícono, como el menú "⋮" de cada fila, incluidos)', async ({ page, loginAs }) => {
-    knownBug('F-36: botones de sólo ícono sin nombre accesible (p. ej. el menú ⋮ de cada fila del calendario)');
     test.setTimeout(120_000);
     await loginAs('SUPER_ADMIN');
     const sinNombre: string[] = [];
@@ -170,7 +168,6 @@ test.describe('accesibilidad básica del panel', () => {
   });
 
   test('cada pantalla tiene un único <h1>', async ({ page, loginAs }) => {
-    knownBug('F-36b: el panel renderiza dos <h1> por pantalla ("Panel de Administración" en la cabecera y el título de la página)');
     await loginAs('SUPER_ADMIN');
     await page.goto('/admin/participantes');
     await sinCargando(page);
@@ -179,7 +176,6 @@ test.describe('accesibilidad básica del panel', () => {
   });
 
   test('el detalle de un participante muestra sus documentos (no un aviso de "en construcción")', async ({ page, loginAs }) => {
-    knownBug('F-41: el detalle del participante dice "El módulo de documentos se encuentra en construcción" aunque el módulo existe en /admin/documentos');
     const s = await sa();
     const p = (await data(await s.get('/participants?limit=1')))[0];
     await loginAs('SUPER_ADMIN');

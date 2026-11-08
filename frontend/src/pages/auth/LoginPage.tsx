@@ -2,17 +2,19 @@
 // Login Page
 // ===========================================
 import { useState } from 'react';
-import { useNavigate, useLocation, Navigate } from 'react-router';
-import { Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { useNavigate, useLocation, Navigate, Link } from 'react-router';
+import { Eye, EyeOff, AlertCircle, Loader2, Info } from 'lucide-react';
 import { useAuth } from '@/store/auth.store';
 import { destinoPostLogin } from '@/lib/adminRoutes';
+import { ADMIN_AREA_ROLES } from '@/lib/roles';
+import { ROLE_LABELS, ROUTES } from '@/lib/constants';
 import { loginSchema } from '@/schemas';
 import type { AxiosError } from 'axios';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isLoading, user } = useAuth();
+  const { login, logout, isLoading, user } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +39,14 @@ export function LoginPage() {
   // Con sesión abierta, cada rol va a la primera pantalla que puede ver: mandar
   // a todos al dashboard dejaba a un ARBITRO —que no lo puede ver— en un
   // "Acceso Denegado" apenas se logueaba (R08).
+  //
+  // F-42: ENTRENADOR y OPERADOR_MESA no tienen ninguna pantalla del panel
+  // todavía. Antes el login los dejaba mudos en la portada pública; ahora se
+  // quedan acá con una explicación y la salida al portal o al cierre de sesión.
+  if (user && !ADMIN_AREA_ROLES.includes(user.role)) {
+    return <SinPantallasParaElRol rol={ROLE_LABELS[user.role]} onLogout={logout} />;
+  }
+
   if (user) {
     return <Navigate to={destinoPostLogin(user.role, intentada)} replace />;
   }
@@ -64,7 +74,11 @@ export function LoginPage() {
       // trimmeado y de paso queda una sola fuente de verdad sobre el payload.
       const usuario = await login(validacion.data);
       // Se respeta la ruta que quería abrir, salvo que su rol no la pueda ver.
-      navigate(destinoPostLogin(usuario.role, intentada), { replace: true });
+      // Un rol sin pantallas se queda acá: el re-render con `user` ya seteado
+      // muestra la explicación (F-42) en vez de mandarlo mudo a la portada.
+      if (ADMIN_AREA_ROLES.includes(usuario.role)) {
+        navigate(destinoPostLogin(usuario.role, intentada), { replace: true });
+      }
     } catch (err) {
       const axiosError = err as AxiosError<{ message: string }>;
       if (axiosError.response?.status === 401) {
@@ -191,6 +205,37 @@ export function LoginPage() {
           <p className="text-center text-xs text-primary-400 mt-6">
             Secretaría de Deportes — Provincia de Formosa
           </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SinPantallasParaElRol({ rol, onLogout }: { rol: string; onLogout: () => Promise<void> }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-800 via-primary-900 to-primary-950 px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center space-y-4" role="status">
+        <Info className="w-10 h-10 text-primary-500 mx-auto" aria-hidden="true" />
+        <h1 className="text-xl font-extrabold text-primary-800">Tu rol todavía no tiene pantallas</h1>
+        <p className="text-sm text-primary-600">
+          Iniciaste sesión como <span className="font-semibold">{rol}</span>. Por ahora no hay
+          pantallas del panel para este rol, así que no tenés acceso al panel de administración.
+          Si necesitás operar en el sistema, pedile a un administrador que te asigne otro rol.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
+          <Link
+            to={ROUTES.HOME}
+            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-primary-200 text-sm font-medium text-primary-700 hover:bg-primary-50"
+          >
+            Ir al portal público
+          </Link>
+          <button
+            type="button"
+            onClick={() => void onLogout()}
+            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-primary-700 text-sm font-medium text-white hover:bg-primary-800"
+          >
+            Cerrar sesión
+          </button>
         </div>
       </div>
     </div>

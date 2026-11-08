@@ -26,12 +26,18 @@ export const TEAM_KEYS = {
     [...TEAM_KEYS.details(userId), id] as const,
 };
 
-export function useTeams(filters: TeamFilters = {}) {
+/**
+ * `enabled` deja montar la consulta sólo cuando el rol puede leer equipos: un
+ * ARBITRO abre el detalle de la competencia para cargar resultados y no tiene
+ * `TEAM_READ` (F-31).
+ */
+export function useTeams(filters: TeamFilters = {}, { enabled = true }: { enabled?: boolean } = {}) {
   const scope = useQueryScope();
 
   return useQuery({
     queryKey: TEAM_KEYS.list(scope, filters),
     queryFn: () => teamsApi.findAll(filters),
+    enabled,
     staleTime: STALE_TIME.OPERATIONAL,
   });
 }

@@ -5,9 +5,10 @@ import { useParams, useNavigate } from 'react-router';
 import { Users, ArrowLeft, Loader2, Calendar, MapPin, Mail, Phone } from 'lucide-react';
 import { useParticipant } from '@/hooks/useParticipants';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { SEX_LABELS, ROUTES } from '@/lib/constants';
+import { formatCalendarDate } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
+import { ParticipantDocumentsCard } from './participants/ParticipantDocumentsCard';
 
 export function ParticipantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,7 +43,7 @@ export function ParticipantDetailPage() {
       />
 
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.PARTICIPANTS)}>
+        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.PARTICIPANTS)} aria-label="Volver al padrón">
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1">
@@ -69,7 +70,7 @@ export function ParticipantDetailPage() {
                 <Calendar className="w-4 h-4 text-primary-400 mt-0.5" />
                 <div>
                   <p className="text-primary-500 text-xs">Fecha de Nacimiento</p>
-                  <p className="font-medium text-primary-900">{new Date(participant.birthDate).toLocaleDateString()}</p>
+                  <p className="font-medium text-primary-900">{formatCalendarDate(participant.birthDate)}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -108,17 +109,7 @@ export function ParticipantDetailPage() {
             </div>
           </div>
 
-          <div className="card">
-            <div className="p-4 border-b border-primary-100 flex justify-between items-center">
-              <h3 className="font-semibold text-primary-900">Documentación</h3>
-              <Badge variant="outline" className="text-orange-600 bg-orange-50 border-orange-200">
-                Pendiente
-              </Badge>
-            </div>
-            <div className="p-8 text-center text-primary-500 text-sm">
-              <p>El módulo de documentos se encuentra en construcción.</p>
-            </div>
-          </div>
+          <ParticipantDocumentsCard participantId={participant.id} />
         </div>
       </div>
     </div>

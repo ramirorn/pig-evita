@@ -1,7 +1,6 @@
 // Sitio público: cada página, en escritorio (1280) y celular (375). Navegación, contenido sembrado,
 // sin errores de consola/500 y sin desborde horizontal.
 import { Page } from '@playwright/test';
-import { knownBug } from '../../lib/bugs';
 import { expect, relevantes, sinDesbordeHorizontal, test } from '../../lib/ui';
 
 const PAGINAS: Array<{ ruta: string; nombre: string; texto: RegExp }> = [
@@ -38,7 +37,6 @@ test.describe('páginas públicas', () => {
   });
 
   test('un visitante anónimo no genera errores 401 en la consola', async ({ page, problems }) => {
-    knownBug('F-26: cada visita anónima intenta POST /auth/refresh y deja un "401 Unauthorized" en la consola del navegador');
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     expect(problems.filter((p) => /401/.test(p))).toEqual([]);

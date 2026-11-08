@@ -102,7 +102,12 @@ export function CalendarEventRow({
       <TableCell className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0 text-primary-500 hover:text-primary-900">
+            <Button
+              variant="ghost"
+              className="h-8 w-8 p-0 text-primary-500 hover:text-primary-900"
+              // F-36: sin nombre accesible el lector anunciaba "botón" a secas.
+              aria-label={`Más acciones para ${event.title}`}
+            >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>

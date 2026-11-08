@@ -2,7 +2,6 @@
 // Cubre alta de participante, evento de calendario, sede (con foto), noticia (subida y URL), campaña de encuesta,
 // usuario, y el filtro por día de la auditoría. También verifica que no queden controles nativos.
 import { Page } from '@playwright/test';
-import { knownBug } from '../../lib/bugs';
 import { Api, PNG, as, data, nextDni, uniq } from '../../lib/api';
 import { elegir, expect, sinDesbordeHorizontal, test } from '../../lib/ui';
 
@@ -165,7 +164,6 @@ test.describe('alta de participante (diálogo)', () => {
   });
 
   test('la fecha de nacimiento se ve en la tabla y en el detalle con el día correcto (no un día antes)', async ({ page, loginAs }) => {
-    knownBug('F-28: la fecha de nacimiento se muestra un día antes (y en formato m/d/aaaa) en el listado y el detalle de participantes: 2012-05-05 → "5/4/2012"');
     const s = await sa();
     const dni = nextDni();
     const p = await data(await s.post('/participants', { dni, firstName: 'Fecha', lastName: uniq('F'), birthDate: '2012-05-05', sex: 'MASCULINO', locality: 'Formosa', department: 'Formosa' }), 201);
@@ -215,7 +213,6 @@ test.describe('calendario (admin)', () => {
 
 test.describe('sedes (admin)', () => {
   test('"Registrar Sede" crea la sede con coordenadas y ofrece cargar la foto', async ({ page, loginAs }) => {
-    knownBug('F-37: el alta de sede desde el panel siempre responde 400 ("property isActive should not exist"): el formulario manda isActive y CreateVenueDto no lo admite');
     await loginAs('ADMIN_PROVINCIAL');
     await page.goto('/admin/sedes');
     await page.getByRole('button', { name: 'Nueva Sede' }).click();
