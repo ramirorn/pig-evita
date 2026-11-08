@@ -22,13 +22,13 @@ export function ReportCard({ card, loadingAction, isExporting, onExport }: Repor
 
   return (
     <div
-      className={`card p-6 flex flex-col h-full border-t-4 ${card.borderColor} hover:shadow-lg transition-all duration-200 bg-white`}
+      className={`card p-6 flex flex-col h-full border-t-4 ${card.borderColor} bg-white`}
     >
       <div className="flex items-center gap-3 mb-4">
         <div className={`p-2.5 rounded-xl bg-primary-50/80 ${card.accentColor}`}>
           <Icon className="w-6 h-6" />
         </div>
-        <h3 className="font-bold text-lg text-primary-900 leading-snug">{card.title}</h3>
+        <h3 className="type-h3 text-primary-900">{card.title}</h3>
       </div>
 
       <p className="text-primary-600 text-sm mb-6 flex-1 leading-relaxed">
@@ -38,7 +38,7 @@ export function ReportCard({ card, loadingAction, isExporting, onExport }: Repor
       <div className="space-y-2.5 pt-4 border-t border-primary-100">
         {/* Excel Option */}
         <Button
-          className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm transition-all"
+          className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm transition-colors duration-120"
           disabled={isExporting}
           onClick={() => onExport('xlsx')}
         >
@@ -53,7 +53,7 @@ export function ReportCard({ card, loadingAction, isExporting, onExport }: Repor
         {/* CSV Option */}
         <Button
           variant="outline"
-          className="w-full gap-2 border-primary-200 text-primary-700 hover:bg-primary-50 hover:text-primary-900 font-medium transition-all"
+          className="w-full gap-2 border-primary-200 text-primary-700 hover:bg-primary-50 hover:text-primary-900 font-medium transition-colors duration-120"
           disabled={isExporting}
           onClick={() => onExport('csv')}
         >

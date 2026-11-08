@@ -116,19 +116,19 @@ export function LoginPage() {
                 className="h-20 w-auto object-contain drop-shadow-md"
               />
             </div>
-            <h1 className="text-2xl font-extrabold text-primary-800 tracking-tight">
+            <h1 className="type-h2 text-primary-900">
               Juegos Evita Formoseños
             </h1>
-            <p className="text-xs text-accent-600 font-bold uppercase tracking-widest mt-0.5">
+            <p className="text-xs text-accent-800 font-bold uppercase tracking-widest mt-1">
               Portal Administrativo Oficial
             </p>
           </div>
 
           {/* Error alert */}
           {error && (
-            <div className="mb-6 flex items-start gap-3 p-3 rounded-lg bg-destructive-50 border border-red-200 animate-fade-in" role="alert">
-              <AlertCircle className="w-5 h-5 text-destructive-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-destructive-600">{error}</p>
+            <div className="mb-6 flex items-start gap-3 p-3 rounded-lg bg-destructive-50 border border-destructive-200 animate-fade-in" role="alert">
+              <AlertCircle className="w-5 h-5 text-destructive-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <p className="text-sm text-destructive-700">{error}</p>
             </div>
           )}
 
@@ -137,7 +137,7 @@ export function LoginPage() {
             <div>
               <label
                 htmlFor="login-email"
-                className="block text-sm font-semibold text-primary-700 mb-1.5"
+                className="block text-sm font-semibold text-primary-900 mb-1.5"
               >
                 Correo electrónico
               </label>
@@ -149,7 +149,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@deportes.formosa.gob.ar"
-                className="w-full px-4 py-2.5 rounded-lg border border-primary-200 bg-surface text-primary-900 placeholder:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors text-sm"
+                className="w-full px-4 py-2.5 rounded-lg border border-primary-300 bg-white text-primary-900 placeholder:text-primary-600 pointer-coarse:min-h-11 hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-120 text-sm"
                 disabled={isSubmitting}
               />
             </div>
@@ -157,7 +157,7 @@ export function LoginPage() {
             <div>
               <label
                 htmlFor="login-password"
-                className="block text-sm font-semibold text-primary-700 mb-1.5"
+                className="block text-sm font-semibold text-primary-900 mb-1.5"
               >
                 Contraseña
               </label>
@@ -170,14 +170,13 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-2.5 pr-12 rounded-lg border border-primary-200 bg-surface text-primary-900 placeholder:text-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors text-sm"
+                  className="w-full px-4 py-2.5 pr-12 rounded-lg border border-primary-300 bg-white text-primary-900 placeholder:text-primary-600 pointer-coarse:min-h-11 hover:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-120 text-sm"
                   disabled={isSubmitting}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-primary-400 hover:text-primary-600 transition-colors"
-                  tabIndex={-1}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-primary-700 hover:text-primary-900 active:text-primary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 transition-colors duration-120"
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -188,7 +187,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 px-4 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-primary-700 to-primary-800 hover:from-primary-800 hover:to-primary-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
+              className="w-full py-3 px-4 rounded-lg text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 active:bg-primary-950 disabled:opacity-50 disabled:cursor-not-allowed shadow-md pointer-coarse:min-h-11 transition-colors duration-120 flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>
@@ -202,7 +201,7 @@ export function LoginPage() {
           </form>
 
           {/* Footer */}
-          <p className="text-center text-xs text-primary-400 mt-6">
+          <p className="text-center text-xs text-primary-600 mt-6">
             Secretaría de Deportes — Provincia de Formosa
           </p>
         </div>
@@ -216,7 +215,7 @@ function SinPantallasParaElRol({ rol, onLogout }: { rol: string; onLogout: () =>
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-800 via-primary-900 to-primary-950 px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center space-y-4" role="status">
         <Info className="w-10 h-10 text-primary-500 mx-auto" aria-hidden="true" />
-        <h1 className="text-xl font-extrabold text-primary-800">Tu rol todavía no tiene pantallas</h1>
+        <h1 className="type-h2 text-primary-800">Tu rol todavía no tiene pantallas</h1>
         <p className="text-sm text-primary-600">
           Iniciaste sesión como <span className="font-semibold">{rol}</span>. Por ahora no hay
           pantallas del panel para este rol, así que no tenés acceso al panel de administración.
@@ -225,14 +224,14 @@ function SinPantallasParaElRol({ rol, onLogout }: { rol: string; onLogout: () =>
         <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
           <Link
             to={ROUTES.HOME}
-            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-primary-200 text-sm font-medium text-primary-700 hover:bg-primary-50"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-primary-200 text-sm font-medium text-primary-700 transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 pointer-coarse:min-h-11"
           >
             Ir al portal público
           </Link>
           <button
             type="button"
             onClick={() => void onLogout()}
-            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-primary-700 text-sm font-medium text-white hover:bg-primary-800"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-primary-700 text-sm font-medium text-white transition-colors duration-120 hover:bg-primary-800 active:bg-primary-900 pointer-coarse:min-h-11"
           >
             Cerrar sesión
           </button>

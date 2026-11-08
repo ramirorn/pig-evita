@@ -11,7 +11,7 @@ import type { Team } from '@/types';
 export function AvailableTeamsCard({ teams }: { teams: Team[] }) {
   return (
     <div className="card p-6">
-      <h3 className="font-bold text-primary-900 text-lg mb-4 flex items-center gap-2">
+      <h3 className="type-h3 text-primary-900 mb-4 flex items-center gap-2">
         <Users className="w-5 h-5 text-primary-500" />
         Equipos Participantes ({teams.length})
       </h3>

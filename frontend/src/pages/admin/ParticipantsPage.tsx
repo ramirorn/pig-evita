@@ -107,7 +107,7 @@ export function ParticipantsPage() {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Participantes"
         description="Padrón único de deportistas y entrenadores"

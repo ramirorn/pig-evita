@@ -49,7 +49,7 @@ export function SurveyQuestionsStep({ wizard }: SurveyQuestionsStepProps) {
       <button
         type="button"
         onClick={wizard.volverAContexto}
-        className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-primary-700 hover:text-primary-900"
+        className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-primary-700 transition-colors duration-120 hover:text-primary-900 active:text-primary-950"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Cambiar de deporte
@@ -82,7 +82,7 @@ export function SurveyQuestionsStep({ wizard }: SurveyQuestionsStepProps) {
         type="button"
         onClick={() => void alEnviar()}
         disabled={enviando}
-        className="group mt-10 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-primary-800 px-8 py-4 text-base font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-900 hover:shadow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70"
+        className="group mt-10 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-primary-800 px-8 py-4 text-base font-bold text-white transition-[background-color,box-shadow,transform] duration-200 ease-out-soft hover:bg-primary-900 hover:shadow-lg active:scale-[0.98] active:duration-120 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {enviando ? (
           <>

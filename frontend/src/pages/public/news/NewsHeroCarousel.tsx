@@ -111,7 +111,7 @@ export function NewsHeroCarousel({ noticias }: { noticias: readonly News[] }) {
                 : 'Pausar el pase automático de notas'
             }
             disabled={reducirMovimiento}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400 disabled:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors duration-120 hover:bg-white/30 active:bg-white/40 pointer-coarse:h-11 pointer-coarse:w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400 disabled:hidden"
           >
             {pausadoPorUsuario ? (
               <Play className="h-4 w-4" aria-hidden="true" />
@@ -123,7 +123,7 @@ export function NewsHeroCarousel({ noticias }: { noticias: readonly News[] }) {
             type="button"
             onClick={() => ir(indice - 1)}
             aria-label="Nota anterior"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors duration-120 hover:bg-white/30 active:bg-white/40 pointer-coarse:h-11 pointer-coarse:w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -131,7 +131,7 @@ export function NewsHeroCarousel({ noticias }: { noticias: readonly News[] }) {
             type="button"
             onClick={() => ir(indice + 1)}
             aria-label="Nota siguiente"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors hover:bg-white/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors duration-120 hover:bg-white/30 active:bg-white/40 pointer-coarse:h-11 pointer-coarse:w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -148,15 +148,15 @@ export function NewsHeroCarousel({ noticias }: { noticias: readonly News[] }) {
               aria-label={`Ir a la nota ${i + 1} de ${total}: ${news.title}`}
               aria-current={i === indice ? 'true' : undefined}
               // El área de toque es el botón (24 px); la barrita es lo visible.
-              className="group/punto flex h-6 items-center rounded-full px-0.5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-400"
+              className="group/punto flex h-6 items-center rounded-full px-0.5 pointer-coarse:h-11 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-400"
             >
               <span
                 aria-hidden="true"
                 className={cn(
-                  'block h-1.5 rounded-full transition-all duration-300 motion-reduce:transition-none',
+                  'block h-1.5 rounded-full transition-[width,background-color] duration-200 ease-out-soft motion-reduce:transition-none',
                   i === indice
                     ? 'w-7 bg-accent-400'
-                    : 'w-4 bg-white/50 group-hover/punto:bg-white/80',
+                    : 'w-4 bg-white/50 group-hover/punto:bg-white/80 group-active/punto:bg-white',
                 )}
               />
             </button>
@@ -179,7 +179,7 @@ export function NewsHeroCarousel({ noticias }: { noticias: readonly News[] }) {
               aria-hidden={!visible}
               inert={!visible}
               className={cn(
-                'absolute inset-0 transition-opacity duration-700 motion-reduce:transition-none',
+                'absolute inset-0 transition-opacity duration-320 ease-out-soft motion-reduce:transition-none',
                 visible ? 'z-10 opacity-100' : 'z-0 opacity-0',
               )}
             >

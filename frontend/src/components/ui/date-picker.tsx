@@ -202,7 +202,7 @@ export function DatePicker({
                 type="button"
                 disabled={disabled}
                 aria-label={selectedLabel ? `${pickerLabel}, elegida: ${selectedLabel}` : pickerLabel}
-                className="absolute top-1/2 right-0 inline-flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-primary-600 transition-colors outline-none hover:bg-primary-50 hover:text-primary-800 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 sm:size-9"
+                className="absolute top-1/2 right-0 inline-flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-primary-600 transition-colors duration-120 outline-none hover:bg-primary-100 hover:text-primary-900 active:bg-primary-200 motion-reduce:transition-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 sm:size-9"
               >
                 <CalendarDays className="size-4.5" aria-hidden="true" />
               </button>
@@ -259,10 +259,10 @@ interface CalendarPanelProps {
 }
 
 const NAV_BUTTON =
-  'inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-primary-700 transition-colors outline-none hover:bg-primary-50 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40 sm:size-9';
+  'inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-primary-700 transition-colors duration-120 outline-none hover:bg-primary-100 hover:text-primary-900 active:bg-primary-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary-700 motion-reduce:transition-none sm:size-9';
 
 const FOOTER_BUTTON =
-  'inline-flex h-11 cursor-pointer items-center rounded-lg px-3 text-xs font-bold text-primary-700 transition-colors outline-none hover:bg-primary-50 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8';
+  'inline-flex h-11 cursor-pointer items-center rounded-lg px-3 text-xs font-bold text-primary-700 transition-colors duration-120 outline-none hover:bg-primary-100 hover:text-primary-900 active:bg-primary-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-primary-700 motion-reduce:transition-none sm:h-8';
 
 function CalendarPanel({ value, min, max, required, onSelect, onClear, onClose }: CalendarPanelProps) {
   const today = todayIso();
@@ -405,8 +405,8 @@ function CalendarPanel({ value, min, max, required, onSelect, onClear, onClose }
                         if (!isFocused) setFocused(iso);
                       }}
                       className={cn(
-                        'mx-auto inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-sm font-semibold tabular-nums transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-primary-500/50 sm:size-10',
-                        !isSelected && !isDisabled && 'text-primary-900 hover:bg-primary-50',
+                        'mx-auto inline-flex size-11 cursor-pointer items-center justify-center rounded-full text-sm font-semibold tabular-nums transition-colors duration-120 motion-reduce:transition-none outline-none focus-visible:ring-[3px] focus-visible:ring-primary-500/50 sm:size-10',
+                        !isSelected && !isDisabled && 'text-primary-900 hover:bg-primary-100 active:bg-primary-200',
                         isToday && !isSelected && 'ring-1 ring-accent-500 text-accent-800',
                         isSelected && 'bg-primary-600 text-white shadow-sm hover:bg-primary-700',
                         isDisabled && 'cursor-not-allowed text-primary-300 line-through decoration-primary-200',

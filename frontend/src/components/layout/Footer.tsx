@@ -85,10 +85,10 @@ export function Footer() {
                 className="h-12 w-auto object-contain drop-shadow-sm"
               />
               <div>
-                <p className="text-base leading-tight font-extrabold tracking-tight text-white">
+                <p className="type-h3 text-base leading-tight text-white">
                   Juegos Evita Formoseños
                 </p>
-                <span className="block text-[10px] leading-tight font-bold tracking-widest text-accent-400 uppercase">
+                <span className="block type-eyebrow text-accent-400">
                   Secretaría de Deportes
                 </span>
               </div>
@@ -101,7 +101,7 @@ export function Footer() {
 
           {/* Navegación */}
           <nav aria-label="Navegación del pie de página" className="lg:col-span-3">
-            <h2 className="mb-3 text-sm font-bold tracking-wider text-accent-500 uppercase">
+            <h2 className="type-eyebrow mb-3 text-accent-400">
               Navegación
             </h2>
             <ul className="space-y-2 text-sm">
@@ -124,7 +124,7 @@ export function Footer() {
 
           {/* Contacto institucional */}
           <div className="lg:col-span-3">
-            <h2 className="mb-3 text-sm font-bold tracking-wider text-accent-500 uppercase">
+            <h2 className="type-eyebrow mb-3 text-accent-400">
               Contacto institucional
             </h2>
             <p className="text-sm font-medium text-celeste-100">
@@ -162,14 +162,14 @@ export function Footer() {
           {/* Acceso del personal — separado de la navegación pública a propósito:
               no es un enlace para el ciudadano, es la puerta del back-office. */}
           <div className="lg:col-span-2">
-            <h2 className="mb-3 text-sm font-bold tracking-wider text-accent-500 uppercase">
+            <h2 className="type-eyebrow mb-3 text-accent-400">
               Acceso
             </h2>
             <Link
               to={ROUTES.LOGIN}
-              className="group inline-flex items-center gap-1.5 rounded-lg border border-primary-700 bg-primary-900/60 px-3 py-2 text-xs font-semibold text-celeste-100 shadow-xs transition-all hover:bg-primary-900 hover:text-white"
+              className="group inline-flex items-center gap-1.5 rounded-lg border border-primary-700 bg-primary-900/60 px-3 py-2 min-h-11 text-xs font-semibold text-celeste-100 shadow-xs transition-colors duration-120 hover:bg-primary-900 hover:text-white"
             >
-              <ShieldCheck className="h-3.5 w-3.5 text-accent-500 group-hover:text-accent-400" />
+              <ShieldCheck className="h-4 w-4 text-accent-500 group-hover:text-accent-400" />
               <span>Portal Administrativo</span>
             </Link>
             <p className="mt-2 text-xs text-celeste-300">

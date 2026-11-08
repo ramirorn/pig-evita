@@ -45,7 +45,7 @@ export function PublicPageHeader({
   return (
     <div className="mb-6 flex flex-col justify-between gap-6 md:flex-row md:items-center">
       <div>
-        <h1 className="font-display flex items-center gap-3 text-3xl font-extrabold tracking-tight text-primary-800">
+        <h1 className="type-h1 flex items-center gap-3 text-primary-800">
           {icon && (
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-800 text-white">
               {icon}

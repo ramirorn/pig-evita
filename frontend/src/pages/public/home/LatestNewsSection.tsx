@@ -23,15 +23,16 @@ const CANTIDAD = 3;
 const CLASES_FASE: Record<RevealPhase, string> = {
   estatico: '',
   oculto: 'opacity-0 translate-y-6 print:opacity-100 print:translate-y-0',
-  revelado: 'opacity-100 translate-y-0 transition-[opacity,transform] duration-700 ease-out',
+  revelado:
+    'opacity-100 translate-y-0 transition-[opacity,transform] duration-320 ease-out-soft',
 };
 
 /**
- * Escalonado entre tarjetas. Sólo desde `md`: ahí las tres comparten fila y
+ * Escalonado entre tarjetas (0, 100 y 200 ms: el total no pasa de 300 ms). Sólo desde `md`: ahí las tres comparten fila y
  * entran juntas; apiladas en el celular cada una entra cuando le toca, y un
  * retardo extra sólo la demoraría.
  */
-const RETARDO = ['', 'md:delay-150', 'md:delay-300'] as const;
+const RETARDO = ['', 'md:delay-100', 'md:delay-200'] as const;
 
 /**
  * Primer bloque después del hero: el encabezado queda sobre el degradé azul y
@@ -59,7 +60,7 @@ export function LatestNewsSection() {
         <div>
           <h2
             id="ultimas-noticias"
-            className="font-display mb-1 text-2xl font-bold text-white md:text-3xl"
+            className="type-h2 mb-1 text-white"
           >
             Últimas Noticias
           </h2>
@@ -67,7 +68,7 @@ export function LatestNewsSection() {
         </div>
         <Link
           to={ROUTES.NEWS}
-          className="hidden shrink-0 items-center gap-1.5 rounded-full border border-celeste-200/30 px-4 py-2 text-sm font-semibold text-white transition-colors hover:border-celeste-200/50 hover:bg-white/10 sm:inline-flex"
+          className="hidden shrink-0 items-center gap-1.5 rounded-full border border-celeste-200/30 px-4 py-2 text-sm font-semibold text-white transition-colors duration-120 hover:border-celeste-200/50 hover:bg-white/10 active:bg-white/15 sm:inline-flex"
         >
           Ver todas <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
@@ -98,7 +99,7 @@ export function LatestNewsSection() {
       <div className="mt-6 text-center sm:hidden">
         <Link
           to={ROUTES.NEWS}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-50 px-5 py-2.5 text-sm font-semibold text-primary-600"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-50 px-5 py-2.5 text-sm font-semibold text-primary-600 transition-colors duration-120 hover:bg-primary-100 active:bg-primary-200 pointer-coarse:min-h-11"
         >
           Ver todas las noticias <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
@@ -124,7 +125,7 @@ function LatestNewsCard({ news, retardo }: { news: News; retardo: string }) {
           detalle propio que no tiene el cuerpo del artículo. */}
       <NewsLink
         news={news}
-        className="card group flex h-full flex-col overflow-hidden shadow-[0_20px_40px_-15px_rgba(0,45,108,0.15)] transition-all hover:-translate-y-1 hover:shadow-xl"
+        className="card card-interactive group flex h-full flex-col overflow-hidden"
       >
         <div className="flex h-44 items-center justify-center overflow-hidden bg-primary-100">
           {imageSrc ? (
@@ -133,7 +134,7 @@ function LatestNewsCard({ news, retardo }: { news: News; retardo: string }) {
               alt={news.title}
               loading="lazy"
               decoding="async"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              className="h-full w-full object-cover transition-transform duration-320 ease-out-soft group-hover:scale-105"
             />
           ) : (
             <Newspaper className="h-10 w-10 text-primary-300" aria-hidden="true" />
@@ -145,9 +146,9 @@ function LatestNewsCard({ news, retardo }: { news: News; retardo: string }) {
               Actualidad
               <BadgeNoticiaExterna news={news} />
             </span>
-            <span className="text-xs text-primary-400">{fechaDeNoticia(news)}</span>
+            <span className="text-xs text-primary-500 tabular-nums">{fechaDeNoticia(news)}</span>
           </div>
-          <h3 className="mb-2 line-clamp-2 text-lg font-bold text-primary-900 transition-colors group-hover:text-primary-600">
+          <h3 className="type-h3 mb-2 line-clamp-2 text-primary-900 transition-colors duration-120 group-hover:text-primary-600">
             {news.title}
           </h3>
           <p className="line-clamp-2 text-sm text-primary-500">

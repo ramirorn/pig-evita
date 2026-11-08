@@ -102,6 +102,7 @@ export function NewsAdminPage() {
     {
       id: 'news',
       header: 'Noticia',
+      mobile: 'primary',
       rowHeader: true,
       headClassName: 'min-w-[280px]',
       cell: (item) => (
@@ -109,7 +110,7 @@ export function NewsAdminPage() {
           <div className="flex items-center gap-2">
             <p className="font-semibold text-primary-900 line-clamp-1">{item.title}</p>
             {item.isExternal && (
-              <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-celeste-50 text-celeste-900 border border-celeste-200">
+              <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-celeste-50 text-celeste-900 border border-celeste-200">
                 <ExternalLink className="w-3 h-3" aria-hidden="true" />
                 Portal
               </span>
@@ -124,12 +125,13 @@ export function NewsAdminPage() {
     {
       id: 'published-at',
       header: 'Fecha de Publicación',
+      mobile: 'secondary',
       className: 'text-primary-600',
       cell: (item) => (
         <div className="flex items-center gap-1.5 text-xs">
           {/* `primary-400` sirve como ícono decorativo (3.75:1 ≥ 3), nunca como texto. */}
           <Calendar className="w-3.5 h-3.5 text-primary-400" aria-hidden="true" />
-          <span>
+          <span className="tabular-nums">
             {item.publishedAt
               ? new Date(item.publishedAt).toLocaleDateString('es-AR')
               : 'No publicada'}
@@ -140,6 +142,7 @@ export function NewsAdminPage() {
     {
       id: 'status',
       header: 'Estado',
+      mobile: 'secondary',
       cell: (item) =>
         item.isPublished ? (
           // `green-*` y `amber-*` están fuera de la paleta institucional;
@@ -159,6 +162,7 @@ export function NewsAdminPage() {
     {
       id: 'actions',
       header: 'Acciones',
+      mobile: 'actions',
       hideHeader: true,
       interactive: true,
       headClassName: 'w-[80px]',
@@ -172,7 +176,7 @@ export function NewsAdminPage() {
             href={item.sourceUrl ?? '#'}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 hover:text-primary-900 underline underline-offset-2"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-700 hover:text-primary-900 active:text-primary-950 underline underline-offset-2 pointer-coarse:min-h-11 transition-colors duration-120"
             title="Se administra en el portal oficial: acá es un reflejo"
           >
             Ver en el portal
@@ -204,7 +208,7 @@ export function NewsAdminPage() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Noticias"
         description="Gestión de novedades y artículos públicos"

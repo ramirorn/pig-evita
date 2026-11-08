@@ -39,7 +39,7 @@ export function InscriptionReviewPanel({ inscription, review }: InscriptionRevie
 
   return (
     <div className="card p-6 bg-primary-50/50">
-      <h3 className="font-semibold text-primary-900 flex items-center gap-2 mb-4">
+      <h3 className="type-h3 text-primary-900 flex items-center gap-2 mb-4">
         <ClipboardCheck className="w-5 h-5 text-primary-500" />
         Panel de Revisión
       </h3>

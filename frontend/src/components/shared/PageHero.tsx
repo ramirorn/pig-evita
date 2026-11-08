@@ -77,13 +77,13 @@ export function PageHero({
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
           className={cn(
-            'absolute -top-20 -right-20 w-72 h-72 rounded-full blur-3xl animate-float',
+            'absolute -top-20 -right-20 w-72 h-72 rounded-full blur-3xl',
             styles.blob1,
           )}
         />
         <div
           className={cn(
-            'absolute -bottom-16 -left-16 w-80 h-80 rounded-full blur-3xl animate-float-delayed',
+            'absolute -bottom-16 -left-16 w-80 h-80 rounded-full blur-3xl',
             styles.blob2,
           )}
         />
@@ -118,7 +118,7 @@ export function PageHero({
           {/* Title */}
           <h1
             className={cn(
-              'text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight mb-4 animate-fade-in',
+              'type-display mb-4 animate-fade-in',
               styles.titleColor,
             )}
           >

@@ -117,7 +117,7 @@ export function SurveyCampaignPage() {
   if (isError || !campaign) {
     return (
       <div className="py-12 text-center">
-        <h2 className="text-xl font-semibold text-primary-800">No encontramos esta encuesta</h2>
+        <h2 className="type-h2 text-primary-800">No encontramos esta encuesta</h2>
         <Button variant="link" onClick={() => navigate(ROUTES.SURVEY_ADMIN)}>
           Volver al listado
         </Button>
@@ -145,7 +145,7 @@ export function SurveyCampaignPage() {
   };
 
   return (
-    <div className="animate-fade-in max-w-5xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <Breadcrumbs
         items={[{ label: 'Encuesta', path: ROUTES.SURVEY_ADMIN }, { label: campaign.titulo }]}
       />
@@ -158,7 +158,7 @@ export function SurveyCampaignPage() {
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700">
                 <HeartPulse className="h-4 w-4 text-white" aria-hidden="true" />
               </span>
-              <h1 className="text-xl font-bold text-primary-900">{campaign.titulo}</h1>
+              <h1 className="type-h1 text-primary-900">{campaign.titulo}</h1>
               <SurveyCampaignStatusBadge status={campaign.status} />
             </div>
             <p className="mt-2 text-sm text-primary-600">
@@ -248,7 +248,7 @@ export function SurveyCampaignPage() {
       {/* ---------- Qué falta para publicar ---------- */}
       {gestiona && campaign.status !== SurveyCampaignStatus.CERRADA && publicar.permitido === false && !requisitos.listo && (
         <div className="rounded-xl border border-accent-300 bg-accent-50/70 p-4">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-accent-800">
+          <h2 className="type-h3 flex items-center gap-2 text-accent-800">
             <CircleAlert className="h-4 w-4" aria-hidden="true" />
             Para poder publicarla falta esto
           </h2>
@@ -382,7 +382,7 @@ function Dato({
   return (
     <div>
       <dt className="text-xs font-medium text-primary-500">{etiqueta}</dt>
-      <dd className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-primary-900">
+      <dd className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold tabular-nums text-primary-900">
         {icono}
         {valor}
       </dd>

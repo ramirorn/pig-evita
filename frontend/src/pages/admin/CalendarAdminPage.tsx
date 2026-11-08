@@ -86,7 +86,7 @@ export function CalendarAdminPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Calendario"
         description="Gestión de eventos, cronograma y programación deportiva"
@@ -99,29 +99,32 @@ export function CalendarAdminPage() {
         }
       />
 
-      <div className="card">
-        <div className="p-4 border-b border-primary-100 flex items-center gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-            <Input 
-              placeholder="Buscar evento por título o descripción..." 
+      <CalendarEventsTable
+        events={filtered}
+        isLoading={isLoading}
+        disciplinesMap={disciplinesMap}
+        venuesMap={venuesMap}
+        hasActiveFilters={search.trim().length > 0}
+        onClearFilters={() => setSearch('')}
+        toolbar={
+          <div className="relative flex-1 md:max-w-sm">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400"
+              aria-hidden="true"
+            />
+            <Input
+              placeholder="Buscar evento por título o descripción..."
+              aria-label="Buscar eventos"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 bg-white"
             />
           </div>
-        </div>
-
-        <CalendarEventsTable
-          events={filtered}
-          isLoading={isLoading}
-          disciplinesMap={disciplinesMap}
-          venuesMap={venuesMap}
-          onCreate={handleCreate}
-          onEdit={handleEdit}
-          onDelete={handleDeleteClick}
-        />
-      </div>
+        }
+        onCreate={handleCreate}
+        onEdit={handleEdit}
+        onDelete={handleDeleteClick}
+      />
 
       {/* Modal Crear / Editar Evento */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

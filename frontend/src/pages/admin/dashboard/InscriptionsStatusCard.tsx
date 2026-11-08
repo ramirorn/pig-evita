@@ -52,10 +52,10 @@ export function InscriptionsStatusCard({ data }: InscriptionsStatusCardProps) {
 
   return (
     <div className="card p-6">
-      <h3 className="font-bold text-primary-900 mb-4 flex items-center gap-2">
+      <h2 className="type-h3 text-primary-900 mb-4 flex items-center gap-2">
         <Activity className="w-5 h-5 text-primary-500" />
         Inscripciones por Estado
-      </h3>
+      </h2>
       {donutData.length > 0 ? (
         <div className="flex items-center gap-6">
           {/* El contenedor con su `w-40 h-40` queda **fuera** del Suspense: el
@@ -76,7 +76,7 @@ export function InscriptionsStatusCard({ data }: InscriptionsStatusCardProps) {
                   />
                   <span className="text-primary-600">{d.name}</span>
                 </div>
-                <span className="font-bold text-primary-800">{d.value}</span>
+                <span className="font-bold tabular-nums text-primary-800">{d.value}</span>
               </div>
             ))}
           </div>

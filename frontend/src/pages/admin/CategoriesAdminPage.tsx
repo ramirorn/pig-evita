@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { logError } from '@/lib/logger';
+import { FilterPanel } from '@/components/shared/FilterPanel';
 import { formatCategoryRange } from '@/lib/categoryRange';
 
 export function CategoriesAdminPage() {
@@ -95,12 +96,14 @@ export function CategoriesAdminPage() {
     {
       id: 'discipline',
       header: 'Disciplina',
+      mobile: 'secondary',
       className: 'text-primary-600 font-medium',
       cell: (category) => category.discipline?.name || '—',
     },
     {
       id: 'name',
       header: 'Nombre / Categoría',
+      mobile: 'primary',
       // Es el identificador de la fila, aunque no haya detalle al que navegar:
       // `<th scope="row">` hace que el lector lo repita como contexto de cada celda.
       rowHeader: true,
@@ -111,11 +114,14 @@ export function CategoriesAdminPage() {
     {
       id: 'ages',
       header: 'Rango',
+      mobile: 'secondary',
+      className: 'tabular-nums',
       cell: (category) => formatCategoryRange(category),
     },
     {
       id: 'sex',
       header: 'Sexo',
+      mobile: 'secondary',
       cell: (category) => (
         // `variant="secondary"` no renderiza color: `bg-secondary` no existe en
         // el `@theme`. Se usan tokens explícitos que sí resuelven.
@@ -127,6 +133,7 @@ export function CategoriesAdminPage() {
     {
       id: 'status',
       header: 'Estado',
+      mobile: 'secondary',
       cell: (category) =>
         category.isActive ? (
           // `green-*` y `red-*` están fuera de la paleta institucional.
@@ -146,6 +153,7 @@ export function CategoriesAdminPage() {
     {
       id: 'actions',
       header: 'Acciones',
+      mobile: 'actions',
       hideHeader: true,
       interactive: true,
       headClassName: 'w-[80px]',
@@ -175,7 +183,7 @@ export function CategoriesAdminPage() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Categorías"
         description="Gestión de rangos de edad y sexo por disciplina"
@@ -215,7 +223,8 @@ export function CategoriesAdminPage() {
           </Button>
         }
         toolbar={
-          <div className="w-full md:max-w-sm">
+          <FilterPanel activeCount={disciplineId !== 'all' ? 1 : 0}>
+          <div className="w-full md:w-80">
             <Select value={disciplineId} onValueChange={patchDiscipline}>
               <SelectTrigger aria-label="Filtrar por disciplina">
                 <SelectValue placeholder="Filtrar por disciplina" />
@@ -230,6 +239,7 @@ export function CategoriesAdminPage() {
               </SelectContent>
             </Select>
           </div>
+          </FilterPanel>
         }
       />
 

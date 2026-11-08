@@ -1,6 +1,7 @@
 // ===========================================
 // User Form Component
 // ===========================================
+import { Switch } from '@/components/ui/switch';
 import { useState } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { UserRole, type User } from '@/types';
@@ -113,7 +114,8 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-primary-400 hover:text-primary-600 focus:outline-none cursor-pointer"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-2 rounded-md text-primary-600 hover:text-primary-900 active:text-primary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer transition-colors duration-120"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -208,12 +210,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
                   </p>
                 </div>
                 <FormControl>
-                  <input
-                    type="checkbox"
-                    checked={field.value}
-                    onChange={field.onChange}
-                    className="h-4 w-4 rounded border-primary-300 text-primary-600 focus:ring-primary-500"
-                  />
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
                 </FormControl>
               </FormItem>
             )}

@@ -34,7 +34,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
     <>
       {/* Logo area */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-primary-100">
-        <Link to={inicio} className="flex items-center gap-2.5 overflow-hidden">
+        <Link to={inicio} className="flex items-center gap-2.5 overflow-hidden rounded-lg transition-opacity duration-120 hover:opacity-80">
           <img
             src="/logo-sinfondo.png"
             alt="Juegos Evita Formoseños"
@@ -45,7 +45,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               <span className="text-sm font-bold text-primary-800 block leading-tight">
                 Juegos Evita
               </span>
-              <span className="text-[9px] text-accent-600 font-bold uppercase tracking-widest block leading-tight">
+              <span className="type-eyebrow text-accent-800 block leading-tight">
                 Panel Admin
               </span>
             </div>
@@ -56,7 +56,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         {mobileOpen && (
           <button
             onClick={onMobileClose}
-            className="md:hidden p-1.5 rounded-lg text-primary-400 hover:bg-primary-50 transition-colors"
+            className="md:hidden p-1.5 rounded-lg text-primary-500 hover:bg-primary-50 transition-colors duration-120 pointer-coarse:p-3"
             aria-label="Cerrar menú"
           >
             <X className="w-5 h-5" />
@@ -80,7 +80,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
                 title={showCollapsed ? item.label : undefined}
                 onClick={onMobileClose}
                 className={cn(
-                  'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
+                  'relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-120',
                   isActive
                     ? 'bg-primary-50 text-primary-700 shadow-sm'
                     : 'text-primary-600 hover:bg-primary-50/60 hover:text-primary-700',
@@ -124,7 +124,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          'hidden md:flex fixed left-0 top-0 z-40 h-screen flex-col bg-white border-r border-primary-100 transition-all duration-300 ease-in-out',
+          'hidden md:flex fixed left-0 top-0 z-40 h-screen flex-col bg-white border-r border-primary-100 transition-[width] duration-320 ease-out-soft',
           collapsed ? 'w-[72px]' : 'w-[260px]',
         )}
       >
@@ -134,7 +134,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
       {/* Mobile sidebar (drawer) */}
       <aside
         className={cn(
-          'md:hidden fixed left-0 top-0 z-50 h-screen w-[280px] flex flex-col bg-white border-r border-primary-100 transition-transform duration-300 ease-in-out shadow-2xl',
+          'md:hidden fixed left-0 top-0 z-50 h-screen w-[280px] flex flex-col bg-white border-r border-primary-100 transition-transform duration-320 ease-out-soft shadow-2xl',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >

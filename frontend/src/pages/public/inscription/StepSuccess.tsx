@@ -34,7 +34,7 @@ export function StepSuccess({
         <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-secondary-50 flex items-center justify-center border-4 border-secondary-200 shadow-sm">
           <CheckCircle2 className="w-9 h-9 text-secondary-600" />
         </div>
-        <h2 className="text-2xl md:text-3xl font-extrabold text-primary-900 tracking-tight">
+        <h2 className="type-h1 text-primary-900">
           ¡Inscripción Registrada con Éxito!
         </h2>
         <p className="text-primary-600 text-sm mt-1 max-w-md mx-auto">
@@ -56,7 +56,7 @@ export function StepSuccess({
               <h3 className="font-extrabold text-base tracking-tight leading-tight">
                 JUEGOS EVITA FORMOSEÑOS
               </h3>
-              <p className="text-[10px] text-accent-400 font-bold uppercase tracking-widest leading-tight">
+              <p className="text-xs text-accent-400 font-bold uppercase tracking-widest leading-tight">
                 Credencial Oficial de Inscripción
               </p>
             </div>
@@ -90,7 +90,7 @@ export function StepSuccess({
               <button
                 type="button"
                 onClick={() => onCopyCode(createdInscription.qrCode)}
-                className="p-1.5 rounded-lg text-primary-500 hover:text-primary-800 hover:bg-primary-100 transition-colors"
+                className="pointer-coarse:min-h-11 p-1.5 rounded-lg text-primary-500 hover:text-primary-800 hover:bg-primary-100 active:bg-primary-200 transition-colors duration-120 pointer-coarse:min-w-11"
                 title="Copiar código"
               >
                 <Copy className="w-4 h-4" />
@@ -101,7 +101,7 @@ export function StepSuccess({
           {/* Participant Details */}
           <div className="space-y-3 text-sm">
             <div>
-              <span className="text-[11px] font-bold text-primary-400 uppercase tracking-wider block">
+              <span className="text-xs font-bold text-primary-400 uppercase tracking-wider block">
                 Participante
               </span>
               <p className="font-extrabold text-lg text-primary-900 leading-tight">
@@ -114,7 +114,7 @@ export function StepSuccess({
 
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-primary-100 text-xs">
               <div>
-                <span className="text-[10px] font-bold text-primary-400 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-primary-400 uppercase tracking-wider block">
                   Disciplina
                 </span>
                 <p className="font-bold text-primary-800">
@@ -122,7 +122,7 @@ export function StepSuccess({
                 </p>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-primary-400 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-primary-400 uppercase tracking-wider block">
                   Categoría
                 </span>
                 <p className="font-bold text-primary-800">
@@ -133,7 +133,7 @@ export function StepSuccess({
 
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-primary-100 text-xs">
               <div>
-                <span className="text-[10px] font-bold text-primary-400 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-primary-400 uppercase tracking-wider block">
                   Departamento
                 </span>
                 <p className="font-medium text-primary-700">
@@ -141,7 +141,7 @@ export function StepSuccess({
                 </p>
               </div>
               <div>
-                <span className="text-[10px] font-bold text-primary-400 uppercase tracking-wider block">
+                <span className="text-xs font-bold text-primary-400 uppercase tracking-wider block">
                   Localidad
                 </span>
                 <p className="font-medium text-primary-700">
@@ -150,7 +150,7 @@ export function StepSuccess({
               </div>
             </div>
 
-            <div className="pt-2 border-t border-primary-100 text-[11px] text-primary-500">
+            <div className="pt-2 border-t border-primary-100 text-xs text-primary-500">
               Fecha: {new Date().toLocaleDateString('es-AR')}
             </div>
           </div>
@@ -161,7 +161,7 @@ export function StepSuccess({
           <button
             type="button"
             onClick={onDownloadQr}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary-800 hover:bg-primary-900 shadow-sm transition-all"
+            className="pointer-coarse:min-h-11 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary-800 hover:bg-primary-900 active:bg-primary-950 shadow-sm transition-[background-color,border-color,box-shadow,color] duration-120"
           >
             <Download className="w-3.5 h-3.5" />
             Descargar QR
@@ -169,7 +169,7 @@ export function StepSuccess({
           <button
             type="button"
             onClick={onPrint}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-primary-800 bg-white border border-primary-200 hover:bg-primary-50 transition-all"
+            className="pointer-coarse:min-h-11 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-primary-800 bg-white border border-primary-200 hover:bg-primary-50 active:bg-primary-100 transition-[background-color,border-color,box-shadow,color] duration-120"
           >
             <Printer className="w-3.5 h-3.5" />
             Imprimir Comprobante
@@ -186,7 +186,7 @@ export function StepSuccess({
         <button
           type="button"
           onClick={onReset}
-          className="text-xs font-bold text-primary-600 hover:text-primary-900 transition-colors"
+          className="pointer-coarse:min-h-11 text-xs font-bold text-primary-600 hover:text-primary-900 active:text-primary-950 transition-colors duration-120"
         >
           + Inscribir a otro participante
         </button>

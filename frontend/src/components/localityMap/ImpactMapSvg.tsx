@@ -766,7 +766,7 @@ function BotonZoom({
       title={etiqueta}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-100 bg-white/90 text-primary-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500 disabled:cursor-default disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
+      className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-100 bg-white/90 text-primary-700 shadow-sm backdrop-blur-sm transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 focus-visible:outline-2 focus-visible:outline-primary-500 disabled:cursor-default disabled:opacity-40 pointer-coarse:h-11 pointer-coarse:w-11"
     >
       {children}
     </button>

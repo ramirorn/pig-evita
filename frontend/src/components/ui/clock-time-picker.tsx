@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { NumberField } from '@/components/ui/number-field';
 
 interface ClockTimePickerProps {
   value?: string; // Format "HH:mm" (24h)
@@ -164,7 +165,7 @@ export function ClockTimePickerModal({
             <button
               type="button"
               onClick={() => setMode('hours')}
-              className={`w-20 h-18 rounded-2xl flex items-center justify-center text-3xl font-extrabold transition-all cursor-pointer select-none ${
+              className={`w-20 h-18 rounded-2xl flex items-center justify-center text-3xl font-extrabold transition-[color,background-color,transform] duration-120 motion-reduce:transition-none cursor-pointer select-none outline-none focus-visible:ring-[3px] focus-visible:ring-primary-500/50 ${
                 mode === 'hours'
                   ? 'bg-primary-600 text-white shadow-md scale-105 ring-2 ring-primary-300'
                   : 'bg-primary-100/70 text-primary-950 hover:bg-primary-200/80'
@@ -179,7 +180,7 @@ export function ClockTimePickerModal({
             <button
               type="button"
               onClick={() => setMode('minutes')}
-              className={`w-20 h-18 rounded-2xl flex items-center justify-center text-3xl font-extrabold transition-all cursor-pointer select-none ${
+              className={`w-20 h-18 rounded-2xl flex items-center justify-center text-3xl font-extrabold transition-[color,background-color,transform] duration-120 motion-reduce:transition-none cursor-pointer select-none outline-none focus-visible:ring-[3px] focus-visible:ring-primary-500/50 ${
                 mode === 'minutes'
                   ? 'bg-primary-600 text-white shadow-md scale-105 ring-2 ring-primary-300'
                   : 'bg-primary-100/70 text-primary-950 hover:bg-primary-200/80'
@@ -194,7 +195,7 @@ export function ClockTimePickerModal({
             <button
               type="button"
               onClick={() => setPeriod('AM')}
-              className={`px-3 py-2 text-xs font-bold transition-colors cursor-pointer select-none ${
+              className={`px-3 py-2 text-xs font-bold transition-colors duration-120 cursor-pointer select-none outline-none focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-primary-500 ${
                 period === 'AM'
                   ? 'bg-accent-500 text-white'
                   : 'text-primary-700 hover:bg-primary-50'
@@ -206,7 +207,7 @@ export function ClockTimePickerModal({
             <button
               type="button"
               onClick={() => setPeriod('PM')}
-              className={`px-3 py-2 text-xs font-bold transition-colors cursor-pointer select-none ${
+              className={`px-3 py-2 text-xs font-bold transition-colors duration-120 cursor-pointer select-none outline-none focus-visible:ring-inset focus-visible:ring-2 focus-visible:ring-primary-500 ${
                 period === 'PM'
                   ? 'bg-accent-500 text-white'
                   : 'text-primary-700 hover:bg-primary-50'
@@ -301,16 +302,18 @@ export function ClockTimePickerModal({
             </p>
             <div className="flex items-center justify-center gap-3">
               <div className="text-center">
-                <input
-                  type="number"
-                  min="1"
-                  max="12"
+                <NumberField
+                  min={1}
+                  max={12}
+                  clampOnBlur
+                  stepper={false}
+                  aria-label="Hora (1 a 12)"
                   value={hour12}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    if (!isNaN(val) && val >= 1 && val <= 12) setHour12(val);
+                  onValueChange={(val) => {
+                    if (val !== undefined && val >= 1 && val <= 12) setHour12(val);
                   }}
-                  className="w-16 h-12 text-center text-2xl font-bold rounded-xl border border-primary-300 bg-primary-50 text-primary-950 focus:ring-2 focus:ring-primary-500"
+                  wrapperClassName="h-12 w-16 rounded-xl border-primary-300 bg-primary-50 pointer-coarse:h-12"
+                  className="text-center text-2xl font-bold text-primary-950 md:text-2xl"
                 />
                 <span className="text-[10px] text-primary-500 block mt-1">Hora (1-12)</span>
               </div>
@@ -318,16 +321,18 @@ export function ClockTimePickerModal({
               <span className="text-2xl font-bold text-primary-400">:</span>
 
               <div className="text-center">
-                <input
-                  type="number"
-                  min="0"
-                  max="59"
-                  value={minute.toString().padStart(2, '0')}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    if (!isNaN(val) && val >= 0 && val <= 59) setMinute(val);
+                <NumberField
+                  min={0}
+                  max={59}
+                  clampOnBlur
+                  stepper={false}
+                  aria-label="Minutos (0 a 59)"
+                  value={minute}
+                  onValueChange={(val) => {
+                    if (val !== undefined && val >= 0 && val <= 59) setMinute(val);
                   }}
-                  className="w-16 h-12 text-center text-2xl font-bold rounded-xl border border-primary-300 bg-primary-50 text-primary-950 focus:ring-2 focus:ring-primary-500"
+                  wrapperClassName="h-12 w-16 rounded-xl border-primary-300 bg-primary-50 pointer-coarse:h-12"
+                  className="text-center text-2xl font-bold text-primary-950 md:text-2xl"
                 />
                 <span className="text-[10px] text-primary-500 block mt-1">Min (0-59)</span>
               </div>
@@ -341,7 +346,7 @@ export function ClockTimePickerModal({
             type="button"
             onClick={() => setIsKeyboardMode(!isKeyboardMode)}
             title={isKeyboardMode ? 'Cambiar a reloj circular' : 'Escribir con teclado'}
-            className="p-2 rounded-full text-primary-600 hover:bg-primary-100 active:bg-primary-200 transition-colors cursor-pointer"
+            className="p-2 pointer-coarse:p-3 rounded-full text-primary-600 hover:bg-primary-100 active:bg-primary-200 transition-colors duration-120 outline-none focus-visible:ring-[3px] focus-visible:ring-primary-500/50 motion-reduce:transition-none cursor-pointer"
           >
             {isKeyboardMode ? <Clock className="w-5 h-5" /> : <Keyboard className="w-5 h-5" />}
           </button>
@@ -390,7 +395,7 @@ export function ClockTimePicker({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen(true)}
-        className={`w-full h-11 flex items-center justify-between px-3 rounded-lg border border-primary-200 bg-white hover:border-primary-400 hover:bg-primary-50/50 active:bg-primary-100/60 shadow-2xs transition-all text-left group cursor-pointer ${
+        className={`w-full h-11 flex items-center justify-between px-3 rounded-lg border border-primary-200 bg-white hover:border-primary-400 hover:bg-primary-50/50 active:bg-primary-100/60 shadow-2xs transition-colors duration-120 motion-reduce:transition-none outline-none focus-visible:ring-[3px] focus-visible:ring-primary-500/50 text-left group cursor-pointer ${
           disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
       >

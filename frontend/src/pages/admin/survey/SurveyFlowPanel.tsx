@@ -154,7 +154,7 @@ function Bloque({
 }) {
   return (
     <section className="rounded-xl border border-primary-100 bg-white p-4">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-primary-900">
+      <h3 className="type-h3 flex items-center gap-2 text-primary-900">
         {icono}
         {titulo}
       </h3>

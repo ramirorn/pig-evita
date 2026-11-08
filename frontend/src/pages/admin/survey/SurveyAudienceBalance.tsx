@@ -26,7 +26,7 @@ export function SurveyAudienceBalance({ questions }: SurveyAudienceBalanceProps)
 
   return (
     <div className="rounded-xl border border-primary-100 bg-white p-4">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-primary-900">
+      <h3 className="type-h3 flex items-center gap-2 text-primary-900">
         <Scale className="h-4 w-4 text-primary-500" aria-hidden="true" />
         Cuántas preguntas ve cada chico
       </h3>

@@ -26,7 +26,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-in',
+        'flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4',
         className,
       )}
     >
@@ -40,7 +40,7 @@ export function PageHeader({
           {icon}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-primary-800">{title}</h1>
+          <h1 className="type-h1 text-2xl text-primary-800">{title}</h1>
           {description && (
             <p className="text-sm text-primary-500">{description}</p>
           )}

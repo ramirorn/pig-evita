@@ -35,7 +35,7 @@ export function StepSportSelection({
   onNext,
 }: StepSportSelectionProps) {
   return (
-    <form onSubmit={onNext} className="card p-6 md:p-8 space-y-6 animate-fade-in shadow-md">
+    <form onSubmit={onNext} className="card p-6 md:p-8 space-y-6 shadow-md">
       <div className="flex items-center justify-between pb-4 border-b border-primary-100">
         <div className="flex items-center gap-2.5 text-primary-800 font-bold text-lg">
           <Trophy className="w-5 h-5 text-accent-600" />
@@ -62,15 +62,15 @@ export function StepSportSelection({
                   key={discipline.id}
                   type="button"
                   onClick={() => setFormData({ ...formData, disciplineId: discipline.id, categoryId: '' })}
-                  className={`p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                  className={`pointer-coarse:min-h-11 p-3 rounded-xl text-left border transition-[background-color,border-color,box-shadow,color] duration-120 flex flex-col justify-between ${
                     isSelected
                       ? 'border-primary-800 bg-primary-50 text-primary-900 ring-2 ring-primary-700 shadow-xs'
-                      : 'border-primary-200 bg-white hover:border-primary-300 text-primary-700'
+                      : 'border-primary-200 bg-white hover:border-primary-300 active:bg-primary-50 text-primary-700'
                   }`}
                 >
                   <span className="font-bold text-xs line-clamp-1">{discipline.name}</span>
                   <div className="flex items-center gap-1 mt-2">
-                    <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-white border border-primary-100 text-primary-600">
+                    <span className="text-xs font-semibold uppercase px-1.5 py-0.5 rounded-md bg-white border border-primary-100 text-primary-600">
                       {discipline.type}
                     </span>
                   </div>
@@ -83,7 +83,7 @@ export function StepSportSelection({
 
       {/* Categories Selection */}
       {formData.disciplineId && (
-        <div className="pt-4 border-t border-primary-100 animate-fade-in">
+        <div className="pt-4 border-t border-primary-100">
           <label className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-2">
             2. Seleccioná la Categoría Oficial *
           </label>
@@ -108,17 +108,17 @@ export function StepSportSelection({
                     key={category.id}
                     type="button"
                     onClick={() => setFormData({ ...formData, categoryId: category.id })}
-                    className={`p-4 rounded-xl text-left border transition-all ${
+                    className={`pointer-coarse:min-h-11 p-4 rounded-xl text-left border transition-[background-color,border-color,box-shadow,color] duration-120 ${
                       isSelected
                         ? 'border-secondary-600 bg-secondary-50 text-secondary-900 ring-2 ring-secondary-500 shadow-sm'
                         : isValid
-                        ? 'border-primary-200 bg-white hover:border-primary-300 text-primary-800'
+                        ? 'border-primary-200 bg-white hover:border-primary-300 active:bg-primary-50 text-primary-800'
                         : 'border-primary-100 bg-primary-50/50 text-primary-400 opacity-60'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm">{category.name}</span>
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-primary-100 text-primary-700">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white border border-primary-100 text-primary-700 tabular-nums">
                         {formatCategoryRange(category)}
                       </span>
                     </div>
@@ -127,11 +127,11 @@ export function StepSportSelection({
                         Rama: {category.sex}
                       </span>
                       {isValid ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-secondary-600">
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-secondary-600">
                           <CheckCircle2 className="w-3.5 h-3.5" /> Compatible
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700">
                           <AlertCircle className="w-3.5 h-3.5" /> Fuera de rango
                         </span>
                       )}
@@ -165,7 +165,7 @@ export function StepSportSelection({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-primary-600 hover:text-primary-900 transition-colors"
+          className="pointer-coarse:min-h-11 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-primary-600 hover:text-primary-900 active:text-primary-950 transition-colors duration-120"
         >
           <ArrowLeft className="w-4 h-4" />
           Volver a Datos Personales
@@ -174,7 +174,7 @@ export function StepSportSelection({
         <button
           type="submit"
           disabled={!formData.categoryId || !categoryCompatibility.valid}
-          className="inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all"
+          className="pointer-coarse:min-h-11 inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 active:bg-primary-950 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-[background-color,border-color,box-shadow,color] duration-120"
         >
           Revisar Inscripción
           <ArrowRight className="w-4 h-4" />

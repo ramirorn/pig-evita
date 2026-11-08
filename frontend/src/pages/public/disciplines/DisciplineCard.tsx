@@ -11,7 +11,6 @@ import type { Discipline } from '@/types';
 import { DisciplineType } from '@/types';
 import { cn } from '@/lib/utils';
 import { RESULT_TYPE_LABELS } from '@/lib/constants';
-import { retrasoDeEntrada } from '@/lib/gridVolumen';
 
 /**
  * ⚠️ **Las clases de Tailwind no se interpolan.**
@@ -90,10 +89,9 @@ function textoDelEnlace(hayReglamento: boolean, hayCategorias: boolean): string 
 
 interface DisciplineCardProps {
   discipline: Discipline;
-  index: number;
 }
 
-export function DisciplineCard({ discipline, index }: DisciplineCardProps) {
+export function DisciplineCard({ discipline }: DisciplineCardProps) {
   // `rules` viene `null` en cuatro de las cinco filas reales y `""` en la
   // quinta: una cadena en blanco no es un reglamento.
   const hayReglamento = (discipline.rules ?? '').trim().length > 0;
@@ -119,16 +117,15 @@ export function DisciplineCard({ discipline, index }: DisciplineCardProps) {
       // una o dos líneas; y el contorno de `:focus-visible` se dibujaba sobre
       // una caja inline, que puede partirse en dos entre renglones. El
       // `rounded-xl` es para que ese contorno siga la forma de la tarjeta.
-      className="group block h-full rounded-xl animate-fade-in"
-      style={{ animationDelay: retrasoDeEntrada(index) }}
+      className="group block h-full rounded-xl"
     >
-      <div className="card h-full p-6 hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col items-center text-center">
+      <div className="card card-interactive h-full p-6 flex flex-col items-center text-center">
         {/* El hover cambia sombra y desplazamiento, nunca el color del icono. */}
         <div className="w-14 h-14 rounded-full flex items-center justify-center mb-4 bg-primary-100 text-primary-700">
           {getDisciplineIcon(discipline.name)}
         </div>
 
-        <h2 className="font-bold text-primary-900 text-lg mb-2">{discipline.name}</h2>
+        <h2 className="type-h3 text-primary-900 mb-2">{discipline.name}</h2>
 
         <span
           className={cn(
@@ -148,14 +145,14 @@ export function DisciplineCard({ discipline, index }: DisciplineCardProps) {
           {hayCategorias && (
             <p className="flex items-center justify-center gap-1.5">
               <Layers className="w-4 h-4 text-primary-500" aria-hidden="true" />
-              {categorias} {categorias === 1 ? 'categoría' : 'categorías'}
+              <span className="tabular-nums">{categorias}</span> {categorias === 1 ? 'categoría' : 'categorías'}
             </p>
           )}
 
           {hayRangoDeJugadores && (
             <p className="flex items-center justify-center gap-1.5">
               <Users className="w-4 h-4 text-primary-500" aria-hidden="true" />
-              {discipline.minPlayers} a {discipline.maxPlayers} jugadores
+              <span className="tabular-nums">{discipline.minPlayers} a {discipline.maxPlayers}</span> jugadores
             </p>
           )}
 
@@ -168,7 +165,7 @@ export function DisciplineCard({ discipline, index }: DisciplineCardProps) {
         </div>
 
         <div className="mt-auto pt-4">
-          <span className="text-primary-600 font-medium text-sm flex items-center justify-center gap-1 group-hover:text-primary-800 transition-colors">
+          <span className="text-primary-600 font-medium text-sm flex items-center justify-center gap-1 group-hover:text-primary-800 transition-colors duration-120">
             {textoDelEnlace(hayReglamento, hayCategorias)}
             <ArrowRight className="w-4 h-4" aria-hidden="true" />
           </span>

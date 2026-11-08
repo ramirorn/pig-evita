@@ -80,7 +80,7 @@ export function MapLegend({ metric, points, hasZeros, compact = false }: MapLege
         )}
       </div>
       {!compact && (
-        <p className="text-[11px] text-primary-500">
+        <p className="text-xs text-primary-600">
           Cada mancha brilla según su propia localidad: los pueblos cercanos no suman su calor.
         </p>
       )}

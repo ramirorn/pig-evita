@@ -84,7 +84,7 @@ export function LocalityTable({ rows, onSelect }: LocalityTableProps) {
                   <button
                     type="button"
                     onClick={() => ordenarPor(c.key, c.numeric)}
-                    className="inline-flex items-center gap-1 rounded uppercase hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-primary-500"
+                    className="inline-flex items-center gap-1 rounded uppercase transition-colors duration-120 hover:text-primary-800 active:text-primary-900 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-primary-500"
                   >
                     {c.label}
                     <Icono className="h-3.5 w-3.5" aria-hidden="true" />
@@ -96,14 +96,14 @@ export function LocalityTable({ rows, onSelect }: LocalityTableProps) {
         </thead>
         <tbody className="divide-y divide-primary-50">
           {ordenadas.map((r) => (
-            <tr key={r.key} className="bg-white hover:bg-primary-50/40">
+            <tr key={r.key} className="bg-white transition-colors duration-120 hover:bg-primary-50/40">
               <th scope="row" className="px-3 py-2 text-left font-medium text-primary-800">
                 {r.onMap && onSelect ? (
                   <button
                     type="button"
                     data-locality-id={r.key}
                     onClick={(e) => onSelect(r.key, e.currentTarget)}
-                    className="rounded text-left underline decoration-primary-200 underline-offset-2 hover:text-primary-900 hover:decoration-primary-500 focus-visible:outline-2 focus-visible:outline-primary-500"
+                    className="rounded text-left underline decoration-primary-200 underline-offset-2 transition-colors duration-120 hover:text-primary-900 hover:decoration-primary-500 active:text-primary-950 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-primary-500"
                     aria-label={`Ver ${r.name} en el mapa`}
                   >
                     {r.name}
@@ -111,7 +111,7 @@ export function LocalityTable({ rows, onSelect }: LocalityTableProps) {
                 ) : (
                   r.name
                 )}
-                <span className="block text-xs font-normal text-primary-500">
+                <span className="block text-xs font-normal text-primary-600">
                   {r.kind ? KIND_LABELS[r.kind] : 'Sin ubicación en el mapa'}
                 </span>
               </th>

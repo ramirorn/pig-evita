@@ -32,7 +32,7 @@ export function ParticipantDocumentsCard({ participantId }: { participantId: str
   return (
     <div className="card">
       <div className="p-4 border-b border-primary-100 flex flex-wrap gap-2 justify-between items-center">
-        <h3 className="font-semibold text-primary-900">Documentación</h3>
+        <h2 className="type-h3 text-primary-900">Documentación</h2>
         <Button asChild variant="outline" size="sm">
           <Link to={`${ROUTES.DOCUMENTS}?participante=${encodeURIComponent(participantId)}`}>
             Ver en Documentos

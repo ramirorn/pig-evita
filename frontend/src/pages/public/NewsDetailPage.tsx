@@ -94,7 +94,7 @@ export function NewsDetailPage() {
   const externa = esNoticiaExterna(news);
 
   return (
-    <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 animate-fade-in">
+    <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       <Button
         variant="ghost"
         className="mb-6 -ml-3 text-primary-600 hover:text-primary-900 hover:bg-primary-50 cursor-pointer"
@@ -110,7 +110,7 @@ export function NewsDetailPage() {
           <Badge className="bg-primary-50 text-primary-800 border-primary-200 uppercase tracking-wider font-bold text-xs">
             {externa ? 'Portal Oficial de Formosa' : 'Actualidad'}
           </Badge>
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-primary-500">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-primary-600 tabular-nums">
             <Calendar className="w-3.5 h-3.5" />
             {fechaDeNoticia(news)}
           </span>
@@ -122,12 +122,12 @@ export function NewsDetailPage() {
           )}
         </div>
 
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-primary-950 mb-6 leading-tight">
+        <h1 className="type-h1 text-primary-950 mb-6">
           {news.title}
         </h1>
 
         {news.excerpt && (
-          <p className="text-lg md:text-xl text-primary-600 font-normal leading-relaxed border-l-4 border-primary-500 pl-4 py-1">
+          <p className="text-lg md:text-xl text-primary-600 font-normal leading-relaxed">
             {news.excerpt}
           </p>
         )}
@@ -190,7 +190,7 @@ export function NewsDetailPage() {
               href={news.sourceUrl as string}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-bold hover:bg-primary-700 transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-bold hover:bg-primary-700 active:bg-primary-800 transition-colors duration-120 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
             >
               Leer la nota completa en el portal oficial
               <ExternalLink className="w-4 h-4" aria-hidden="true" />

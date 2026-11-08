@@ -72,7 +72,7 @@ export function FeaturedNewsCard({ news, prioritaria = false }: FeaturedNewsCard
           )}
         </p>
 
-        <h3 className="font-display line-clamp-3 text-2xl leading-tight font-extrabold text-white md:text-4xl">
+        <h3 className="type-h1 line-clamp-3 text-white">
           {news.title}
         </h3>
 
@@ -84,7 +84,7 @@ export function FeaturedNewsCard({ news, prioritaria = false }: FeaturedNewsCard
 
         <NewsLink
           news={news}
-          className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-primary-900 shadow-sm transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
+          className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-primary-900 shadow-sm transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
         >
           Leer nota completa
           <span className="sr-only">: {news.title}</span>

@@ -4,7 +4,7 @@
 import type { VenueFormApi } from './useVenueForm';
 
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { NumberField } from '@/components/ui/number-field';
 import { Navigation } from 'lucide-react';
 
 /**
@@ -27,18 +27,22 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
           name="latitude"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-[11px] text-primary-700">Latitud</FormLabel>
+              <FormLabel className="text-xs text-primary-700">Latitud</FormLabel>
               <FormControl>
-                <Input
-                  type="number"
-                  step="any"
+                <NumberField
+                  decimal
+                  stepper={false}
+                  min={-90}
+                  max={90}
+                  step={0.0001}
                   placeholder="-26.185"
-                  className="bg-white h-9 text-xs"
-                  value={field.value ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    field.onChange(val === '' ? undefined : parseFloat(val));
-                  }}
+                  wrapperClassName="bg-white"
+                  className="text-xs"
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={field.value}
+                  onValueChange={field.onChange}
                 />
               </FormControl>
               <FormMessage />
@@ -51,18 +55,22 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
           name="longitude"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-[11px] text-primary-700">Longitud</FormLabel>
+              <FormLabel className="text-xs text-primary-700">Longitud</FormLabel>
               <FormControl>
-                <Input
-                  type="number"
-                  step="any"
+                <NumberField
+                  decimal
+                  stepper={false}
+                  min={-180}
+                  max={180}
+                  step={0.0001}
                   placeholder="-58.175"
-                  className="bg-white h-9 text-xs"
-                  value={field.value ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    field.onChange(val === '' ? undefined : parseFloat(val));
-                  }}
+                  wrapperClassName="bg-white"
+                  className="text-xs"
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={field.value}
+                  onValueChange={field.onChange}
                 />
               </FormControl>
               <FormMessage />

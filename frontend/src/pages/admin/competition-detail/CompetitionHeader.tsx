@@ -27,7 +27,7 @@ export function CompetitionHeader({ competition, teamCount, unidad = 'equipos', 
       </Button>
       <div className="flex-1">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-primary-800">
+          <h1 className="type-h1 text-primary-800">
             {competition.name || `${competition.discipline?.name} - ${competition.category?.name}`}
           </h1>
           <Badge variant="outline" className="bg-primary-50 text-primary-700 border-primary-200 uppercase">

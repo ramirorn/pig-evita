@@ -33,14 +33,14 @@ export function InscriptionDetailPage() {
   if (!inscription) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-primary-800">Inscripción no encontrada</h2>
+        <h2 className="type-h2 text-primary-800">Inscripción no encontrada</h2>
         <Button variant="link" onClick={() => navigate(ROUTES.INSCRIPTIONS)}>Volver al listado</Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <Breadcrumbs
         items={[
           { label: 'Inscripciones', path: ROUTES.INSCRIPTIONS },
@@ -54,7 +54,7 @@ export function InscriptionDetailPage() {
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-primary-800">
+            <h1 className="type-h1 text-primary-800">
               Inscripción #{inscription.qrCode}
             </h1>
             <InscriptionStatusBadge status={inscription.status} />
@@ -74,7 +74,7 @@ export function InscriptionDetailPage() {
         {/* Detalles de la inscripción */}
         <div className="md:col-span-2 space-y-6">
           <div className="card p-6">
-            <h3 className="font-semibold text-primary-900 border-b border-primary-100 pb-3 mb-4 text-lg">
+            <h3 className="type-h3 text-primary-900 border-b border-primary-100 pb-3 mb-4">
               Datos del Solicitante
             </h3>
             <div className="grid grid-cols-2 gap-y-4 text-sm">
@@ -98,7 +98,7 @@ export function InscriptionDetailPage() {
           </div>
 
           <div className="card p-6">
-            <h3 className="font-semibold text-primary-900 border-b border-primary-100 pb-3 mb-4 text-lg">
+            <h3 className="type-h3 text-primary-900 border-b border-primary-100 pb-3 mb-4">
               Detalle de Competencia
             </h3>
             <div className="grid grid-cols-2 gap-y-4 text-sm">

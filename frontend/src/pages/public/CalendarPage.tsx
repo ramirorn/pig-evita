@@ -102,10 +102,10 @@ export function CalendarPage() {
       <section aria-labelledby={id} className="mb-12 last:mb-0">
         <h2
           id={id}
-          className="mb-4 flex items-baseline gap-2 font-display text-xl font-extrabold tracking-tight text-primary-800"
+          className="type-h2 mb-4 flex items-baseline gap-2 text-primary-800"
         >
           {titulo}
-          <span className="font-sans text-sm font-semibold text-primary-600">({eventos.length})</span>
+          <span className="font-sans text-sm font-semibold text-primary-600 tabular-nums">({eventos.length})</span>
         </h2>
         <CalendarAgenda
           eventos={eventos}

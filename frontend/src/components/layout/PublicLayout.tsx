@@ -52,7 +52,7 @@ export function PublicLayout() {
       {/* Header */}
       <header
         className={cn(
-          'sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300',
+          'sticky top-0 z-50 backdrop-blur-md border-b transition-[background-color,border-color,box-shadow] duration-200',
           scrolled
             ? 'bg-white/98 border-primary-200 shadow-md'
             : 'bg-white/95 border-primary-100 shadow-sm',
@@ -63,18 +63,18 @@ export function PublicLayout() {
             {/* Logo */}
             <Link
               to={ROUTES.HOME}
-              className="flex items-center gap-2.5 group"
+              className="group flex items-center gap-2.5 rounded-lg pointer-coarse:min-h-11"
             >
               <img
                 src="/logo-sinfondo.png"
                 alt="Juegos Evita Formoseños"
-                className="h-10 w-auto object-contain transition-transform group-hover:scale-105"
+                className="h-10 w-auto object-contain transition-transform duration-200 ease-out-soft group-hover:scale-105 group-active:scale-100"
               />
               <div className="hidden sm:block">
-                <span className="text-base font-bold text-primary-800 leading-tight block">
+                <span className="type-h3 text-base text-primary-800 leading-tight block transition-colors duration-120 group-hover:text-primary-600">
                   Juegos Evita
                 </span>
-                <span className="text-[10px] text-accent-600 font-bold uppercase tracking-widest leading-tight block">
+                <span className="type-eyebrow text-accent-800 leading-tight block">
                   Formosa
                 </span>
               </div>
@@ -87,7 +87,7 @@ export function PublicLayout() {
                   key={link.path}
                   to={link.path}
                   className={cn(
-                    'px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                    'px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-120 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center',
                     location.pathname === link.path
                       ? 'bg-primary-50 text-primary-700'
                       : 'text-primary-600 hover:bg-primary-50 hover:text-primary-700',
@@ -102,7 +102,7 @@ export function PublicLayout() {
             <div className="flex items-center gap-3">
               <Link
                 to={ROUTES.INSCRIPTION}
-                className="hidden sm:inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-secondary-500 to-secondary-600 rounded-lg hover:from-secondary-600 hover:to-secondary-700 shadow-sm hover:shadow transition-all"
+                className="hidden sm:inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-secondary-500 to-secondary-600 rounded-lg hover:from-secondary-600 hover:to-secondary-700 active:from-secondary-700 active:to-secondary-700 shadow-sm hover:shadow transition-[background-color,box-shadow] duration-120 pointer-coarse:min-h-11"
               >
                 Inscripciones
               </Link>
@@ -110,7 +110,7 @@ export function PublicLayout() {
               {/* Mobile menu button */}
               <button
                 type="button"
-                className="lg:hidden p-2 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
+                className="lg:hidden p-2 rounded-lg text-primary-600 hover:bg-primary-50 active:bg-primary-100 transition-colors duration-120 flex h-11 w-11 items-center justify-center"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-expanded={mobileMenuOpen}
                 aria-label="Menú de navegación"
@@ -124,9 +124,11 @@ export function PublicLayout() {
         {/* Mobile menu with slide animation */}
         <div
           className={cn(
-            'lg:hidden border-t border-primary-100 bg-white overflow-hidden transition-all duration-300 ease-in-out',
-            mobileMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0',
+            'lg:hidden border-t border-primary-100 bg-white overflow-hidden transition-[max-height,opacity] duration-320 ease-out-soft',
+            mobileMenuOpen ? 'max-h-[560px] opacity-100' : 'max-h-0 opacity-0',
           )}
+          // Plegado, los links no deben ser alcanzables con Tab.
+          inert={!mobileMenuOpen}
         >
           <nav className="px-4 py-3 space-y-1" role="navigation" aria-label="Navegación móvil">
             {NAV_LINKS.map((link) => (
@@ -134,10 +136,10 @@ export function PublicLayout() {
                 key={link.path}
                 to={link.path}
                 className={cn(
-                  'block px-3 py-2.5 text-sm font-medium rounded-lg transition-colors',
+                  'block min-h-11 px-3 py-3 text-sm font-medium rounded-lg transition-colors duration-120',
                   location.pathname === link.path
                     ? 'bg-primary-50 text-primary-700'
-                    : 'text-primary-600 hover:bg-primary-50',
+                    : 'text-primary-600 hover:bg-primary-50 active:bg-primary-100',
                 )}
               >
                 {link.label}
@@ -145,9 +147,9 @@ export function PublicLayout() {
             ))}
             <Link
               to={ROUTES.INSCRIPTION}
-              className="block px-3 py-2.5 text-sm font-semibold text-secondary-700 bg-secondary-50 rounded-lg mt-2"
+              className="block min-h-11 px-3 py-3 text-sm font-semibold text-secondary-700 bg-secondary-50 hover:bg-secondary-100 active:bg-secondary-200 rounded-lg mt-2 transition-colors duration-120"
             >
-              📝 Inscripciones
+              Inscripciones
             </Link>
           </nav>
         </div>

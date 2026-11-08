@@ -41,7 +41,7 @@ export function StepPersonalData({
   nextLabel = 'Siguiente: Selección Deportiva',
 }: StepPersonalDataProps) {
   return (
-    <form onSubmit={onNext} className="card p-6 md:p-8 space-y-6 animate-fade-in shadow-md">
+    <form onSubmit={onNext} className="card p-6 md:p-8 space-y-6 shadow-md">
       <div className="flex items-center gap-2.5 pb-4 border-b border-primary-100 text-primary-800 font-bold text-lg">
         <User className="w-5 h-5 text-accent-600" />
         <span>Paso 1: Datos Personales del Participante</span>
@@ -73,10 +73,10 @@ export function StepPersonalData({
             <button
               type="button"
               onClick={() => setFormData({ ...formData, sex: Sex.MASCULINO })}
-              className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all border ${
+              className={`pointer-coarse:min-h-11 py-2.5 px-4 rounded-xl text-xs font-bold transition-[background-color,border-color,box-shadow,color] duration-120 border ${
                 formData.sex === Sex.MASCULINO
                   ? 'bg-primary-50 border-primary-500 text-primary-800 shadow-xs'
-                  : 'border-primary-200 text-primary-600 hover:bg-surface'
+                  : 'border-primary-200 text-primary-600 hover:bg-surface active:bg-primary-50'
               }`}
             >
               👦 Masculino
@@ -84,10 +84,10 @@ export function StepPersonalData({
             <button
               type="button"
               onClick={() => setFormData({ ...formData, sex: Sex.FEMENINO })}
-              className={`py-2.5 px-4 rounded-xl text-xs font-bold transition-all border ${
+              className={`pointer-coarse:min-h-11 py-2.5 px-4 rounded-xl text-xs font-bold transition-[background-color,border-color,box-shadow,color] duration-120 border ${
                 formData.sex === Sex.FEMENINO
                   ? 'bg-primary-50 border-primary-500 text-primary-800 shadow-xs'
-                  : 'border-primary-200 text-primary-600 hover:bg-surface'
+                  : 'border-primary-200 text-primary-600 hover:bg-surface active:bg-primary-50'
               }`}
             >
               👧 Femenino
@@ -231,7 +231,7 @@ export function StepPersonalData({
       <div className="pt-4 flex justify-end">
         <button
           type="submit"
-          className="inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 shadow-md hover:shadow-lg transition-all"
+          className="pointer-coarse:min-h-11 inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 active:bg-primary-950 shadow-md hover:shadow-lg transition-[background-color,border-color,box-shadow,color] duration-120"
         >
           {nextLabel}
           <ArrowRight className="w-4 h-4" />

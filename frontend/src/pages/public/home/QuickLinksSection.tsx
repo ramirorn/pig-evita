@@ -45,7 +45,7 @@ export function QuickLinksSection() {
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="text-center mb-12">
-        <h2 className="text-2xl md:text-3xl font-bold text-primary-800 mb-3">
+        <h2 className="type-h2 text-primary-800 mb-3">
           Explorá los Juegos Evita
         </h2>
         <p className="text-primary-600 max-w-xl mx-auto">
@@ -54,22 +54,22 @@ export function QuickLinksSection() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {QUICK_LINKS.map((link, idx) => (
+        {QUICK_LINKS.map((link) => (
           <Link
             key={link.path}
             to={link.path}
-            className={`card group p-6 hover:scale-[1.02] hover:border-primary-300 transition-all animate-fade-in stagger-${idx + 1}`}
+            className="card card-interactive group p-6 hover:border-primary-300"
           >
-            <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${link.color} flex items-center justify-center text-white shadow-md mb-4 group-hover:shadow-lg transition-shadow`}>
+            <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${link.color} flex items-center justify-center text-white shadow-md mb-4`}>
               {link.icon}
             </div>
-            <h3 className="text-lg font-bold text-primary-800 mb-1.5 group-hover:text-primary-600 transition-colors">
+            <h3 className="type-h3 text-primary-800 mb-1.5 group-hover:text-primary-600 transition-colors duration-120">
               {link.title}
             </h3>
             <p className="text-sm text-primary-500 leading-relaxed">
               {link.description}
             </p>
-            <div className="flex items-center gap-1 mt-3 text-sm font-semibold text-primary-600 group-hover:text-primary-800 transition-colors">
+            <div className="flex items-center gap-1 mt-3 text-sm font-semibold text-primary-600 group-hover:text-primary-800 transition-colors duration-120">
               Ver más <ArrowRight className="w-3.5 h-3.5" />
             </div>
           </Link>

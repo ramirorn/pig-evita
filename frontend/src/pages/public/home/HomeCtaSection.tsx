@@ -36,7 +36,7 @@ export function HomeCtaSection() {
       </svg>
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center pt-12 text-center">
-        <h2 className="font-display mb-6 max-w-4xl text-3xl leading-tight font-bold text-white md:text-4xl">
+        <h2 className="type-h1 mb-6 max-w-4xl text-white">
           ¿Listo para competir? <br className="hidden md:block" />
           Formá parte de la historia deportiva de Formosa
         </h2>
@@ -46,10 +46,10 @@ export function HomeCtaSection() {
         </p>
         <Link
           to={ROUTES.INSCRIPTION}
-          className="group inline-flex items-center gap-3 rounded-full bg-accent-500 px-12 py-5 text-lg font-bold text-primary-900 transition-all duration-300 hover:-translate-y-1 hover:bg-white hover:text-secondary-600 hover:shadow-2xl active:scale-[0.98]"
+          className="group inline-flex items-center gap-3 rounded-full bg-accent-500 px-12 py-5 text-lg font-bold text-primary-900 transition-[background-color,color,box-shadow,transform] duration-200 ease-out-soft hover:bg-white hover:text-secondary-600 hover:shadow-2xl active:scale-[0.98] active:duration-120"
         >
           Inscribirse ahora
-          <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+          <ArrowRight className="h-5 w-5 transition-transform duration-200 ease-out-soft group-hover:translate-x-1" />
         </Link>
       </div>
     </section>

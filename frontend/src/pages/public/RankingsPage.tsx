@@ -87,8 +87,8 @@ export function RankingsPage() {
         {/* Con una sola competencia visible —que es el caso real de hoy— una
             grilla de 3 columnas dejaba dos tercios de fila vacíos. */}
         <div className={columnasSegunVolumen(filteredCompetitions.length)}>
-          {filteredCompetitions.map((competition, idx) => (
-            <CompetitionCard key={competition.id} competition={competition} index={idx} />
+          {filteredCompetitions.map((competition) => (
+            <CompetitionCard key={competition.id} competition={competition} />
           ))}
         </div>
       </PublicListState>

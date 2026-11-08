@@ -7,18 +7,13 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { localIsoFromDate } from '@/lib/datePicker';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { EmptyState } from '@/components/shared/EmptyState';
+import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
+import { FilterPanel } from '@/components/shared/FilterPanel';
 
 // Mock data for audit logs
+type AuditLog = (typeof MOCK_AUDIT_LOGS)[number];
+
 const MOCK_AUDIT_LOGS = [
   { id: '1', action: 'LOGIN', user: 'admin@evita.com', entity: 'Auth', timestamp: new Date().toISOString(), details: 'Inicio de sesión exitoso' },
   { id: '2', action: 'CREATE', user: 'admin@evita.com', entity: 'Competition', timestamp: new Date(Date.now() - 3600000).toISOString(), details: 'Competencia creada: Fútbol Sub 14' },
@@ -49,75 +44,96 @@ export function AuditPage() {
       (!day || localIsoFromDate(new Date(log.timestamp)) === day),
   );
 
+  const columns: DataTableColumn<AuditLog>[] = [
+    {
+      id: 'timestamp',
+      header: 'Fecha y Hora',
+      className: 'text-primary-600 font-mono text-xs tabular-nums',
+      mobile: 'secondary',
+      cell: (log) => new Date(log.timestamp).toLocaleString('es-AR'),
+    },
+    {
+      id: 'user',
+      header: 'Usuario',
+      className: 'font-medium text-primary-900',
+      mobile: 'primary',
+      cell: (log) => log.user,
+    },
+    {
+      id: 'action',
+      header: 'Acción',
+      mobile: 'secondary',
+      cell: (log) => (
+        <Badge variant="outline" className={getActionColor(log.action)}>
+          {log.action}
+        </Badge>
+      ),
+    },
+    {
+      id: 'entity',
+      header: 'Entidad',
+      className: 'text-primary-600',
+      mobile: 'secondary',
+      cell: (log) => log.entity,
+    },
+    {
+      id: 'details',
+      header: 'Detalles',
+      className: 'text-primary-800',
+      mobile: 'secondary',
+      cell: (log) => log.details,
+    },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Auditoría del Sistema"
         description="Registro de actividades, eventos de seguridad y cambios realizados"
         icon={<Shield className="w-5 h-5 text-white" />}
       />
 
-      <div className="card">
-        <div className="p-4 border-b border-primary-100 flex flex-wrap gap-4 items-center">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-            <Input 
-              placeholder="Buscar por usuario o acción..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <DatePicker
-              aria-label="Filtrar por día"
-              value={day}
-              onChange={setDay}
-              wrapperClassName="w-48"
-              pickerLabel="Elegir día"
-            />
-          </div>
-        </div>
-
-        <div className="relative">
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={<Shield className="w-10 h-10" />}
-              title="Sin registros de auditoría"
-              description="No hay eventos registrados que coincidan con la búsqueda."
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha y Hora</TableHead>
-                  <TableHead>Usuario</TableHead>
-                  <TableHead>Acción</TableHead>
-                  <TableHead>Entidad</TableHead>
-                  <TableHead>Detalles</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="text-primary-600 font-mono text-xs">
-                      {new Date(log.timestamp).toLocaleString('es-AR')}
-                    </TableCell>
-                    <TableCell className="font-medium text-primary-900">{log.user}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getActionColor(log.action)}>
-                        {log.action}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-primary-600">{log.entity}</TableCell>
-                    <TableCell className="text-primary-800">{log.details}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      </div>
+      <DataTable
+        entityName="registros de auditoría"
+        columns={columns}
+        rows={filtered}
+        getRowId={(log) => log.id}
+        isLoading={false}
+        hasActiveFilters={Boolean(search.trim() || day)}
+        onClearFilters={() => {
+          setSearch('');
+          setDay('');
+        }}
+        emptyIcon={<Shield className="w-10 h-10" />}
+        emptyTitle="Sin registros de auditoría"
+        emptyDescription="No hay eventos registrados que coincidan con la búsqueda."
+        toolbar={
+          <>
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400"
+                aria-hidden="true"
+              />
+              <Input
+                placeholder="Buscar por usuario o acción..."
+                aria-label="Buscar en la auditoría"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <FilterPanel activeCount={day ? 1 : 0} className="md:w-auto">
+              <DatePicker
+                aria-label="Filtrar por día"
+                value={day}
+                onChange={setDay}
+                wrapperClassName="w-full md:w-48"
+                pickerLabel="Elegir día"
+              />
+            </FilterPanel>
+          </>
+        }
+      />
     </div>
   );
 }

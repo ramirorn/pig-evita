@@ -14,16 +14,9 @@ import { CheckCircle, Clock, Eye, FileText, Loader2, Search, UserRound, X, XCirc
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { ParticipantDocumentsPanel } from '@/components/documents/ParticipantDocumentsPanel';
 import { usePermisos } from '@/hooks/usePermisos';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -97,7 +90,7 @@ export function DocumentsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Documentos"
         description="DNI, ficha médica y demás papeles de cada participante"
@@ -179,7 +172,7 @@ function ParticipantPicker({ onSelect }: { onSelect: (id: string) => void }) {
               <button
                 type="button"
                 onClick={() => onSelect(participant.id)}
-                className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 pointer-coarse:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
               >
                 <span className="min-w-0">
                   <span className="block font-medium text-primary-900 truncate">{fullName(participant)}</span>
@@ -229,6 +222,64 @@ function ParticipantFolder({
   const participant = participantQuery.data;
   const name = participant ? fullName(participant) : 'Participante';
 
+  const documentColumns: DataTableColumn<DocumentEntity>[] = [
+    {
+      id: 'type',
+      header: 'Tipo de documento',
+      rowHeader: true,
+      mobile: 'primary',
+      className: 'font-medium text-primary-900',
+      cell: (doc) => DOCUMENT_TYPE_LABELS[doc.documentType],
+    },
+    {
+      id: 'file',
+      header: 'Archivo',
+      mobile: 'secondary',
+      className: 'max-w-[16rem] truncate text-primary-600',
+      cell: (doc) => doc.originalName,
+    },
+    {
+      id: 'sent',
+      header: 'Fecha de envío',
+      mobile: 'secondary',
+      className: 'tabular-nums',
+      cell: (doc) => formatDate(doc.createdAt),
+    },
+    {
+      id: 'status',
+      header: 'Estado',
+      mobile: 'secondary',
+      cell: (doc) => (
+        <Badge variant="outline" className={DOCUMENT_STATUS_BADGE_CLASSES[doc.status]}>
+          {DOCUMENT_STATUS_LABELS[doc.status]}
+        </Badge>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Acciones',
+      hideHeader: true,
+      interactive: true,
+      mobile: 'actions',
+      headClassName: 'w-[120px] text-right',
+      className: 'text-right',
+      cell: (doc) =>
+        puedeRevisar ? (
+          <Button
+            type="button"
+            variant={doc.status === DocumentStatus.PENDIENTE ? 'default' : 'outline'}
+            size="sm"
+            className="gap-2"
+            onClick={() => setReviewing(doc)}
+            aria-label={`Revisar ${DOCUMENT_TYPE_LABELS[doc.documentType]} de ${name}`}
+          >
+            <Eye className="w-4 h-4" aria-hidden="true" />
+            Revisar
+          </Button>
+        ) : null,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -261,7 +312,7 @@ function ParticipantFolder({
                 <Icon className={cn('w-5 h-5', iconClass)} aria-hidden="true" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-primary-900">{counts[status]}</p>
+                <p className="text-2xl font-bold tabular-nums text-primary-900">{counts[status]}</p>
                 <p className="text-sm text-primary-500">{label}</p>
               </div>
             </div>
@@ -269,72 +320,27 @@ function ParticipantFolder({
         </div>
       )}
 
-      <div className="card">
-        <div className="p-4 border-b border-primary-100">
-          <h2 className="font-bold text-primary-900">Documentos cargados</h2>
-        </div>
-        {documentsQuery.isLoading ? (
-          <p className="p-6 flex items-center gap-2 text-sm text-primary-500" role="status">
-            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-            Cargando documentos…
-          </p>
-        ) : documentsQuery.isError ? (
-          <EmptyState title="No se pudieron cargar los documentos" description="Revisá la conexión y recargá la página." />
-        ) : current.length === 0 ? (
-          <EmptyState
-            icon={<FileText className="w-10 h-10" />}
-            title="Todavía no hay papeles"
-            description={puedeSubir ? 'Subí el DNI y la ficha médica desde acá abajo.' : 'La delegación todavía no subió ningún documento.'}
-          />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tipo de documento</TableHead>
-                <TableHead>Archivo</TableHead>
-                <TableHead>Fecha de envío</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="w-[120px] text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {current.map((doc) => (
-                <TableRow key={doc.id}>
-                  <TableCell className="font-medium text-primary-900">
-                    {DOCUMENT_TYPE_LABELS[doc.documentType]}
-                  </TableCell>
-                  <TableCell className="max-w-[16rem] truncate text-primary-600">{doc.originalName}</TableCell>
-                  <TableCell>{formatDate(doc.createdAt)}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={DOCUMENT_STATUS_BADGE_CLASSES[doc.status]}>
-                      {DOCUMENT_STATUS_LABELS[doc.status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {puedeRevisar && (
-                      <Button
-                        type="button"
-                        variant={doc.status === DocumentStatus.PENDIENTE ? 'default' : 'outline'}
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => setReviewing(doc)}
-                        aria-label={`Revisar ${DOCUMENT_TYPE_LABELS[doc.documentType]} de ${name}`}
-                      >
-                        <Eye className="w-4 h-4" aria-hidden="true" />
-                        Revisar
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+      <DataTable
+        entityName="documentos"
+        columns={documentColumns}
+        rows={current}
+        getRowId={(doc) => doc.id}
+        isLoading={documentsQuery.isLoading}
+        isError={documentsQuery.isError}
+        onRetry={() => void documentsQuery.refetch()}
+        toolbar={<h2 className="type-h3 text-primary-900">Documentos cargados</h2>}
+        emptyIcon={<FileText className="w-10 h-10" />}
+        emptyTitle="Todavía no hay papeles"
+        emptyDescription={
+          puedeSubir
+            ? 'Subí el DNI y la ficha médica desde acá abajo.'
+            : 'La delegación todavía no subió ningún documento.'
+        }
+      />
 
       {puedeSubir && participant && (
         <section className="card p-4 space-y-3" aria-labelledby="documentos-subir">
-          <h2 id="documentos-subir" className="font-bold text-primary-900">
+          <h2 id="documentos-subir" className="type-h3 text-primary-900">
             Subir o reemplazar
           </h2>
           <ParticipantDocumentsPanel participantId={participantId} />

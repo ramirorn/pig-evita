@@ -88,7 +88,7 @@ function FilaIntegrante({
       }`}
     >
       <span
-        className={`w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold ${
+        className={`w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
           integrante.isSubstitute
             ? 'bg-surface text-primary-600 border border-primary-200'
             : 'bg-primary-800 text-white'
@@ -101,7 +101,7 @@ function FilaIntegrante({
         <p className="text-sm font-bold text-primary-900 truncate">
           {integrante.lastName}, {integrante.firstName}
           {integrante.isCaptain && (
-            <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded-md align-middle">
+            <span className="ml-2 inline-flex items-center gap-1 text-xs font-bold text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded-md align-middle">
               <Star className="w-3 h-3" aria-hidden="true" />
               Capitán
             </span>
@@ -193,7 +193,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
     wizard.integrantes.find((integrante) => integrante.id === wizard.editandoId) ?? null;
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5">
       {/* Encabezado pegajoso con el contador */}
       <div className="card p-5 shadow-md space-y-4 sticky top-2 z-20">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -236,14 +236,14 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
                 <button
                   type="button"
                   onClick={wizard.descartarBorrador}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-destructive-600 hover:bg-destructive-700 transition-colors"
+                  className="px-3 py-1.5 pointer-coarse:min-h-11 rounded-lg text-xs font-bold text-white bg-destructive-600 hover:bg-destructive-700 active:bg-destructive-800 transition-colors duration-120"
                 >
                   Sí, descartar
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmandoDescarte(false)}
-                  className="text-xs font-bold text-secondary-800 underline underline-offset-2"
+                  className="text-xs font-bold text-secondary-800 underline underline-offset-2 pointer-coarse:min-h-11 hover:text-secondary-900 active:text-secondary-950 transition-colors duration-120"
                 >
                   No, seguir cargando
                 </button>
@@ -252,7 +252,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
               <button
                 type="button"
                 onClick={() => setConfirmandoDescarte(true)}
-                className="mt-2 text-xs font-bold text-secondary-800 underline underline-offset-2 hover:text-secondary-900"
+                className="mt-2 text-xs font-bold text-secondary-800 underline underline-offset-2 pointer-coarse:min-h-11 hover:text-secondary-900 active:text-secondary-950 transition-colors duration-120"
               >
                 Descartar y empezar de cero
               </button>
@@ -304,7 +304,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-1">
             <label
-              className="block text-[11px] font-bold text-primary-700 uppercase tracking-wider mb-1"
+              className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1"
               htmlFor="equipo-nombre"
             >
               Nombre del equipo *
@@ -323,7 +323,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
           </div>
           <div>
             <label
-              className="block text-[11px] font-bold text-primary-700 uppercase tracking-wider mb-1"
+              className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1"
               htmlFor="equipo-departamento"
             >
               Departamento *
@@ -340,7 +340,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
           </div>
           <div>
             <label
-              className="block text-[11px] font-bold text-primary-700 uppercase tracking-wider mb-1"
+              className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1"
               htmlFor="equipo-localidad"
             >
               Localidad *
@@ -421,7 +421,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
           type="button"
           onClick={wizard.irAConfirmacion}
           disabled={!wizard.completo}
-          className="inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all"
+          className="inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-colors duration-120"
         >
           Revisar el plantel
           <ArrowRight className="w-4 h-4" aria-hidden="true" />

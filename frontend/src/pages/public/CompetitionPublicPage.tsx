@@ -27,15 +27,15 @@ export function CompetitionPublicPage() {
   if (!competition) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-primary-800 mb-4">Competencia no encontrada</h2>
+        <h2 className="type-h2 text-primary-800 mb-4">Competencia no encontrada</h2>
         <Button onClick={() => navigate('/rankings')}>Volver a Rankings</Button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-fade-in">
-      <Button variant="ghost" className="mb-6 -ml-4" onClick={() => navigate('/rankings')}>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <Button variant="ghost" className="mb-6 -ml-4 pointer-coarse:min-h-11" onClick={() => navigate('/rankings')}>
         <ArrowLeft className="w-4 h-4 mr-2" />
         Volver a Torneos
       </Button>
@@ -48,7 +48,7 @@ export function CompetitionPublicPage() {
           <Badge variant="outline" className="bg-white/20 text-white border-white/30 mb-4 uppercase">
             Etapa {STAGE_LABELS[competition.stage as keyof typeof STAGE_LABELS] || competition.stage}
           </Badge>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 break-words">
+          <h1 className="type-h1 mb-4 break-words">
             {competition.name || `${competition.discipline?.name} - ${competition.category?.name}`}
           </h1>
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-primary-100 font-medium">
@@ -71,7 +71,7 @@ export function CompetitionPublicPage() {
             <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
               <Medal className="w-5 h-5 text-primary-600" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-primary-900">Tabla de Posiciones</h2>
+            <h2 className="type-h2 text-primary-900">Tabla de Posiciones</h2>
           </div>
           
           {isLoadingRankings ? (
@@ -87,7 +87,7 @@ export function CompetitionPublicPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
+              <table className="w-full text-sm text-left tabular-nums">
                 <thead className="text-xs text-primary-500 uppercase bg-primary-50">
                   <tr>
                     <th className="px-2 sm:px-4 py-3 rounded-tl-lg">#</th>
@@ -126,7 +126,7 @@ export function CompetitionPublicPage() {
             <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
               <Calendar className="w-5 h-5 text-primary-600" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-primary-900">Fixture y Resultados</h2>
+            <h2 className="type-h2 text-primary-900">Fixture y Resultados</h2>
           </div>
 
           <PublicFixture

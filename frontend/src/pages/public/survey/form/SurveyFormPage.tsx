@@ -49,7 +49,7 @@ export function SurveyFormPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-20 text-center sm:px-6">
         <WifiOff className="mx-auto h-14 w-14 text-primary-600" aria-hidden="true" />
-        <h1 className="font-display mt-6 text-2xl font-extrabold tracking-tight text-primary-800">
+        <h1 className="type-h1 mt-6 text-primary-800">
           No pudimos cargar la encuesta
         </h1>
         <p className="mt-3 text-base leading-relaxed text-primary-700">
@@ -58,7 +58,7 @@ export function SurveyFormPage() {
         <button
           type="button"
           onClick={() => void wizard.recargar()}
-          className="mt-8 inline-flex min-h-14 items-center gap-2 rounded-full bg-primary-800 px-8 py-4 text-base font-bold text-white transition-colors hover:bg-primary-900"
+          className="mt-8 inline-flex min-h-14 items-center gap-2 rounded-full bg-primary-800 px-8 py-4 text-base font-bold text-white transition-colors duration-120 hover:bg-primary-900 active:bg-primary-950"
         >
           <RefreshCw className="h-5 w-5" aria-hidden="true" />
           Probar de nuevo
@@ -76,7 +76,7 @@ export function SurveyFormPage() {
           className="mx-auto h-14 w-14 text-primary-600"
           aria-hidden="true"
         />
-        <h1 className="font-display mt-6 text-2xl font-extrabold tracking-tight text-primary-800">
+        <h1 className="type-h1 mt-6 text-primary-800">
           Todavía no hay una encuesta abierta
         </h1>
         <p className="mt-3 text-base leading-relaxed text-primary-700">
@@ -84,7 +84,7 @@ export function SurveyFormPage() {
         </p>
         <Link
           to={ROUTES.SURVEY}
-          className="mt-8 inline-flex min-h-14 items-center justify-center rounded-full border-2 border-primary-700 px-8 py-4 text-base font-bold text-primary-800 transition-colors hover:bg-primary-50"
+          className="mt-8 inline-flex min-h-14 items-center justify-center rounded-full border-2 border-primary-700 px-8 py-4 text-base font-bold text-primary-800 transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100"
         >
           Ver de qué se trata
         </Link>
@@ -107,7 +107,7 @@ export function SurveyFormPage() {
             <button
               type="button"
               onClick={wizard.descartarAvisoDeBorrador}
-              className="shrink-0 text-sm font-bold text-primary-700 underline hover:text-primary-900"
+              className="shrink-0 text-sm font-bold text-primary-700 underline transition-colors duration-120 hover:text-primary-900 active:text-primary-950 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
             >
               Entendido
             </button>

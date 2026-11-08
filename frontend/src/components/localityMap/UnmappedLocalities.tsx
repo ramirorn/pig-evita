@@ -23,7 +23,7 @@ export function UnmappedLocalities({ localities }: UnmappedLocalitiesProps) {
       aria-labelledby="sin-ubicacion"
       className="rounded-2xl border border-amber-200 bg-amber-50 p-5"
     >
-      <h2 id="sin-ubicacion" className="flex items-center gap-2 text-base font-bold text-amber-900">
+      <h2 id="sin-ubicacion" className="type-h3 flex items-center gap-2 text-amber-900">
         <MapPinOff className="h-5 w-5" aria-hidden="true" />
         Sin ubicación en el mapa
       </h2>
@@ -35,8 +35,8 @@ export function UnmappedLocalities({ localities }: UnmappedLocalitiesProps) {
         {localities.map((l, i) => (
           <li key={`${l.locality}-${l.department}-${i}`} className="rounded-xl bg-white px-4 py-3 text-sm shadow-sm">
             <p className="font-semibold text-primary-800">{l.locality}</p>
-            <p className="text-xs text-primary-500">Departamento {l.department}</p>
-            <p className="mt-1 text-primary-700">
+            <p className="text-xs text-primary-600">Departamento {l.department}</p>
+            <p className="mt-1 text-primary-700 tabular-nums">
               {[
                 formatMetric(l.athletes, 'athletes'),
                 formatMetric(l.delegations, 'delegations'),

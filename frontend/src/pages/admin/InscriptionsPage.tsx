@@ -59,6 +59,7 @@ export function InscriptionsPage() {
     {
       id: 'qr',
       header: 'Código QR',
+      mobile: 'secondary',
       // Identidad de la fila. No lleva link primario: la navegación al detalle
       // ya la ofrece el botón "Revisar", y la spec pide un solo `<a>` por fila.
       rowHeader: true,
@@ -69,6 +70,7 @@ export function InscriptionsPage() {
     {
       id: 'applicant',
       header: 'Solicitante',
+      mobile: 'primary',
       headClassName: 'min-w-[200px]',
       cell: (inscription) => (
         <>
@@ -82,12 +84,14 @@ export function InscriptionsPage() {
     {
       id: 'category',
       header: 'Categoría',
+      mobile: 'secondary',
       className: 'text-primary-600',
       cell: (inscription) => inscription.category?.name,
     },
     {
       id: 'team',
       header: 'Equipo (Opcional)',
+      mobile: 'secondary',
       cell: (inscription) =>
         inscription.team ? (
           <span className="font-medium text-primary-700">{inscription.team.name}</span>
@@ -100,6 +104,7 @@ export function InscriptionsPage() {
     {
       id: 'status',
       header: 'Estado',
+      mobile: 'secondary',
       // El badge memoizado de T26: la tabla se re-renderiza en cada tecla del
       // buscador y sus props son primitivas, así que el `memo` evita N renders.
       cell: (inscription) => <InscriptionStatusBadge status={inscription.status} />,
@@ -107,6 +112,7 @@ export function InscriptionsPage() {
     {
       id: 'action',
       header: 'Acción',
+      mobile: 'actions',
       interactive: true,
       headClassName: 'text-right w-[110px]',
       className: 'text-right',
@@ -124,7 +130,7 @@ export function InscriptionsPage() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Inscripciones"
         description="Gestión y revisión de solicitudes de inscripción"

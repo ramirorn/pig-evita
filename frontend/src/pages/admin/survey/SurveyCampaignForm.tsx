@@ -1,6 +1,7 @@
 // ===========================================
 // SurveyCampaignForm — datos de la campaña (S20)
 // ===========================================
+import { NumberField } from '@/components/ui/number-field';
 import { Loader2 } from 'lucide-react';
 import type { SurveyCampaign } from '@/types';
 import { CompetitionStage, SurveyWindow } from '@/types';
@@ -93,16 +94,14 @@ export function SurveyCampaignForm({
                   Año de la edición *
                 </FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    className="bg-white"
-                    value={field.value ?? ''}
-                    onChange={(e) =>
-                      // El input entrega texto: sin esta conversión el schema
-                      // recibe un string y el mensaje de error habla de tipos.
-                      field.onChange(e.target.value === '' ? undefined : Number(e.target.value))
-                    }
+                  <NumberField
+                    wrapperClassName="bg-white"
+                    stepper={false}
+                    min={0}
+                    // El campo entrega un número (o `undefined` si queda vacío):
+                    // el schema nunca recibe un string.
+                    value={field.value}
+                    onValueChange={field.onChange}
                     onBlur={field.onBlur}
                     name={field.name}
                     ref={field.ref}

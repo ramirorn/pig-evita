@@ -1,6 +1,8 @@
 // ===========================================
 // Category Form Component
 // ===========================================
+import { NumberField } from '@/components/ui/number-field';
+import { Switch } from '@/components/ui/switch';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +36,8 @@ import { logError } from '@/lib/logger';
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
 /** Input numérico vacío → `null`, que es lo que el schema y la API esperan. */
-const aEntero = (valor: string) => (valor ? parseInt(valor, 10) : null);
+// El campo numérico entrega `undefined` cuando queda vacío; acá un vacío viaja como `null`.
+const aEntero = (valor: number | undefined) => valor ?? null;
 
 /**
  * El par del criterio que no se eligió viaja en `null`. En el formulario se
@@ -211,12 +214,14 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
                 <FormItem>
                   <FormLabel>Año de nacimiento desde</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
+                    <NumberField
+                      min={0}
                       placeholder="Ej. 2012"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -232,12 +237,14 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
                 <FormItem>
                   <FormLabel>Año de nacimiento hasta</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
+                    <NumberField
+                      min={0}
                       placeholder="Ej. 2014"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -255,11 +262,13 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
                 <FormItem>
                   <FormLabel>Edad Mínima</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                    <NumberField
+                      min={0}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -275,11 +284,13 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
                 <FormItem>
                   <FormLabel>Edad Máxima</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                    <NumberField
+                      min={0}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -326,12 +337,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
                 </p>
               </div>
               <FormControl>
-                <input
-                  type="checkbox"
-                  checked={field.value}
-                  onChange={field.onChange}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
             </FormItem>
           )}

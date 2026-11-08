@@ -117,7 +117,7 @@ export function TeamsAdminPage() {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Equipos"
         description="Gestión de equipos inscriptos y listas de buena fe"

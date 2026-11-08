@@ -83,7 +83,7 @@ export function CompetitionDetailPage() {
   if (!competition) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-primary-800">Competencia no encontrada</h2>
+        <h2 className="type-h2 text-primary-800">Competencia no encontrada</h2>
         <Button variant="link" onClick={() => navigate(volverA)}>Volver al listado</Button>
       </div>
     );
@@ -112,7 +112,7 @@ export function CompetitionDetailPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto">
       <Breadcrumbs
         items={[
           puedeGestionar

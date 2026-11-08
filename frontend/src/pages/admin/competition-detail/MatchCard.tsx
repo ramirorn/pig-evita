@@ -2,7 +2,7 @@
 // MatchCard — tarjeta de un partido del fixture
 // ===========================================
 import { useState } from 'react';
-import { ClipboardPen } from 'lucide-react';
+import { ClipboardPen, MapPin } from 'lucide-react';
 import type { Match, ResultType } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,17 +45,17 @@ export function MatchCard({
     tieneCompetidores && !paseDirecto && (finalizado ? puedeCorregir : puedeCargar);
 
   return (
-    <div className="border border-primary-100 rounded-xl p-4 bg-white hover:shadow-md transition-shadow">
+    <div className="border border-primary-100 rounded-xl p-4 bg-white">
       <div className="flex items-center justify-between text-sm mb-2">
         <Badge variant="outline" className={
-          match.status === 'PROGRAMADO' ? 'text-blue-600 bg-blue-50 border-blue-200' :
-          match.status === 'EN_CURSO' ? 'text-orange-600 bg-orange-50 border-orange-200' :
-          match.status === 'FINALIZADO' ? 'text-green-600 bg-green-50 border-green-200' :
-          'text-red-600 bg-red-50 border-red-200'
+          match.status === 'PROGRAMADO' ? 'text-primary-700 bg-primary-50 border-primary-200' :
+          match.status === 'EN_CURSO' ? 'text-accent-800 bg-accent-50 border-accent-300' :
+          match.status === 'FINALIZADO' ? 'text-secondary-700 bg-secondary-50 border-secondary-200' :
+          'text-destructive-700 bg-destructive-50 border-destructive-200'
         }>
           {match.status}
         </Badge>
-        <span className="text-xs text-primary-400">
+        <span className="text-xs text-primary-500 tabular-nums">
           Partido #{match.matchNumber}
         </span>
       </div>
@@ -69,7 +69,7 @@ export function MatchCard({
           <div className="flex-1 pl-3 text-xs font-semibold text-primary-500">Pasa directo</div>
         ) : (
           <>
-            <div className="flex items-center gap-1 font-black text-primary-800 bg-primary-50 px-3 py-1 rounded-lg min-w-[60px] justify-center">
+            <div className="flex items-center gap-1 font-black tabular-nums text-primary-800 bg-primary-50 px-3 py-1 rounded-lg min-w-[60px] justify-center">
               <span>{formatearMarcador(izquierda, resultType)}</span>
               <span className="text-primary-300">:</span>
               <span>{formatearMarcador(derecha, resultType)}</span>
@@ -83,8 +83,9 @@ export function MatchCard({
         )}
       </div>
       {match.venue && (
-        <p className="text-xs text-primary-400 mt-2 text-center">
-          📍 {match.venue.name}
+        <p className="text-xs text-primary-500 mt-2 flex items-center justify-center gap-1">
+          <MapPin className="w-3 h-3 shrink-0" aria-hidden="true" />
+          {match.venue.name}
         </p>
       )}
       {mostrarAccion && (

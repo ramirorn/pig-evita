@@ -13,7 +13,7 @@
 export function PageSkeleton() {
   return (
     <div
-      className="space-y-6 animate-pulse"
+      className="min-h-[calc(100dvh-8rem)] space-y-6 motion-safe:animate-pulse"
       role="status"
       aria-live="polite"
       aria-busy="true"

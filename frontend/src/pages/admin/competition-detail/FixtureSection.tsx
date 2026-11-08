@@ -67,7 +67,7 @@ export function FixtureSection({
   return (
     <div className="card p-6">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="font-bold text-primary-900 text-lg">Fixture y Partidos</h3>
+        <h3 className="type-h3 text-primary-900">Fixture y Partidos</h3>
         {!hasMatches && puedeGestionar && (
           <Button 
             onClick={onGenerate} 

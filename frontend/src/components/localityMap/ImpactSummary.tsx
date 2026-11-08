@@ -20,13 +20,13 @@ import { GEO_DEPARTMENTS } from '@/lib/geo/formosa.generated';
  */
 function Kpi({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
-    <div className="group flex h-16 items-center gap-3 rounded-2xl border border-white/50 bg-white/90 px-4 shadow-[0_20px_40px_-15px_rgba(0,45,108,0.15)] backdrop-blur-xl">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 transition-colors duration-300 group-hover:bg-accent-500 group-hover:text-primary-900">
+    <div className="group flex min-h-16 items-center gap-2.5 rounded-2xl border border-white/50 bg-white/90 px-3 shadow-[0_20px_40px_-15px_rgba(0,45,108,0.15)] backdrop-blur-xl">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-800 transition-colors duration-200 ease-out-soft sm:h-10 sm:w-10 group-hover:bg-accent-500 group-hover:text-primary-900">
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="font-display text-xl font-black leading-none text-primary-800">{value.toLocaleString('es-AR')}</p>
-        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-normal text-primary-600 sm:text-[11px] sm:tracking-widest">{label}</p>
+        <p className="font-display text-xl font-black leading-none text-primary-800 tabular-nums">{value.toLocaleString('es-AR')}</p>
+        <p className="mt-1 truncate text-xs font-semibold uppercase tracking-normal text-primary-600 sm:tracking-wider">{label}</p>
       </div>
     </div>
   );
@@ -58,10 +58,10 @@ export function TopLocalities({ rows, metric, onSelect }: TopLocalitiesProps) {
 
   return (
     <section aria-labelledby="top-localidades">
-      <h2 id="top-localidades" className="text-base font-bold text-primary-800">
+      <h2 id="top-localidades" className="type-h3 text-primary-800">
         Top 5 localidades
       </h2>
-      <p className="text-xs text-primary-500">Por cantidad de {info.plural}. Tocá una para ver el detalle.</p>
+      <p className="text-xs text-primary-600">Por cantidad de {info.plural}. Tocá una para ver el detalle.</p>
 
       {rows.length === 0 ? (
         <p className="mt-3 text-sm text-primary-600">Ninguna localidad registra {info.plural} todavía.</p>
@@ -73,10 +73,10 @@ export function TopLocalities({ rows, metric, onSelect }: TopLocalitiesProps) {
               <>
                 <div className="flex items-baseline justify-between gap-2 text-sm">
                   <span className="min-w-0 truncate font-medium text-primary-800">
-                    <span className="mr-1.5 text-primary-400">{i + 1}.</span>
+                    <span className="mr-1.5 text-primary-600 tabular-nums">{i + 1}.</span>
                     {r.name}
                   </span>
-                  <span className="shrink-0 font-semibold text-primary-700">{formatMetric(valor, metric)}</span>
+                  <span className="shrink-0 font-semibold text-primary-700 tabular-nums">{formatMetric(valor, metric)}</span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-primary-50" aria-hidden="true">
                   <div
@@ -93,7 +93,7 @@ export function TopLocalities({ rows, metric, onSelect }: TopLocalitiesProps) {
                     type="button"
                     data-locality-id={r.key}
                     onClick={(e) => onSelect(r.key, e.currentTarget)}
-                    className="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500"
+                    className="block w-full rounded-lg px-2 py-1.5 text-left transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-primary-500"
                   >
                     {contenido}
                   </button>
@@ -128,14 +128,14 @@ export function DepartmentRanking({ departments, metric }: DepartmentRankingProp
 
   return (
     <section aria-labelledby="ranking-departamentos">
-      <h2 id="ranking-departamentos" className="text-base font-bold text-primary-800">
+      <h2 id="ranking-departamentos" className="type-h3 text-primary-800">
         Por departamento
       </h2>
       <ul className="mt-2 space-y-1 text-sm">
         {filas.map((f) => (
           <li key={f.name} className="flex items-center justify-between gap-2 px-2 py-0.5">
             <span className="min-w-0 truncate text-primary-800">{f.name}</span>
-            <span className={f.valor > 0 ? 'shrink-0 font-semibold text-primary-700' : 'shrink-0 text-xs text-primary-400'}>
+            <span className={f.valor > 0 ? 'shrink-0 font-semibold text-primary-700 tabular-nums' : 'shrink-0 text-xs text-primary-600'}>
               {f.valor > 0 ? formatMetric(f.valor, metric) : 'Sin participación'}
             </span>
           </li>

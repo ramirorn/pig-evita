@@ -1,6 +1,8 @@
 // ===========================================
 // Discipline Form Component
 // ===========================================
+import { NumberField } from '@/components/ui/number-field';
+import { Switch } from '@/components/ui/switch';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -178,10 +180,13 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
               <FormItem>
                 <FormLabel>Jugadores Mínimos</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    {...field} 
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} 
+                  <NumberField
+                    min={0}
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    value={field.value}
+                    onValueChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />
@@ -196,10 +201,13 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
               <FormItem>
                 <FormLabel>Jugadores Máximos</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    {...field} 
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} 
+                  <NumberField
+                    min={0}
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    value={field.value}
+                    onValueChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />
@@ -232,15 +240,14 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
                   <FormItem>
                     <FormLabel>Titulares</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
+                      <NumberField
                         min={1}
                         placeholder="Ej. 11"
-                        {...field}
-                        value={field.value ?? ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
-                        }
+                        name={field.name}
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        value={field.value}
+                        onValueChange={field.onChange}
                       />
                     </FormControl>
                     <FormMessage />
@@ -255,15 +262,14 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
                   <FormItem>
                     <FormLabel>Suplentes máximos</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
+                      <NumberField
                         min={0}
                         placeholder="Ej. 5"
-                        {...field}
-                        value={field.value ?? ''}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          field.onChange(e.target.value ? parseInt(e.target.value) : undefined)
-                        }
+                        name={field.name}
+                        ref={field.ref}
+                        onBlur={field.onBlur}
+                        value={field.value}
+                        onValueChange={field.onChange}
                       />
                     </FormControl>
                     <FormMessage />
@@ -286,12 +292,7 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
                 </p>
               </div>
               <FormControl>
-                <input
-                  type="checkbox"
-                  checked={field.value}
-                  onChange={field.onChange}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
             </FormItem>
           )}

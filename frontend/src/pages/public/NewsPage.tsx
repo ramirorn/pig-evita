@@ -151,14 +151,14 @@ export function NewsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 aria-label="Buscar noticias"
-                className="h-10 rounded-full border-primary-200 bg-surface-elevated pr-10 pl-11 text-sm shadow-sm focus-visible:ring-primary-500"
+                className="h-10 pointer-coarse:h-11 rounded-full border-primary-200 bg-surface-elevated pr-10 pl-11 text-sm shadow-sm focus-visible:ring-primary-500"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
                   aria-label="Limpiar la búsqueda de noticias"
-                  className="absolute top-1/2 right-3 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-primary-500 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-primary-600"
+                  className="absolute top-1/2 right-3 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-primary-500 transition-colors duration-120 hover:text-primary-800 active:bg-primary-100 pointer-coarse:h-11 pointer-coarse:w-11 focus-visible:outline-2 focus-visible:outline-primary-600"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -269,14 +269,14 @@ export function NewsPage() {
                             cuenta lecturas. */}
                         <h2
                           id="mas-recientes-titulo"
-                          className="font-display text-lg font-bold text-primary-900"
+                          className="type-h2 text-primary-900"
                         >
                           Más recientes
                         </h2>
                         <button
                           type="button"
                           onClick={abrirTodas}
-                          className="rounded-md text-sm font-semibold text-primary-600 underline-offset-4 hover:text-primary-800 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                          className="rounded-md text-sm font-semibold text-primary-600 underline-offset-4 transition-colors duration-120 hover:text-primary-800 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
                         >
                           Ver todas<span className="sr-only"> las noticias</span>
                         </button>
@@ -322,7 +322,7 @@ export function NewsPage() {
                   <button
                     type="button"
                     onClick={abrirTodas}
-                    className="rounded-full border border-primary-200 bg-surface-elevated px-5 py-2 text-sm font-semibold text-primary-700 shadow-sm hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+                    className="rounded-full border border-primary-200 bg-surface-elevated px-5 py-2 text-sm font-semibold text-primary-700 shadow-sm transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
                   >
                     Ver todas las noticias en lista
                   </button>
@@ -336,12 +336,15 @@ export function NewsPage() {
   );
 }
 
-/** Encabezado de sección con la barrita de color de la referencia. */
+/**
+ * Encabezado de sección con una regla corta arriba (no es un estado: es sólo
+ * jerarquía, así que no va como borde lateral de color).
+ */
 function TituloDeSeccion({ id, children }: { id: string; children: React.ReactNode }) {
   return (
     <h2
       id={id}
-      className="font-display mb-4 border-l-4 border-primary-600 pl-3 text-xl leading-tight font-bold text-primary-900"
+      className="type-h2 mb-4 relative pt-3 before:absolute before:top-0 before:left-0 before:h-0.5 before:w-10 before:rounded-full before:bg-primary-600 before:content-[''] text-primary-900"
     >
       {children}
     </h2>
@@ -386,9 +389,9 @@ function Mosaico({ noticias }: { noticias: readonly News[] }) {
 function GrillaDeNotas({ noticias }: { noticias: readonly News[] }) {
   return (
     <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {noticias.map((n, idx) => (
+      {noticias.map((n) => (
         <li key={n.id}>
-          <NewsCard news={n} index={idx} />
+          <NewsCard news={n} />
         </li>
       ))}
     </ul>
@@ -438,17 +441,17 @@ function Resultados({
           id="resultados-titulo"
           ref={tituloRef}
           tabIndex={-1}
-          className="font-display scroll-mt-24 border-l-4 border-primary-600 pl-3 text-xl font-bold text-primary-900 focus:outline-none"
+          className="type-h2 scroll-mt-24 relative pt-3 before:absolute before:top-0 before:left-0 before:h-0.5 before:w-10 before:rounded-full before:bg-primary-600 before:content-[''] text-primary-900 focus:outline-none"
         >
           {hayFiltro ? 'Resultados' : 'Todas las noticias'}
           {meta && (
-            <span className="ml-2 text-base font-semibold text-primary-600">({meta.total})</span>
+            <span className="ml-2 text-base font-semibold text-primary-600 tabular-nums">({meta.total})</span>
           )}
         </h2>
         <button
           type="button"
           onClick={onVolver}
-          className="inline-flex items-center gap-1.5 rounded-full text-sm font-semibold text-primary-600 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+          className="inline-flex items-center gap-1.5 rounded-full text-sm font-semibold text-primary-600 transition-colors duration-120 hover:text-primary-800 active:text-primary-900 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Volver a la portada

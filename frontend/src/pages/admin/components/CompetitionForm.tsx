@@ -63,7 +63,7 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
                   value={field.value || ''} 
                 />
               </FormControl>
-              <FormDescription className="text-[11px] text-primary-500">
+              <FormDescription className="text-xs text-primary-500">
                 Si se omite, se generará automáticamente con el nombre de la disciplina y categoría.
               </FormDescription>
               <FormMessage />

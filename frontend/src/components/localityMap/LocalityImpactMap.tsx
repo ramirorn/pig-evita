@@ -1,6 +1,7 @@
 // ===========================================
 // LocalityImpactMap — mapa de calor de la participación por localidad
 // ===========================================
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   useCallback,
   useEffect,
@@ -246,8 +247,8 @@ export function LocalityImpactMap({
             aria-pressed={metric === m.value}
             onClick={() => setMetric(m.value)}
             className={cn(
-              'shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary-500',
-              metric === m.value ? 'bg-white text-primary-800 shadow-sm' : 'text-primary-600 hover:text-primary-800',
+              'shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-120 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-primary-500',
+              metric === m.value ? 'bg-white text-primary-800 shadow-sm' : 'text-primary-600 hover:text-primary-800 active:bg-white/60',
             )}
           >
             {m.label}
@@ -350,7 +351,7 @@ export function LocalityImpactMap({
       aria-label={pantalla.activo ? 'Salir de pantalla completa' : 'Ver mapa en pantalla completa'}
       title={pantalla.activo ? 'Salir de pantalla completa' : 'Ver mapa en pantalla completa'}
       onClick={() => void (pantalla.activo ? pantalla.salir() : pantalla.entrar())}
-      className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-100 bg-white/90 text-primary-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500 pointer-coarse:h-11 pointer-coarse:w-11"
+      className="flex h-9 w-9 items-center justify-center rounded-lg border border-primary-100 bg-white/90 text-primary-700 shadow-sm backdrop-blur-sm transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 focus-visible:outline-2 focus-visible:outline-primary-500 pointer-coarse:h-11 pointer-coarse:w-11"
     >
       {pantalla.activo ? <Minimize className="h-4 w-4" aria-hidden="true" /> : <Maximize className="h-4 w-4" aria-hidden="true" />}
     </button>
@@ -365,16 +366,13 @@ export function LocalityImpactMap({
       }
     >
       <MapLegend metric={metric} points={points} hasZeros={hayCeros} compact={pantalla.activo && !esEscritorio} />
-      <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-primary-600">
-        <input
-          type="checkbox"
-          checked={showAll}
-          onChange={(e) => setShowAll(e.target.checked)}
-          className="h-4 w-4 cursor-pointer rounded border-primary-300 accent-primary-700"
-        />
-        Mostrar localidades sin participación
-      </label>
-      <p className="text-[11px] leading-tight text-primary-400">
+      <Checkbox
+        checked={showAll}
+        onCheckedChange={setShowAll}
+        label="Mostrar localidades sin participación"
+        labelClassName="text-xs"
+      />
+      <p className="text-xs leading-tight text-primary-600">
         Fuente: {GEO_SOURCE} (CC BY 4.0).
         {/* Fecha ausente o inválida: se omite la frase, no se muestra "—". */}
         {actualizado !== '—' && ` Datos al ${actualizado.replace(/\.$/, '')}.`}
@@ -407,13 +405,13 @@ export function LocalityImpactMap({
         >
           {pantalla.activo && (
             <div className="flex h-[52px] shrink-0 items-center gap-3 border-b border-primary-100 bg-white px-3 lg:h-14 lg:px-4">
-              <p className="hidden shrink-0 font-display text-base font-bold text-primary-800 lg:block">Mapa de impacto</p>
+              <p className="type-h3 hidden shrink-0 text-primary-800 lg:block">Mapa de impacto</p>
               <div className="min-w-0 flex-1">{selector}</div>
               <button
                 ref={salirRef}
                 type="button"
                 onClick={() => void pantalla.salir()}
-                className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 text-sm font-semibold text-primary-800 hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-primary-500 lg:h-9"
+                className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 text-sm font-semibold text-primary-800 transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 focus-visible:outline-2 focus-visible:outline-primary-500 lg:h-9"
               >
                 <Minimize className="h-4 w-4" aria-hidden="true" />
                 Salir

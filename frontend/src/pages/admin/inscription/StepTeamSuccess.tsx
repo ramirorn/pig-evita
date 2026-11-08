@@ -42,7 +42,7 @@ function Credencial({ member }: { member: TeamInscriptionMember }) {
           <p className="font-extrabold text-primary-900 leading-tight truncate">
             {member.lastName}, {member.firstName}
             {member.isCaptain && (
-              <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded-md align-middle">
+              <span className="ml-2 inline-flex items-center gap-1 text-xs font-bold text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded-md align-middle">
                 <Star className="w-3 h-3" aria-hidden="true" />
                 Capitán
               </span>
@@ -81,7 +81,7 @@ export function StepTeamSuccess({ wizard }: { wizard: TeamInscriptionWizard }) {
         <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-secondary-50 flex items-center justify-center border-4 border-secondary-200 shadow-sm">
           <CheckCircle2 className="w-9 h-9 text-secondary-600" aria-hidden="true" />
         </div>
-        <h2 className="text-2xl md:text-3xl font-extrabold text-primary-900 tracking-tight">
+        <h2 className="type-h2 text-primary-900">
           Plantel inscripto
         </h2>
         <p className="text-primary-600 text-sm mt-1 max-w-lg mx-auto">
@@ -120,7 +120,7 @@ export function StepTeamSuccess({ wizard }: { wizard: TeamInscriptionWizard }) {
         <button
           type="button"
           onClick={() => window.print()}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-primary-800 bg-white border border-primary-200 hover:bg-primary-50 transition-all"
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-primary-800 bg-white border border-primary-200 hover:bg-primary-50 transition-colors duration-120"
         >
           <Printer className="w-3.5 h-3.5" aria-hidden="true" />
           Imprimir todas las credenciales
@@ -128,7 +128,7 @@ export function StepTeamSuccess({ wizard }: { wizard: TeamInscriptionWizard }) {
         <button
           type="button"
           onClick={wizard.limpiarTodo}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-primary-800 hover:bg-primary-900 shadow-sm transition-all"
+          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-primary-800 hover:bg-primary-900 shadow-sm transition-colors duration-120"
         >
           <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
           Inscribir otro plantel

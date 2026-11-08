@@ -25,7 +25,7 @@ export function NewsOriginChip({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] leading-4 font-bold tracking-wide text-white uppercase shadow-sm',
+        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs leading-4 font-bold tracking-wide text-white uppercase shadow-sm',
         externa ? 'bg-primary-600' : 'bg-secondary-500',
         className,
       )}

@@ -1,6 +1,8 @@
 // ===========================================
 // Venue Form Component
 // ===========================================
+import { NumberField } from '@/components/ui/number-field';
+import { Switch } from '@/components/ui/switch';
 import type { Venue } from '@/types';
 import { useVenueForm } from './venue/useVenueForm';
 import { VenueCoordinateFields } from './venue/VenueCoordinateFields';
@@ -153,19 +155,18 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
                 Capacidad Estimada (personas)
               </FormLabel>
               <FormControl>
-                <Input
-                  type="number"
-                  min="0"
+                <NumberField
+                  min={0}
                   placeholder="Ej. 1500"
-                  className="bg-white h-10"
-                  value={field.value ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    field.onChange(val === '' ? undefined : parseInt(val, 10));
-                  }}
+                  wrapperClassName="bg-white h-10"
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={field.value}
+                  onValueChange={field.onChange}
                 />
               </FormControl>
-              <FormDescription className="text-[11px] text-primary-500">
+              <FormDescription className="text-xs text-primary-500">
                 Opcional. Aforo estimado de espectadores o participantes simultáneos.
               </FormDescription>
               <FormMessage />
@@ -186,17 +187,12 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
                   <CheckCircle2 className="w-4 h-4 text-primary-600" />
                   Sede Habilitada / Activa
                 </FormLabel>
-                <FormDescription className="text-[11px] text-primary-500">
+                <FormDescription className="text-xs text-primary-500">
                   Las sedes activas están disponibles para asignar partidos y eventos.
                 </FormDescription>
               </div>
               <FormControl>
-                <input
-                  type="checkbox"
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
             </FormItem>
           )}

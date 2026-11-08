@@ -83,7 +83,7 @@ export function LocalityDetailCard({
           ref={cerrarRef}
           type="button"
           onClick={onClose}
-          className="-ml-1 mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-sm font-medium text-primary-600 hover:text-primary-800 focus-visible:outline-2 focus-visible:outline-primary-500"
+          className="-ml-1 mb-3 inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-sm font-medium text-primary-600 transition-colors duration-120 hover:text-primary-800 active:text-primary-900 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-primary-500"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {closeText}
@@ -92,10 +92,10 @@ export function LocalityDetailCard({
 
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 id={tituloId} className="text-lg font-bold leading-tight text-primary-800">
+          <h2 id={tituloId} className="type-h3 text-primary-800">
             {name}
           </h2>
-          <p className="mt-0.5 text-sm text-primary-500">
+          <p className="mt-0.5 text-sm text-primary-600">
             {KIND_LABELS[kind]} · Departamento {department}
           </p>
         </div>
@@ -104,7 +104,7 @@ export function LocalityDetailCard({
             ref={cerrarRef}
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-primary-500 transition-colors hover:bg-primary-50 hover:text-primary-700 focus-visible:outline-2 focus-visible:outline-primary-500"
+            className="rounded-lg p-1.5 text-primary-500 transition-colors duration-120 hover:bg-primary-50 hover:text-primary-700 active:bg-primary-100 pointer-coarse:p-3 focus-visible:outline-2 focus-visible:outline-primary-500"
             aria-label={`Cerrar el detalle de ${name}`}
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -122,15 +122,15 @@ export function LocalityDetailCard({
               { label: 'Categorías', valor: figures.categories },
             ].map((c) => (
               <div key={c.label} className="rounded-xl bg-primary-50 px-3 py-2">
-                <dt className="text-xs font-medium text-primary-500">{c.label}</dt>
-                <dd className="text-xl font-bold text-primary-800">{c.valor.toLocaleString('es-AR')}</dd>
+                <dt className="text-xs font-medium text-primary-600">{c.label}</dt>
+                <dd className="text-xl font-bold text-primary-800 tabular-nums">{c.valor.toLocaleString('es-AR')}</dd>
               </div>
             ))}
           </dl>
 
           <h3 className="mt-4 text-sm font-semibold text-primary-800">Posiciones obtenidas</h3>
           {sinPodios ? (
-            <p className="mt-1.5 text-sm text-primary-500">Sin podios ni victorias todavía.</p>
+            <p className="mt-1.5 text-sm text-primary-600">Sin podios ni victorias todavía.</p>
           ) : (
             <ul className="mt-2 space-y-1.5 text-sm">
               {PUESTOS.map((p) => {
@@ -141,7 +141,7 @@ export function LocalityDetailCard({
                       <Medal className={cn('h-4 w-4', p.icon)} aria-hidden="true" />
                       {p.label}
                     </span>
-                    <span className="font-semibold text-primary-800">{n}</span>
+                    <span className="font-semibold text-primary-800 tabular-nums">{n}</span>
                   </li>
                 );
               })}
@@ -155,13 +155,13 @@ export function LocalityDetailCard({
                   <Trophy className="h-4 w-4 text-secondary-500" aria-hidden="true" />
                   Victorias
                 </span>
-                <span className="font-semibold text-primary-800">{figures.wins}</span>
+                <span className="font-semibold text-primary-800 tabular-nums">{figures.wins}</span>
               </li>
             </ul>
           )}
 
           {otrosNombres.length > 0 && (
-            <p className="mt-3 text-xs text-primary-500">
+            <p className="mt-3 text-xs text-primary-600">
               En las inscripciones figura como: {otrosNombres.join(', ')}.
             </p>
           )}

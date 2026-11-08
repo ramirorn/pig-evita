@@ -34,7 +34,7 @@ export function AdminLayout() {
       {/* Main content area */}
       <div
         className={cn(
-          'transition-all duration-300 ease-in-out',
+          'transition-[margin] duration-320 ease-out-soft',
           // On desktop, shift based on sidebar state
           'md:ml-[260px]',
           sidebarCollapsed && 'md:ml-[72px]',

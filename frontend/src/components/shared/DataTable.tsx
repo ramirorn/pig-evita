@@ -58,6 +58,26 @@ export interface DataTableColumn<TRow> {
   className?: string;
   /** Clases extra para el `<th>` de la cabecera (anchos mínimos, alineación). */
   headClassName?: string;
+  /**
+   * Rol de la columna en el layout móvil (< `md`). **Opt-in:** si ninguna
+   * columna define `mobile`, la tabla se comporta como siempre (scroll
+   * horizontal). En cuanto UNA columna lo define, por debajo de `md` cada fila
+   * se pinta como una tarjeta apilada y la tabla sólo se ve desde `md`.
+   *
+   * - `'primary'`: título de la tarjeta (y ancla del link de fila, si hay `rowLink`).
+   * - `'secondary'`: línea `etiqueta: valor` bajo el título. Es el valor por
+   *   defecto de las columnas sin `mobile` cuando el layout está activo.
+   * - `'actions'`: va en la esquina superior derecha (menú de acciones). Se
+   *   eleva sobre el link de la tarjeta.
+   * - `'hidden'`: no aparece en la tarjeta.
+   *
+   * @example
+   * { id: 'name', header: 'Nombre', rowHeader: true, mobile: 'primary', cell: r => r.name },
+   * { id: 'sede', header: 'Sede', mobile: 'secondary', cell: r => r.venue },
+   * { id: 'notes', header: 'Notas', mobile: 'hidden', cell: r => r.notes },
+   * { id: 'actions', header: 'Acciones', hideHeader: true, interactive: true, mobile: 'actions', cell: r => <RowMenu row={r} /> },
+   */
+  mobile?: 'primary' | 'secondary' | 'actions' | 'hidden';
 }
 
 /** Destino del link primario de una fila (patrón "link + overlay"). */
@@ -166,6 +186,9 @@ export function DataTable<TRow>({
     return () => window.clearTimeout(timer);
   }, [caption, isLoading, isError]);
 
+  // Layout móvil de tarjetas: opt-in por columna (ver `DataTableColumn.mobile`).
+  const hasMobileLayout = columns.some((column) => column.mobile !== undefined);
+
   // Contrato interno: si la fila es clickeable, alguna columna tiene que ser la
   // de identidad. Se avisa en desarrollo en vez de fallar en silencio.
   const hasRowHeader = columns.some((column) => column.rowHeader);
@@ -181,7 +204,7 @@ export function DataTable<TRow>({
   }
 
   return (
-    <div className={cn('card shadow-xs animate-fade-in', className)}>
+    <div className={cn('card shadow-xs', className)}>
       {toolbar && (
         <div className="p-4 border-b border-primary-100 flex flex-col md:flex-row items-stretch md:items-center gap-3">
           {toolbar}
@@ -204,9 +227,22 @@ export function DataTable<TRow>({
           />
         ) : (
           <>
+            {hasMobileLayout && (
+              <MobileCards
+                entityName={entityName}
+                columns={columns}
+                rows={rows}
+                getRowId={getRowId}
+                rowLink={rowLink}
+                isRowInactive={isRowInactive}
+                isFetching={isFetching}
+              />
+            )}
             <Table
               aria-busy={isFetching || undefined}
               containerProps={{
+                // Con layout móvil de tarjetas, la tabla sólo se muestra desde `md`.
+                className: hasMobileLayout ? 'hidden md:block' : undefined,
                 // Si la tabla desborda, este div es el único que scrollea: sin
                 // `tabIndex` no hay forma de alcanzarlo con el teclado.
                 role: 'region',
@@ -336,6 +372,104 @@ export function DataTable<TRow>({
 }
 
 // -------------------------------------------
+// Layout móvil (tarjetas apiladas)
+// -------------------------------------------
+
+interface MobileCardsProps<TRow> {
+  entityName: string;
+  columns: ReadonlyArray<DataTableColumn<TRow>>;
+  rows: readonly TRow[];
+  getRowId: (row: TRow) => string;
+  rowLink?: (row: TRow) => DataTableRowLink | null;
+  isRowInactive?: (row: TRow) => boolean;
+  isFetching: boolean;
+}
+
+/**
+ * Una tarjeta por fila, visible sólo por debajo de `md`.
+ *
+ * Mantiene el patrón "link + overlay" de la tabla: el link vive en la primera
+ * columna `primary` y se estira sobre la tarjeta; el menú de acciones queda por
+ * encima (`relative z-10`) para seguir siendo clickeable.
+ */
+function MobileCards<TRow>({
+  entityName,
+  columns,
+  rows,
+  getRowId,
+  rowLink,
+  isRowInactive,
+  isFetching,
+}: MobileCardsProps<TRow>) {
+  const roleOf = (column: DataTableColumn<TRow>) => column.mobile ?? 'secondary';
+  const primary = columns.filter((column) => roleOf(column) === 'primary');
+  const secondary = columns.filter((column) => roleOf(column) === 'secondary');
+  const actions = columns.filter((column) => roleOf(column) === 'actions');
+
+  return (
+    <ul
+      aria-label={`Lista de ${entityName}`}
+      className={cn('md:hidden divide-y divide-primary-100', isFetching && 'opacity-60 pointer-events-none')}
+    >
+      {rows.map((row) => {
+        const link = rowLink?.(row) ?? null;
+        const inactive = isRowInactive?.(row) ?? false;
+
+        return (
+          <li
+            key={getRowId(row)}
+            className={cn(
+              'relative flex items-start gap-3 p-4 transition-colors duration-120',
+              link && 'active:bg-primary-50 has-[a:focus-visible]:bg-primary-50/60',
+              inactive && 'bg-surface',
+            )}
+          >
+            <div className="min-w-0 flex-1 space-y-2">
+              {primary.map((column, index) => (
+                <div key={column.id} className="font-medium text-primary-900">
+                  {index === 0 && link ? (
+                    <Link
+                      to={link.to}
+                      aria-label={link.label}
+                      className="text-primary-700 after:absolute after:inset-0 after:content-['']"
+                    >
+                      {column.cell(row)}
+                    </Link>
+                  ) : (
+                    column.cell(row)
+                  )}
+                </div>
+              ))}
+
+              {secondary.length > 0 && (
+                <dl className="space-y-1 text-sm">
+                  {secondary.map((column) => (
+                    <div key={column.id} className="flex items-baseline justify-between gap-3">
+                      <dt className="shrink-0 text-xs text-primary-600">{column.header}</dt>
+                      <dd className={cn('min-w-0 text-right text-primary-900', inactive && 'text-primary-700')}>
+                        {column.cell(row)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </div>
+
+            {actions.length > 0 && (
+              <div className="relative z-10 -mr-1 -mt-1 flex shrink-0 items-center gap-1">
+                {actions.map((column) => (
+                  <div key={column.id}>{column.cell(row)}</div>
+                ))}
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+// -------------------------------------------
 // Estados
 // -------------------------------------------
 
@@ -390,12 +524,12 @@ function ErrorState({ entityName, onRetry }: { entityName: string; onRetry?: () 
   return (
     <div
       role="alert"
-      className="flex flex-col items-center justify-center py-16 px-6 text-center animate-fade-in"
+      className="flex flex-col items-center justify-center py-16 px-6 text-center"
     >
       <div className="w-20 h-20 rounded-full bg-destructive-50 border-2 border-destructive-500/20 flex items-center justify-center mb-6">
         <AlertTriangle className="w-10 h-10 text-destructive-600" aria-hidden="true" />
       </div>
-      <h3 className="text-lg font-semibold text-primary-800 mb-1.5">
+      <h3 className="type-h3 text-primary-800 mb-1.5">
         No pudimos cargar los datos
       </h3>
       {/* Texto fijo: nunca el mensaje crudo del backend (coherente con T16). */}

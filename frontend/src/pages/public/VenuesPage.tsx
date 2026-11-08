@@ -113,7 +113,7 @@ export function VenuesPage() {
                   decorativo —el significado está en el texto de al lado— y por
                   eso va con `aria-hidden`. */}
               <Building2 className="h-4 w-4 text-accent-700" aria-hidden="true" />
-              {totalDeSedes} sede{totalDeSedes !== 1 ? 's' : ''} activa{totalDeSedes !== 1 ? 's' : ''}
+              <span className="tabular-nums">{totalDeSedes}</span> sede{totalDeSedes !== 1 ? 's' : ''} activa{totalDeSedes !== 1 ? 's' : ''}
             </div>
           ) : undefined
         }
@@ -128,10 +128,10 @@ export function VenuesPage() {
               aria-pressed={departamento === opcion}
               onClick={() => setDepartamento(opcion)}
               className={cn(
-                'inline-flex min-h-11 items-center rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors',
+                'inline-flex min-h-11 items-center rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors duration-120 active:bg-primary-900 pointer-coarse:min-h-11',
                 departamento === opcion
                   ? 'bg-primary-800 text-white'
-                  : 'border border-primary-400 bg-white text-primary-600 hover:bg-primary-50',
+                  : 'border border-primary-400 bg-white text-primary-600 hover:bg-primary-50 active:bg-primary-100',
               )}
             >
               {opcion === TODOS ? 'Todos los departamentos' : opcion}
@@ -157,11 +157,10 @@ export function VenuesPage() {
         }
       >
         <div className={columnasSegunVolumen(sedes.length)}>
-          {sedes.map((venue, idx) => (
+          {sedes.map((venue) => (
             <VenueCard
               key={venue.id}
               venue={venue}
-              index={idx}
               eventosProgramados={
                 eventosPorSede === null ? null : eventosPorSede.get(venue.id) ?? 0
               }

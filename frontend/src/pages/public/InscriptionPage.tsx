@@ -47,17 +47,17 @@ export function InscriptionPage() {
       {/* Header Institucional */}
       <header className="bg-white border-b border-primary-100 shadow-xs sticky top-0 z-30">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link to={ROUTES.HOME} className="flex items-center gap-3 group">
+          <Link to={ROUTES.HOME} className="group flex items-center gap-3 rounded-lg active:opacity-80 transition-opacity duration-120">
             <img
               src="/logo-sinfondo.png"
               alt="Juegos Evita Formoseños"
-              className="h-11 w-auto object-contain transition-transform group-hover:scale-105"
+              className="h-11 w-auto object-contain transition-transform duration-200 ease-out-soft group-hover:scale-105"
             />
             <div>
               <span className="text-base font-extrabold text-primary-800 tracking-tight block leading-tight">
                 Juegos Evita Formoseños
               </span>
-              <span className="text-[10px] text-accent-600 font-bold uppercase tracking-widest block leading-tight">
+              <span className="type-eyebrow text-accent-700 tracking-widest block leading-tight">
                 Inscripciones 2026
               </span>
             </div>
@@ -65,7 +65,7 @@ export function InscriptionPage() {
 
           <Link
             to={ROUTES.HOME}
-            className="text-xs font-semibold text-primary-600 hover:text-primary-800 flex items-center gap-1 transition-colors"
+            className="-mr-2 flex items-center gap-1 rounded-lg px-2 py-2 text-sm font-semibold text-primary-600 transition-colors duration-120 hover:text-primary-800 active:text-primary-900 pointer-coarse:min-h-11"
           >
             ← Volver al Inicio
           </Link>
@@ -85,10 +85,10 @@ export function InscriptionPage() {
                 // arranca una inscripción nueva en vez de mostrar la anterior.
                 if (wizard.step === 4) wizard.setStep(1);
               }}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors duration-120 pointer-coarse:min-h-11 ${
                 activeTab === 'register'
                   ? 'bg-primary-800 text-white shadow-sm'
-                  : 'text-primary-600 hover:text-primary-800 hover:bg-primary-50'
+                  : 'text-primary-600 hover:text-primary-800 hover:bg-primary-50 active:bg-primary-100'
               }`}
             >
               <ClipboardList className="w-4 h-4" />
@@ -97,10 +97,10 @@ export function InscriptionPage() {
             <button
               type="button"
               onClick={() => setActiveTab('track')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors duration-120 pointer-coarse:min-h-11 ${
                 activeTab === 'track'
                   ? 'bg-primary-800 text-white shadow-sm'
-                  : 'text-primary-600 hover:text-primary-800 hover:bg-primary-50'
+                  : 'text-primary-600 hover:text-primary-800 hover:bg-primary-50 active:bg-primary-100'
               }`}
             >
               <Search className="w-4 h-4" />

@@ -25,12 +25,12 @@ export function TrackInscription({
   onSubmit,
 }: TrackInscriptionProps) {
   return (
-    <div className="max-w-xl mx-auto space-y-6 animate-fade-in">
+    <div className="max-w-xl mx-auto space-y-6">
       <div className="text-center mb-6">
         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-primary-800 to-primary-600 flex items-center justify-center shadow-md">
           <QrCode className="w-7 h-7 text-accent-500" />
         </div>
-        <h2 className="text-2xl font-extrabold text-primary-800 tracking-tight mb-1">
+        <h2 className="type-h2 text-primary-800 mb-1">
           Consultar Estado de Inscripción
         </h2>
         <p className="text-primary-600 text-xs">
@@ -60,7 +60,7 @@ export function TrackInscription({
         </div>
         <button
           type="submit"
-          className="px-5 py-2.5 rounded-xl bg-primary-800 hover:bg-primary-900 text-white font-bold text-xs shadow-xs transition-all"
+          className="pointer-coarse:min-h-11 px-5 py-2.5 rounded-xl bg-primary-800 hover:bg-primary-900 active:bg-primary-950 text-white font-bold text-xs shadow-xs transition-[background-color,border-color,box-shadow,color] duration-120"
         >
           Buscar
         </button>
@@ -80,7 +80,7 @@ export function TrackInscription({
           <XCircle className="w-5 h-5 text-destructive-500 flex-shrink-0" />
           <div>
             <p className="font-bold">Inscripción no encontrada</p>
-            <p className="text-[11px] mt-0.5">
+            <p className="text-xs mt-0.5">
               No se encontró ningún registro para el código <span className="font-mono font-semibold">{submittedQr}</span>. Verificá los caracteres ingresados.
             </p>
           </div>
@@ -92,7 +92,7 @@ export function TrackInscription({
         <div className="card p-6 border-2 border-primary-100 shadow-lg space-y-4 animate-scale-in">
           <div className="flex items-center justify-between pb-3 border-b border-primary-100">
             <div>
-              <span className="text-[10px] font-bold text-primary-400 uppercase tracking-wider block">
+              <span className="text-xs font-bold text-primary-400 uppercase tracking-wider block">
                 Código de Inscripción
               </span>
               <span className="font-mono text-base font-extrabold text-primary-900">
@@ -168,7 +168,7 @@ export function TrackInscription({
               </div>
               {/* El motivo del rechazo es una nota interna: se consulta con el delegado,
                   no se expone en esta pantalla pública. */}
-              <p className="text-[11px] pl-6">
+              <p className="text-xs pl-6">
                 Consultá el motivo con el delegado responsable de tu institución.
               </p>
             </div>

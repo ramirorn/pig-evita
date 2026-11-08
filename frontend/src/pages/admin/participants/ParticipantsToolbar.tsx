@@ -4,6 +4,7 @@
 import { Search } from 'lucide-react';
 import type { Category, Discipline } from '@/types';
 import type { ParticipantListFilters } from './participantFilters';
+import { FilterPanel } from '@/components/shared/FilterPanel';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -38,6 +39,13 @@ export function ParticipantsToolbar({
   categories,
   mostrarFiltroDepartamento,
 }: ParticipantsToolbarProps) {
+  const activeCount = [
+    filters.disciplineId !== 'all',
+    filters.categoryId !== 'all',
+    mostrarFiltroDepartamento && filters.department.trim() !== '',
+    filters.locality.trim() !== '',
+  ].filter(Boolean).length;
+
   return (
     <>
       <div className="relative flex-1 min-w-[200px]">
@@ -54,6 +62,7 @@ export function ParticipantsToolbar({
         />
       </div>
 
+      <FilterPanel activeCount={activeCount} className="md:w-auto">
       <Select
         value={filters.disciplineId}
         // Cambiar de disciplina invalida la categoría elegida: las categorías
@@ -108,6 +117,7 @@ export function ParticipantsToolbar({
         onChange={(e) => onChange({ locality: e.target.value })}
         className="w-full md:w-[180px]"
       />
+      </FilterPanel>
     </>
   );
 }

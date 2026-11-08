@@ -47,13 +47,13 @@ export function UpcomingEventsPanel({ eventos, sedePorId, estado }: UpcomingEven
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2
           id="proximos-eventos-titulo"
-          className="font-display text-lg font-bold text-white"
+          className="type-h2 text-white"
         >
           Próximos eventos
         </h2>
         <Link
           to="/calendario"
-          className="rounded-md text-sm font-semibold text-primary-100 underline-offset-4 hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
+          className="rounded-md text-sm font-semibold text-primary-100 underline-offset-4 transition-colors duration-120 hover:text-white hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
         >
           Ver todos<span className="sr-only"> los eventos del calendario</span>
         </Link>
@@ -78,7 +78,7 @@ export function UpcomingEventsPanel({ eventos, sedePorId, estado }: UpcomingEven
           </p>
           <Link
             to="/calendario"
-            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-primary-900 transition-colors hover:bg-primary-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
+            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-primary-900 transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-400"
           >
             Ir al calendario
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -110,7 +110,7 @@ function RenglonDeEvento({ evento, sede }: { evento: CalendarEvent; sede: string
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-primary-100">
           {fechaValida ? (
-            <time dateTime={claveDia(inicio)}>
+            <time dateTime={claveDia(inicio)} className="tabular-nums">
               <span aria-hidden="true">
                 {diaDeSemanaCorto(inicio)} {inicio.getDate()} {mesCorto(inicio)}
               </span>
@@ -124,7 +124,7 @@ function RenglonDeEvento({ evento, sede }: { evento: CalendarEvent; sede: string
             // sobre su propio fondo), así que también se leen sobre el panel.
             <span
               className={cn(
-                'inline-flex items-center rounded-full px-2 py-px text-[11px] font-bold leading-4',
+                'inline-flex items-center rounded-full px-2 py-px text-xs font-bold leading-4',
                 estilo.chip,
               )}
             >

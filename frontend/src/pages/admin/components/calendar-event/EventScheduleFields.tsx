@@ -1,6 +1,7 @@
 // ===========================================
 // EventScheduleFields — bloque de fecha, hora y duración del evento
 // ===========================================
+import { Checkbox } from '@/components/ui/checkbox';
 import type { CalendarEventFormApi } from './useCalendarEventForm';
 
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -136,13 +137,13 @@ export function EventScheduleFields({ form }: { form: CalendarEventFormApi }) {
 
       {/* Atajos rápidos de hora alineados en una sola fila prolija */}
       <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-        <span className="text-[11px] font-medium text-primary-500 mr-1">Atajos de hora:</span>
+        <span className="text-xs font-medium text-primary-500 mr-1">Atajos de hora:</span>
         {COMMON_START_HOURS.map((hour) => (
           <button
             key={hour}
             type="button"
             onClick={() => form.setValue('startTime', hour)}
-            className={`text-xs px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+            className={`text-xs tabular-nums px-2 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded-md border transition-colors duration-120 cursor-pointer active:bg-primary-200 ${
               watchStartTime === hour
                 ? 'bg-primary-600 text-white border-primary-600 font-semibold shadow-xs'
                 : 'bg-white text-primary-700 border-primary-200 hover:bg-primary-100 hover:border-primary-300'
@@ -159,23 +160,18 @@ export function EventScheduleFields({ form }: { form: CalendarEventFormApi }) {
           control={form.control}
           name="hasEndDate"
           render={({ field }) => (
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={field.value}
-                onChange={(e) => {
-                  field.onChange(e.target.checked);
-                  if (e.target.checked && !form.getValues('endDate')) {
-                    form.setValue('endDate', form.getValues('startDate') || '');
-                    shiftEndByHours(form, 2);
-                  }
-                }}
-                className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-              />
-              <span className="text-xs font-semibold text-primary-900">
-                Definir fecha y hora de finalización (opcional)
-              </span>
-            </label>
+            <Checkbox
+              checked={field.value}
+              onCheckedChange={(checked) => {
+                field.onChange(checked);
+                if (checked && !form.getValues('endDate')) {
+                  form.setValue('endDate', form.getValues('startDate') || '');
+                  shiftEndByHours(form, 2);
+                }
+              }}
+              label="Definir fecha y hora de finalización (opcional)"
+              labelClassName="text-xs font-semibold"
+            />
           )}
         />
 
@@ -221,13 +217,13 @@ export function EventScheduleFields({ form }: { form: CalendarEventFormApi }) {
 
             {/* Atajos de duración */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-medium text-primary-500 mr-1">Duración rápida:</span>
+              <span className="text-xs font-medium text-primary-500 mr-1">Duración rápida:</span>
               {[1, 2, 3].map((hours) => (
                 <button
                   key={hours}
                   type="button"
                   onClick={() => shiftEndByHours(form, hours)}
-                  className="text-xs px-2 py-0.5 rounded-md border border-primary-200 bg-white text-primary-700 hover:bg-primary-50"
+                  className="text-xs px-2 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded-md border border-primary-200 bg-white text-primary-700 transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100"
                 >
                   +{hours}h
                 </button>
@@ -238,7 +234,7 @@ export function EventScheduleFields({ form }: { form: CalendarEventFormApi }) {
                   form.setValue('endTime', '23:59');
                   form.setValue('endDate', form.getValues('startDate'));
                 }}
-                className="text-xs px-2 py-0.5 rounded-md border border-primary-200 bg-white text-primary-700 hover:bg-primary-50"
+                className="text-xs px-2 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded-md border border-primary-200 bg-white text-primary-700 transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100"
               >
                 Fin del día (23:59)
               </button>

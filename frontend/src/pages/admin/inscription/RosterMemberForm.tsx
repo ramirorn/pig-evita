@@ -1,6 +1,7 @@
 // ===========================================
 // RosterMemberForm — el alta (o la corrección) de un integrante
 // ===========================================
+import { Checkbox } from '@/components/ui/checkbox';
 import { useEffect, useState } from 'react';
 import type React from 'react';
 import { UserPlus, Save, X, AlertCircle, Star } from 'lucide-react';
@@ -102,7 +103,7 @@ const CLASE_INPUT =
 const CLASE_FECHA =
   'rounded-xl border-primary-200 bg-white sm:h-10 text-sm font-medium text-primary-900 placeholder:text-primary-300';
 const CLASE_LABEL =
-  'block text-[11px] font-bold text-primary-700 uppercase tracking-wider mb-1';
+  'block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1';
 
 interface RosterMemberFormProps {
   /** El integrante en edición, o `null` para un alta nueva. */
@@ -209,7 +210,7 @@ export function RosterMemberForm({
               disabled={!puedeSerTitular}
               aria-pressed={!estado.isSubstitute}
               onClick={() => patch({ isSubstitute: false })}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-colors duration-120 border disabled:opacity-40 disabled:cursor-not-allowed ${
                 estado.isSubstitute
                   ? 'border-primary-200 text-primary-600 hover:bg-surface'
                   : 'bg-primary-50 border-primary-500 text-primary-800 shadow-xs'
@@ -222,7 +223,7 @@ export function RosterMemberForm({
               disabled={!puedeSerSuplente}
               aria-pressed={estado.isSubstitute}
               onClick={() => patch({ isSubstitute: true })}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-colors duration-120 border disabled:opacity-40 disabled:cursor-not-allowed ${
                 estado.isSubstitute
                   ? 'bg-primary-50 border-primary-500 text-primary-800 shadow-xs'
                   : 'border-primary-200 text-primary-600 hover:bg-surface'
@@ -234,16 +235,20 @@ export function RosterMemberForm({
         </div>
 
         <div className="flex items-end">
-          <label className="flex items-center gap-2 cursor-pointer select-none px-3 py-2 rounded-xl border border-primary-200 w-full">
-            <input
-              type="checkbox"
+          <div className="w-full rounded-xl border border-primary-200 px-3 py-2 transition-colors duration-120 hover:bg-primary-50">
+            <Checkbox
               checked={estado.isCaptain}
-              onChange={(e) => patch({ isCaptain: e.target.checked })}
-              className="h-4 w-4 rounded border-primary-300 text-primary-800 focus:ring-primary-500"
+              onCheckedChange={(checked) => patch({ isCaptain: checked })}
+              wrapperClassName="w-full items-center gap-2"
+              labelClassName="inline-flex items-center gap-2 text-xs font-bold text-primary-800"
+              label={
+                <>
+                  <Star className="w-4 h-4 text-accent-600" aria-hidden="true" />
+                  Es capitán del equipo
+                </>
+              }
             />
-            <Star className="w-4 h-4 text-accent-600" aria-hidden="true" />
-            <span className="text-xs font-bold text-primary-800">Es capitán del equipo</span>
-          </label>
+          </div>
         </div>
       </div>
 
@@ -272,7 +277,7 @@ export function RosterMemberForm({
               type="button"
               aria-pressed={estado.sex === Sex.MASCULINO}
               onClick={() => patch({ sex: Sex.MASCULINO })}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-colors duration-120 border ${
                 estado.sex === Sex.MASCULINO
                   ? 'bg-primary-50 border-primary-500 text-primary-800 shadow-xs'
                   : 'border-primary-200 text-primary-600 hover:bg-surface'
@@ -284,7 +289,7 @@ export function RosterMemberForm({
               type="button"
               aria-pressed={estado.sex === Sex.FEMENINO}
               onClick={() => patch({ sex: Sex.FEMENINO })}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-colors duration-120 border ${
                 estado.sex === Sex.FEMENINO
                   ? 'bg-primary-50 border-primary-500 text-primary-800 shadow-xs'
                   : 'border-primary-200 text-primary-600 hover:bg-surface'
@@ -459,7 +464,7 @@ export function RosterMemberForm({
       <div className="flex justify-end">
         <button
           type="submit"
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 shadow-md transition-all"
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 shadow-md transition-colors duration-120"
         >
           {editando ? (
             <>

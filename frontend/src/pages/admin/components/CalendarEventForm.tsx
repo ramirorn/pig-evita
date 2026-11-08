@@ -1,6 +1,7 @@
 // ===========================================
 // Calendar Event Form Component
 // ===========================================
+import { Switch } from '@/components/ui/switch';
 import type { CalendarEvent } from '@/types';
 import { useCalendarEventForm } from './calendar-event/useCalendarEventForm';
 import { EventScheduleFields } from './calendar-event/EventScheduleFields';
@@ -87,12 +88,7 @@ export function CalendarEventForm({ initialData, onSuccess, onCancel }: Calendar
           render={({ field }) => (
             <FormItem className="flex items-center gap-3 space-y-0 rounded-lg border border-primary-100 p-3 bg-primary-50/40">
               <FormControl>
-                <input
-                  type="checkbox"
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
               <div className="space-y-0.5">
                 <FormLabel className="text-sm font-semibold text-primary-900 cursor-pointer">

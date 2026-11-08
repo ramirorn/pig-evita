@@ -27,14 +27,14 @@ export function ParticipantDetailPage() {
   if (!participant) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-primary-800">Participante no encontrado</h2>
+        <h2 className="type-h2 text-primary-800">Participante no encontrado</h2>
         <Button variant="link" onClick={() => navigate(ROUTES.PARTICIPANTS)}>Volver al padrón</Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <Breadcrumbs
         items={[
           { label: 'Participantes', path: ROUTES.PARTICIPANTS },
@@ -47,7 +47,7 @@ export function ParticipantDetailPage() {
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-primary-800">
+          <h1 className="type-h1 text-primary-800">
             {participant.lastName}, {participant.firstName}
           </h1>
           <div className="flex gap-2 text-sm text-primary-500 mt-1">
@@ -61,7 +61,7 @@ export function ParticipantDetailPage() {
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-1 space-y-6">
           <div className="card p-6 space-y-4">
-            <h3 className="font-semibold text-primary-900 border-b border-primary-100 pb-2 flex items-center gap-2">
+            <h3 className="type-h3 text-primary-900 border-b border-primary-100 pb-2 flex items-center gap-2">
               <Users className="w-4 h-4 text-primary-500" />
               Datos Personales
             </h3>
@@ -102,7 +102,7 @@ export function ParticipantDetailPage() {
         <div className="md:col-span-2 space-y-6">
           <div className="card">
             <div className="p-4 border-b border-primary-100">
-              <h3 className="font-semibold text-primary-900">Historial Deportivo</h3>
+              <h3 className="type-h3 text-primary-900">Historial Deportivo</h3>
             </div>
             <div className="p-8 text-center text-primary-500 text-sm">
               <p>El participante aún no pertenece a ningún equipo en la edición actual.</p>

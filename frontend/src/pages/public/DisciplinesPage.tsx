@@ -55,14 +55,14 @@ export function DisciplinesPage() {
               // `min-h-11` = 44 px, el blanco de toque de WCAG 2.5.5. Con
               // `py-2` quedaban en 36, y este sitio se consume sobre todo
               // desde el celular.
-              'inline-flex min-h-11 items-center rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors',
+              'inline-flex min-h-11 items-center rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors duration-120 active:bg-primary-900 pointer-coarse:min-h-11',
               filter === f.value
                 ? 'bg-primary-800 text-white'
                 // El borde es la única señal de dónde termina el control:
                 // `primary-200` sobre blanco da 1.73:1 y `primary-300` 2.48:1,
                 // los dos por debajo del 3:1 que AA pide para el borde de un
                 // control. `primary-400` da 3.75:1.
-                : 'border border-primary-400 bg-white text-primary-600 hover:bg-primary-50',
+                : 'border border-primary-400 bg-white text-primary-600 hover:bg-primary-50 active:bg-primary-100',
             )}
           >
             {f.label}
@@ -89,8 +89,8 @@ export function DisciplinesPage() {
         {/* El reparto de columnas es función del volumen: con las 5 disciplinas
             cargadas, `xl:grid-cols-4` dejaba una fila de 4 y una huérfana. */}
         <div className={columnasSegunVolumen(filtered.length)}>
-          {filtered.map((discipline, idx) => (
-            <DisciplineCard key={discipline.id} discipline={discipline} index={idx} />
+          {filtered.map((discipline) => (
+            <DisciplineCard key={discipline.id} discipline={discipline} />
           ))}
         </div>
       </PublicListState>
