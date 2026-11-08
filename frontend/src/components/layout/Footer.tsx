@@ -82,6 +82,10 @@ export function Footer() {
                 src="/logo-sinfondo.png"
                 alt=""
                 aria-hidden="true"
+                width={41}
+                height={48}
+                loading="lazy"
+                decoding="async"
                 className="h-12 w-auto object-contain drop-shadow-sm"
               />
               <div>

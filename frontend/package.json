@@ -15,6 +15,7 @@
     "check:map": "node scripts/check-map.mjs",
     "check:venues": "node scripts/check-venues.mjs",
     "check:pickers": "node scripts/check-pickers.mjs",
+    "check:palette": "node scripts/check-palette.mjs",
     "check:controls": "node scripts/check-controls.mjs",
     "check:news-images": "node scripts/check-news-images.mjs",
     "geo:build": "node scripts/geo/build-geo.mjs",

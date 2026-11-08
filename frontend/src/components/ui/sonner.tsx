@@ -15,6 +15,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      richColors
+      closeButton
+      duration={5000}
+      toastOptions={{
+        closeButtonAriaLabel: "Cerrar aviso",
+        classNames: { toast: "font-sans text-sm" },
+      }}
+      containerAriaLabel="Notificaciones"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,
@@ -32,6 +40,19 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-text": "var(--color-popover-foreground)",
           "--normal-border": "var(--color-primary-100)",
           "--border-radius": "var(--radius-lg)",
+          // richColors mapeado a los tokens semánticos (texto 800 sobre fondo 50: AA).
+          "--success-bg": "var(--color-success-50)",
+          "--success-text": "var(--color-success-800)",
+          "--success-border": "var(--color-success-200)",
+          "--warning-bg": "var(--color-warning-50)",
+          "--warning-text": "var(--color-warning-800)",
+          "--warning-border": "var(--color-warning-200)",
+          "--error-bg": "var(--color-destructive-50)",
+          "--error-text": "var(--color-destructive-700)",
+          "--error-border": "var(--color-destructive-500)",
+          "--info-bg": "var(--color-primary-50)",
+          "--info-text": "var(--color-primary-800)",
+          "--info-border": "var(--color-primary-200)",
         } as React.CSSProperties
       }
       {...props}

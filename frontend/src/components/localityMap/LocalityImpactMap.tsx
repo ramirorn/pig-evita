@@ -11,6 +11,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
+import { useSearchParams } from 'react-router';
 import { AlertTriangle, Map as MapIcon, Maximize, Minimize, RotateCcw } from 'lucide-react';
 import { GEO_AREAS, GEO_POINTS, GEO_SOURCE } from '@/lib/geo/formosa.generated';
 import {
@@ -113,7 +114,14 @@ export function LocalityImpactMap({
   placement,
 }: LocalityImpactMapProps) {
   const [metric, setMetric] = useState<MapMetric>('athletes');
-  const [selected, setSelected] = useState<string | null>(null);
+  // `?localidad=<id>` (los chips de sedes y competencias) abre el detalle de
+  // esa localidad y centra el mapa en ella. Un id que el mapa no conoce se ignora.
+  const [params] = useSearchParams();
+  const [idInicial] = useState<string | null>(() => {
+    const id = params.get('localidad');
+    return id && LUGARES.has(id) ? id : null;
+  });
+  const [selected, setSelected] = useState<string | null>(idInicial);
   const [showAll, setShowAll] = useState(false);
   const esEscritorio = useMediaQuery(ESCRITORIO);
 
@@ -133,7 +141,9 @@ export function LocalityImpactMap({
   // recalcula sólo si cambian la métrica o los datos, nunca con el zoom).
   const points = useMemo(() => buildHeatPoints(model, metric), [model, metric]);
   const hayCeros = GEO_AREAS.length + GEO_POINTS.length > points.length;
-  const [centerRequest, setCenterRequest] = useState<{ id: string; seq: number } | null>(null);
+  const [centerRequest, setCenterRequest] = useState<{ id: string; seq: number } | null>(
+    idInicial ? { id: idInicial, seq: 1 } : null,
+  );
   const top = useMemo(() => topLocalities(rows, metric), [rows, metric]);
 
   const cerrar = useCallback(() => {
@@ -237,7 +247,7 @@ export function LocalityImpactMap({
     <div
       role="group"
       aria-label="Qué muestra el mapa"
-      className="-mx-4 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:shrink-0 md:overflow-visible md:px-0"
+      className="relative -mx-4 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:shrink-0 md:overflow-visible md:px-0"
     >
       <div className="flex shrink-0 gap-1 rounded-xl bg-primary-50 p-1">
         {METRIC_OPTIONS.map((m) => (

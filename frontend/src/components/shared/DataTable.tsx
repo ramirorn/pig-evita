@@ -226,7 +226,7 @@ export function DataTable<TRow>({
             action={emptyAction}
           />
         ) : (
-          <>
+          <div className="animate-crossfade min-w-0">
             {hasMobileLayout && (
               <MobileCards
                 entityName={entityName}
@@ -341,7 +341,7 @@ export function DataTable<TRow>({
                 Actualizando resultados…
               </span>
             )}
-          </>
+          </div>
         )}
 
         {/* Live region estable: el anuncio llega con debounce, sin interrumpir. */}

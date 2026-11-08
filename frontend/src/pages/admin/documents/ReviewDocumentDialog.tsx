@@ -140,7 +140,7 @@ function ReviewDocumentContent({
             aria-describedby={noteError ? noteErrorId : undefined}
             autoFocus
           />
-          <p id={noteErrorId} role="alert" className="text-xs text-red-700 min-h-4">
+          <p id={noteErrorId} role="alert" className="text-xs text-destructive-700 min-h-4">
             {noteError}
           </p>
         </div>

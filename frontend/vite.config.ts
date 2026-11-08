@@ -14,6 +14,21 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Vendors estables en chunks propios: cambian poco y se cachean entre
+        // deploys. `recharts` NO tiene grupo: forzarlo a un chunk nombrado lo hacía
+        // aparecer en el modulepreload de la entrada; así queda sólo detrás del
+        // import dinámico del gráfico.
+        advancedChunks: {
+          groups: [
+            { name: 'react-vendor', test: /node_modules[\/](react|react-dom|scheduler|react-router)[\/]/, priority: 20 },
+          ],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

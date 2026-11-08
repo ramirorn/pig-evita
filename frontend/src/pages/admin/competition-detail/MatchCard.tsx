@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { ClipboardPen, MapPin } from 'lucide-react';
 import type { Match, ResultType } from '@/types';
+import { MATCH_STATUS_LABELS } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatearMarcador } from './matchScore';
@@ -45,23 +46,23 @@ export function MatchCard({
     tieneCompetidores && !paseDirecto && (finalizado ? puedeCorregir : puedeCargar);
 
   return (
-    <div className="border border-primary-100 rounded-xl p-4 bg-white">
+    <article className="border border-primary-100 rounded-xl p-4 bg-white">
       <div className="flex items-center justify-between text-sm mb-2">
         <Badge variant="outline" className={
           match.status === 'PROGRAMADO' ? 'text-primary-700 bg-primary-50 border-primary-200' :
           match.status === 'EN_CURSO' ? 'text-accent-800 bg-accent-50 border-accent-300' :
           match.status === 'FINALIZADO' ? 'text-secondary-700 bg-secondary-50 border-secondary-200' :
-          'text-destructive-700 bg-destructive-50 border-destructive-200'
+          'text-destructive-700 bg-destructive-50 border-destructive/30'
         }>
-          {match.status}
+          {MATCH_STATUS_LABELS[match.status as keyof typeof MATCH_STATUS_LABELS] ?? match.status}
         </Badge>
-        <span className="text-xs text-primary-500 tabular-nums">
+        <span className="text-xs text-primary-600 tabular-nums">
           Partido #{match.matchNumber}
         </span>
       </div>
       <div className="flex items-center gap-3 text-sm">
         <div className="flex-1 text-right">
-          <span className={`font-semibold ${izquierda?.isWinner ? 'text-green-700' : 'text-primary-900'}`}>
+          <span className={`font-semibold ${izquierda?.isWinner ? 'text-success-700' : 'text-primary-900'}`}>
             {nombreDelLado(izquierda, rotuloPorDefecto(0, hayLocalia))}
           </span>
         </div>
@@ -75,7 +76,7 @@ export function MatchCard({
               <span>{formatearMarcador(derecha, resultType)}</span>
             </div>
             <div className="flex-1">
-              <span className={`font-semibold ${derecha?.isWinner ? 'text-green-700' : 'text-primary-900'}`}>
+              <span className={`font-semibold ${derecha?.isWinner ? 'text-success-700' : 'text-primary-900'}`}>
                 {nombreDelLado(derecha, rotuloPorDefecto(1, hayLocalia))}
               </span>
             </div>
@@ -97,7 +98,7 @@ export function MatchCard({
             className="gap-2"
             onClick={() => setAbierto(true)}
           >
-            <ClipboardPen className="w-4 h-4" />
+            <ClipboardPen className="w-4 h-4" aria-hidden="true" />
             {finalizado ? 'Corregir resultado' : 'Cargar resultado'}
           </Button>
         </div>
@@ -111,6 +112,6 @@ export function MatchCard({
           onOpenChange={setAbierto}
         />
       )}
-    </div>
+    </article>
   );
 }

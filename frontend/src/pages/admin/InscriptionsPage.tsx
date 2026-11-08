@@ -2,7 +2,7 @@
 // Inscriptions Admin Page
 // ===========================================
 import { useState } from 'react';
-import { ClipboardCheck, Search, Filter, ClipboardList } from 'lucide-react';
+import { ClipboardCheck, Search, Filter, ClipboardList, Plus } from 'lucide-react';
 import { Link } from 'react-router';
 import { useInscriptions } from '@/hooks/useInscriptions';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -19,7 +19,7 @@ import {
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { InscriptionStatusBadge } from '@/components/shared/InscriptionStatusBadge';
-import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
+import { DEFAULT_PAGE_SIZE, ROUTES } from '@/lib/constants';
 
 export function InscriptionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -77,7 +77,7 @@ export function InscriptionsPage() {
           <div className="font-medium text-primary-900">
             {inscription.participant?.lastName}, {inscription.participant?.firstName}
           </div>
-          <div className="text-xs text-primary-500">DNI: {inscription.participant?.dni}</div>
+          <div className="text-xs text-primary-500">DNI <span className="tabular-nums">{inscription.participant?.dni}</span></div>
         </>
       ),
     },
@@ -90,7 +90,7 @@ export function InscriptionsPage() {
     },
     {
       id: 'team',
-      header: 'Equipo (Opcional)',
+      header: 'Equipo',
       mobile: 'secondary',
       cell: (inscription) =>
         inscription.team ? (
@@ -134,7 +134,14 @@ export function InscriptionsPage() {
       <PageHeader
         title="Inscripciones"
         description="Gestión y revisión de solicitudes de inscripción"
-        icon={<ClipboardCheck className="w-5 h-5 text-white" />}
+        icon={<ClipboardCheck className="w-5 h-5 text-white" aria-hidden="true" />}
+        actions={
+          <Button asChild className="gap-2 w-full sm:w-auto">
+            <Link to={ROUTES.NEW_INSCRIPTION}>
+              <Plus className="w-4 h-4" aria-hidden="true" /> Nueva inscripción
+            </Link>
+          </Button>
+        }
       />
 
       <DataTable
@@ -156,7 +163,14 @@ export function InscriptionsPage() {
         onClearFilters={clearFilters}
         emptyIcon={<ClipboardList className="w-10 h-10" />}
         emptyTitle="Todavía no hay inscripciones"
-        emptyDescription="Cuando se registre la primera solicitud, va a aparecer acá para su revisión."
+        emptyDescription="Cuando se registre la primera solicitud va a aparecer acá para revisarla. También podés cargar una vos."
+        emptyAction={
+          <Button asChild className="gap-2">
+            <Link to={ROUTES.NEW_INSCRIPTION}>
+              <Plus className="w-4 h-4" aria-hidden="true" /> Nueva inscripción
+            </Link>
+          </Button>
+        }
         toolbar={
           <>
             <div className="relative flex-1 min-w-[200px]">

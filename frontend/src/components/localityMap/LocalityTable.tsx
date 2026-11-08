@@ -64,7 +64,7 @@ export function LocalityTable({ rows, onSelect }: LocalityTableProps) {
     );
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-primary-100">
+    <div className="relative overflow-x-auto rounded-xl border border-primary-100">
       <table className="w-full min-w-[720px] text-sm">
         <caption className="sr-only">
           Participación por localidad. Tocá el título de una columna para ordenar.

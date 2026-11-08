@@ -2,7 +2,9 @@
 // Disciplines Page — Public
 // ===========================================
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { Trophy } from 'lucide-react';
+import { ROUTES } from '@/lib/constants';
 import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -77,11 +79,22 @@ export function DisciplinesPage() {
         empty={
           <EmptyState
             icon={<Trophy className="w-10 h-10" />}
-            title="Sin disciplinas"
+            title={filter === 'ALL' ? 'Todavía no hay disciplinas publicadas' : 'No hay disciplinas de ese tipo'}
             description={
               filter === 'ALL'
-                ? 'No hay disciplinas activas en este momento.'
-                : 'No hay disciplinas activas de ese tipo.'
+                ? 'Cuando se carguen las disciplinas vas a ver acá sus categorías y reglamentos. Mientras tanto, mirá las novedades.'
+                : 'Probá con otro tipo o mirá todas las disciplinas.'
+            }
+            action={
+              filter === 'ALL' ? (
+                <Link to={ROUTES.NEWS} className="">
+                  Ver las noticias
+                </Link>
+              ) : (
+                <button type="button" onClick={() => setFilter('ALL')} className="">
+                  Ver todas las disciplinas
+                </button>
+              )
             }
           />
         }

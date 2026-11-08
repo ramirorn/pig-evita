@@ -56,11 +56,25 @@ export function SurveyQuestionsStep({ wizard }: SurveyQuestionsStepProps) {
       </button>
 
       <p
-        className="mt-6 text-sm font-bold text-primary-600"
+        className="mt-6 text-sm font-bold text-primary-700 tabular-nums"
         aria-live="polite"
       >
         Contestaste {contestadas} de {visibles.length}
       </p>
+
+      <div
+        role="progressbar"
+        aria-label="Avance de la encuesta"
+        aria-valuemin={0}
+        aria-valuemax={visibles.length}
+        aria-valuenow={contestadas}
+        className="mt-2 h-2 overflow-hidden rounded-full bg-primary-100"
+      >
+        <div
+          className="h-full rounded-full bg-secondary-600 transition-[width] duration-320 ease-out-soft motion-reduce:transition-none"
+          style={{ width: `${visibles.length > 0 ? (contestadas / visibles.length) * 100 : 0}%` }}
+        />
+      </div>
 
       <div className="mt-4 space-y-5">
         {visibles.map((pregunta, indice) => (

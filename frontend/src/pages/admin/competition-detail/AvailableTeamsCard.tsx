@@ -11,15 +11,15 @@ import type { Team } from '@/types';
 export function AvailableTeamsCard({ teams }: { teams: Team[] }) {
   return (
     <div className="card p-6">
-      <h3 className="type-h3 text-primary-900 mb-4 flex items-center gap-2">
-        <Users className="w-5 h-5 text-primary-500" />
-        Equipos Participantes ({teams.length})
-      </h3>
+      <h2 className="type-h2 text-primary-900 mb-4 flex items-center gap-2">
+        <Users className="w-5 h-5 text-primary-500" aria-hidden="true" />
+        Equipos participantes ({teams.length})
+      </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {teams.map((team) => (
           <div key={team.id} className="border border-primary-100 rounded-lg p-3 bg-primary-50/30">
             <p className="font-semibold text-primary-800 text-sm">{team.name}</p>
-            <p className="text-xs text-primary-500">{team.locality}, {team.department}</p>
+            <p className="text-xs text-primary-600">{team.locality}, {team.department}</p>
           </div>
         ))}
       </div>

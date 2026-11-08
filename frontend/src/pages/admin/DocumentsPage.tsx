@@ -43,22 +43,22 @@ const STAT_CARDS = [
     status: DocumentStatus.PENDIENTE,
     label: 'Pendientes de revisión',
     icon: Clock,
-    circle: 'bg-orange-100',
-    iconClass: 'text-orange-600',
+    circle: 'bg-warning-100',
+    iconClass: 'text-warning-600',
   },
   {
     status: DocumentStatus.APROBADO,
     label: 'Aprobados',
     icon: CheckCircle,
-    circle: 'bg-green-100',
-    iconClass: 'text-green-600',
+    circle: 'bg-success-100',
+    iconClass: 'text-success-600',
   },
   {
     status: DocumentStatus.RECHAZADO,
     label: 'Rechazados',
     icon: XCircle,
-    circle: 'bg-red-100',
-    iconClass: 'text-red-600',
+    circle: 'bg-destructive-50',
+    iconClass: 'text-destructive-600',
   },
 ] as const;
 
@@ -85,7 +85,8 @@ export function DocumentsPage() {
         else next.delete(PARTICIPANT_PARAM);
         return next;
       },
-      { replace: false },
+      // Elegir un participante no es cambiar de vista: el scroll se queda donde está.
+      { replace: false, preventScrollReset: true },
     );
   };
 

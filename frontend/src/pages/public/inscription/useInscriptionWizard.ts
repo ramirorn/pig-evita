@@ -261,16 +261,17 @@ export function useInscriptionWizard({
     toast.success('Código QR descargado correctamente');
   };
 
-  const handleCopyCode = async (code: string) => {
+  const handleCopyCode = async (code: string): Promise<boolean> => {
     // El toast verde sale **después** de que la promesa resolvió: antes se
     // cantaba el éxito sin esperar nada y el participante se llevaba un
     // portapapeles vacío (R26).
     const copiado = await copiarAlPortapapeles(code, `${logScope}.handleCopyCode`);
     if (copiado) {
       toast.success('Código copiado al portapapeles');
-      return;
+      return true;
     }
     toast.error(MENSAJE_COPIA_FALLIDA);
+    return false;
   };
 
   const handlePrint = () => {

@@ -13,29 +13,29 @@ import { ROUTES } from '@/lib/constants';
 const QUICK_LINKS = [
   {
     title: 'Disciplinas',
-    description: 'Consultá las más de 40 disciplinas deportivas disponibles.',
-    icon: <Trophy className="w-7 h-7" />,
+    description: 'Conocé las disciplinas, sus categorías y reglamentos.',
+    icon: <Trophy className="w-7 h-7" aria-hidden="true" />,
     path: ROUTES.DISCIPLINES,
     color: 'from-primary-700 to-primary-800',
   },
   {
     title: 'Rankings',
     description: 'Tablas de posiciones y clasificaciones actualizadas.',
-    icon: <Medal className="w-7 h-7" />,
+    icon: <Medal className="w-7 h-7" aria-hidden="true" />,
     path: ROUTES.RANKINGS,
     color: 'from-accent-500 to-accent-600',
   },
   {
     title: 'Calendario',
     description: 'Fechas, horarios y programación de competencias.',
-    icon: <CalendarDays className="w-7 h-7" />,
+    icon: <CalendarDays className="w-7 h-7" aria-hidden="true" />,
     path: ROUTES.CALENDAR,
     color: 'from-secondary-500 to-secondary-600',
   },
   {
     title: 'Sedes',
     description: 'Ubicación de las sedes de competencia en toda la provincia.',
-    icon: <MapPin className="w-7 h-7" />,
+    icon: <MapPin className="w-7 h-7" aria-hidden="true" />,
     path: ROUTES.VENUES,
     color: 'from-celeste-500 to-celeste-600',
   },
@@ -49,7 +49,7 @@ export function QuickLinksSection() {
           Explorá los Juegos Evita
         </h2>
         <p className="text-primary-600 max-w-xl mx-auto">
-          Toda la información que necesitás sobre las competencias deportivas más importantes de la provincia.
+          Disciplinas, resultados, fechas y sedes, en un solo lugar.
         </p>
       </div>
 
@@ -66,11 +66,11 @@ export function QuickLinksSection() {
             <h3 className="type-h3 text-primary-800 mb-1.5 group-hover:text-primary-600 transition-colors duration-120">
               {link.title}
             </h3>
-            <p className="text-sm text-primary-500 leading-relaxed">
+            <p className="text-sm text-primary-600 leading-relaxed">
               {link.description}
             </p>
             <div className="flex items-center gap-1 mt-3 text-sm font-semibold text-primary-600 group-hover:text-primary-800 transition-colors duration-120">
-              Ver más <ArrowRight className="w-3.5 h-3.5" />
+              Ver más <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </div>
           </Link>
         ))}

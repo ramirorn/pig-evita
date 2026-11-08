@@ -2,7 +2,7 @@
 // Admin Layout
 // ===========================================
 import { Suspense, useState } from 'react';
-import { Outlet } from 'react-router';
+import { Outlet, ScrollRestoration } from 'react-router';
 import { cn } from '@/lib/utils';
 import { PageSkeleton } from '@/components/shared/PageSkeleton';
 import { Sidebar } from './Sidebar';
@@ -14,6 +14,8 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-surface">
+      {/* Cada vista nueva arranca arriba; atrás/adelante recupera la posición. */}
+      <ScrollRestoration />
       {/* Mobile overlay */}
       {mobileSidebarOpen && (
         <div

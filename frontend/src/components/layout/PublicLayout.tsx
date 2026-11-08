@@ -2,10 +2,11 @@
 // Public Layout
 // ===========================================
 import { Suspense, useState, useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router';
+import { Outlet, Link, ScrollRestoration, useLocation } from 'react-router';
 import { Menu, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
+import { prefetchProps } from '@/lib/routePrefetch';
 import { Footer } from './Footer';
 import { PublicPageFallback } from '@/components/shared/PublicPageFallback';
 
@@ -44,6 +45,8 @@ export function PublicLayout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Cada vista nueva arranca arriba; atrás/adelante recupera la posición. */}
+      <ScrollRestoration />
       {/* Skip to content */}
       <a href="#main-content" className="skip-to-content">
         Saltar al contenido principal
@@ -68,6 +71,9 @@ export function PublicLayout() {
               <img
                 src="/logo-sinfondo.png"
                 alt="Juegos Evita Formoseños"
+                width={34}
+                height={40}
+                decoding="async"
                 className="h-10 w-auto object-contain transition-transform duration-200 ease-out-soft group-hover:scale-105 group-active:scale-100"
               />
               <div className="hidden sm:block">
@@ -86,6 +92,7 @@ export function PublicLayout() {
                 <Link
                   key={link.path}
                   to={link.path}
+                  {...prefetchProps(link.path)}
                   className={cn(
                     'px-3 py-2 text-sm font-medium rounded-lg transition-colors duration-120 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center',
                     location.pathname === link.path

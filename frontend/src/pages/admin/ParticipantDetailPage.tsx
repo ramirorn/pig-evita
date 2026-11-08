@@ -2,112 +2,95 @@
 // Participant Detail Page
 // ===========================================
 import { useParams, useNavigate } from 'react-router';
-import { Users, ArrowLeft, Loader2, Calendar, MapPin, Mail, Phone } from 'lucide-react';
 import { useParticipant } from '@/hooks/useParticipants';
-import { Button } from '@/components/ui/button';
 import { SEX_LABELS, ROUTES } from '@/lib/constants';
 import { formatCalendarDate } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
+import { DetailHeader } from './components/DetailHeader';
+import { DetailLoading, DetailNotFound } from './components/DetailState';
+import { FactList } from './components/FactList';
 import { ParticipantDocumentsCard } from './participants/ParticipantDocumentsCard';
 
 export function ParticipantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
+
   const { data: participant, isLoading } = useParticipant(id || '');
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-      </div>
-    );
-  }
+  if (isLoading) return <DetailLoading label="Cargando el participante…" />;
 
   if (!participant) {
     return (
-      <div className="text-center py-12">
-        <h2 className="type-h2 text-primary-800">Participante no encontrado</h2>
-        <Button variant="link" onClick={() => navigate(ROUTES.PARTICIPANTS)}>Volver al padrón</Button>
-      </div>
+      <DetailNotFound
+        title="No encontramos al participante"
+        hint="Puede que se haya eliminado o que el enlace esté incompleto."
+        backLabel="Volver al padrón"
+        onBack={() => navigate(ROUTES.PARTICIPANTS)}
+      />
     );
   }
+
+  const nombre = `${participant.lastName}, ${participant.firstName}`;
 
   return (
     <div className="space-y-6">
       <Breadcrumbs
         items={[
           { label: 'Participantes', path: ROUTES.PARTICIPANTS },
-          { label: `${participant.lastName}, ${participant.firstName}` },
+          { label: nombre },
         ]}
       />
 
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.PARTICIPANTS)} aria-label="Volver al padrón">
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="type-h1 text-primary-800">
-            {participant.lastName}, {participant.firstName}
-          </h1>
-          <div className="flex gap-2 text-sm text-primary-500 mt-1">
-            <span>DNI: {participant.dni}</span>
-            <span>•</span>
-            <span>{SEX_LABELS[participant.sex]}</span>
-          </div>
-        </div>
-      </div>
+      <DetailHeader
+        title={nombre}
+        meta={
+          <span className="tabular-nums">
+            DNI {participant.dni} · {SEX_LABELS[participant.sex]}
+          </span>
+        }
+        backLabel="Volver al padrón"
+        onBack={() => navigate(ROUTES.PARTICIPANTS)}
+      />
 
       <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-1 space-y-6">
-          <div className="card p-6 space-y-4">
-            <h3 className="type-h3 text-primary-900 border-b border-primary-100 pb-2 flex items-center gap-2">
-              <Users className="w-4 h-4 text-primary-500" />
-              Datos Personales
-            </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-start gap-3">
-                <Calendar className="w-4 h-4 text-primary-400 mt-0.5" />
-                <div>
-                  <p className="text-primary-500 text-xs">Fecha de Nacimiento</p>
-                  <p className="font-medium text-primary-900">{formatCalendarDate(participant.birthDate)}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <MapPin className="w-4 h-4 text-primary-400 mt-0.5" />
-                <div>
-                  <p className="text-primary-500 text-xs">Ubicación</p>
-                  <p className="font-medium text-primary-900">{participant.locality}, {participant.department}</p>
-                  {participant.address && <p className="text-primary-600 text-xs mt-0.5">{participant.address}</p>}
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Mail className="w-4 h-4 text-primary-400 mt-0.5" />
-                <div>
-                  <p className="text-primary-500 text-xs">Email</p>
-                  <p className="font-medium text-primary-900">{participant.email || '—'}</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <Phone className="w-4 h-4 text-primary-400 mt-0.5" />
-                <div>
-                  <p className="text-primary-500 text-xs">Teléfono</p>
-                  <p className="font-medium text-primary-900">{participant.phone || '—'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <section aria-labelledby="participante-datos" className="card p-5 md:col-span-1 space-y-4 self-start">
+          <h2 id="participante-datos" className="type-h2 text-primary-900">
+            Datos personales
+          </h2>
+          <FactList
+            className="sm:grid-cols-1"
+            facts={[
+              { label: 'Fecha de nacimiento', value: formatCalendarDate(participant.birthDate) },
+              {
+                label: 'Ubicación',
+                value: (
+                  <>
+                    {participant.locality}, {participant.department}
+                    {participant.address && (
+                      <span className="mt-0.5 block text-xs font-normal text-primary-600">
+                        {participant.address}
+                      </span>
+                    )}
+                  </>
+                ),
+              },
+              { label: 'Email', value: participant.email || 'Sin cargar' },
+              { label: 'Teléfono', value: participant.phone || 'Sin cargar' },
+            ]}
+          />
+        </section>
 
         <div className="md:col-span-2 space-y-6">
-          <div className="card">
+          <section aria-labelledby="participante-historial" className="card">
             <div className="p-4 border-b border-primary-100">
-              <h3 className="type-h3 text-primary-900">Historial Deportivo</h3>
+              <h2 id="participante-historial" className="type-h2 text-primary-900">
+                Historial deportivo
+              </h2>
             </div>
-            <div className="p-8 text-center text-primary-500 text-sm">
+            <div className="p-8 text-center text-primary-600 text-sm">
               <p>El participante aún no pertenece a ningún equipo en la edición actual.</p>
             </div>
-          </div>
+          </section>
 
           <ParticipantDocumentsCard participantId={participant.id} />
         </div>

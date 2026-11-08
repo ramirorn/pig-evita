@@ -454,7 +454,7 @@ export function RosterMemberForm({
       {error && (
         <div
           role="alert"
-          className="p-3 rounded-xl bg-destructive-50 border border-red-200 text-destructive-700 text-xs font-medium flex items-start gap-2"
+          className="p-3 rounded-xl bg-destructive-50 border border-destructive/30 text-destructive-700 text-xs font-medium flex items-start gap-2"
         >
           <AlertCircle className="w-4 h-4 text-destructive-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <span>{error}</span>

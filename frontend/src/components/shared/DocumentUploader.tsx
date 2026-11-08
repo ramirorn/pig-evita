@@ -324,7 +324,7 @@ export function DocumentUploader({
       )}
 
       {current?.status === DocumentStatus.RECHAZADO && current.rejectionNote && (
-        <p className="rounded-xl bg-red-50 border border-red-100 px-3 py-2 text-xs text-red-800">
+        <p className="rounded-xl bg-destructive-50 border border-destructive-500/20 px-3 py-2 text-xs text-destructive-700">
           <span className="font-bold">Motivo del rechazo:</span>{' '}
           <span className="whitespace-pre-wrap">{current.rejectionNote}</span>
         </p>
@@ -400,6 +400,7 @@ export function DocumentUploader({
                 alt={`Vista previa de ${fullTitle}`}
                 width={96}
                 height={72}
+                decoding="async"
                 className="w-24 h-18 shrink-0 rounded-lg border border-primary-100 object-cover bg-primary-50"
               />
             ) : (
@@ -491,9 +492,9 @@ export function DocumentUploader({
       {/* El error se anuncia apenas aparece y dice qué hacer. */}
       <div role="alert" aria-live="assertive">
         {errorMessage && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm">
-            <p className="font-bold text-red-800">{errorMessage.title}</p>
-            <p className="text-red-700">{errorMessage.action}</p>
+          <div className="rounded-xl border border-destructive-500/30 bg-destructive-50 px-3 py-2 text-sm">
+            <p className="font-bold text-destructive-700">{errorMessage.title}</p>
+            <p className="text-destructive-700">{errorMessage.action}</p>
           </div>
         )}
       </div>

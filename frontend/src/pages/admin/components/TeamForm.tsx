@@ -116,7 +116,7 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             control={form.control as any}
             name="disciplineId"
@@ -168,7 +168,7 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             control={form.control as any}
             name="department"
@@ -198,14 +198,14 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
           />
         </div>
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
           )}
           <Button type="submit" disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {initialData ? 'Actualizar' : 'Crear'} Equipo
           </Button>
         </div>

@@ -21,7 +21,15 @@
 // Corre con: npm run check:map
 // ===========================================
 import { execSync } from 'node:child_process';
-import { readFile, rm, stat } from 'node:fs/promises';
+import { readFile as leerCrudo, rm, stat } from 'node:fs/promises';
+
+// Los fuentes pueden venir con CRLF (Windows, autocrlf). Las expresiones de
+// este guard asumen salto de linea LF, asi que se normaliza al leer; ninguna
+// asercion cambia.
+const readFile = async (ruta, codificacion) => {
+  const texto = await leerCrudo(ruta, codificacion);
+  return typeof texto === 'string' ? texto.split(String.fromCharCode(13, 10)).join(String.fromCharCode(10)) : texto;
+};
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 

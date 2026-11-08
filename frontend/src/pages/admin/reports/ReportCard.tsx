@@ -38,14 +38,14 @@ export function ReportCard({ card, loadingAction, isExporting, onExport }: Repor
       <div className="space-y-2.5 pt-4 border-t border-primary-100">
         {/* Excel Option */}
         <Button
-          className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm transition-colors duration-120"
+          className="w-full gap-2 bg-success-600 hover:bg-success-700 text-white font-medium shadow-sm transition-colors duration-120"
           disabled={isExporting}
           onClick={() => onExport('xlsx')}
         >
           {isExcelLoading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <FileSpreadsheet className="w-4 h-4 text-emerald-100" />
+            <FileSpreadsheet className="w-4 h-4 text-success-100" />
           )}
           Exportar Excel (.xlsx)
         </Button>

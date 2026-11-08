@@ -60,7 +60,7 @@ export function ConfirmDeleteDialog({
     <Dialog open={isDialogOpen} onOpenChange={(v) => (!v ? handleClose() : onOpenChange?.(true))}>
       <DialogContent className="sm:max-w-[440px] p-6">
         <div className="flex flex-col items-center text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-red-50 border border-red-100 flex items-center justify-center text-red-600 mb-1">
+          <div className="w-12 h-12 rounded-full bg-destructive-50 border border-destructive-500/20 flex items-center justify-center text-destructive-600 mb-1">
             <AlertTriangle className="w-6 h-6" />
           </div>
 

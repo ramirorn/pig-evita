@@ -65,7 +65,7 @@ export function StepTeamReview({ wizard }: { wizard: TeamInscriptionWizard }) {
     <div className="card p-6 md:p-8 space-y-6 shadow-md">
       <div className="flex items-center gap-2.5 pb-4 border-b border-primary-100 text-primary-800 font-bold text-lg">
         <FileCheck2 className="w-5 h-5 text-accent-600" aria-hidden="true" />
-        <span>Paso 3: Verificación del Plantel</span>
+        <h2 className="type-h2 text-primary-800">Paso 3: verificación del plantel</h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

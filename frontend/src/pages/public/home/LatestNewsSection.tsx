@@ -85,7 +85,7 @@ export function LatestNewsSection() {
                 <div className="mt-2 h-5 w-2/3 rounded bg-primary-100 animate-shimmer" />
                 <div className="mt-4 h-4 w-full rounded bg-primary-100 animate-shimmer" />
               </div>
-            </div>
+          </div>
           ))}
         </div>
       ) : (
@@ -132,6 +132,8 @@ function LatestNewsCard({ news, retardo }: { news: News; retardo: string }) {
             <img
               src={imageSrc}
               alt={news.title}
+              width={640}
+              height={352}
               loading="lazy"
               decoding="async"
               className="h-full w-full object-cover transition-transform duration-320 ease-out-soft group-hover:scale-105"
@@ -141,17 +143,14 @@ function LatestNewsCard({ news, retardo }: { news: News; retardo: string }) {
           )}
         </div>
         <div className="p-5">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-accent-600 uppercase">
-              Actualidad
-              <BadgeNoticiaExterna news={news} />
-            </span>
-            <span className="text-xs text-primary-500 tabular-nums">{fechaDeNoticia(news)}</span>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <BadgeNoticiaExterna news={news} />
+            <span className="text-xs text-primary-700 tabular-nums">{fechaDeNoticia(news)}</span>
           </div>
           <h3 className="type-h3 mb-2 line-clamp-2 text-primary-900 transition-colors duration-120 group-hover:text-primary-600">
             {news.title}
           </h3>
-          <p className="line-clamp-2 text-sm text-primary-500">
+          <p className="line-clamp-2 text-sm text-primary-600">
             {news.excerpt || news.content.substring(0, 100) + '...'}
           </p>
         </div>

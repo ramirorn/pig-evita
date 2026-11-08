@@ -32,6 +32,8 @@ import {
   SURVEY_WINDOW_LABELS,
 } from '@/lib/constants';
 import { logError } from '@/lib/logger';
+import { formatDate } from '@/lib/utils';
+import { DetailLoading, DetailNotFound } from './components/DetailState';
 import { SurveyCampaignStatus } from '@/types';
 import {
   SURVEY_STATUS_AYUDA,
@@ -58,11 +60,10 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-/** Fecha del backend en el formato que se lee en Formosa. */
+/** Fecha del backend (dd/mm/aaaa); sin fecha o inválida, `null` para omitir el dato. */
 function fechaCorta(iso?: string | null): string | null {
-  if (!iso) return null;
-  const fecha = new Date(iso);
-  return Number.isNaN(fecha.getTime()) ? null : fecha.toLocaleDateString('es-AR');
+  const texto = formatDate(iso);
+  return texto === '—' ? null : texto;
 }
 
 export function SurveyCampaignPage() {
@@ -106,22 +107,16 @@ export function SurveyCampaignPage() {
   const publishMutation = usePublishSurveyCampaign();
   const closeMutation = useCloseSurveyCampaign();
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-500" aria-hidden="true" />
-      </div>
-    );
-  }
+  if (isLoading) return <DetailLoading label="Cargando la encuesta…" />;
 
   if (isError || !campaign) {
     return (
-      <div className="py-12 text-center">
-        <h2 className="type-h2 text-primary-800">No encontramos esta encuesta</h2>
-        <Button variant="link" onClick={() => navigate(ROUTES.SURVEY_ADMIN)}>
-          Volver al listado
-        </Button>
-      </div>
+      <DetailNotFound
+        title="No pudimos cargar la encuesta"
+        hint="Puede que se haya eliminado, o que haya fallado la conexión. Volvé al listado y probá de nuevo."
+        backLabel="Volver a encuestas"
+        onBack={() => navigate(ROUTES.SURVEY_ADMIN)}
+      />
     );
   }
 
@@ -151,10 +146,10 @@ export function SurveyCampaignPage() {
       />
 
       {/* ---------- Encabezado ---------- */}
-      <div className="rounded-xl border border-primary-100 bg-white p-5">
+      <header className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700">
                 <HeartPulse className="h-4 w-4 text-white" aria-hidden="true" />
               </span>
@@ -167,13 +162,13 @@ export function SurveyCampaignPage() {
           </div>
 
           {gestiona && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center [&>button]:w-full sm:[&>button]:w-auto">
               <Button
                 variant="outline"
                 className="gap-2"
                 onClick={() => setEditandoDatos(true)}
               >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-4 w-4" aria-hidden="true" />
                 Editar datos
               </Button>
 
@@ -188,9 +183,9 @@ export function SurveyCampaignPage() {
                 onClick={() => setConfirmando('publicar')}
               >
                 {publishMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : (
-                  <Send className="h-4 w-4" />
+                  <Send className="h-4 w-4" aria-hidden="true" />
                 )}
                 Publicar
               </Button>
@@ -202,7 +197,7 @@ export function SurveyCampaignPage() {
                 title={cerrar.motivo}
                 onClick={() => setConfirmando('cerrar')}
               >
-                <Lock className="h-4 w-4" />
+                <Lock className="h-4 w-4" aria-hidden="true" />
                 Cerrar
               </Button>
             </div>
@@ -243,7 +238,7 @@ export function SurveyCampaignPage() {
             {campaign.descripcion}
           </p>
         )}
-      </div>
+      </header>
 
       {/* ---------- Qué falta para publicar ---------- */}
       {gestiona && campaign.status !== SurveyCampaignStatus.CERRADA && publicar.permitido === false && !requisitos.listo && (
@@ -255,7 +250,7 @@ export function SurveyCampaignPage() {
           <ul className="mt-2 space-y-1.5">
             {requisitos.faltantes.map((falta) => (
               <li key={falta} className="flex items-start gap-2 text-sm text-primary-800">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" aria-hidden="true" />
                 {falta}
               </li>
             ))}
@@ -274,15 +269,15 @@ export function SurveyCampaignPage() {
       <Tabs defaultValue="preguntas">
         <TabsList>
           <TabsTrigger value="preguntas" className="gap-1.5">
-            <MessageSquareText className="h-4 w-4" />
+            <MessageSquareText className="h-4 w-4" aria-hidden="true" />
             Preguntas
           </TabsTrigger>
           <TabsTrigger value="resultados" className="gap-1.5">
-            <BarChart3 className="h-4 w-4" />
+            <BarChart3 className="h-4 w-4" aria-hidden="true" />
             Qué contestaron
           </TabsTrigger>
           <TabsTrigger value="participacion" className="gap-1.5">
-            <Waypoints className="h-4 w-4" />
+            <Waypoints className="h-4 w-4" aria-hidden="true" />
             Quiénes contestaron
           </TabsTrigger>
         </TabsList>
@@ -359,7 +354,7 @@ export function SurveyCampaignPage() {
               onClick={() => void confirmar()}
             >
               {(publishMutation.isPending || closeMutation.isPending) && (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               )}
               {confirmando === 'publicar' ? 'Sí, publicar' : 'Sí, cerrar'}
             </Button>
@@ -381,7 +376,7 @@ function Dato({
 }) {
   return (
     <div>
-      <dt className="text-xs font-medium text-primary-500">{etiqueta}</dt>
+      <dt className="text-xs font-medium text-primary-600">{etiqueta}</dt>
       <dd className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold tabular-nums text-primary-900">
         {icono}
         {valor}

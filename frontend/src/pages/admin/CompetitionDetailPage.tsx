@@ -3,13 +3,12 @@
 // ===========================================
 import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { Loader2 } from 'lucide-react';
 import { useCompetition, useGenerateFixture } from '@/hooks/useCompetitions';
 import { useTeams } from '@/hooks/useTeams';
 import { useApprovedInscriptionsOfCategory } from '@/hooks/useInscriptions';
 import { usePermisos } from '@/hooks/usePermisos';
 import { useAuth } from '@/store/auth.store';
-import { Button } from '@/components/ui/button';
+import { DetailLoading, DetailNotFound } from './components/DetailState';
 import { ROUTES } from '@/lib/constants';
 import { RESULT_CORRECTORS } from '@/lib/roles';
 import { DisciplineType } from '@/types';
@@ -72,20 +71,16 @@ export function CompetitionDetailPage() {
     [aprobadas],
   );
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-      </div>
-    );
-  }
+  if (isLoading) return <DetailLoading label="Cargando la competencia…" />;
 
   if (!competition) {
     return (
-      <div className="text-center py-12">
-        <h2 className="type-h2 text-primary-800">Competencia no encontrada</h2>
-        <Button variant="link" onClick={() => navigate(volverA)}>Volver al listado</Button>
-      </div>
+      <DetailNotFound
+        title="No encontramos la competencia"
+        hint="Puede que se haya eliminado o que el enlace esté incompleto."
+        backLabel="Volver al listado"
+        onBack={() => navigate(volverA)}
+      />
     );
   }
 

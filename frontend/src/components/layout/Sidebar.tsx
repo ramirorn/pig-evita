@@ -4,6 +4,7 @@
 import { Link, useLocation } from 'react-router';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { prefetchProps } from '@/lib/routePrefetch';
 import { ROUTES } from '@/lib/constants';
 import { rutaInicialPara } from '@/lib/adminRoutes';
 import { useAuth } from '@/store/auth.store';
@@ -38,6 +39,9 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
           <img
             src="/logo-sinfondo.png"
             alt="Juegos Evita Formoseños"
+            width={36}
+            height={36}
+            decoding="async"
             className="w-9 h-9 min-w-[36px] object-contain"
           />
           {(!collapsed || mobileOpen) && (
@@ -77,6 +81,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
               )}
               <Link
                 to={item.path}
+                {...prefetchProps(item.path)}
                 title={showCollapsed ? item.label : undefined}
                 onClick={onMobileClose}
                 className={cn(

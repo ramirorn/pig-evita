@@ -209,7 +209,7 @@ export function NewsPage() {
                   </h2>
                   <ul
                     className={cn(
-                      '-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:overflow-visible lg:px-0 lg:pb-0',
+                      'relative -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:overflow-visible lg:px-0 lg:pb-0',
                       COLUMNAS_DE_LA_TIRA[reparto.tira.length] ?? 'lg:grid-cols-4',
                     )}
                   >

@@ -103,12 +103,12 @@ export function CalendarEventForm({ initialData, onSuccess, onCancel }: Calendar
         />
 
         {/* Botones de acción */}
-        <div className="flex justify-end gap-3 pt-3 border-t border-primary-100">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isPending}>
             Cancelar
           </Button>
           <Button type="submit" disabled={isPending} className="gap-2">
-            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
             {isEditing ? 'Guardar Cambios' : 'Crear Evento'}
           </Button>
         </div>

@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { NumberField } from '@/components/ui/number-field';
@@ -155,6 +156,9 @@ export function ClockTimePickerModal({
           <DialogTitle className="text-xs font-bold uppercase tracking-wider text-primary-700">
             Seleccionar hora
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Elegí la hora y los minutos en el reloj, o escribilos en los campos.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Top Digital Display & AM/PM Switcher */}

@@ -2,7 +2,9 @@
 // Venues Page — Public
 // ===========================================
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { MapPin, Building2 } from 'lucide-react';
+import { ROUTES } from '@/lib/constants';
 import { useAllVenues } from '@/hooks/useVenues';
 import { useAllCalendarEvents } from '@/hooks/useCalendar';
 import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
@@ -147,11 +149,22 @@ export function VenuesPage() {
         empty={
           <EmptyState
             icon={<MapPin className="w-10 h-10" />}
-            title="Sin sedes"
+            title={departamento === TODOS ? 'Todavía no hay sedes publicadas' : 'No hay sedes en ese departamento'}
             description={
               departamento === TODOS
-                ? 'No hay sedes cargadas en el sistema.'
-                : 'No hay sedes activas en ese departamento.'
+                ? 'Cuando se carguen las sedes vas a ver acá dónde se juega y cómo llegar. Mientras tanto, mirá el calendario.'
+                : 'Probá con otro departamento o mirá todas las sedes.'
+            }
+            action={
+              departamento === TODOS ? (
+                <Link to={ROUTES.CALENDAR} className="">
+                  Ver el calendario
+                </Link>
+              ) : (
+                <button type="button" onClick={() => setDepartamento(TODOS)} className="">
+                  Ver todas las sedes
+                </button>
+              )
             }
           />
         }

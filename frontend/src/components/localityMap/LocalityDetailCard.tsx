@@ -28,9 +28,9 @@ interface LocalityDetailCardProps {
 
 /** Colores fijos de cada puesto: clases completas, nunca interpoladas. */
 const PUESTOS = [
-  { key: 'first', label: '1.º puesto', icon: 'text-amber-500' },
-  { key: 'second', label: '2.º puesto', icon: 'text-slate-400' },
-  { key: 'third', label: '3.º puesto', icon: 'text-orange-700' },
+  { key: 'first', label: '1.º puesto', icon: 'text-accent-500' },
+  { key: 'second', label: '2.º puesto', icon: 'text-primary-400' },
+  { key: 'third', label: '3.º puesto', icon: 'text-accent-700' },
 ] as const;
 
 /**
@@ -167,7 +167,7 @@ export function LocalityDetailCard({
           )}
         </>
       ) : (
-        <p className="mt-4 rounded-xl bg-slate-50 px-3 py-3 text-sm text-primary-600">
+        <p className="mt-4 rounded-xl bg-primary-50 px-3 py-3 text-sm text-primary-600">
           Todavía no hay atletas inscriptos de esta localidad.
         </p>
       )}

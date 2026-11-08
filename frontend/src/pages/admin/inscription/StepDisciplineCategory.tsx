@@ -50,8 +50,8 @@ export function StepDisciplineCategory({
       className="card p-6 md:p-8 space-y-6 shadow-md"
     >
       <div className="flex items-center gap-2.5 pb-4 border-b border-primary-100 text-primary-800 font-bold text-lg">
-        <Trophy className="w-5 h-5 text-accent-600" />
-        <span>Paso 1: Disciplina y Categoría</span>
+        <Trophy className="w-5 h-5 text-accent-600" aria-hidden="true" />
+        <h2 className="type-h2 text-primary-800">Paso 1: disciplina y categoría</h2>
       </div>
 
       <div>
@@ -103,7 +103,7 @@ export function StepDisciplineCategory({
           {loadingCategories ? (
             <div className="p-4 text-center text-primary-400 text-sm">Cargando categorías...</div>
           ) : availableCategories.length === 0 ? (
-            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+            <div className="p-4 rounded-xl bg-warning-50 border border-warning-200 text-warning-800 text-xs">
               No hay categorías activas para esta disciplina en este momento.
             </div>
           ) : (
@@ -168,13 +168,13 @@ export function StepDisciplineCategory({
       {esEquipo && faltaConfigurarPlantel && (
         <div
           role="alert"
-          className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 animate-fade-in"
+          className="p-4 rounded-xl bg-warning-50 border border-warning-200 flex items-start gap-3 animate-fade-in"
         >
           <AlertTriangle
-            className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5"
+            className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5"
             aria-hidden="true"
           />
-          <div className="text-sm text-amber-900">
+          <div className="text-sm text-warning-800">
             <p className="font-bold">
               Todavía no se definió el plantel de {selectedDiscipline?.name}.
             </p>
@@ -185,7 +185,7 @@ export function StepDisciplineCategory({
             </p>
             <Link
               to={ROUTES.DISCIPLINES_ADMIN}
-              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-700 hover:bg-amber-800 transition-colors"
+              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-warning-700 hover:bg-warning-800 transition-colors"
             >
               <Settings2 className="w-3.5 h-3.5" aria-hidden="true" />
               Configurar {selectedDiscipline?.name} en Disciplinas

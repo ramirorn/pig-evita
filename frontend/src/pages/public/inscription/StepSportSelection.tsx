@@ -91,7 +91,7 @@ export function StepSportSelection({
           {loadingCategories ? (
             <div className="p-4 text-center text-primary-400 text-sm">Cargando categorías...</div>
           ) : availableCategories.length === 0 ? (
-            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+            <div className="p-4 rounded-xl bg-warning-50 border border-warning-200 text-warning-800 text-xs">
               No hay categorías activas para esta disciplina en este momento.
             </div>
           ) : (
@@ -131,7 +131,7 @@ export function StepSportSelection({
                           <CheckCircle2 className="w-3.5 h-3.5" /> Compatible
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-warning-700">
                           <AlertCircle className="w-3.5 h-3.5" /> Fuera de rango
                         </span>
                       )}
@@ -151,7 +151,7 @@ export function StepSportSelection({
                   <span>{categoryCompatibility.message}</span>
                 </div>
               ) : (
-                <div className="p-3.5 rounded-xl bg-destructive-50 border border-red-200 text-destructive-700 text-xs flex items-center gap-2 font-medium">
+                <div className="p-3.5 rounded-xl bg-destructive-50 border border-destructive-500/30 text-destructive-700 text-xs flex items-center gap-2 font-medium">
                   <AlertCircle className="w-4 h-4 text-destructive-500 flex-shrink-0" />
                   <span>{categoryCompatibility.message}</span>
                 </div>

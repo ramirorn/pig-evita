@@ -1,62 +1,93 @@
-import { useParams, useNavigate } from 'react-router';
-import { Trophy, ArrowLeft, Loader2, Calendar, LayoutGrid, Medal, Activity } from 'lucide-react';
+import { Link, useParams } from 'react-router';
+import { Trophy, ArrowLeft, Calendar, CalendarDays, LayoutGrid, Medal, Activity } from 'lucide-react';
 import { useCompetition } from '@/hooks/useCompetitions';
 import { useRankings } from '@/hooks/useResults';
 import { rankingRowKey } from './competition/rankingRowKey';
 import { PublicFixture } from './competition/PublicFixture';
-import { FORMAT_LABELS, STAGE_LABELS } from '@/lib/constants';
-import { Button } from '@/components/ui/button';
+import { FORMAT_LABELS, ROUTES, STAGE_LABELS } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { CompetitionFormat } from '@/types';
+import { cn } from '@/lib/utils';
+
+/** Esqueleto con la forma de la página: encabezado y dos paneles. */
+function CompetitionSkeleton() {
+  return (
+    <div
+      className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
+      aria-busy="true"
+      role="status"
+    >
+      <span className="sr-only">Cargando la competencia…</span>
+      <div className="mb-6 h-6 w-40 rounded bg-primary-100 animate-shimmer" />
+      <div className="card mb-8 h-44 animate-shimmer bg-primary-100 sm:h-52" />
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <div className="card h-96 animate-shimmer bg-primary-50" />
+        <div className="card h-96 animate-shimmer bg-primary-50" />
+      </div>
+    </div>
+  );
+}
+
+const ENLACE_PRIMARIO =
+  'inline-flex items-center gap-2 rounded-full bg-primary-800 px-5 py-2.5 text-sm font-bold text-white transition-colors duration-120 hover:bg-primary-900 active:bg-primary-950 pointer-coarse:min-h-11';
 
 export function CompetitionPublicPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  
+
   const { data: competition, isLoading: isLoadingComp } = useCompetition(id || '');
   const { data: rankings, isLoading: isLoadingRankings } = useRankings(id || '');
 
-  if (isLoadingComp) {
-    return (
-      <div className="flex justify-center items-center py-32">
-        <Loader2 className="w-12 h-12 animate-spin text-primary-500" />
-      </div>
-    );
-  }
+  if (isLoadingComp) return <CompetitionSkeleton />;
 
   if (!competition) {
     return (
-      <div className="text-center py-20">
-        <h2 className="type-h2 text-primary-800 mb-4">Competencia no encontrada</h2>
-        <Button onClick={() => navigate('/rankings')}>Volver a Rankings</Button>
+      <div className="mx-auto max-w-xl px-4 py-20 text-center">
+        <h1 className="type-h1 mb-3 text-primary-900">No encontramos esta competencia</h1>
+        <p className="mb-6 text-primary-700">
+          Puede que el enlace esté incompleto o que la competencia ya no esté publicada.
+          Buscala en el listado de torneos.
+        </p>
+        <Link to={ROUTES.RANKINGS} className={ENLACE_PRIMARIO}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Ver todos los torneos
+        </Link>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-      <Button variant="ghost" className="mb-6 -ml-4 pointer-coarse:min-h-11" onClick={() => navigate('/rankings')}>
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Volver a Torneos
-      </Button>
+  const titulo =
+    competition.name?.trim() ||
+    [competition.discipline?.name, competition.category?.name].filter(Boolean).join(' - ') ||
+    'Competencia';
 
-      <div className="card p-5 sm:p-8 mb-8 bg-gradient-to-br from-primary-900 to-primary-700 text-white relative overflow-hidden">
-        <div className="absolute -right-20 -top-20 opacity-10">
-          <Trophy className="w-96 h-96" />
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+      <Link
+        to={ROUTES.RANKINGS}
+        className="-ml-2 mb-6 inline-flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold text-primary-700 transition-colors duration-120 hover:bg-primary-50 hover:text-primary-900 pointer-coarse:min-h-11"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        Volver a Torneos
+      </Link>
+
+      <div className="card relative mb-8 overflow-hidden bg-gradient-to-br from-primary-900 to-primary-700 p-5 text-white sm:p-8">
+        <div className="absolute -right-20 -top-20 opacity-10" aria-hidden="true">
+          <Trophy className="h-96 w-96" />
         </div>
         <div className="relative z-10">
-          <Badge variant="outline" className="bg-white/20 text-white border-white/30 mb-4 uppercase">
+          <Badge variant="outline" className="mb-4 border-white/40 bg-white/15 text-white uppercase">
             Etapa {STAGE_LABELS[competition.stage as keyof typeof STAGE_LABELS] || competition.stage}
           </Badge>
-          <h1 className="type-h1 mb-4 break-words">
-            {competition.name || `${competition.discipline?.name} - ${competition.category?.name}`}
-          </h1>
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-primary-100 font-medium">
+          <h1 className="type-h1 mb-4 break-words">{titulo}</h1>
+          <div className="flex flex-wrap gap-x-6 gap-y-2 font-medium text-primary-100">
+            {competition.discipline?.name && (
+              <span className="flex items-center gap-2">
+                <Activity className="h-5 w-5" aria-hidden="true" /> {competition.discipline.name}
+              </span>
+            )}
             <span className="flex items-center gap-2">
-              <Activity className="w-5 h-5" /> {competition.discipline?.name}
-            </span>
-            <span className="flex items-center gap-2">
-              <LayoutGrid className="w-5 h-5" /> Formato: {FORMAT_LABELS[competition.format as keyof typeof FORMAT_LABELS] || competition.format}
+              <LayoutGrid className="h-5 w-5" aria-hidden="true" /> Formato:{' '}
+              {FORMAT_LABELS[competition.format as keyof typeof FORMAT_LABELS] || competition.format}
             </span>
           </div>
         </div>
@@ -64,76 +95,110 @@ export function CompetitionPublicPage() {
 
       {/* `min-w-0` en cada columna: sin él, el ítem de la grilla se estira al
           ancho mínimo de la tabla y el `overflow-x-auto` nunca llega a
-          scrollear, así que la página entera desbordaba a 375 px (F-40). */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="card p-4 sm:p-6 md:p-8 min-w-0">
-          <div className="flex items-center gap-3 mb-6 border-b border-primary-100 pb-4">
-            <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
-              <Medal className="w-5 h-5 text-primary-600" />
+          scrollear, así que la página entera desbordaba a 375 px (F-40). Dos
+          columnas recién desde `lg`: a 768 px la tabla de 7 columnas no entra. */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <section aria-labelledby="tabla-titulo" className="card min-w-0 p-4 sm:p-6 lg:p-8">
+          <div className="mb-6 flex items-center gap-3 border-b border-primary-100 pb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">
+              <Medal className="h-5 w-5 text-primary-700" aria-hidden="true" />
             </div>
-            <h2 className="type-h2 text-primary-900">Tabla de Posiciones</h2>
+            <h2 id="tabla-titulo" className="type-h2 text-primary-900">
+              Tabla de Posiciones
+            </h2>
           </div>
-          
+
           {isLoadingRankings ? (
-            <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary-500" /></div>
+            <div className="space-y-2" role="status" aria-busy="true">
+              <span className="sr-only">Cargando la tabla de posiciones…</span>
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="h-12 rounded-lg bg-primary-50 animate-shimmer" />
+              ))}
+            </div>
           ) : competition.format === CompetitionFormat.ELIMINACION_DIRECTA ? (
-            <div className="text-center py-12 text-primary-500">
-              <p>Esta competencia se juega con formato de Eliminación Directa.</p>
-              <p className="text-sm mt-2">Vea el Fixture para consultar las llaves y cruces.</p>
+            <div className="py-10 text-center text-primary-700">
+              <p className="font-semibold text-primary-900">Esta competencia es de eliminación directa.</p>
+              <p className="mt-2 text-sm">
+                No hay tabla de posiciones: los cruces y los resultados están en el fixture.
+              </p>
+              <a
+                href="#fixture"
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary-300 px-5 py-2.5 text-sm font-bold text-primary-800 transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 pointer-coarse:min-h-11"
+              >
+                Ir al fixture
+              </a>
             </div>
           ) : !rankings || rankings.length === 0 ? (
-            <div className="text-center py-12 text-primary-500">
-              Aún no hay resultados procesados para generar la tabla de posiciones.
+            <div className="py-10 text-center text-primary-700">
+              <p className="font-semibold text-primary-900">
+                Todavía no hay resultados cargados para esta competencia.
+              </p>
+              <p className="mx-auto mt-2 max-w-xs text-sm">
+                La tabla se arma sola a medida que se cargan los partidos jugados.
+              </p>
+              <Link to={ROUTES.CALENDAR} className={cn(ENLACE_PRIMARIO, 'mt-4')}>
+                <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                Ver cuándo se juega
+              </Link>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left tabular-nums">
-                <thead className="text-xs text-primary-500 uppercase bg-primary-50">
-                  <tr>
-                    <th className="px-2 sm:px-4 py-3 rounded-tl-lg">#</th>
-                    <th className="px-2 sm:px-4 py-3">Equipo/Participante</th>
-                    <th className="px-2 sm:px-4 py-3 text-center" title="Partidos Jugados">PJ</th>
-                    <th className="px-2 sm:px-4 py-3 text-center" title="Partidos Ganados">PG</th>
-                    <th className="px-2 sm:px-4 py-3 text-center" title="Partidos Empatados">E</th>
-                    <th className="px-2 sm:px-4 py-3 text-center hidden sm:table-cell" title="Partidos Perdidos">PP</th>
-                    <th className="px-2 sm:px-4 py-3 text-center font-bold text-primary-900 rounded-tr-lg">PTS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-primary-100">
-                  {rankings.map((entry, idx) => (
-                    <tr key={rankingRowKey(entry, idx)} className={idx < 3 ? 'bg-amber-50/30' : ''}>
-                      <td className="px-2 sm:px-4 py-4 font-bold text-primary-900">
-                        {entry.group ? `${entry.group}${entry.position ?? idx + 1}` : (entry.position ?? idx + 1)}
-                      </td>
-                      <td className="px-2 sm:px-4 py-4 font-medium text-primary-800 break-words">
-                        {entry.name}
-                      </td>
-                      <td className="px-2 sm:px-4 py-4 text-center text-primary-600">{entry.played}</td>
-                      <td className="px-2 sm:px-4 py-4 text-center text-primary-600">{entry.won}</td>
-                      <td className="px-2 sm:px-4 py-4 text-center text-primary-600">{entry.drawn ?? 0}</td>
-                      <td className="px-2 sm:px-4 py-4 text-center text-primary-600 hidden sm:table-cell">{entry.lost}</td>
-                      <td className="px-2 sm:px-4 py-4 text-center font-bold text-primary-900">{entry.points}</td>
+            <>
+              <div className="relative overflow-x-auto">
+                <table className="w-full text-left text-sm tabular-nums">
+                  <caption className="sr-only">Tabla de posiciones de {titulo}</caption>
+                  <thead className="bg-primary-50 text-xs text-primary-700 uppercase">
+                    <tr>
+                      <th scope="col" className="rounded-tl-lg px-2 py-3 sm:px-3">#</th>
+                      <th scope="col" className="px-2 py-3 sm:px-3">Equipo / Participante</th>
+                      <th scope="col" className="px-1.5 py-3 text-center sm:px-3">PJ</th>
+                      <th scope="col" className="px-1.5 py-3 text-center sm:px-3">PG</th>
+                      <th scope="col" className="px-1.5 py-3 text-center sm:px-3">E</th>
+                      <th scope="col" className="px-1.5 py-3 text-center sm:px-3">PP</th>
+                      <th scope="col" className="rounded-tr-lg px-2 py-3 text-center font-bold text-primary-900 sm:px-3">PTS</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-primary-100">
+                    {rankings.map((entry, idx) => {
+                      const puesto = entry.position ?? idx + 1;
+                      return (
+                        <tr key={rankingRowKey(entry, idx)} className={puesto <= 3 ? 'bg-warning-50/50' : ''}>
+                          <td className="px-2 py-3.5 font-bold text-primary-900 sm:px-3">
+                            {entry.group ? `${entry.group}${puesto}` : puesto}
+                          </td>
+                          <td className="px-2 py-3.5 font-medium break-words text-primary-900 sm:px-3">
+                            {entry.name}
+                          </td>
+                          <td className="px-1.5 py-3.5 text-center text-primary-700 sm:px-3">{entry.played}</td>
+                          <td className="px-1.5 py-3.5 text-center text-primary-700 sm:px-3">{entry.won}</td>
+                          <td className="px-1.5 py-3.5 text-center text-primary-700 sm:px-3">{entry.drawn ?? 0}</td>
+                          <td className="px-1.5 py-3.5 text-center text-primary-700 sm:px-3">{entry.lost}</td>
+                          <td className="px-2 py-3.5 text-center font-bold text-primary-900 sm:px-3">{entry.points}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {/* Las abreviaturas con `title` no se leen en el celular: se explican acá. */}
+              <p className="mt-3 text-xs text-primary-700">
+                PJ jugados · PG ganados · E empatados · PP perdidos · PTS puntos
+              </p>
+            </>
           )}
-        </div>
+        </section>
 
-        <div className="card p-4 sm:p-6 md:p-8 min-w-0">
-          <div className="flex items-center gap-3 mb-6 border-b border-primary-100 pb-4">
-            <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-primary-600" />
+        <section id="fixture" aria-labelledby="fixture-titulo" className="card min-w-0 scroll-mt-24 p-4 sm:p-6 lg:p-8">
+          <div className="mb-6 flex items-center gap-3 border-b border-primary-100 pb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50">
+              <Calendar className="h-5 w-5 text-primary-700" aria-hidden="true" />
             </div>
-            <h2 className="type-h2 text-primary-900">Fixture y Resultados</h2>
+            <h2 id="fixture-titulo" className="type-h2 text-primary-900">
+              Fixture y Resultados
+            </h2>
           </div>
 
-          <PublicFixture
-            matches={competition.matches ?? []}
-            resultType={competition.discipline?.resultType}
-          />
-        </div>
+          <PublicFixture matches={competition.matches ?? []} resultType={competition.discipline?.resultType} />
+        </section>
       </div>
     </div>
   );

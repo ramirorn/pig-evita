@@ -17,8 +17,8 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
   return (
     <div className="p-3 bg-primary-50/60 rounded-lg border border-primary-100 space-y-2.5">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-800">
-        <Navigation className="w-3.5 h-3.5 text-primary-600" />
-        <span>Coordenadas Geográficas (Opcional)</span>
+        <Navigation className="w-3.5 h-3.5 text-primary-600" aria-hidden="true" />
+        <span>Coordenadas geográficas (opcional)</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -78,6 +78,9 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
           )}
         />
       </div>
+      <p className="mt-2 text-xs text-primary-600">
+        En grados decimales, con signo: en Formosa ambas son negativas (por ejemplo -26.1850 y -58.1750).
+      </p>
     </div>
   );
 }

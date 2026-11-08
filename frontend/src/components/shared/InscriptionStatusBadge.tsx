@@ -4,6 +4,7 @@
 import { memo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import type { ComponentProps } from 'react';
 import { INSCRIPTION_STATUS_LABELS } from '@/lib/constants';
 import { InscriptionStatus } from '@/types';
 
@@ -12,16 +13,14 @@ import { InscriptionStatus } from '@/types';
  * para que el objeto se construya una sola vez en toda la vida de la app y no
  * en cada render de cada fila de la tabla.
  */
-const STATUS_CLASSES: Record<InscriptionStatus, string> = {
-  // Remapeo a la paleta institucional. Los `orange/blue/green/red` de Tailwind
-  // no sólo estaban fuera de marca: tres de los cuatro fallaban AA como texto
-  // (3.35:1, 3.15:1 y 4.41:1 contra el umbral de 4.5). Los tokens de acá dan
-  // 6.35:1, 8.29:1, 9.87:1 y 5.75:1 respectivamente.
-  [InscriptionStatus.PENDIENTE]: 'text-accent-800 bg-accent-50 border-accent-300',
-  [InscriptionStatus.REVISADA]: 'text-primary-600 bg-primary-50 border-primary-200',
-  [InscriptionStatus.APROBADA]: 'text-secondary-700 bg-secondary-50 border-secondary-200',
-  [InscriptionStatus.RECHAZADA]:
-    'text-destructive-700 bg-destructive-50 border-destructive-500/30',
+type BadgeVariant = NonNullable<ComponentProps<typeof Badge>['variant']>;
+
+const STATUS_VARIANT: Record<InscriptionStatus, BadgeVariant> = {
+  // Variantes semánticas del Badge (fondo suave + texto fuerte, AA).
+  [InscriptionStatus.PENDIENTE]: 'warning',
+  [InscriptionStatus.REVISADA]: 'info',
+  [InscriptionStatus.APROBADA]: 'success',
+  [InscriptionStatus.RECHAZADA]: 'danger',
 };
 
 interface InscriptionStatusBadgeProps {
@@ -52,7 +51,7 @@ export const InscriptionStatusBadge = memo(function InscriptionStatusBadge({
   className,
 }: InscriptionStatusBadgeProps) {
   return (
-    <Badge variant="outline" className={cn(STATUS_CLASSES[status], className)}>
+    <Badge variant={STATUS_VARIANT[status]} className={cn(className)}>
       {INSCRIPTION_STATUS_LABELS[status]}
     </Badge>
   );

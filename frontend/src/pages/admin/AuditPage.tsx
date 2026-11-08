@@ -1,6 +1,7 @@
 // ===========================================
 // Audit Page
 // ===========================================
+import { formatDateTime } from '@/lib/utils';
 import { useState } from 'react';
 import { Shield, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -27,11 +28,11 @@ export function AuditPage() {
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'LOGIN': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'CREATE': return 'bg-green-50 text-green-700 border-green-200';
-      case 'UPDATE': return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'DELETE': return 'bg-red-50 text-red-700 border-red-200';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+      case 'LOGIN': return 'bg-celeste-50 text-primary-700 border-celeste-200';
+      case 'CREATE': return 'bg-success-50 text-success-700 border-success-200';
+      case 'UPDATE': return 'bg-warning-50 text-warning-700 border-warning-200';
+      case 'DELETE': return 'bg-destructive-50 text-destructive-700 border-destructive/30';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -47,10 +48,10 @@ export function AuditPage() {
   const columns: DataTableColumn<AuditLog>[] = [
     {
       id: 'timestamp',
-      header: 'Fecha y Hora',
+      header: 'Fecha y hora',
       className: 'text-primary-600 font-mono text-xs tabular-nums',
       mobile: 'secondary',
-      cell: (log) => new Date(log.timestamp).toLocaleString('es-AR'),
+      cell: (log) => formatDateTime(log.timestamp),
     },
     {
       id: 'user',
@@ -105,8 +106,8 @@ export function AuditPage() {
           setDay('');
         }}
         emptyIcon={<Shield className="w-10 h-10" />}
-        emptyTitle="Sin registros de auditoría"
-        emptyDescription="No hay eventos registrados que coincidan con la búsqueda."
+        emptyTitle="No hay eventos que coincidan"
+        emptyDescription="Probá con otro usuario o acción, o quitá el filtro de fecha para ver todos los eventos."
         toolbar={
           <>
             <div className="relative flex-1 min-w-[200px] max-w-sm">

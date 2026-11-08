@@ -2,6 +2,8 @@
 // Rankings Page — Public
 // ===========================================
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
+import { ROUTES } from '@/lib/constants';
 import { Medal, Search, Trophy } from 'lucide-react';
 import { useAllCompetitions } from '@/hooks/useCompetitions';
 import { Input } from '@/components/ui/input';
@@ -20,7 +22,7 @@ export function RankingsPage() {
   // descartaban las `BORRADOR` y se aplicaba la búsqueda, las dos cosas en
   // memoria. Con 20 borradores en la primera página la pantalla se veía vacía
   // teniendo competencias activas en la segunda.
-  const { data: competitions, isLoading } = useAllCompetitions();
+  const { data: competitions, isLoading, isError, refetch, isFetching } = useAllCompetitions();
 
   const filteredCompetitions = useMemo(() => {
     const termino = search.trim().toLowerCase();
@@ -67,19 +69,36 @@ export function RankingsPage() {
 
       <PublicListState
         isLoading={isLoading}
-        isEmpty={filteredCompetitions.length === 0}
+        isEmpty={isError || filteredCompetitions.length === 0}
         skeleton={<CardGridSkeleton cantidad={3} alto="h-64" />}
         empty={
           <EmptyState
             icon={<Trophy className="w-10 h-10" />}
-            title="Sin competencias"
+            title={isError ? 'No pudimos cargar los torneos' : hayBusqueda ? 'Ningún torneo coincide' : 'Todavía no hay torneos publicados'}
             description={
               // La frase vieja —"con los filtros aplicados"— se mostraba igual
               // con la búsqueda vacía, afirmando que había filtros que no
               // había. Mismo arreglo que ya lleva `NewsPage`.
-              hayBusqueda
-                ? 'No se encontraron competencias que coincidan con la búsqueda.'
-                : 'No hay competencias publicadas en este momento.'
+              isError
+                ? 'Puede ser un problema de conexión. Probá de nuevo en unos segundos.'
+                : hayBusqueda
+                  ? 'Revisá cómo escribiste la búsqueda o probá con el nombre de la disciplina.'
+                  : 'Cuando se publiquen vas a ver acá las tablas de posiciones y los resultados. Mientras tanto, mirá el calendario.'
+            }
+            action={
+              isError ? (
+                <button type="button" onClick={() => void refetch()} disabled={isFetching} className="">
+                  Reintentar
+                </button>
+              ) : hayBusqueda ? (
+                <button type="button" onClick={() => setSearch('')} className="">
+                  Borrar la búsqueda
+                </button>
+              ) : (
+                <Link to={ROUTES.CALENDAR} className="">
+                  Ver el calendario
+                </Link>
+              )
             }
           />
         }

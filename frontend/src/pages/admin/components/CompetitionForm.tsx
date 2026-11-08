@@ -237,12 +237,12 @@ export function CompetitionForm({ initialData, onSuccess, onCancel }: Competitio
         </div>
 
         {/* Botones de acción */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-primary-100">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isPending} className="cursor-pointer">
             Cancelar
           </Button>
           <Button type="submit" disabled={isPending} className="gap-2 cursor-pointer min-w-[140px]">
-            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
             {isEditing ? 'Guardar Cambios' : 'Crear Competencia'}
           </Button>
         </div>

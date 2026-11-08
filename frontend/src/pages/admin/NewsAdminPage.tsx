@@ -1,6 +1,7 @@
 // ===========================================
 // News Admin Page
 // ===========================================
+import { formatDate } from '@/lib/utils';
 import { useState } from 'react';
 import {
   Newspaper,
@@ -133,7 +134,7 @@ export function NewsAdminPage() {
           <Calendar className="w-3.5 h-3.5 text-primary-400" aria-hidden="true" />
           <span className="tabular-nums">
             {item.publishedAt
-              ? new Date(item.publishedAt).toLocaleDateString('es-AR')
+              ? formatDate(item.publishedAt)
               : 'No publicada'}
           </span>
         </div>
@@ -146,7 +147,7 @@ export function NewsAdminPage() {
       cell: (item) =>
         item.isPublished ? (
           // `green-*` y `amber-*` están fuera de la paleta institucional;
-          // además `amber-600/amber-50` no llegaba a AA.
+          // además el ámbar 600 sobre ámbar 50 no llegaba a AA.
           <Badge
             variant="outline"
             className="bg-secondary-50 text-secondary-700 border-secondary-200"

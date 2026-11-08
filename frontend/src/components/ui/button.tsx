@@ -26,6 +26,9 @@ const buttonVariants = cva(
         xs: "h-6 pointer-coarse:h-11 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 pointer-coarse:h-11 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
         lg: "h-10 pointer-coarse:h-11 rounded-md px-6 has-[>svg]:px-4",
+        // Los tamaños `icon*` son para botones sin texto: SIEMPRE llevan
+        // `aria-label` (y `title` si el significado no es obvio). En pantallas
+        // táctiles todos suben a 44 px.
         icon: "size-9 pointer-coarse:size-11",
         "icon-xs": "size-6 pointer-coarse:size-11 rounded-md [&_svg:not([class*='size-'])]:size-3",
         "icon-sm": "size-8 pointer-coarse:size-11",

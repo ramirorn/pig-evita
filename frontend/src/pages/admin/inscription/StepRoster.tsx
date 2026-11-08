@@ -45,7 +45,7 @@ function ContadorPlantel({
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
           completoTitulares
             ? 'bg-secondary-50 border-secondary-200 text-secondary-800'
-            : 'bg-amber-50 border-amber-200 text-amber-800'
+            : 'bg-warning-50 border-warning-200 text-warning-800'
         }`}
       >
         Titulares {titulares}/{requeridoTitulares}
@@ -81,7 +81,7 @@ function FilaIntegrante({
     <li
       className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
         enConflicto
-          ? 'border-red-300 bg-destructive-50'
+          ? 'border-destructive/30 bg-destructive-50'
           : enEdicion
             ? 'border-primary-500 bg-primary-50'
             : 'border-primary-100 bg-white'
@@ -168,8 +168,8 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
     return (
       <div className="card p-6 space-y-4 shadow-md" role="alert">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="text-sm text-amber-900">
+          <AlertTriangle className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="text-sm text-warning-800">
             <p className="font-bold">No se puede armar el plantel todavía.</p>
             <p className="text-xs mt-1">
               La disciplina o la categoría elegidas no están disponibles, o la disciplina se quedó
@@ -199,7 +199,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 text-primary-800 font-bold text-lg">
             <Users className="w-5 h-5 text-accent-600" aria-hidden="true" />
-            <span>Paso 2: Plantel</span>
+            <h2 className="type-h2 text-primary-800">Paso 2: plantel</h2>
           </div>
           <span className="text-xs font-bold text-primary-700 bg-primary-50 px-3 py-1 rounded-full border border-primary-200">
             {selectedDiscipline?.name} · {selectedCategory.name}
@@ -264,9 +264,9 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
       {!wizard.storageDisponible && (
         <div
           role="alert"
-          className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-sm text-amber-900"
+          className="p-4 rounded-xl bg-warning-50 border border-warning-200 flex items-start gap-3 text-sm text-warning-800"
         >
-          <AlertTriangle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertTriangle className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div>
             <p className="font-bold">Este navegador no está guardando tu avance.</p>
             <p className="text-xs mt-1">
@@ -281,7 +281,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
       {wizard.errorEnvio && (
         <div
           role="alert"
-          className="p-4 rounded-xl bg-destructive-50 border border-red-200 flex items-start gap-3 text-sm text-destructive-700"
+          className="p-4 rounded-xl bg-destructive-50 border border-destructive/30 flex items-start gap-3 text-sm text-destructive-700"
         >
           <AlertCircle className="w-5 h-5 text-destructive-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div>

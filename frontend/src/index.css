@@ -89,6 +89,27 @@
   --color-destructive-600: #c62828;
   --color-destructive-700: #b71c1c;
 
+  /* Estados semánticos. Success y warning conservan los valores de las
+     familias emerald / amber de Tailwind que la app usaba antes, para que el
+     aspecto no cambie. Rojo -> `destructive`; azul -> `primary` / `celeste`;
+     gris -> `muted`. Texto: usar 700/800 sobre 50/100 (AA). */
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-200: #a7f3d0;
+  --color-success-300: #6ee7b7;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+  --color-success-800: #065f46;
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+
   /* Border radius */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
@@ -422,6 +443,27 @@
   }
 }
 
+/* Sonner: entrada/salida con la duración estándar de 200 ms (por defecto 400). */
+[data-sonner-toast][data-styled='true'] {
+  transition-duration: var(--duration-200) !important;
+  transition-timing-function: var(--ease-out-soft) !important;
+}
+
+/* Cruce esqueleto -> contenido: sólo opacidad, sin desplazamiento, así no hay
+   salto de layout. Duración estándar de 200 ms. */
+@keyframes crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-crossfade {
+  animation: crossfade var(--duration-200) var(--ease-out-soft) both;
+}
+
 .animate-fade-in {
   animation: fade-in var(--duration-320) var(--ease-out-soft) both;
 }
@@ -524,6 +566,7 @@
    * y "contenido invisible", y es la razón por la que acá no se toca `opacity`.
    */
   .animate-fade-in,
+  .animate-crossfade,
   .animate-slide-in,
   .animate-scale-in,
   .animate-shimmer,

@@ -2,6 +2,8 @@
 // Calendar Page — Public
 // ===========================================
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
+import { ROUTES } from '@/lib/constants';
 import { AlertTriangle, CalendarDays, RotateCcw } from 'lucide-react';
 import { useAllCalendarEvents } from '@/hooks/useCalendar';
 import { useAllDisciplines } from '@/hooks/useDisciplines';
@@ -160,11 +162,22 @@ export function CalendarPage() {
         empty={
           <EmptyState
             icon={<CalendarDays className="w-10 h-10" />}
-            title="Sin eventos encontrados"
+            title={hasActiveFilters ? 'Ningún evento coincide con los filtros' : 'Todavía no hay eventos publicados'}
             description={
               hasActiveFilters
                 ? 'No se encontraron eventos con los filtros seleccionados. Probá modificando los criterios de búsqueda.'
-                : 'No hay eventos programados en este momento. ¡Próximamente se publicará el calendario!'
+                : 'Cuando se publique el calendario vas a ver acá fechas, horarios y sedes. Mientras tanto, las novedades están en Noticias.'
+            }
+            action={
+              hasActiveFilters ? (
+                <Button type="button" variant="outline" onClick={() => setFilters(EMPTY_CALENDAR_FILTERS)}>
+                  Quitar los filtros
+                </Button>
+              ) : (
+                <Link to={ROUTES.NEWS} className="">
+                  Ver las noticias
+                </Link>
+              )
             }
           />
         }

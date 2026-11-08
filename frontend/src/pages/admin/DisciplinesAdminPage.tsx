@@ -144,7 +144,7 @@ export function DisciplinesAdminPage() {
           return (
             <Badge
               variant="outline"
-              className="bg-amber-50 text-amber-800 border-amber-200"
+              className="bg-warning-50 text-warning-800 border-warning-200"
             >
               Sin configurar
             </Badge>

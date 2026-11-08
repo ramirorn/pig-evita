@@ -62,11 +62,11 @@ export function ParticipantDocumentsPanel({
           </span>
         ) : isError ? (
           <span className="inline-flex items-start gap-2 text-primary-600">
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" aria-hidden="true" />
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-warning-600" aria-hidden="true" />
             No pudimos ver qué papeles ya están cargados. Igual podés subirlos.
           </span>
         ) : missingText ? (
-          <span className="inline-flex items-start gap-2 font-medium text-amber-800">
+          <span className="inline-flex items-start gap-2 font-medium text-warning-800">
             <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
             {missingText}
           </span>

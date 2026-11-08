@@ -2,19 +2,21 @@
 // Inscription Detail & Review Page
 // ===========================================
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useInscription } from '@/hooks/useInscriptions';
-import { Button } from '@/components/ui/button';
 import { ROUTES } from '@/lib/constants';
+import { formatDateTime } from '@/lib/utils';
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
 import { InscriptionStatusBadge } from '@/components/shared/InscriptionStatusBadge';
+import { DetailHeader } from './components/DetailHeader';
+import { DetailLoading, DetailNotFound } from './components/DetailState';
+import { FactList } from './components/FactList';
 import { InscriptionReviewPanel } from './inscription-detail/InscriptionReviewPanel';
 import { useInscriptionReview } from './inscription-detail/useInscriptionReview';
 
 export function InscriptionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  
+
   const { data: inscription, isLoading } = useInscription(id || '');
 
   // Se llama antes de los early returns para no romper el orden de hooks, y se
@@ -22,22 +24,20 @@ export function InscriptionDetailPage() {
   // son alcanzables desde el panel, que se pinta cuando `inscription` existe.
   const review = useInscriptionReview(inscription?.id ?? '');
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-      </div>
-    );
-  }
+  if (isLoading) return <DetailLoading label="Cargando la inscripción…" />;
 
   if (!inscription) {
     return (
-      <div className="text-center py-12">
-        <h2 className="type-h2 text-primary-800">Inscripción no encontrada</h2>
-        <Button variant="link" onClick={() => navigate(ROUTES.INSCRIPTIONS)}>Volver al listado</Button>
-      </div>
+      <DetailNotFound
+        title="No encontramos la inscripción"
+        hint="Puede que se haya eliminado o que el enlace esté incompleto."
+        backLabel="Volver a inscripciones"
+        onBack={() => navigate(ROUTES.INSCRIPTIONS)}
+      />
     );
   }
+
+  const participante = inscription.participant;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -48,79 +48,70 @@ export function InscriptionDetailPage() {
         ]}
       />
 
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.INSCRIPTIONS)} aria-label="Volver a inscripciones">
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="type-h1 text-primary-800">
-              Inscripción #{inscription.qrCode}
-            </h1>
-            <InscriptionStatusBadge status={inscription.status} />
-          </div>
-          <p className="text-sm text-primary-500 mt-1">
-            Enviada el {new Date(inscription.createdAt).toLocaleString()}
+      <DetailHeader
+        title={`Inscripción #${inscription.qrCode}`}
+        status={<InscriptionStatusBadge status={inscription.status} />}
+        meta={
+          <>
+            Enviada el <span className="tabular-nums">{formatDateTime(inscription.createdAt)}</span>
             {inscription.createdBy && (
-              <span className="ml-2">
-                · Inscripto por: <span className="font-medium text-primary-700">{inscription.createdBy.firstName} {inscription.createdBy.lastName}</span>
-              </span>
+              <>
+                {' · '}Inscripto por{' '}
+                <span className="font-medium text-primary-800">
+                  {inscription.createdBy.firstName} {inscription.createdBy.lastName}
+                </span>
+              </>
             )}
-          </p>
-        </div>
-      </div>
+          </>
+        }
+        backLabel="Volver a inscripciones"
+        onBack={() => navigate(ROUTES.INSCRIPTIONS)}
+      />
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Detalles de la inscripción */}
-        <div className="md:col-span-2 space-y-6">
-          <div className="card p-6">
-            <h3 className="type-h3 text-primary-900 border-b border-primary-100 pb-3 mb-4">
-              Datos del Solicitante
-            </h3>
-            <div className="grid grid-cols-2 gap-y-4 text-sm">
-              <div>
-                <p className="text-primary-500 text-xs">Nombre Completo</p>
-                <p className="font-medium text-primary-900">{inscription.participant?.lastName}, {inscription.participant?.firstName}</p>
-              </div>
-              <div>
-                <p className="text-primary-500 text-xs">DNI</p>
-                <p className="font-medium text-primary-900">{inscription.participant?.dni}</p>
-              </div>
-              <div>
-                <p className="text-primary-500 text-xs">Ubicación</p>
-                <p className="font-medium text-primary-900">{inscription.participant?.locality}, {inscription.participant?.department}</p>
-              </div>
-              <div>
-                <p className="text-primary-500 text-xs">Contacto</p>
-                <p className="font-medium text-primary-900">{inscription.participant?.email || inscription.participant?.phone || 'Sin contacto'}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-6">
-            <h3 className="type-h3 text-primary-900 border-b border-primary-100 pb-3 mb-4">
-              Detalle de Competencia
-            </h3>
-            <div className="grid grid-cols-2 gap-y-4 text-sm">
-              <div>
-                <p className="text-primary-500 text-xs">Categoría</p>
-                <p className="font-medium text-primary-900">{inscription.category?.name}</p>
-              </div>
-              <div>
-                <p className="text-primary-500 text-xs">Equipo</p>
-                {inscription.team ? (
-                  <p className="font-medium text-primary-900">{inscription.team.name}</p>
-                ) : (
-                  <p className="text-primary-500 italic">Inscripción Individual</p>
-                )}
-              </div>
-            </div>
-          </div>
+        {/* En celular el panel de revisión va primero: es lo que se viene a hacer. */}
+        <div className="order-1 md:order-2 md:self-start">
+          <InscriptionReviewPanel inscription={inscription} review={review} />
         </div>
 
-        {/* Panel de Acciones y Revisión */}
-        <div className="space-y-6">
-          <InscriptionReviewPanel inscription={inscription} review={review} />
+        <div className="order-2 md:order-1 md:col-span-2 space-y-6">
+          <section aria-labelledby="inscripcion-solicitante" className="card p-5 space-y-4">
+            <h2 id="inscripcion-solicitante" className="type-h2 text-primary-900">
+              Datos del solicitante
+            </h2>
+            <FactList
+              facts={[
+                {
+                  label: 'Nombre completo',
+                  value: participante ? `${participante.lastName}, ${participante.firstName}` : '—',
+                },
+                { label: 'DNI', value: participante?.dni ?? '—' },
+                {
+                  label: 'Ubicación',
+                  value: participante ? `${participante.locality}, ${participante.department}` : '—',
+                },
+                {
+                  label: 'Contacto',
+                  value: participante?.email || participante?.phone || 'Sin contacto cargado',
+                },
+              ]}
+            />
+          </section>
+
+          <section aria-labelledby="inscripcion-competencia" className="card p-5 space-y-4">
+            <h2 id="inscripcion-competencia" className="type-h2 text-primary-900">
+              Detalle de la competencia
+            </h2>
+            <FactList
+              facts={[
+                { label: 'Categoría', value: inscription.category?.name ?? '—' },
+                {
+                  label: 'Equipo',
+                  value: inscription.team ? inscription.team.name : 'Inscripción individual',
+                },
+              ]}
+            />
+          </section>
         </div>
       </div>
     </div>

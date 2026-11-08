@@ -13,6 +13,12 @@ interface TrackInscriptionProps {
   errorTrack: boolean;
   trackedInscription?: PublicInscription;
   onSubmit: (e: React.FormEvent) => void;
+  /**
+   * Nivel del título. `h1` cuando la consulta es el contenido principal de la
+   * pantalla (pestaña de `InscriptionPage`); `h2` cuando va debajo de otro
+   * `h1` (`InscriptionInfoPage`), para que la página tenga un único `h1`.
+   */
+  headingLevel?: 'h1' | 'h2';
 }
 
 export function TrackInscription({
@@ -23,16 +29,18 @@ export function TrackInscription({
   errorTrack,
   trackedInscription,
   onSubmit,
+  headingLevel = 'h1',
 }: TrackInscriptionProps) {
+  const Heading = headingLevel;
   return (
     <div className="max-w-xl mx-auto space-y-6">
       <div className="text-center mb-6">
         <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-primary-800 to-primary-600 flex items-center justify-center shadow-md">
           <QrCode className="w-7 h-7 text-accent-500" />
         </div>
-        <h2 className="type-h2 text-primary-800 mb-1">
+        <Heading className="type-h1 text-primary-800 mb-1">
           Consultar Estado de Inscripción
-        </h2>
+        </Heading>
         <p className="text-primary-600 text-xs">
           Ingresá tu código QR oficial (ej. <span className="font-mono font-semibold">EVITA-A1B2C3D4</span>) para verificar el estado de tu trámite.
         </p>
@@ -76,7 +84,7 @@ export function TrackInscription({
 
       {/* Error or Not Found */}
       {errorTrack && submittedQr && (
-        <div className="p-4 rounded-2xl bg-destructive-50 border border-red-200 text-destructive-700 text-xs flex items-center gap-3">
+        <div className="p-4 rounded-2xl bg-destructive-50 border border-destructive-500/30 text-destructive-700 text-xs flex items-center gap-3">
           <XCircle className="w-5 h-5 text-destructive-500 flex-shrink-0" />
           <div>
             <p className="font-bold">Inscripción no encontrada</p>
@@ -107,7 +115,7 @@ export function TrackInscription({
                   : trackedInscription.status === InscriptionStatus.REVISADA
                   ? 'bg-primary-50 text-primary-800 border-primary-300'
                   : trackedInscription.status === InscriptionStatus.RECHAZADA
-                  ? 'bg-destructive-50 text-destructive-700 border-red-200'
+                  ? 'bg-destructive-50 text-destructive-700 border-destructive-500/30'
                   : 'bg-accent-50 text-accent-800 border-accent-300'
               }`}
             >
@@ -161,7 +169,7 @@ export function TrackInscription({
           )}
 
           {trackedInscription.status === InscriptionStatus.RECHAZADA && (
-            <div className="p-3 rounded-xl bg-destructive-50 border border-red-200 text-destructive-700 text-xs space-y-1">
+            <div className="p-3 rounded-xl bg-destructive-50 border border-destructive-500/30 text-destructive-700 text-xs space-y-1">
               <div className="flex items-center gap-2 font-bold">
                 <AlertCircle className="w-4 h-4 text-destructive-500" />
                 Inscripción Rechazada

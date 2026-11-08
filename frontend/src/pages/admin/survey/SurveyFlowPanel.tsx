@@ -46,7 +46,7 @@ export function SurveyFlowPanel({ flow, isLoading, isError, onRetry }: SurveyFlo
 
   if (isError || !flow) {
     return (
-      <div className="rounded-xl border border-destructive-200 bg-destructive-50 px-4 py-6 text-center">
+      <div className="rounded-xl border border-destructive/30 bg-destructive-50 px-4 py-6 text-center">
         <p className="text-sm font-semibold text-destructive-700">
           No pudimos traer la participación.
         </p>

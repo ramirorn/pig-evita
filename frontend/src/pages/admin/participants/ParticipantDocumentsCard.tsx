@@ -32,7 +32,7 @@ export function ParticipantDocumentsCard({ participantId }: { participantId: str
   return (
     <div className="card">
       <div className="p-4 border-b border-primary-100 flex flex-wrap gap-2 justify-between items-center">
-        <h2 className="type-h3 text-primary-900">Documentación</h2>
+        <h2 className="type-h2 text-primary-900">Documentación</h2>
         <Button asChild variant="outline" size="sm">
           <Link to={`${ROUTES.DOCUMENTS}?participante=${encodeURIComponent(participantId)}`}>
             Ver en Documentos
@@ -50,7 +50,7 @@ export function ParticipantDocumentsCard({ participantId }: { participantId: str
         ) : (
           <>
             {faltan && (
-              <p className="inline-flex items-start gap-2 font-medium text-amber-800">
+              <p className="inline-flex items-start gap-2 font-medium text-warning-800">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
                 {faltan}
               </p>

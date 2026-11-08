@@ -65,21 +65,21 @@ export function FixtureSection({
   }, [matches]);
 
   return (
-    <div className="card p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="type-h3 text-primary-900">Fixture y Partidos</h3>
+    <section aria-labelledby="fixture-titulo" className="card p-5 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h2 id="fixture-titulo" className="type-h2 text-primary-900">Fixture y partidos</h2>
         {!hasMatches && puedeGestionar && (
           <Button 
             onClick={onGenerate} 
             disabled={isGenerating || teamCount < 2}
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto"
           >
             {isGenerating ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-4 h-4" aria-hidden="true" />
             )}
-            Generar Fixture Automático
+            {isGenerating ? 'Generando el fixture…' : 'Generar fixture automático'}
           </Button>
         )}
       </div>
@@ -88,12 +88,7 @@ export function FixtureSection({
         <div className="space-y-6">
           {matchesByRound.map(({ round, matches: roundMatches }) => (
             <div key={round}>
-              <h4 className="text-sm font-bold text-primary-600 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <span className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-xs font-black">
-                  {round}
-                </span>
-                Fecha {round}
-              </h4>
+              <h3 className="type-h3 text-primary-800 mb-3">Fecha <span className="tabular-nums">{round}</span></h3>
               <div className="grid gap-3 md:grid-cols-2">
                 {roundMatches.map((match) => (
                   <MatchCard
@@ -107,8 +102,8 @@ export function FixtureSection({
               </div>
             </div>
           ))}
-          <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 rounded-lg p-3 border border-green-200">
-            <CheckCircle2 className="w-5 h-5" />
+          <div className="flex items-center gap-2 text-sm text-success-700 bg-success-50 rounded-lg p-3 border border-success-200" role="status">
+            <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
             <span className="font-medium">
               Fixture generado: {matches.length} partidos en {matchesByRound.length} fechas
             </span>
@@ -116,35 +111,35 @@ export function FixtureSection({
         </div>
       ) : !puedeGestionar ? (
         <div className="py-12 text-center border-2 border-dashed border-primary-200 rounded-xl bg-primary-50/30">
-          <LayoutGrid className="w-12 h-12 text-primary-300 mx-auto mb-3" />
-          <h4 className="text-primary-800 font-medium">Todavía no hay fixture</h4>
-          <p className="text-sm text-primary-500 mt-1 max-w-md mx-auto">
+          <LayoutGrid className="w-12 h-12 text-primary-300 mx-auto mb-3" aria-hidden="true" />
+          <h3 className="text-primary-800 font-medium">Todavía no hay fixture</h3>
+          <p className="text-sm text-primary-600 mt-1 max-w-md mx-auto">
             Cuando la organización genere los partidos vas a poder cargar sus resultados desde acá.
           </p>
         </div>
       ) : (
         <div className="py-12 text-center border-2 border-dashed border-primary-200 rounded-xl bg-primary-50/30">
-          <LayoutGrid className="w-12 h-12 text-primary-300 mx-auto mb-3" />
+          <LayoutGrid className="w-12 h-12 text-primary-300 mx-auto mb-3" aria-hidden="true" />
           {format === CompetitionFormat.ELIMINACION_DIRECTA ? (
             <>
-              <h4 className="text-primary-800 font-medium">Llaves Eliminatorias</h4>
-              <p className="text-sm text-primary-500 mt-1 max-w-md mx-auto">
-                Presione "Generar Fixture Automático" para sortear los cruces eliminatorios entre los {teamCount} {unidad} inscriptos.
+              <h3 className="text-primary-800 font-medium">Llaves eliminatorias</h3>
+              <p className="text-sm text-primary-600 mt-1 max-w-md mx-auto">
+                Tocá "Generar fixture automático" para sortear los cruces eliminatorios entre los {teamCount} {unidad} inscriptos.
               </p>
             </>
           ) : (
             <>
-              <h4 className="text-primary-800 font-medium">Tabla de Liga — Todos contra todos</h4>
-              <p className="text-sm text-primary-500 mt-1 max-w-md mx-auto">
+              <h3 className="text-primary-800 font-medium">Liga: todos contra todos</h3>
+              <p className="text-sm text-primary-600 mt-1 max-w-md mx-auto">
                 {teamCount >= 2 
-                  ? `Hay ${teamCount} ${unidad} disponibles. Presione "Generar Fixture Automático" para programar las fechas del Round Robin.`
-                  : `Se necesitan al menos 2 ${unidad} inscriptos para generar el fixture.`
+                  ? `Hay ${teamCount} ${unidad} disponibles. Tocá "Generar fixture automático" para programar todas las fechas.`
+                  : `Se necesitan al menos 2 ${unidad} inscriptos para generar el fixture. Cuando los haya, el botón se habilita.`
                 }
               </p>
             </>
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

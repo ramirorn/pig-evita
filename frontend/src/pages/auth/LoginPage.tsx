@@ -126,7 +126,7 @@ export function LoginPage() {
 
           {/* Error alert */}
           {error && (
-            <div className="mb-6 flex items-start gap-3 p-3 rounded-lg bg-destructive-50 border border-destructive-200 animate-fade-in" role="alert">
+            <div className="mb-6 flex items-start gap-3 p-3 rounded-lg bg-destructive-50 border border-destructive/30 animate-fade-in" role="alert">
               <AlertCircle className="w-5 h-5 text-destructive-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <p className="text-sm text-destructive-700">{error}</p>
             </div>

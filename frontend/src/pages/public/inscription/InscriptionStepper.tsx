@@ -41,10 +41,15 @@ export function InscriptionStepper({
 
   return (
     <div className={className}>
-      <div className="flex items-center justify-between relative">
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary-100 w-full z-0" />
-        <div
-          className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-secondary-500 transition-[width] duration-320 ease-out-soft motion-reduce:transition-none z-0"
+      {/* Anuncia el avance a quien no ve la barra. */}
+      <p role="status" className="sr-only">
+        Paso {Math.min(step, total)} de {total}: {labels[Math.min(step, total) - 1]}
+      </p>
+      <ol aria-label="Pasos de la inscripción" className="flex items-center justify-between relative">
+        <li aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary-100 w-full z-0 list-none" />
+        <li
+          aria-hidden="true"
+          className="list-none absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-secondary-500 transition-[width] duration-320 ease-out-soft motion-reduce:transition-none z-0"
           style={{ width: `${avance * 100}%` }}
         />
 
@@ -57,21 +62,25 @@ export function InscriptionStepper({
           const isCompleted = !isLast && step > number;
 
           return (
-            <div key={number} className="relative z-10 flex flex-col items-center">
+            <li
+              key={number}
+              aria-current={step === number ? 'step' : undefined}
+              className="relative z-10 flex flex-col items-center"
+            >
               <div
                 className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs tabular-nums transition-colors duration-200 ${
                   isReached
                     ? 'bg-primary-800 text-white ring-4 ring-primary-50'
-                    : 'bg-white border-2 border-primary-200 text-primary-400'
+                    : 'bg-white border-2 border-primary-300 text-primary-700'
                 }`}
               >
-                {isCompleted ? <Check className="w-4 h-4 text-accent-400" /> : number}
+                {isCompleted ? <Check className="w-4 h-4 text-accent-400" aria-hidden="true" /> : number}
               </div>
               <span className="text-xs font-semibold text-primary-700 mt-2">{label}</span>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
   );
 }

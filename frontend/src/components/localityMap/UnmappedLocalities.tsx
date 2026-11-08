@@ -21,13 +21,13 @@ export function UnmappedLocalities({ localities }: UnmappedLocalitiesProps) {
   return (
     <section
       aria-labelledby="sin-ubicacion"
-      className="rounded-2xl border border-amber-200 bg-amber-50 p-5"
+      className="rounded-2xl border border-warning-200 bg-warning-50 p-5"
     >
-      <h2 id="sin-ubicacion" className="type-h3 flex items-center gap-2 text-amber-900">
+      <h2 id="sin-ubicacion" className="type-h3 flex items-center gap-2 text-warning-800">
         <MapPinOff className="h-5 w-5" aria-hidden="true" />
         Sin ubicación en el mapa
       </h2>
-      <p className="mt-1 text-sm text-amber-800">
+      <p className="mt-1 text-sm text-warning-800">
         Estas localidades tienen participación, pero no figuran en el mapa oficial del IGN
         o su nombre no se pudo reconocer. Sus números sí cuentan en los totales.
       </p>

@@ -72,25 +72,29 @@ export function HomeHero() {
               to={ROUTES.INSCRIPTION}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-accent-500 px-10 py-4 text-lg font-bold text-primary-900 transition-[background-color,box-shadow,transform] duration-200 ease-out-soft hover:bg-accent-400 hover:shadow-[0_10px_40px_-10px_rgba(232,170,52,0.5)] active:scale-[0.98] active:duration-120 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              <ClipboardList className="h-5 w-5" />
+              <ClipboardList className="h-5 w-5" aria-hidden="true" />
               Inscribirse ahora
             </Link>
             <Link
               to={ROUTES.DISCIPLINES}
               className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-celeste-200/30 bg-transparent px-10 py-4 text-lg font-semibold text-white transition-[background-color,border-color,transform] duration-200 ease-out-soft hover:border-celeste-200/50 hover:bg-white/10 active:scale-[0.98] active:duration-120 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              Conocer más
-              <ArrowRight className="h-4 w-4" />
+              Ver disciplinas
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
         </div>
 
         <div className={cn('relative flex justify-center md:w-[45%] delay-300', ENTRADA_BASE, estado)}>
           <div className="group relative flex flex-col items-center">
-            <div className="pointer-events-none absolute -inset-6 rounded-full bg-gradient-to-r from-accent-500/20 to-celeste-400/20 opacity-70 blur-3xl transition-opacity duration-320 group-hover:opacity-100" />
+            <div className="pointer-events-none absolute -inset-6 rounded-full bg-gradient-to-r from-accent-500/20 to-celeste-400/20 opacity-70 blur-3xl transition-opacity duration-320 group-hover:opacity-100 motion-reduce:transition-none" />
             <img
               src="/logo-sinfondo.png"
               alt="Logo oficial de los Juegos Evita Formoseños"
+              width={420}
+              height={420}
+              fetchPriority="high"
+              decoding="async"
               className="relative z-10 h-72 w-72 object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.35)] transition-transform duration-320 ease-out-soft group-hover:scale-105 md:h-[420px] md:w-[420px]"
             />
             <div className="relative z-10 mt-6 text-center">

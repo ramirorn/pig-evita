@@ -38,25 +38,25 @@ export function InscriptionReviewPanel({ inscription, review }: InscriptionRevie
     puede('INSCRIPTION_APPROVE') && inscription.status === InscriptionStatus.REVISADA;
 
   return (
-    <div className="card p-6 bg-primary-50/50">
-      <h3 className="type-h3 text-primary-900 flex items-center gap-2 mb-4">
-        <ClipboardCheck className="w-5 h-5 text-primary-500" />
+    <div className="card p-5 bg-primary-50/50">
+      <h2 className="type-h2 text-primary-900 flex items-center gap-2 mb-4">
+        <ClipboardCheck className="w-5 h-5 text-primary-500" aria-hidden="true" />
         Panel de Revisión
-      </h3>
+      </h2>
 
       {inscription.status === InscriptionStatus.APROBADA && (
-        <div className="bg-green-50 text-green-800 p-4 rounded-lg border border-green-200 flex flex-col items-center text-center gap-2">
-          <CheckCircle className="w-8 h-8 text-green-500" />
+        <div className="bg-success-50 text-success-800 p-4 rounded-lg border border-success-200 flex flex-col items-center text-center gap-2">
+          <CheckCircle className="w-8 h-8 text-success-500" aria-hidden="true" />
           <p className="font-medium">Inscripción Aprobada</p>
-          <p className="text-xs text-green-600">El participante está habilitado para competir.</p>
+          <p className="text-xs text-success-700">El participante está habilitado para competir.</p>
         </div>
       )}
 
       {inscription.status === InscriptionStatus.RECHAZADA && (
-        <div className="bg-red-50 text-red-800 p-4 rounded-lg border border-red-200 flex flex-col items-center text-center gap-2 mb-4">
-          <XCircle className="w-8 h-8 text-red-500" />
+        <div className="bg-destructive-50 text-destructive-700 p-4 rounded-lg border border-destructive/30 flex flex-col items-center text-center gap-2 mb-4">
+          <XCircle className="w-8 h-8 text-destructive-600" aria-hidden="true" />
           <p className="font-medium">Inscripción Rechazada</p>
-          <p className="text-xs text-red-600">Motivo: {inscription.rejectionNote}</p>
+          <p className="text-xs text-destructive-700">Motivo: {inscription.rejectionNote}</p>
         </div>
       )}
 
@@ -65,7 +65,7 @@ export function InscriptionReviewPanel({ inscription, review }: InscriptionRevie
           {inscription.status === InscriptionStatus.PENDIENTE ? (
             <div className="space-y-3">
               <Textarea 
-                placeholder="Notas internas de revisión (opcional)..." 
+                aria-label="Notas internas de revisión" placeholder="Notas internas de revisión (opcional)" 
                 value={review.notes}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => review.setNotes(e.target.value)}
                 className="min-h-[100px]"
@@ -76,13 +76,13 @@ export function InscriptionReviewPanel({ inscription, review }: InscriptionRevie
                 onClick={review.handleReview}
                 disabled={review.isReviewPending}
               >
-                {review.isReviewPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {review.isReviewPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />}
                 Marcar como Revisada
               </Button>
             </div>
           ) : (
-            <div className="bg-blue-50 text-blue-800 p-3 rounded-lg border border-blue-200 text-sm">
-              <p className="font-medium flex items-center gap-1"><AlertCircle className="w-4 h-4"/> Revisada</p>
+            <div className="bg-celeste-50 text-primary-800 p-3 rounded-lg border border-celeste-200 text-sm">
+              <p className="font-medium flex items-center gap-1"><AlertCircle className="w-4 h-4" aria-hidden="true" /> Revisada</p>
               {inscription.notes && <p className="mt-1 opacity-80 text-xs">Notas: {inscription.notes}</p>}
             </div>
           )}
@@ -90,15 +90,15 @@ export function InscriptionReviewPanel({ inscription, review }: InscriptionRevie
           {review.isRejecting ? (
             <div className="space-y-3 animate-fade-in pt-4 border-t border-primary-200">
               <Textarea 
-                placeholder="Especifique el motivo de rechazo..." 
+                aria-label="Motivo del rechazo" placeholder="Explicá por qué se rechaza la inscripción" 
                 value={review.rejectionNote}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => review.setRejectionNote(e.target.value)}
-                className="border-red-300 focus-visible:ring-red-500"
+                className="border-destructive/30 focus-visible:ring-destructive"
               />
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={() => review.setIsRejecting(false)} className="flex-1">Cancelar</Button>
                 <Button variant="destructive" onClick={review.handleReject} disabled={review.isRejectPending} className="flex-1">
-                  {review.isRejectPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {review.isRejectPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />}
                   Confirmar Rechazo
                 </Button>
               </div>
@@ -117,11 +117,11 @@ export function InscriptionReviewPanel({ inscription, review }: InscriptionRevie
               </Button>
               {puedeAprobar && (
                 <Button 
-                  className="bg-green-600 hover:bg-green-700" 
+                  className="bg-success-600 hover:bg-success-700" 
                   onClick={review.handleApprove}
                   disabled={review.isApprovePending}
                 >
-                  {review.isApprovePending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {review.isApprovePending && <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />}
                   Aprobar
                 </Button>
               )}

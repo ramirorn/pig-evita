@@ -28,6 +28,10 @@ export function RegisterWizard({ wizard }: { wizard: InscriptionWizard }) {
         </div>
       )}
 
+      {/* Con la credencial emitida el encabezado grande se va; la página igual
+          necesita su único h1. */}
+      {step >= 4 && <h1 className="sr-only">Inscripción a los Juegos Evita</h1>}
+
       <InscriptionSteps wizard={wizard} />
     </div>
   );

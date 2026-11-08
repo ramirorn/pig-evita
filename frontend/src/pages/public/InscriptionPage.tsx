@@ -51,6 +51,9 @@ export function InscriptionPage() {
             <img
               src="/logo-sinfondo.png"
               alt="Juegos Evita Formoseños"
+              width={44}
+              height={44}
+              decoding="async"
               className="h-11 w-auto object-contain transition-transform duration-200 ease-out-soft group-hover:scale-105"
             />
             <div>

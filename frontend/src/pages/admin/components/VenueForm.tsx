@@ -185,7 +185,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
               <div className="space-y-0.5">
                 <FormLabel className="text-xs font-semibold text-primary-900 flex items-center gap-1.5 cursor-pointer">
                   <CheckCircle2 className="w-4 h-4 text-primary-600" />
-                  Sede Habilitada / Activa
+                  Sede activa
                 </FormLabel>
                 <FormDescription className="text-xs text-primary-500">
                   Las sedes activas están disponibles para asignar partidos y eventos.
@@ -199,7 +199,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
         />
 
         {/* Botones de acción */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-primary-100">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           <Button
             type="button"
             variant="outline"
@@ -214,7 +214,7 @@ export function VenueForm({ initialData, onSuccess, onCancel }: VenueFormProps) 
             disabled={isPending}
             className="gap-2 cursor-pointer min-w-[140px]"
           >
-            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
             {isEditing ? 'Guardar Cambios' : 'Registrar Sede'}
           </Button>
         </div>

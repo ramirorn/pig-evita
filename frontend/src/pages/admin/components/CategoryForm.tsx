@@ -162,7 +162,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre de la Categoría</FormLabel>
+              <FormLabel>Nombre de la categoría</FormLabel>
               <FormControl>
                 <Input placeholder="Ej. Sub 14, Libre" {...field} />
               </FormControl>
@@ -205,7 +205,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
         />
 
         {ageCriterion === AgeCriterion.BIRTH_YEAR ? (
-          <div className="grid grid-cols-2 items-start gap-4">
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
             <FormField
               key="minBirthYear"
               control={form.control}
@@ -253,14 +253,14 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
             />
           </div>
         ) : (
-          <div className="grid grid-cols-2 items-start gap-4">
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
             <FormField
               key="minAge"
               control={form.control}
               name="minAge"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Edad Mínima</FormLabel>
+                  <FormLabel>Edad mínima</FormLabel>
                   <FormControl>
                     <NumberField
                       min={0}
@@ -282,7 +282,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
               name="maxAge"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Edad Máxima</FormLabel>
+                  <FormLabel>Edad máxima</FormLabel>
                   <FormControl>
                     <NumberField
                       min={0}
@@ -299,6 +299,12 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
             />
           </div>
         )}
+
+        <p className="-mt-2 text-xs text-muted-foreground">
+          {ageCriterion === AgeCriterion.BIRTH_YEAR
+            ? 'Los dos años están incluidos. Dejá uno vacío si la categoría no tiene tope de ese lado.'
+            : 'Las dos edades están incluidas. Dejá una vacía si la categoría no tiene tope de ese lado.'}
+        </p>
 
         <FormField
           control={form.control}
@@ -331,7 +337,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <FormLabel className="text-base">Estado Activo</FormLabel>
+                <FormLabel className="text-base">Estado activo</FormLabel>
                 <p className="text-sm text-muted-foreground">
                   Habilita o deshabilita la categoría para inscripciones.
                 </p>
@@ -343,14 +349,14 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
           )}
         />
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
           )}
           <Button type="submit" disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {initialData ? 'Actualizar' : 'Crear'} Categoría
           </Button>
         </div>

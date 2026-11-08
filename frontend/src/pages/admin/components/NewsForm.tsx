@@ -307,7 +307,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
         />
 
         {/* Botones de acción */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-primary-100">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           <Button
             type="button"
             variant="outline"
@@ -322,7 +322,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
             disabled={isPending}
             className="gap-2 cursor-pointer min-w-[140px]"
           >
-            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
             {initialData ? 'Guardar Cambios' : 'Crear Noticia'}
           </Button>
         </div>

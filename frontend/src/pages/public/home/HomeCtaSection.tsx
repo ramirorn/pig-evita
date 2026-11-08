@@ -41,15 +41,14 @@ export function HomeCtaSection() {
           Formá parte de la historia deportiva de Formosa
         </h2>
         <p className="mb-10 max-w-2xl text-lg font-light text-white/90">
-          Las inscripciones ya están abiertas para todas las disciplinas.
-          Representá a tu municipio y alcanzá la gloria.
+          Inscribite en pocos pasos desde el celular y seguí tu inscripción con el código que te damos al terminar. Representá a tu localidad.
         </p>
         <Link
           to={ROUTES.INSCRIPTION}
           className="group inline-flex items-center gap-3 rounded-full bg-accent-500 px-12 py-5 text-lg font-bold text-primary-900 transition-[background-color,color,box-shadow,transform] duration-200 ease-out-soft hover:bg-white hover:text-secondary-600 hover:shadow-2xl active:scale-[0.98] active:duration-120"
         >
           Inscribirse ahora
-          <ArrowRight className="h-5 w-5 transition-transform duration-200 ease-out-soft group-hover:translate-x-1" />
+          <ArrowRight className="h-5 w-5 transition-transform duration-200 ease-out-soft group-hover:translate-x-1 motion-reduce:transition-none" aria-hidden="true" />
         </Link>
       </div>
     </section>

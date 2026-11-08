@@ -73,6 +73,7 @@ export function ErrorScreen({
           alt="Juegos Evita Formoseños"
           width={64}
           height={64}
+          decoding="async"
           className="h-16 w-16 mx-auto mb-6 object-contain"
         />
 
