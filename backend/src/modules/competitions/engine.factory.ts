@@ -2,8 +2,16 @@
 // Engine Factory (Strategy Pattern)
 // ===========================================
 import { Injectable, NotImplementedException } from '@nestjs/common';
-import { CompetitionFormat, Competition, Match, Prisma } from '@prisma/client';
+import { CompetitionFormat, Competition, Match } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import {
+  ClienteFixture,
+  TipoDeCompetidor,
+  crucesFaseDeGrupos,
+  crucesTodosContraTodos,
+  escribirCruces,
+  primeraRondaEliminacion,
+} from './bracket';
 
 /**
  * Qué representan los ids que recibe el motor.
@@ -15,116 +23,125 @@ import { PrismaService } from '../../database/prisma.service';
  * generar el fixture de una disciplina individual escribía un `teamId`
  * apuntando a un participante, o sea un 500 por violación de la foreign key.
  */
-export type TipoDeCompetidor = 'team' | 'participant';
+export type { TipoDeCompetidor } from './bracket';
 
 /**
- * Interfaz base para los motores de fixture
+ * Interfaz base para los motores de fixture.
+ *
+ * `db` es el cliente de la transacción del service (F-13). Si se omite, el
+ * motor escribe con su `PrismaService`.
  */
 export interface IFixtureEngine {
   generateFixture(
-    competition: Competition,
+    competition: Pick<Competition, 'id'>,
     participantOrTeamIds: string[],
     tipo: TipoDeCompetidor,
+    db?: ClienteFixture,
   ): Promise<Match[]>;
 }
 
+function exigirDos(ids: readonly string[], formato: string) {
+  if (ids.length < 2) {
+    throw new Error(
+      `Se necesitan al menos 2 participantes/equipos para ${formato}`,
+    );
+  }
+}
+
+/**
+ * Todos contra todos. Con cantidad impar, en cada fecha alguien descansa y
+ * ese cruce no se escribe.
+ *
+ * La entrada no se muta: el 'BYE' se agregaba sobre el `teamIds` del DTO y un
+ * segundo uso del mismo arreglo veía un competidor que nadie mandó.
+ */
 @Injectable()
 export class RoundRobinEngine implements IFixtureEngine {
   constructor(private readonly prisma: PrismaService) {}
 
   async generateFixture(
-    competition: Competition,
+    competition: Pick<Competition, 'id'>,
     ids: string[],
     tipo: TipoDeCompetidor,
+    db: ClienteFixture = this.prisma,
   ): Promise<Match[]> {
-    if (ids.length < 2) {
-      throw new Error(
-        'Se necesitan al menos 2 participantes/equipos para Round Robin',
-      );
-    }
+    exigirDos(ids, 'Round Robin');
+    return escribirCruces(
+      db,
+      competition.id,
+      crucesTodosContraTodos(ids),
+      tipo,
+    );
+  }
+}
 
-    // Agregar un "bye" (descanso) si son impares.
-    //
-    // Sobre una **copia**: el `push` iba contra el arreglo del llamador, que es
-    // el `teamIds` del DTO. Mutar la entrada hacía que un segundo uso del mismo
-    // arreglo viera un competidor 'BYE' que nadie mandó.
-    const competidores = [...ids];
-    if (competidores.length % 2 !== 0) {
-      competidores.push('BYE');
-    }
+/**
+ * Eliminación directa (F-14).
+ *
+ * Escribe sólo la primera ronda, con byes si la cantidad no es potencia de 2.
+ * Las rondas siguientes las arma `avanzarLlave` cuando se cierra la anterior:
+ * hasta entonces no se sabe quién las juega, y el modelo no tiene partidos con
+ * casilleros vacíos.
+ */
+@Injectable()
+export class EliminacionDirectaEngine implements IFixtureEngine {
+  constructor(private readonly prisma: PrismaService) {}
 
-    const numTeams = competidores.length;
-    const numRounds = numTeams - 1;
-    const matchesPerRound = numTeams / 2;
-    const matchesToCreate: any[] = [];
-    const teamIds = [...competidores];
+  async generateFixture(
+    competition: Pick<Competition, 'id'>,
+    ids: string[],
+    tipo: TipoDeCompetidor,
+    db: ClienteFixture = this.prisma,
+  ): Promise<Match[]> {
+    exigirDos(ids, 'Eliminación Directa');
+    return escribirCruces(
+      db,
+      competition.id,
+      primeraRondaEliminacion(ids),
+      tipo,
+    );
+  }
+}
 
-    for (let round = 0; round < numRounds; round++) {
-      for (let match = 0; match < matchesPerRound; match++) {
-        const home = teamIds[match];
-        const away = teamIds[numTeams - 1 - match];
+/**
+ * Fase de grupos (F-14): grupos de 3 o 4 (ver `repartirEnGrupos`) y todos
+ * contra todos dentro de cada uno, reusando el mismo emparejamiento del round
+ * robin.
+ */
+@Injectable()
+export class FaseGruposEngine implements IFixtureEngine {
+  constructor(private readonly prisma: PrismaService) {}
 
-        // No creamos partido si uno es BYE (descanso)
-        if (home !== 'BYE' && away !== 'BYE') {
-          matchesToCreate.push({
-            competitionId: competition.id,
-            round: round + 1,
-            matchNumber: match + 1,
-            status: 'PROGRAMADO',
-            homeId: home,
-            awayId: away,
-          });
-        }
-      }
-      // Rotación de matriz
-      teamIds.splice(1, 0, teamIds.pop()!);
-    }
-
-    // Insertar todos los partidos y crear sus resultados pendientes
-    const createdMatches = [];
-    for (const matchData of matchesToCreate) {
-      const { homeId, awayId, ...rest } = matchData;
-
-      const createdMatch = await this.prisma.match.create({
-        data: rest,
-      });
-
-      // Crear registros en Result para que sepamos quién juega en este partido.
-      //
-      // `isHome` se persiste acá (R23) porque **es acá donde el dato existe**:
-      // el algoritmo ya distingue `home` de `away` al armar el cruce, y hasta
-      // ahora esa distinción se perdía al guardar. La pantalla del fixture
-      // terminaba infiriendo la localía del orden de las filas, que Postgres no
-      // garantiza.
-      const campoId = tipo === 'team' ? 'teamId' : 'participantId';
-
-      await this.prisma.result.createMany({
-        data: [
-          { matchId: createdMatch.id, [campoId]: homeId, scoreData: {}, isHome: true },
-          { matchId: createdMatch.id, [campoId]: awayId, scoreData: {}, isHome: false },
-        ] as Prisma.ResultCreateManyInput[],
-      });
-
-      createdMatches.push(createdMatch);
-    }
-
-    return createdMatches;
+  async generateFixture(
+    competition: Pick<Competition, 'id'>,
+    ids: string[],
+    tipo: TipoDeCompetidor,
+    db: ClienteFixture = this.prisma,
+  ): Promise<Match[]> {
+    exigirDos(ids, 'Fase de Grupos');
+    return escribirCruces(db, competition.id, crucesFaseDeGrupos(ids), tipo);
   }
 }
 
 @Injectable()
 export class EngineFactory {
-  constructor(private readonly roundRobinEngine: RoundRobinEngine) {}
+  constructor(
+    private readonly roundRobinEngine: RoundRobinEngine,
+    private readonly eliminacionDirectaEngine: EliminacionDirectaEngine,
+    private readonly faseGruposEngine: FaseGruposEngine,
+  ) {}
 
   getEngine(format: CompetitionFormat): IFixtureEngine {
     switch (format) {
       case 'ROUND_ROBIN':
         return this.roundRobinEngine;
       case 'ELIMINACION_DIRECTA':
+        return this.eliminacionDirectaEngine;
       case 'FASE_GRUPOS':
+        return this.faseGruposEngine;
       default:
         throw new NotImplementedException(
-          `El formato ${format} aún no está implementado`,
+          `El formato ${String(format)} aún no está implementado`,
         );
     }
   }

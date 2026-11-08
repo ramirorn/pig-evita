@@ -6,8 +6,8 @@
 // `POST /competitions/:id/fixture`. Se usa el motor real (`EngineFactory` +
 // `RoundRobinEngine`) sobre un Prisma en memoria.
 //
-// `it.failing` = defecto conocido (F-09, F-13, F-14 de
-// documentacion/auditoria-funcional.md) afirmando el comportamiento correcto.
+// F-09, F-13 y F-14 de documentacion/auditoria-funcional.md eran `it.failing`
+// (defecto conocido); ya corregidos, quedan como contrato.
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -22,6 +22,8 @@ import { CompetitionsService } from '../src/modules/competitions/competitions.se
 import {
   EngineFactory,
   RoundRobinEngine,
+  EliminacionDirectaEngine,
+  FaseGruposEngine,
 } from '../src/modules/competitions/engine.factory';
 import { PrismaService } from '../src/database/prisma.service';
 import { JwtStrategy } from '../src/modules/auth/strategies';
@@ -58,24 +60,51 @@ describe('Competencias y fixture (e2e)', () => {
   let app: INestApplication<App>;
   let jwt: JwtService;
   let comps: Map<string, Comp>;
-  let matches: Array<{ id: string; competitionId: string; round: number }>;
-  let results: Array<{ matchId: string; participantId?: string; teamId?: string }>;
+  let matches: Array<{
+    id: string;
+    competitionId: string;
+    round: number;
+    matchNumber: number;
+    status: string;
+  }>;
+  let results: Array<{
+    matchId: string;
+    participantId?: string;
+    teamId?: string;
+  }>;
+  /** Inscripciones APROBADA en la categoría `CAT` (F-09). */
+  let aprobadas: Array<{ participantId?: string; teamId?: string }>;
+  const aprobar = (
+    n: number,
+    campo: 'participantId' | 'teamId' = 'participantId',
+  ) => {
+    for (let i = 1; i <= n; i++) aprobadas.push({ [campo]: uuid(i) });
+  };
 
   const token = (role: Role) =>
-    jwt.sign({ sub: `user-${role}`, email: `${role}@t.test`, role, type: 'access' });
+    jwt.sign({
+      sub: `user-${role}`,
+      email: `${role}@t.test`,
+      role,
+      type: 'access',
+    });
   const auth = (role: Role) => ({ Authorization: `Bearer ${token(role)}` });
 
   beforeEach(async () => {
     comps = new Map();
     matches = [];
     results = [];
+    aprobadas = [];
     let n = 0;
 
-    const prisma = {
+    const prisma: Record<string, unknown> = {
       competition: {
         findUnique: jest.fn(
           (args: {
-            where: { id?: string; disciplineId_categoryId_stage?: Record<string, string> };
+            where: {
+              id?: string;
+              disciplineId_categoryId_stage?: Record<string, string>;
+            };
           }) => {
             if (args.where.id) {
               const c = comps.get(args.where.id);
@@ -106,10 +135,12 @@ describe('Competencias y fixture (e2e)', () => {
           comps.set(c.id, c);
           return Promise.resolve(c);
         }),
-        update: jest.fn((args: { where: { id: string }; data: Partial<Comp> }) => {
-          Object.assign(comps.get(args.where.id)!, args.data);
-          return Promise.resolve(comps.get(args.where.id));
-        }),
+        update: jest.fn(
+          (args: { where: { id: string }; data: Partial<Comp> }) => {
+            Object.assign(comps.get(args.where.id)!, args.data);
+            return Promise.resolve(comps.get(args.where.id));
+          },
+        ),
       },
       category: {
         findUnique: jest.fn((args: { where: { id: string } }) =>
@@ -119,21 +150,66 @@ describe('Competencias y fixture (e2e)', () => {
         ),
       },
       match: {
-        create: jest.fn((args: { data: { competitionId: string; round: number } }) => {
-          const m = { id: `m-${++n}`, ...args.data };
-          matches.push(m);
-          return Promise.resolve(m);
-        }),
+        create: jest.fn(
+          (args: {
+            data: {
+              competitionId: string;
+              round: number;
+              matchNumber: number;
+              status: string;
+            };
+          }) => {
+            const m = { id: `m-${++n}`, ...args.data };
+            matches.push(m);
+            return Promise.resolve(m);
+          },
+        ),
+      },
+      inscription: {
+        // Aplica el `where` que arma el service: ids pedidos, categoría y estado.
+        findMany: jest.fn(
+          (args: {
+            where: {
+              participantId?: { in: string[] };
+              teamId?: { in: string[] };
+              categoryId: string;
+              status: string;
+            };
+          }) => {
+            const campo = args.where.teamId ? 'teamId' : 'participantId';
+            const pedidos = args.where[campo]!.in;
+            if (
+              args.where.categoryId !== CAT ||
+              args.where.status !== 'APROBADA'
+            ) {
+              return Promise.resolve([]);
+            }
+            return Promise.resolve(
+              aprobadas
+                .filter((a) => a[campo] && pedidos.includes(a[campo]))
+                .map((a) => ({ [campo]: a[campo] })),
+            );
+          },
+        ),
       },
       result: {
         createMany: jest.fn(
-          (args: { data: Array<{ matchId: string; participantId?: string; teamId?: string }> }) => {
+          (args: {
+            data: Array<{
+              matchId: string;
+              participantId?: string;
+              teamId?: string;
+            }>;
+          }) => {
             results.push(...args.data);
             return Promise.resolve({ count: args.data.length });
           },
         ),
       },
     };
+    prisma.$transaction = jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
+      fn(prisma),
+    );
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -145,9 +221,14 @@ describe('Competencias y fixture (e2e)', () => {
         CompetitionsService,
         EngineFactory,
         RoundRobinEngine,
+        EliminacionDirectaEngine,
+        FaseGruposEngine,
         JwtStrategy,
         { provide: PrismaService, useValue: prisma },
-        { provide: ConfigService, useValue: { get: jest.fn((k: string) => CONFIG[k]) } },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn((k: string) => CONFIG[k]) },
+        },
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_GUARD, useClass: RolesGuard },
         { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
@@ -172,7 +253,10 @@ describe('Competencias y fixture (e2e)', () => {
     await app.close();
   });
 
-  const crear = (over: Record<string, unknown> = {}, rol: Role = Role.ADMIN_PROVINCIAL) =>
+  const crear = (
+    over: Record<string, unknown> = {},
+    rol: Role = Role.ADMIN_PROVINCIAL,
+  ) =>
     request(app.getHttpServer())
       .post('/competitions')
       .set(auth(rol))
@@ -218,13 +302,16 @@ describe('Competencias y fixture (e2e)', () => {
     });
 
     it('categoría de otra disciplina → 400', async () => {
-      await crear({ categoryId: '99999999-9999-4999-8999-999999999999' }).expect(400);
+      await crear({
+        categoryId: '99999999-9999-4999-8999-999999999999',
+      }).expect(400);
     });
   });
 
   describe('fixture round robin', () => {
     beforeEach(async () => {
       await crear().expect(201);
+      aprobar(8);
     });
 
     it.each([2, 3, 4, 5, 8])(
@@ -252,7 +339,9 @@ describe('Competencias y fixture (e2e)', () => {
       await fixture({ participantIds: ids }).expect(201);
       const porRonda = new Map<number, string[]>();
       for (const m of matches) {
-        const jugadores = results.filter((r) => r.matchId === m.id).map((r) => r.participantId!);
+        const jugadores = results
+          .filter((r) => r.matchId === m.id)
+          .map((r) => r.participantId!);
         porRonda.set(m.round, [...(porRonda.get(m.round) ?? []), ...jugadores]);
       }
       for (const [, jugadores] of porRonda) {
@@ -261,6 +350,7 @@ describe('Competencias y fixture (e2e)', () => {
     });
 
     it('por equipos usa teamId', async () => {
+      aprobar(3, 'teamId');
       await fixture({ teamIds: [uuid(1), uuid(2), uuid(3)] }).expect(201);
       expect(results.every((r) => r.teamId && !r.participantId)).toBe(true);
     });
@@ -268,7 +358,10 @@ describe('Competencias y fixture (e2e)', () => {
     it('menos de 2 ids → 400; segundo fixture → 409; DELEGADO → 403', async () => {
       await fixture({ participantIds: [uuid(1)] }).expect(400);
       await fixture({}).expect(400);
-      await fixture({ participantIds: [uuid(1), uuid(2)] }, Role.DELEGADO).expect(403);
+      await fixture(
+        { participantIds: [uuid(1), uuid(2)] },
+        Role.DELEGADO,
+      ).expect(403);
       await fixture({ participantIds: [uuid(1), uuid(2)] }).expect(201);
       await fixture({ participantIds: [uuid(1), uuid(2)] }).expect(409);
     });
@@ -277,32 +370,88 @@ describe('Competencias y fixture (e2e)', () => {
       await fixture({ participantIds: ['a', 'b'] }).expect(400);
     });
 
-    it.failing(
-      'F-13: el mismo id repetido debería rechazarse con 400 (un competidor no juega contra sí mismo)',
-      async () => {
-        await fixture({ participantIds: [uuid(1), uuid(1)] }).expect(400);
-      },
-    );
+    it('F-13: el mismo id repetido debería rechazarse con 400 (un competidor no juega contra sí mismo)', async () => {
+      await fixture({ participantIds: [uuid(1), uuid(1)] }).expect(400);
+      expect(matches).toHaveLength(0);
+    });
+
+    it('F-13: un id inexistente → 400 y no se escribe nada', async () => {
+      await fixture({ participantIds: [uuid(1), uuid(99)] }).expect(400);
+      expect(matches).toHaveLength(0);
+      expect(comps.get(COMP)!.status).toBe('BORRADOR');
+    });
+
+    it('F-13: el fixture se escribe dentro de una transacción', async () => {
+      const prisma = app.get(PrismaService) as unknown as {
+        $transaction: jest.Mock;
+      };
+      await fixture({ participantIds: [uuid(1), uuid(2)] }).expect(201);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('otros formatos', () => {
-    it.failing.each(['ELIMINACION_DIRECTA', 'FASE_GRUPOS'])(
+    beforeEach(() => aprobar(8));
+
+    it.each(['ELIMINACION_DIRECTA', 'FASE_GRUPOS'])(
       'F-14: el formato %s se ofrece en el alta pero generar el fixture responde 501',
       async (format) => {
         await crear({ format }).expect(201);
-        await fixture({ participantIds: [uuid(1), uuid(2), uuid(3), uuid(4)] }).expect(201);
+        await fixture({
+          participantIds: [uuid(1), uuid(2), uuid(3), uuid(4)],
+        }).expect(201);
       },
     );
+
+    const jugadoresDe = (matchId: string) =>
+      results.filter((r) => r.matchId === matchId).map((r) => r.participantId!);
+
+    it('eliminación directa con 5: primera ronda de 4 cruces, 3 byes ya finalizados', async () => {
+      await crear({ format: 'ELIMINACION_DIRECTA' }).expect(201);
+      const ids = Array.from({ length: 5 }, (_, i) => uuid(i + 1));
+      await fixture({ participantIds: ids }).expect(201);
+      expect(matches).toHaveLength(4);
+      expect(matches.every((m) => m.round === 1)).toBe(true);
+      const byes = matches.filter((m) => jugadoresDe(m.id).length === 1);
+      expect(byes).toHaveLength(3);
+      expect(byes.every((m) => m.status === 'FINALIZADO')).toBe(true);
+      // cada competidor aparece exactamente una vez en la primera ronda
+      expect(matches.flatMap((m) => jugadoresDe(m.id)).sort()).toEqual(
+        [...ids].sort(),
+      );
+      expect(comps.get(COMP)!.status).toBe('ACTIVA');
+    });
+
+    it('fase de grupos con 6: dos grupos de 3, todos contra todos dentro de cada grupo', async () => {
+      await crear({ format: 'FASE_GRUPOS' }).expect(201);
+      const ids = Array.from({ length: 6 }, (_, i) => uuid(i + 1));
+      await fixture({ participantIds: ids }).expect(201);
+      expect(matches).toHaveLength(6); // 2 grupos × 3 cruces
+      const rivales = new Map<string, Set<string>>();
+      for (const m of matches) {
+        const [a, b] = jugadoresDe(m.id);
+        rivales.set(a, new Set([...(rivales.get(a) ?? []), b]));
+        rivales.set(b, new Set([...(rivales.get(b) ?? []), a]));
+      }
+      // cada uno juega contra los otros 2 de su grupo, no contra los 5
+      for (const r of rivales.values()) expect(r.size).toBe(2);
+    });
   });
 
   describe('admisión al fixture', () => {
-    it.failing(
-      'F-09: sólo participantes con inscripción APROBADA deberían entrar al fixture (CA-C1.3)',
-      async () => {
-        await crear().expect(201);
-        // El motor no consulta inscripciones en absoluto: con ids cualesquiera genera partidos.
-        await fixture({ participantIds: [uuid(1), uuid(2)] }).expect(400);
-      },
-    );
+    it('F-09: sólo participantes con inscripción APROBADA deberían entrar al fixture (CA-C1.3)', async () => {
+      await crear().expect(201);
+      aprobar(1); // uuid(2) no tiene inscripción aprobada
+      await fixture({ participantIds: [uuid(1), uuid(2)] }).expect(400);
+      expect(matches).toHaveLength(0);
+    });
+
+    it('F-09: un equipo sin inscripción APROBADA tampoco entra', async () => {
+      await crear().expect(201);
+      aprobar(1, 'teamId');
+      await fixture({ teamIds: [uuid(1), uuid(2)] }).expect(400);
+      aprobar(2, 'teamId');
+      await fixture({ teamIds: [uuid(1), uuid(2)] }).expect(201);
+    });
   });
 });

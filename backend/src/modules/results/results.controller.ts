@@ -16,8 +16,14 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ResultsService } from './results.service';
+import type { CargadorDeResultados } from './results.service';
 import { MatchResultDto } from './dto';
-import { Roles, Public, PublicReadThrottle } from '../../common/decorators';
+import {
+  Roles,
+  Public,
+  PublicReadThrottle,
+  CurrentUser,
+} from '../../common/decorators';
 import { ACCIONES } from '../../common/constants';
 
 @ApiTags('Results')
@@ -33,11 +39,21 @@ export class ResultsController {
     status: 200,
     description: 'Resultados guardados y partido finalizado',
   })
+  @ApiResponse({
+    status: 400,
+    description: 'Lista vacía o resultado que no pertenece al partido',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'El partido ya estaba finalizado: sólo ADMIN_PROVINCIAL o SUPER_ADMIN corrigen (CA-C3.4)',
+  })
   async updateMatchResults(
     @Param('matchId', ParseUUIDPipe) matchId: string,
     @Body() results: MatchResultDto[],
+    @CurrentUser() usuario: CargadorDeResultados,
   ) {
-    return this.resultsService.updateMatchResults(matchId, results);
+    return this.resultsService.updateMatchResults(matchId, results, usuario);
   }
 
   @Get('rankings/competition/:competitionId')

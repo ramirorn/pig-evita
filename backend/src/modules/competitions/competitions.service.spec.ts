@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CompetitionsService } from './competitions.service';
 import { PrismaService } from '../../database/prisma.service';
-import { EngineFactory, RoundRobinEngine } from './engine.factory';
+import {
+  EngineFactory,
+  RoundRobinEngine,
+  EliminacionDirectaEngine,
+  FaseGruposEngine,
+} from './engine.factory';
 
 describe('CompetitionsService', () => {
   let service: CompetitionsService;
@@ -13,6 +18,8 @@ describe('CompetitionsService', () => {
         CompetitionsService,
         EngineFactory,
         RoundRobinEngine,
+        EliminacionDirectaEngine,
+        FaseGruposEngine,
         {
           provide: PrismaService,
           useValue: {

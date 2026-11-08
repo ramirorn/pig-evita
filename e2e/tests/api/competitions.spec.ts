@@ -1,5 +1,4 @@
 // Competencias, fixture, partidos, resultados y rankings (individual y por equipos).
-import { knownBug } from '../../lib/bugs';
 import { expect, test } from '@playwright/test';
 import { DEPTO, anon, as, body, data, nextDni, uniq } from '../../lib/api';
 
@@ -135,7 +134,6 @@ test.describe('fixture, resultados y ranking (individual, round robin)', () => {
   });
 
   test('participantes sin inscripción APROBADA no entran al fixture (CA-C1.3)', async () => {
-    knownBug('F-09: el fixture acepta cualquier participante, aprobado o no (no valida CA-C1.3)');
     const { individual } = await catalogo();
     const [a] = await aprobados(1, individual.id);
     const s = await API();
@@ -149,7 +147,6 @@ test.describe('fixture, resultados y ranking (individual, round robin)', () => {
   });
 
   test('el mismo participante repetido en el fixture → 400 (no 500)', async () => {
-    knownBug('F-13: fixture con un id repetido responde 500');
     const { individual } = await catalogo();
     const [a] = await aprobados(1, individual.id);
     const comp = await crear(individual);
@@ -158,7 +155,6 @@ test.describe('fixture, resultados y ranking (individual, round robin)', () => {
   });
 
   test('participante inexistente en el fixture → error de cliente, nunca 500', async () => {
-    knownBug('F-13: fixture con un participante inexistente responde 500 (violación de FK sin traducir)');
     const { individual } = await catalogo();
     const [a] = await aprobados(1, individual.id);
     const comp = await crear(individual);
@@ -167,7 +163,6 @@ test.describe('fixture, resultados y ranking (individual, round robin)', () => {
   });
 
   test('cargar resultados: id de resultado ajeno o lista vacía no deben finalizar el partido', async () => {
-    knownBug('F-10: PATCH /results/match/:id con [] o con resultId ajeno igual marca el partido FINALIZADO');
     const { individual } = await catalogo();
     const [a, b] = await aprobados(2, individual.id);
     const comp = await crear(individual);
@@ -180,7 +175,6 @@ test.describe('fixture, resultados y ranking (individual, round robin)', () => {
   });
 
   test('un resultado ya cargado sólo lo corrige ADMIN_PROVINCIAL o superior (CA-C3.4)', async () => {
-    knownBug('F-11: un ARBITRO puede sobrescribir un resultado ya finalizado (CA-C3.4)');
     const { individual } = await catalogo();
     const [a, b] = await aprobados(2, individual.id);
     const comp = await crear(individual);
@@ -210,7 +204,6 @@ test.describe('fixture, resultados y ranking (individual, round robin)', () => {
   });
 
   test('ranking: un empate (sin ganador) no suma puntos pero tampoco cuenta como derrota', async () => {
-    knownBug('F-12: el ranking cuenta como "perdido" a ambos equipos de un partido sin ganador (empate) y no usa resultType');
     const { individual } = await catalogo();
     const [a, b] = await aprobados(2, individual.id);
     const comp = await crear(individual);
@@ -226,7 +219,6 @@ test.describe('fixture, resultados y ranking (individual, round robin)', () => {
 test.describe('fixture por equipos y otros formatos', () => {
   for (const format of ['ELIMINACION_DIRECTA', 'FASE_GRUPOS']) {
     test(`formato ${format} genera partidos`, async () => {
-      knownBug(`F-14: el formato ${format} se acepta en el alta pero generar el fixture responde 501`);
       const { individual } = await catalogo();
       const ids = await aprobados(4, individual.id);
       const comp = await crear(individual, { format });
@@ -246,6 +238,10 @@ test.describe('fixture por equipos y otros formatos', () => {
         dni: nextDni(), firstName: `J${i}`, lastName: uniq('Eq'), birthDate: '2012-05-05', sex: 'MASCULINO', locality: 'Formosa', department: DEPTO, isSubstitute: false, shirtNumber: i + 1,
       }));
       const d = await data(await s.post('/inscriptions/team', { disciplineId: masculina.disciplineId, categoryId: masculina.id, teamName: uniq('Club'), locality: 'Formosa', department: DEPTO, members: miembros }), 201);
+      // CA-C1.3: un equipo entra al fixture con al menos una inscripción APROBADA en la categoría.
+      const primera = d.members[0].inscriptionId;
+      await data(await s.patch(`/inscriptions/${primera}/review`, {}));
+      await data(await s.patch(`/inscriptions/${primera}/approve`, {}));
       equipos.push(d.team?.id ?? d.teamId);
     }
     const comp = await crear(masculina);
