@@ -1,7 +1,7 @@
 // ===========================================
 // App Module - Root Module
 // ===========================================
-import { Module } from '@nestjs/common';
+import { Module, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -74,6 +74,9 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
     // Logging (Pino)
     LoggerModule.forRoot({
+      // Sintaxis de path-to-regexp v8: el `*` por defecto de nestjs-pino hace
+      // que Nest avise "Unsupported route path" al arrancar (O-5).
+      forRoutes: [{ path: '{*path}', method: RequestMethod.ALL }],
       pinoHttp: {
         transport:
           process.env.NODE_ENV !== 'production'

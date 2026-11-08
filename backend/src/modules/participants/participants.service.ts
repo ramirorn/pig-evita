@@ -3,7 +3,6 @@
 // ===========================================
 import {
   Injectable,
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -22,6 +21,25 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction, DNI_EDITORS, Role } from '../../common/constants';
 import { Alcance, ScopeService } from '../../common/scope';
 import type { JwtPayload } from '../auth/interfaces';
+import { calcularEdad } from '../categories/category-range';
+
+/**
+ * CA-B1.4 (F-04) — la edad no se guarda: se calcula en cada consulta, con la
+ * misma función que valida la edad de la categoría en la inscripción, para que
+ * la API y la validación nunca digan dos edades distintas para la misma persona.
+ */
+function conEdad<T extends { birthDate?: Date | string | null }>(
+  participant: T,
+): T & { age: number | null } {
+  const nacimiento = participant.birthDate
+    ? new Date(participant.birthDate)
+    : null;
+  const age =
+    nacimiento && !Number.isNaN(nacimiento.getTime())
+      ? calcularEdad(nacimiento)
+      : null;
+  return { ...participant, age };
+}
 
 @Injectable()
 export class ParticipantsService {
@@ -72,7 +90,7 @@ export class ParticipantsService {
     this.logger.log(
       `Participant created: ${participant.dni} - ${participant.lastName}, ${participant.firstName}`,
     );
-    return participant;
+    return conEdad(participant);
   }
 
   /**
@@ -146,7 +164,7 @@ export class ParticipantsService {
       this.prisma.participant.count({ where: whereConAlcance }),
     ]);
 
-    return buildPaginatedResponse(participants, total, filterDto);
+    return buildPaginatedResponse(participants.map(conEdad), total, filterDto);
   }
 
   /**
@@ -180,7 +198,7 @@ export class ParticipantsService {
       throw new NotFoundException('Participante no encontrado');
     }
 
-    return participant;
+    return conEdad(participant);
   }
 
   /**
@@ -198,7 +216,7 @@ export class ParticipantsService {
       throw new NotFoundException(`No se encontró participante con DNI ${dni}`);
     }
 
-    return participant;
+    return conEdad(participant);
   }
 
   /** ¿El actor tiene uno de los roles habilitados a cambiar el DNI? */
@@ -230,9 +248,10 @@ export class ParticipantsService {
     // equipo y la misma categoría, pero adentro hay otra persona. La auditoría
     // lo registraba como un UPDATE cualquiera.
     //
-    // Se rechaza con 400 en vez de ignorar el campo en silencio: quien mandó el
-    // DNI tiene que enterarse de que no se aplicó. Un descarte mudo deja al
-    // delegado creyendo que corrigió el documento.
+    // Se rechaza en vez de ignorar el campo en silencio: quien mandó el DNI
+    // tiene que enterarse de que no se aplicó. Un descarte mudo deja al
+    // delegado creyendo que corrigió el documento. Es un 403 (F-05) y no un
+    // 400: el pedido está bien formado, lo que falta es el permiso.
     //
     // Sólo se corta si el valor **cambia**: los formularios del frontend mandan
     // el objeto completo, y rechazar un PATCH que reenvía el mismo DNI sería
@@ -273,7 +292,7 @@ export class ParticipantsService {
       updateDto.dni !== undefined && updateDto.dni !== actual.dni;
 
     if (cambiaDni && !this.puedeEditarDni(actor)) {
-      throw new BadRequestException(
+      throw new ForbiddenException(
         'No tiene permisos para modificar el DNI de un participante. ' +
           'Solicitá el cambio a un administrador provincial.',
       );
@@ -332,6 +351,6 @@ export class ParticipantsService {
     }
 
     this.logger.log(`Participant updated: ${participant.dni}`);
-    return participant;
+    return conEdad(participant);
   }
 }

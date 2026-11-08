@@ -12,6 +12,7 @@ import {
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { ParticipantFilterDto } from '../src/modules/participants/dto/participants.dto';
+import { MAX_PAGE } from '../src/common/dto/pagination.dto';
 
 /**
  * Controlador mínimo con el DTO REAL de participantes: el test no depende de
@@ -86,6 +87,23 @@ describe('Paginación — tope de elementos por página (e2e)', () => {
       .expect(200);
 
     expect(res.body.limit).toBe(20);
+  });
+
+  // F-21 — una página enorme desbordaba el `skip` de Prisma y respondía 500.
+  it('rechaza un page desmedido con 400 (@Max)', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/participants?page=99999999999999999999')
+      .expect(400);
+
+    expect(JSON.stringify(res.body.message)).toMatch(/page/);
+  });
+
+  it('acepta la página máxima permitida', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/participants?page=${MAX_PAGE}`)
+      .expect(200);
+
+    expect(res.body.page).toBe(MAX_PAGE);
   });
 
   /**

@@ -498,7 +498,7 @@ export class NewsSyncService {
     const respuesta = await this.portal.traerNota(id);
 
     if (!respuesta.ok) {
-      const detalle = `No se pudo leer la nota de control ${urlDeNota(id)}: ${respuesta.error}`;
+      const detalle = `No se pudo leer la nota de control ${urlDeNota(id, this.config.get<string>('NEWS_SYNC_PORTAL_URL'))}: ${respuesta.error}`;
       this.logger.error(detalle);
       throw new ServiceUnavailableException(
         `${detalle}. El portal no responde: la sincronización se aborta en vez de informar cero noticias.`,

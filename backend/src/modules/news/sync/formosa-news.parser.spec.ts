@@ -219,6 +219,12 @@ describe('formosa-news.parser (contra HTML real del portal)', () => {
       );
     });
 
+    it('O-3: la base del portal se puede cambiar (portal simulado), con o sin barra final', () => {
+      expect(urlDeNota(34709, 'http://portal-mock:8080/')).toBe(
+        'http://portal-mock:8080/noticia/34709/0/x',
+      );
+    });
+
     it('el slug propio lleva el ID del portal, así que nunca colisiona', () => {
       const resultado = parsearNota(HTML_JUEGOS_EVITA, 34709);
       if (!resultado.ok) throw new Error('no parseó');

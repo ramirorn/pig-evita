@@ -113,7 +113,7 @@ El MVP se considera terminado cuando un delegado puede inscribir a un participan
 
 - **CA-B3.1** Flujo de estados: `PENDIENTE → REVISADA → APROBADA` o `REVISADA → RECHAZADA`.
 - **CA-B3.2** Solo `INSCRIPTION_APPROVERS` (Super Admin, Provincial, Departamental) pueden ejecutar la transición a `APROBADA`.
-- **CA-B3.3** El rechazo requiere un `reason` no vacío que se persiste y se muestra al delegado.
+- **CA-B3.3** El rechazo requiere un `rejectionNote` no vacío (un texto hecho sólo de espacios cuenta como vacío) que se persiste y se muestra al delegado.
 - **CA-B3.4** Cualquier cambio de estado se registra automáticamente en el log de auditoría (usuario, timestamp, estado anterior/nuevo).
 
 ---

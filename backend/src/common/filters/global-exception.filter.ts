@@ -21,6 +21,31 @@ interface ErrorResponse {
   path: string;
 }
 
+/**
+ * Error que arma `body-parser` (vía `http-errors`): tiene `status` 4xx,
+ * `expose: true` y un `type` como `entity.too.large` o `entity.parse.failed`.
+ */
+interface ErrorDeBodyParser {
+  status: number;
+  type?: string;
+  expose?: boolean;
+}
+
+function esErrorDeBodyParser(
+  exception: unknown,
+): exception is ErrorDeBodyParser {
+  if (typeof exception !== 'object' || exception === null) return false;
+  const e = exception as Partial<ErrorDeBodyParser>;
+  return (
+    typeof e.status === 'number' &&
+    e.status >= 400 &&
+    e.status < 500 &&
+    e.expose === true &&
+    typeof e.type === 'string' &&
+    e.type.startsWith('entity.')
+  );
+}
+
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -50,16 +75,29 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           errors = resp.message as string[];
         }
       }
+    } else if (esErrorDeBodyParser(exception)) {
+      // F-22 — los errores de `body-parser` (body demasiado grande, JSON mal
+      // formado, charset no soportado) no son `HttpException`: traen su propio
+      // `status` 4xx y caían en la rama del 500. Se respeta ese status y se
+      // devuelve un mensaje fijo en castellano en vez del texto de la librería.
+      statusCode = exception.status;
+      message =
+        exception.type === 'entity.too.large'
+          ? 'El cuerpo de la petición supera el tamaño máximo permitido'
+          : exception.type === 'entity.parse.failed'
+            ? 'El cuerpo de la petición no es un JSON válido'
+            : 'El cuerpo de la petición no se pudo procesar';
     } else if (exception instanceof Error) {
       this.logger.error(
         `Unhandled exception: ${exception.message}`,
         exception.stack,
       );
-      if (process.env.NODE_ENV === 'production') {
-        message = 'Error interno del servidor';
-      } else {
-        message = exception.message;
-      }
+      // F-01 — el mensaje crudo de una excepción no controlada nunca sale en la
+      // respuesta, en ningún entorno: un error de Prisma trae la invocación
+      // completa (rutas de `dist/`, número de línea, forma de la consulta) y
+      // el stack aislado de pruebas corre con NODE_ENV=development. El detalle
+      // queda en el log del servidor, que es donde tiene que estar.
+      message = 'Error interno del servidor';
     }
 
     // R11 — corte final antes de serializar.

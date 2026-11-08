@@ -1,5 +1,4 @@
 // Usuarios, zonas, catálogo (disciplinas/categorías), auditoría, dashboard, reportes y estadísticas.
-import { knownBug } from '../../lib/bugs';
 import { expect, test } from '@playwright/test';
 import { ROLES, anon, as, body, data, newCtx, uniq, Api, roleEmail } from '../../lib/api';
 import { PASSWORD } from '../../lib/env';
@@ -41,7 +40,6 @@ test.describe('usuarios', () => {
   });
 
   test('un usuario no puede desactivarse a sí mismo ni al último SUPER_ADMIN', async () => {
-    knownBug('F-19: el SUPER_ADMIN puede desactivar/eliminar su propia cuenta (el sistema podría quedar sin administrador)');
     const s = await sa();
     const me = (await as('SUPER_ADMIN')).user;
     const r = await s.patch(`/users/${me.id}`, { isActive: false });
@@ -133,7 +131,6 @@ test.describe('auditoría', () => {
   });
 
   test('fromDate/toDate con sólo la fecha incluyen el día completo', async () => {
-    knownBug('F-18: toDate=YYYY-MM-DD se interpreta como las 00:00 y excluye los registros de ese día (calendario y auditoría)');
     const s = await prov();
     const hoy = new Date().toISOString().slice(0, 10);
     const l = await body(await s.get(`/audit?fromDate=${hoy}&toDate=${hoy}&limit=5`));
@@ -195,7 +192,6 @@ test.describe('dashboard, estadísticas y reportes', () => {
   });
 
   test('reporte con filtro inválido nunca responde 500', async () => {
-    knownBug('F-20: /reports/participants?disciplineId=zz (y otros filtros) responden 500 en vez de 400');
     const s = await prov();
     for (const q of ['?sex=X', '?disciplineId=zz', '?status=XX', '?format=pdf', '?from=ayer']) {
       for (const rep of ['participants', 'inscriptions', 'results']) {

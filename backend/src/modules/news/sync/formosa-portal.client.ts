@@ -17,7 +17,7 @@
 // Allow: /`: no hay ninguna regla que prohíba `/noticia/`.
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { decodificarHtml, URL_PORTADA, urlDeNota } from './formosa-news.parser';
+import { BASE_PORTAL, decodificarHtml, urlDeNota } from './formosa-news.parser';
 
 export type RespuestaDelPortal =
   { ok: true; html: string } | { ok: false; error: string };
@@ -33,6 +33,17 @@ export class FormosaPortalClient {
       'NEWS_SYNC_USER_AGENT',
       'JuegosEvitaFormosa-SyncBot/1.0 (+https://www.formosa.gob.ar/; Secretaria de Deportes y Recreacion Comunitaria)',
     );
+  }
+
+  /**
+   * O-3 — base del portal de donde se descargan portada y notas. Por defecto
+   * el portal oficial; `NEWS_SYNC_PORTAL_URL` permite apuntar a un portal
+   * simulado para probar el sync de punta a punta sin salir a Internet.
+   */
+  get basePortal(): string {
+    return this.config
+      .get<string>('NEWS_SYNC_PORTAL_URL', BASE_PORTAL)
+      .replace(/\/+$/, '');
   }
 
   private get timeoutMs(): number {
@@ -58,7 +69,7 @@ export class FormosaPortalClient {
    * detecta el parser (`esPlantillaSinNota`), no el status code.
    */
   traerNota(id: number): Promise<RespuestaDelPortal> {
-    return this.traer(urlDeNota(id));
+    return this.traer(urlDeNota(id, this.basePortal));
   }
 
   /**
@@ -68,7 +79,7 @@ export class FormosaPortalClient {
    * corrida, no una excepción a las reglas de invitado.
    */
   traerPortada(): Promise<RespuestaDelPortal> {
-    return this.traer(URL_PORTADA);
+    return this.traer(`${this.basePortal}/`);
   }
 
   private async traer(url: string): Promise<RespuestaDelPortal> {

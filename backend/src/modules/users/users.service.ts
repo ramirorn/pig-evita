@@ -3,12 +3,14 @@
 // ===========================================
 import {
   Injectable,
+  BadRequestException,
   ConflictException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { Prisma } from '@prisma/client';
+import { Role } from '../../common/constants';
 import { PrismaService } from '../../database/prisma.service';
 import {
   CreateUserDto,
@@ -139,11 +141,51 @@ export class UsersService {
   }
 
   /**
+   * F-19 — si el usuario es el último SUPER_ADMIN activo, no se lo puede dar
+   * de baja ni bajarle el rol: nadie más podría gestionar usuarios.
+   */
+  private async impedirQuedarSinSuperAdmin(usuario: {
+    id: string;
+    role: string;
+    isActive: boolean;
+  }) {
+    if (usuario.role !== String(Role.SUPER_ADMIN) || !usuario.isActive) return;
+
+    const otros = await this.prisma.user.count({
+      where: {
+        role: Role.SUPER_ADMIN,
+        isActive: true,
+        NOT: { id: usuario.id },
+      },
+    });
+    if (otros === 0) {
+      throw new BadRequestException(
+        'Es el último SUPER_ADMIN activo: no se lo puede desactivar ni quitarle el rol.',
+      );
+    }
+  }
+
+  /**
    * Actualizar un usuario.
    */
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto, actorId?: string) {
     // Verificar que existe
-    await this.findOne(id);
+    const actual = await this.findOne(id);
+
+    // F-19 — desactivarse o quitarse el rol uno mismo, o dejar al sistema sin
+    // ningún SUPER_ADMIN activo, deja la plataforma sin quien la administre.
+    const seDesactiva = updateUserDto.isActive === false;
+    const pierdeSuperAdmin =
+      updateUserDto.role !== undefined &&
+      updateUserDto.role !== Role.SUPER_ADMIN;
+    if (seDesactiva || pierdeSuperAdmin) {
+      if (actorId && actorId === id) {
+        throw new BadRequestException(
+          'No podés desactivar tu propia cuenta ni quitarte el rol: pedíselo a otro administrador.',
+        );
+      }
+      await this.impedirQuedarSinSuperAdmin(actual);
+    }
 
     const { password, email, ...rest } = updateUserDto;
     const data: Prisma.UserUpdateInput = { ...rest };
@@ -182,8 +224,16 @@ export class UsersService {
   /**
    * Eliminar un usuario (soft delete: desactivar).
    */
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, actorId?: string) {
+    const actual = await this.findOne(id);
+
+    // F-19 — mismas guardas que la desactivación por PATCH.
+    if (actorId && actorId === id) {
+      throw new BadRequestException(
+        'No podés eliminar tu propia cuenta: pedíselo a otro administrador.',
+      );
+    }
+    await this.impedirQuedarSinSuperAdmin(actual);
 
     await this.prisma.user.update({
       where: { id },

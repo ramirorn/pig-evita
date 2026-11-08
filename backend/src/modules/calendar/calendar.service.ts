@@ -1,7 +1,12 @@
 // ===========================================
 // Calendar Service
 // ===========================================
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
@@ -9,7 +14,11 @@ import {
   UpdateCalendarEventDto,
   CalendarFilterDto,
 } from './dto';
-import { buildPaginatedResponse } from '../../common/dto';
+import {
+  buildPaginatedResponse,
+  finDelRango,
+  inicioDelRango,
+} from '../../common/dto';
 
 @Injectable()
 export class CalendarService {
@@ -17,13 +26,57 @@ export class CalendarService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * F-15 — un evento no puede terminar antes de empezar. Se valida en el
+   * service y no en el DTO porque en la edición uno de los dos extremos puede
+   * venir de la fila guardada.
+   */
+  private validarRango(startDate: Date, endDate: Date | null) {
+    if (endDate && endDate.getTime() < startDate.getTime()) {
+      throw new BadRequestException(
+        'La fecha de fin no puede ser anterior a la fecha de inicio',
+      );
+    }
+  }
+
+  /**
+   * F-24 — la sede y la disciplina referenciadas tienen que existir. Sin esto
+   * un UUID inexistente creaba el evento igual (o la FK reventaba en un 500).
+   */
+  private async validarReferencias(
+    venueId?: string | null,
+    disciplineId?: string | null,
+  ) {
+    if (venueId) {
+      const venue = await this.prisma.venue.findUnique({
+        where: { id: venueId },
+        select: { id: true },
+      });
+      if (!venue) throw new NotFoundException('La sede especificada no existe');
+    }
+    if (disciplineId) {
+      const discipline = await this.prisma.discipline.findUnique({
+        where: { id: disciplineId },
+        select: { id: true },
+      });
+      if (!discipline) {
+        throw new NotFoundException('La disciplina especificada no existe');
+      }
+    }
+  }
+
   async create(createDto: CreateCalendarEventDto) {
+    const startDate = new Date(createDto.startDate);
+    const endDate = createDto.endDate ? new Date(createDto.endDate) : null;
+    this.validarRango(startDate, endDate);
+    await this.validarReferencias(createDto.venueId, createDto.disciplineId);
+
     const event = await this.prisma.calendarEvent.create({
       data: {
         title: createDto.title,
         description: createDto.description || null,
-        startDate: new Date(createDto.startDate),
-        endDate: createDto.endDate ? new Date(createDto.endDate) : null,
+        startDate,
+        endDate,
         stage: createDto.stage || null,
         venueId: createDto.venueId || null,
         disciplineId: createDto.disciplineId || null,
@@ -56,8 +109,9 @@ export class CalendarService {
     if (filterDto.fromDate || filterDto.toDate) {
       where.startDate = {};
       if (filterDto.fromDate)
-        where.startDate.gte = new Date(filterDto.fromDate);
-      if (filterDto.toDate) where.startDate.lte = new Date(filterDto.toDate);
+        where.startDate.gte = inicioDelRango(filterDto.fromDate);
+      // F-18 — `toDate=YYYY-MM-DD` incluye el día completo.
+      if (filterDto.toDate) where.startDate.lte = finDelRango(filterDto.toDate);
     }
 
     if (filterDto.search) {
@@ -101,7 +155,22 @@ export class CalendarService {
 
   async update(id: string, updateDto: UpdateCalendarEventDto) {
     // `true`: el camino administrativo edita también eventos sin publicar.
-    await this.findOne(id, true); // Verificar que existe
+    const actual = await this.findOne(id, true); // Verificar que existe
+
+    // El rango se valida con lo que quedaría guardado: el PATCH puede traer
+    // sólo uno de los dos extremos.
+    const startDate =
+      updateDto.startDate !== undefined
+        ? new Date(updateDto.startDate)
+        : actual.startDate;
+    const endDate =
+      updateDto.endDate !== undefined
+        ? updateDto.endDate
+          ? new Date(updateDto.endDate)
+          : null
+        : actual.endDate;
+    this.validarRango(startDate, endDate);
+    await this.validarReferencias(updateDto.venueId, updateDto.disciplineId);
 
     const updateData: Prisma.CalendarEventUpdateInput = {
       ...(updateDto.title !== undefined ? { title: updateDto.title } : {}),

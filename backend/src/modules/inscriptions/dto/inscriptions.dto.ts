@@ -23,6 +23,7 @@ import { Type } from 'class-transformer';
 import { AgeCriterion, InscriptionStatus, Sex } from '@prisma/client';
 import { IsDni } from '../../../common/validators';
 import { PaginationQueryDto } from '../../../common/dto';
+import { Trim } from '../../../common/transformers';
 
 /**
  * DTO público para inscripción via QR.
@@ -367,6 +368,8 @@ export class ReviewInscriptionDto {
 
 export class RejectInscriptionDto {
   @ApiProperty({ description: 'Motivo del rechazo' })
+  // F-06 — un motivo hecho sólo de espacios no es un motivo.
+  @Trim()
   @IsString()
   @IsNotEmpty({ message: 'Debe indicar el motivo del rechazo' })
   rejectionNote: string;
@@ -378,8 +381,12 @@ export class InscriptionFilterDto extends PaginationQueryDto {
     enum: ['PENDIENTE', 'REVISADA', 'APROBADA', 'RECHAZADA'],
   })
   @IsOptional()
-  @IsString()
-  status?: string;
+  // F-01 — sin validar, un estado inexistente llegaba al `where` de Prisma y
+  // explotaba en un 500 con la invocación de la consulta en el cuerpo.
+  @IsEnum(InscriptionStatus, {
+    message: 'El estado debe ser PENDIENTE, REVISADA, APROBADA o RECHAZADA',
+  })
+  status?: InscriptionStatus;
 
   @ApiPropertyOptional({ description: 'Filtrar por categoría' })
   @IsOptional()

@@ -24,7 +24,11 @@
 /** Slug de sección que identifica a las notas de los Juegos Evita. */
 export const SLUG_JUEGOS_EVITA = 'juegos_evita_formosenos';
 
-/** Base pública del portal. */
+/**
+ * Base pública del portal. Es también el default de `NEWS_SYNC_PORTAL_URL`
+ * (O-3), que permite apuntar las descargas del sync a un portal simulado. La
+ * `sourceUrl` que se guarda sigue siendo siempre la canónica de esta base.
+ */
 export const BASE_PORTAL = 'https://www.formosa.gob.ar';
 
 /**
@@ -35,8 +39,8 @@ export const BASE_PORTAL = 'https://www.formosa.gob.ar';
  * larga —, así que el descubrimiento puede recorrer IDs sin conocer ni la
  * categoría ni el slug del título.
  */
-export function urlDeNota(id: number): string {
-  return `${BASE_PORTAL}/noticia/${id}/0/x`;
+export function urlDeNota(id: number, base: string = BASE_PORTAL): string {
+  return `${base.replace(/\/+$/, '')}/noticia/${id}/0/x`;
 }
 
 /** URL de la portada del portal: es la que enlaza las notas más recientes. */

@@ -22,7 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, UserFilterDto } from './dto';
-import { Roles } from '../../common/decorators';
+import { CurrentUser, Roles } from '../../common/decorators';
 import { ACCIONES } from '../../common/constants';
 
 @ApiTags('Users')
@@ -78,8 +78,9 @@ export class UsersController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser('sub') actorId: string,
   ) {
-    return this.usersService.update(id, updateUserDto);
+    return this.usersService.update(id, updateUserDto, actorId);
   }
 
   @Delete(':id')
@@ -90,8 +91,15 @@ export class UsersController {
     description: 'Desactiva un usuario (soft delete). Solo Super Admin.',
   })
   @ApiResponse({ status: 200, description: 'Usuario desactivado' })
+  @ApiResponse({
+    status: 400,
+    description: 'Auto-baja o baja del último SUPER_ADMIN activo',
+  })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.remove(id);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('sub') actorId: string,
+  ) {
+    return this.usersService.remove(id, actorId);
   }
 }

@@ -5,12 +5,14 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   Allow,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
 } from 'class-validator';
 import { DocumentType, DocumentStatus } from '@prisma/client';
+import { Trim } from '../../../common/transformers';
 
 export class UploadDocumentDto {
   @ApiProperty({ description: 'ID del participante' })
@@ -48,13 +50,18 @@ export class ReviewDocumentDto {
     description: 'Nuevo estado del documento',
     enum: [DocumentStatus.APROBADO, DocumentStatus.RECHAZADO],
   })
-  @IsEnum(DocumentStatus)
+  // F-08 — la revisión sólo decide: volver a PENDIENTE no es una revisión.
+  @IsIn([DocumentStatus.APROBADO, DocumentStatus.RECHAZADO], {
+    message: 'El estado de la revisión debe ser APROBADO o RECHAZADO',
+  })
   status: DocumentStatus;
 
   @ApiPropertyOptional({
     description: 'Observaciones (obligatorio si se rechaza)',
   })
   @IsOptional()
+  // F-07 — se recorta para que "   " cuente como "sin observaciones".
+  @Trim()
   @IsString()
   notes?: string;
 }

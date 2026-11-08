@@ -7,13 +7,92 @@ import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
-  ApiQuery,
+  ApiPropertyOptional,
 } from '@nestjs/swagger';
+import { IsEnum, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import { InscriptionStatus } from '@prisma/client';
 import { ReportsService, EspecificacionReporte } from './reports.service';
 import { Roles, CurrentUser } from '../../common/decorators';
 import { ACCIONES } from '../../common/constants';
 import { ScopeService } from '../../common/scope';
 import type { JwtPayload } from '../auth/interfaces';
+
+// -------------------------------------------------
+// Filtros de exportación (F-20)
+// -------------------------------------------------
+//
+// Los filtros llegaban como `@Query('x')` sueltos, sin validar: un
+// `disciplineId=zz` viajaba crudo al `where` de Prisma y el reporte respondía
+// 500. Con un DTO por endpoint el ValidationPipe global los rechaza con 400
+// antes de tocar la base (y `forbidNonWhitelisted` rechaza los que no existen).
+//
+// Viven en este archivo (y no en `dto/`) porque `backend/.gitignore` ignora
+// las carpetas `reports/` (pensado para los reportes generados en disco): un
+// archivo nuevo dentro de `src/modules/reports/` no entraría al repositorio.
+
+/** `excel` se sigue aceptando como sinónimo histórico de `xlsx`. */
+export const FORMATOS_REPORTE = ['csv', 'xlsx', 'excel'] as const;
+
+class ReportFormatQueryDto {
+  @ApiPropertyOptional({ enum: ['csv', 'xlsx'], default: 'csv' })
+  @IsOptional()
+  @IsIn(FORMATOS_REPORTE, {
+    message: 'El formato debe ser "csv" o "xlsx"',
+  })
+  format?: string;
+}
+
+/** Filtros comunes de los padrones (participantes y equipos). */
+export class PadronReportQueryDto extends ReportFormatQueryDto {
+  @ApiPropertyOptional({ description: 'Filtrar por disciplina' })
+  @IsOptional()
+  @IsUUID()
+  disciplineId?: string;
+
+  @ApiPropertyOptional({ description: 'Filtrar por categoría' })
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @ApiPropertyOptional({ description: 'Filtrar por localidad' })
+  @IsOptional()
+  @IsString()
+  locality?: string;
+
+  @ApiPropertyOptional({ description: 'Filtrar por departamento' })
+  @IsOptional()
+  @IsString()
+  department?: string;
+}
+
+export class InscriptionsReportQueryDto extends ReportFormatQueryDto {
+  @ApiPropertyOptional({ description: 'Filtrar por disciplina' })
+  @IsOptional()
+  @IsUUID()
+  disciplineId?: string;
+
+  @ApiPropertyOptional({ description: 'Filtrar por categoría' })
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar por estado',
+    enum: InscriptionStatus,
+  })
+  @IsOptional()
+  @IsEnum(InscriptionStatus, {
+    message: 'El estado debe ser PENDIENTE, REVISADA, APROBADA o RECHAZADA',
+  })
+  status?: InscriptionStatus;
+}
+
+export class ResultsReportQueryDto extends ReportFormatQueryDto {
+  @ApiPropertyOptional({ description: 'Filtrar por competencia' })
+  @IsOptional()
+  @IsUUID()
+  competitionId?: string;
+}
 
 const MIME_XLSX =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -75,20 +154,12 @@ export class ReportsController {
   @Get('participants')
   @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar lista de participantes a CSV o Excel' })
-  @ApiQuery({ name: 'disciplineId', required: false })
-  @ApiQuery({ name: 'categoryId', required: false })
-  @ApiQuery({ name: 'locality', required: false })
-  @ApiQuery({ name: 'department', required: false })
-  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx'] })
   async exportParticipants(
-    @Query('disciplineId') disciplineId: string,
-    @Query('categoryId') categoryId: string,
-    @Query('locality') locality: string,
-    @Query('department') department: string,
-    @Query('format') format: string,
+    @Query() query: PadronReportQueryDto,
     @Res() res: Response,
     @CurrentUser() actor: JwtPayload,
   ) {
+    const { disciplineId, categoryId, locality, department, format } = query;
     // R05 — el reporte nunca devuelve 403 por pedir un departamento ajeno: sale
     // recortado al alcance y lo declara en la primera fila del archivo.
     const espec = this.reportsService.especificacionParticipants(
@@ -111,18 +182,12 @@ export class ReportsController {
   @Get('inscriptions')
   @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar inscripciones a CSV o Excel' })
-  @ApiQuery({ name: 'disciplineId', required: false })
-  @ApiQuery({ name: 'categoryId', required: false })
-  @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx'] })
   async exportInscriptions(
-    @Query('disciplineId') disciplineId: string,
-    @Query('categoryId') categoryId: string,
-    @Query('status') status: string,
-    @Query('format') format: string,
+    @Query() query: InscriptionsReportQueryDto,
     @Res() res: Response,
     @CurrentUser() actor: JwtPayload,
   ) {
+    const { disciplineId, categoryId, status, format } = query;
     const espec = this.reportsService.especificacionInscriptions(
       await this.scope.alcanceDe(actor),
       disciplineId,
@@ -135,20 +200,12 @@ export class ReportsController {
   @Get('teams')
   @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar lista de equipos a CSV o Excel' })
-  @ApiQuery({ name: 'disciplineId', required: false })
-  @ApiQuery({ name: 'categoryId', required: false })
-  @ApiQuery({ name: 'locality', required: false })
-  @ApiQuery({ name: 'department', required: false })
-  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx'] })
   async exportTeams(
-    @Query('disciplineId') disciplineId: string,
-    @Query('categoryId') categoryId: string,
-    @Query('locality') locality: string,
-    @Query('department') department: string,
-    @Query('format') format: string,
+    @Query() query: PadronReportQueryDto,
     @Res() res: Response,
     @CurrentUser() actor: JwtPayload,
   ) {
+    const { disciplineId, categoryId, locality, department, format } = query;
     const espec = this.reportsService.especificacionTeams(
       await this.scope.alcanceDe(actor),
       {
@@ -164,14 +221,12 @@ export class ReportsController {
   @Get('results')
   @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar resultados y partidos a CSV o Excel' })
-  @ApiQuery({ name: 'competitionId', required: false })
-  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx'] })
   async exportResults(
-    @Query('competitionId') competitionId: string,
-    @Query('format') format: string,
+    @Query() query: ResultsReportQueryDto,
     @Res() res: Response,
     @CurrentUser() actor: JwtPayload,
   ) {
+    const { competitionId, format } = query;
     const espec = this.reportsService.especificacionResults(
       await this.scope.alcanceDe(actor),
       competitionId,

@@ -10,7 +10,7 @@ import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { AppModule } from './app.module';
 import { setupSwagger, SWAGGER_PATH } from './swagger';
-import { setupSecurity } from './security';
+import { setupBodyParsers, setupSecurity } from './security';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -45,6 +45,9 @@ async function bootstrap() {
   // respuestas de error. La configuración vive en `security.ts` para poder
   // testearla sin levantar el AppModule entero (ver T09).
   setupSecurity(app, { nodeEnv, corsOrigins });
+
+  // Límite explícito del body JSON/urlencoded (F-22): pasarse responde 413.
+  setupBodyParsers(app);
 
   // Cookies: el refresh token viaja en una cookie httpOnly (ver auth.cookies.ts)
   app.use(cookieParser());

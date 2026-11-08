@@ -108,6 +108,12 @@ export const envSchema = z
     /** Dias sin una nota nueva antes de que la corrida termine en alerta. */
     NEWS_SYNC_MAX_DIAS_SIN_NOTAS: z.coerce.number().min(1).default(30),
     NEWS_SYNC_USER_AGENT: z.string().optional(),
+    /**
+     * O-3 — base del portal del que se descargan las notas. Sin definir, el
+     * portal oficial (https://www.formosa.gob.ar). Sirve para apuntar el sync a
+     * un portal simulado en pruebas.
+     */
+    NEWS_SYNC_PORTAL_URL: z.string().url().optional(),
 
     // Seed
     SEED_ADMIN_EMAIL: z.string().email().optional(),

@@ -1,5 +1,4 @@
 // Participantes, inscripciones (individual y por plantel), QR público, revisión/aprobación y alcance territorial.
-import { knownBug } from '../../lib/bugs';
 import { expect, test } from '@playwright/test';
 import { DEPTO, anon, as, body, data, nextDni, uniq } from '../../lib/api';
 
@@ -53,7 +52,6 @@ test.describe('participantes', () => {
   });
 
   test('la edad se calcula en cada consulta (CA-B1.4)', async () => {
-    knownBug('F-04: la API no expone el campo age (CA-B1.4)');
     const s = (await as('ADMIN_PROVINCIAL')).api;
     const c = await data(await s.post('/participants', persona({ birthDate: '2010-01-01' })), 201);
     const det = await data(await s.get(`/participants/${c.id}`));
@@ -77,7 +75,6 @@ test.describe('participantes', () => {
   });
 
   test('un DELEGADO que intenta cambiar el DNI recibe 403 (no 400)', async () => {
-    knownBug('F-05: responde 400 en vez de 403 al faltar permiso para cambiar el DNI');
     const del = (await as('DELEGADO')).api;
     const p = await data(await del.post('/participants', persona()), 201);
     expect((await del.patch(`/participants/${p.id}`, { dni: nextDni() })).status()).toBe(403);
@@ -178,7 +175,6 @@ test.describe('inscripción individual', () => {
   });
 
   test('rechazar con motivo sólo de espacios → 400 (CA-B3.3)', async () => {
-    knownBug('F-06: el motivo de rechazo "   " se acepta como válido');
     const { individual } = await catalogo();
     const s = (await as('ADMIN_PROVINCIAL')).api;
     const ins = await data(await s.post('/inscriptions', { ...persona(), categoryId: individual.id }), 201);
@@ -221,7 +217,6 @@ test.describe('inscripción individual', () => {
   });
 
   test('filtro de estado inválido → 400 (no 500 con detalle de Prisma)', async () => {
-    knownBug('F-01: GET /inscriptions?status=XX responde 500 y filtra la consulta de Prisma');
     const r = await (await as('ADMIN_PROVINCIAL')).api.get('/inscriptions?status=XX');
     expect(r.status()).toBe(400);
     expect(JSON.stringify(await body(r))).not.toMatch(/prisma/i);

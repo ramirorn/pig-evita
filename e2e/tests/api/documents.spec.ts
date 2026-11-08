@@ -1,5 +1,4 @@
 // Documentos: subida (MinIO real), validación por firma, revisión, links firmados y alcance.
-import { knownBug } from '../../lib/bugs';
 import { expect, test } from '@playwright/test';
 import { DEPTO, EXE, PDF, PNG, as, body, data, nextDni, uniq } from '../../lib/api';
 
@@ -75,7 +74,6 @@ test.describe('documentos', () => {
   });
 
   test('la revisión sólo admite APROBADO o RECHAZADO (no se puede volver a PENDIENTE)', async () => {
-    knownBug('F-08: PATCH /documents/:id/review acepta status=PENDIENTE aunque el contrato declara sólo APROBADO|RECHAZADO');
     const p = await participante();
     const doc = await data(await subir('ADMIN_PROVINCIAL', p.id, 'FOTO', PNG, 'f.png', 'image/png'), 201);
     const r = await (await as('ADMIN_PROVINCIAL')).api.patch(`/documents/${doc.id}/review`, { status: 'PENDIENTE' });
@@ -83,7 +81,6 @@ test.describe('documentos', () => {
   });
 
   test('rechazo con observaciones sólo de espacios → 400', async () => {
-    knownBug('F-07: las observaciones "   " se aceptan como motivo de rechazo del documento');
     const p = await participante();
     const doc = await data(await subir('ADMIN_PROVINCIAL', p.id, 'FOTO', PNG, 'f.png', 'image/png'), 201);
     const r = await (await as('ADMIN_PROVINCIAL')).api.patch(`/documents/${doc.id}/review`, { status: 'RECHAZADO', notes: '   ' });

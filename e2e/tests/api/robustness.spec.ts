@@ -1,6 +1,5 @@
 // Robustez: parámetros basura nunca deben producir 500 ni filtrar detalles internos; cabeceras de seguridad;
 // límites de lectura pública; CORS; 404 de rutas desconocidas.
-import { knownBug } from '../../lib/bugs';
 import { expect, test } from '@playwright/test';
 import { Api, anon, as, body, data, freshIp, newCtx } from '../../lib/api';
 
@@ -38,7 +37,6 @@ test.describe('parámetros inválidos nunca producen 500', () => {
           }
         }
       }
-      if (ruta === '/inscriptions') knownBug('F-01: /inscriptions?status=<inválido> responde 500 y filtra la consulta de Prisma');
       expect(malos, malos.join('\n')).toEqual([]);
     });
   }
@@ -47,7 +45,6 @@ test.describe('parámetros inválidos nunca producen 500', () => {
 test.describe('paginación extrema', () => {
   for (const ruta of ['/participants', '/teams', '/inscriptions', '/users', '/audit', '/survey/campaigns', '/competitions', '/venues', '/news']) {
     test(`GET ${ruta}?page=99999999999999999999 → 400 (no 500)`, async () => {
-      knownBug('F-21: un número de página enorme desborda el offset y responde 500 en todos los listados paginados');
       const r = await (await as('SUPER_ADMIN')).api.get(`${ruta}?page=99999999999999999999`);
       expect(r.status()).toBeLessThan(500);
     });
@@ -87,7 +84,6 @@ test.describe('seguridad HTTP', () => {
   });
 
   test('payload gigante → 413', async () => {
-    knownBug('F-22: un body JSON mayor a ~100 KB responde 500 "request entity too large" en vez de 413');
     const s = (await as('ADMIN_PROVINCIAL')).api;
     const r = await s.post('/news', { title: 'x', content: 'a'.repeat(3 * 1024 * 1024) });
     expect(r.status()).toBe(413);

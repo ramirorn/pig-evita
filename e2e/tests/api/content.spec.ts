@@ -1,5 +1,4 @@
 // Contenido: noticias (CRUD, borradores, imagen subida/URL, orden, sync protegido), calendario, sedes (CRUD + foto).
-import { knownBug } from '../../lib/bugs';
 import { expect, test } from '@playwright/test';
 import { EXE, PNG, anon, as, body, data, uniq } from '../../lib/api';
 
@@ -48,7 +47,6 @@ test.describe('noticias', () => {
   });
 
   test('sortBy=title ordena en español (Á junto a A, no después de Z)', async () => {
-    knownBug('F-17: el orden por título usa la collation de la base (bytewise): "Árbol" queda después de "Zeta"');
     const s = await prov();
     const base = uniq('o');
     const ids: string[] = [];
@@ -148,7 +146,6 @@ test.describe('calendario', () => {
   });
 
   test('filtrar por un día (fromDate=toDate=YYYY-MM-DD) incluye los eventos de ese día', async () => {
-    knownBug('F-18: toDate=YYYY-MM-DD se interpreta como las 00:00 UTC y excluye todo lo que ocurre ese día');
     const s = await prov();
     const inicio = new Date(Date.now() + 9 * 864e5);
     inicio.setUTCHours(15, 0, 0, 0);
@@ -166,7 +163,6 @@ test.describe('calendario', () => {
   });
 
   test('un evento que termina antes de empezar se rechaza', async () => {
-    knownBug('F-15: el calendario acepta un evento cuyo endDate es anterior a startDate');
     const s = await prov();
     const r = await s.post('/calendar', { title: uniq('Inv'), startDate: '2026-12-10T10:00:00Z', endDate: '2026-12-01T10:00:00Z' });
     if (r.ok()) await s.del(`/calendar/${(await body(r)).data.id}`);
@@ -174,7 +170,6 @@ test.describe('calendario', () => {
   });
 
   test('venueId/disciplineId inválidos → 400 (no 500 con detalle de Prisma)', async () => {
-    knownBug('F-24: POST /calendar con venueId="no-uuid" responde 500 y filtra la consulta de Prisma; con un UUID inexistente crea el evento igual');
     const s = await prov();
     const r = await s.post('/calendar', { title: uniq('Fk'), startDate: '2026-12-02T10:00:00Z', venueId: 'no-uuid' });
     expect(r.status()).toBe(400);
@@ -201,7 +196,6 @@ test.describe('sedes', () => {
   });
 
   test('coordenadas fuera de rango (lat > 90, lon > 180) se rechazan', async () => {
-    knownBug('F-16: las sedes aceptan latitude=999/longitude=999 (sin validación de rango)');
     const s = await prov();
     const r = await s.post('/venues', { name: uniq('Mala'), address: 'x', locality: 'Formosa', department: 'Formosa', latitude: 999, longitude: 999 });
     if (r.ok()) await s.del(`/venues/${(await body(r)).data.id}`);

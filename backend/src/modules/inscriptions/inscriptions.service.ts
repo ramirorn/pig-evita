@@ -271,7 +271,7 @@ export class InscriptionsService {
     const where: Prisma.InscriptionWhereInput = {};
 
     if (filterDto.status) {
-      where.status = filterDto.status as InscriptionStatus;
+      where.status = filterDto.status;
     }
 
     if (filterDto.categoryId) {

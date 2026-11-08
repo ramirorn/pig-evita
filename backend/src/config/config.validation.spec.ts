@@ -40,7 +40,10 @@ describe('validateEnv — guardrails de secretos (C-05)', () => {
     it('el mensaje apunta a la variable y dice cómo generar una nueva', () => {
       let message = '';
       try {
-        validateEnv({ ...VALID_ENV, JWT_ACCESS_SECRET: 'change-me-please-32-chars-long-value' });
+        validateEnv({
+          ...VALID_ENV,
+          JWT_ACCESS_SECRET: 'change-me-please-32-chars-long-value',
+        });
       } catch (error) {
         message = (error as Error).message;
       }
@@ -91,7 +94,8 @@ describe('validateEnv — guardrails de secretos (C-05)', () => {
       ...VALID_ENV,
       NODE_ENV: 'production',
       CORS_ORIGINS: 'https://juegosevita.formosa.gob.ar',
-      DATABASE_URL: 'postgresql://evita_user:Zc8GhdV7pQx2vNf@db:5432/juegos_evita',
+      DATABASE_URL:
+        'postgresql://evita_user:Zc8GhdV7pQx2vNf@db:5432/juegos_evita',
     };
 
     it('acepta un entorno de producción bien configurado', () => {
@@ -137,5 +141,26 @@ describe('validateEnv — guardrails de secretos (C-05)', () => {
       expect(parsed.API_PREFIX).toBe('api/v1');
       expect(parsed.JWT_ACCESS_EXPIRATION).toBe('15m');
     });
+  });
+});
+
+describe('validateEnv — NEWS_SYNC_PORTAL_URL (O-3)', () => {
+  it('es opcional', () => {
+    expect(() => validateEnv(VALID_ENV)).not.toThrow();
+  });
+
+  it('acepta una URL (por ejemplo, un portal simulado)', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_ENV,
+        NEWS_SYNC_PORTAL_URL: 'http://portal-mock:8080',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rechaza algo que no es URL', () => {
+    expect(() =>
+      validateEnv({ ...VALID_ENV, NEWS_SYNC_PORTAL_URL: 'no-es-url' }),
+    ).toThrow('NEWS_SYNC_PORTAL_URL');
   });
 });
