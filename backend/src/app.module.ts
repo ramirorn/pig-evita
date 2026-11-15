@@ -29,6 +29,7 @@ import {
 } from './common/interceptors';
 import { RolesGuard } from './common/guards';
 import { ScopeModule } from './common/scope';
+import { CacheModule } from './common/cache';
 
 // Feature Modules
 import { HealthModule } from './modules/health/health.module';
@@ -108,6 +109,7 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
     // Alcance territorial (R05): global, igual que DatabaseModule.
     ScopeModule,
+    CacheModule,
 
     // Feature Modules
     HealthModule,
