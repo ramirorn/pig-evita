@@ -210,7 +210,7 @@ export function SurveyOptionsEditor({
                     históricos, pero no es algo que Laura tenga que completar.
                   */}
                   <code
-                    className="hidden shrink-0 rounded bg-primary-50 px-1.5 py-0.5 font-mono text-[10px] text-primary-500 sm:inline"
+                    className="hidden shrink-0 rounded bg-primary-50 px-1.5 py-0.5 font-mono text-xs text-primary-500 sm:inline"
                     title={
                       valorEditable.permitido
                         ? 'Identificador interno con el que se agrupan las respuestas. Se arma solo a partir del texto.'

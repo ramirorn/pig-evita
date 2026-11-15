@@ -1,6 +1,7 @@
 // ===========================================
 // Step 3: Review and Confirm Sub-component
 // ===========================================
+import { Checkbox } from '@/components/ui/checkbox';
 import { FileCheck2, User, Trophy, CheckCircle2, ArrowLeft } from 'lucide-react';
 import type { Discipline, Category } from '@/types';
 import type { InscriptionFormData } from './StepPersonalData';
@@ -33,7 +34,7 @@ export function StepReview({
   backLabel = 'Volver a Disciplina',
 }: StepReviewProps) {
   return (
-    <div className="card p-6 md:p-8 space-y-6 animate-fade-in shadow-md">
+    <div className="card p-6 md:p-8 space-y-6 shadow-md">
       <div className="flex items-center gap-2.5 pb-4 border-b border-primary-100 text-primary-800 font-bold text-lg">
         <FileCheck2 className="w-5 h-5 text-accent-600" />
         <span>Paso 3: Verificación y Confirmación Oficial</span>
@@ -83,25 +84,19 @@ export function StepReview({
 
       {/* Terms and conditions */}
       <div className="p-4 rounded-xl bg-primary-50/70 border border-primary-100 space-y-3">
-        <label className="flex items-start gap-3 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={termsAccepted}
-            onChange={(e) => setTermsAccepted(e.target.checked)}
-            className="mt-1 h-4 w-4 rounded border-primary-300 text-primary-800 focus:ring-primary-500"
-          />
-          <span className="text-xs text-primary-800 leading-relaxed font-medium">
-            Declaro bajo juramento que los datos ingresados son verídicos y corresponden al participante.
-            Acepto el reglamento general y normativas de los Juegos Evita Formoseños 2026.
-          </span>
-        </label>
+        <Checkbox
+          checked={termsAccepted}
+          onCheckedChange={setTermsAccepted}
+          labelClassName="text-xs leading-relaxed text-primary-800"
+          label="Declaro bajo juramento que los datos ingresados son verídicos y corresponden al participante. Acepto el reglamento general y normativas de los Juegos Evita Formoseños 2026."
+        />
       </div>
 
       <div className="pt-4 flex items-center justify-between border-t border-primary-100">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-primary-600 hover:text-primary-900 transition-colors"
+          className="pointer-coarse:min-h-11 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold text-primary-600 hover:text-primary-900 active:text-primary-950 transition-colors duration-120"
         >
           <ArrowLeft className="w-4 h-4" />
           {backLabel}
@@ -111,7 +106,7 @@ export function StepReview({
           type="button"
           onClick={onSubmit}
           disabled={!termsAccepted || isSubmitting}
-          className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-secondary-500 to-secondary-600 hover:from-secondary-600 hover:to-secondary-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+          className="pointer-coarse:min-h-11 inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-secondary-500 to-secondary-600 hover:from-secondary-600 hover:to-secondary-700 active:from-secondary-700 active:to-secondary-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-[background-color,box-shadow,transform] duration-120 active:scale-[0.98]"
         >
           {isSubmitting ? (
             <>

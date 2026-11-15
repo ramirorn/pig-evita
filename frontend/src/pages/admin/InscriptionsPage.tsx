@@ -2,7 +2,7 @@
 // Inscriptions Admin Page
 // ===========================================
 import { useState } from 'react';
-import { ClipboardCheck, Search, Filter, ClipboardList } from 'lucide-react';
+import { ClipboardCheck, Search, Filter, ClipboardList, Plus } from 'lucide-react';
 import { Link } from 'react-router';
 import { useInscriptions } from '@/hooks/useInscriptions';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -19,7 +19,7 @@ import {
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { InscriptionStatusBadge } from '@/components/shared/InscriptionStatusBadge';
-import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
+import { DEFAULT_PAGE_SIZE, ROUTES } from '@/lib/constants';
 
 export function InscriptionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -59,6 +59,7 @@ export function InscriptionsPage() {
     {
       id: 'qr',
       header: 'Código QR',
+      mobile: 'secondary',
       // Identidad de la fila. No lleva link primario: la navegación al detalle
       // ya la ofrece el botón "Revisar", y la spec pide un solo `<a>` por fila.
       rowHeader: true,
@@ -69,25 +70,28 @@ export function InscriptionsPage() {
     {
       id: 'applicant',
       header: 'Solicitante',
+      mobile: 'primary',
       headClassName: 'min-w-[200px]',
       cell: (inscription) => (
         <>
           <div className="font-medium text-primary-900">
             {inscription.participant?.lastName}, {inscription.participant?.firstName}
           </div>
-          <div className="text-xs text-primary-500">DNI: {inscription.participant?.dni}</div>
+          <div className="text-xs text-primary-500">DNI <span className="tabular-nums">{inscription.participant?.dni}</span></div>
         </>
       ),
     },
     {
       id: 'category',
       header: 'Categoría',
+      mobile: 'secondary',
       className: 'text-primary-600',
       cell: (inscription) => inscription.category?.name,
     },
     {
       id: 'team',
-      header: 'Equipo (Opcional)',
+      header: 'Equipo',
+      mobile: 'secondary',
       cell: (inscription) =>
         inscription.team ? (
           <span className="font-medium text-primary-700">{inscription.team.name}</span>
@@ -100,6 +104,7 @@ export function InscriptionsPage() {
     {
       id: 'status',
       header: 'Estado',
+      mobile: 'secondary',
       // El badge memoizado de T26: la tabla se re-renderiza en cada tecla del
       // buscador y sus props son primitivas, así que el `memo` evita N renders.
       cell: (inscription) => <InscriptionStatusBadge status={inscription.status} />,
@@ -107,6 +112,7 @@ export function InscriptionsPage() {
     {
       id: 'action',
       header: 'Acción',
+      mobile: 'actions',
       interactive: true,
       headClassName: 'text-right w-[110px]',
       className: 'text-right',
@@ -124,11 +130,18 @@ export function InscriptionsPage() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Inscripciones"
         description="Gestión y revisión de solicitudes de inscripción"
-        icon={<ClipboardCheck className="w-5 h-5 text-white" />}
+        icon={<ClipboardCheck className="w-5 h-5 text-white" aria-hidden="true" />}
+        actions={
+          <Button asChild className="gap-2 w-full sm:w-auto">
+            <Link to={ROUTES.NEW_INSCRIPTION}>
+              <Plus className="w-4 h-4" aria-hidden="true" /> Nueva inscripción
+            </Link>
+          </Button>
+        }
       />
 
       <DataTable
@@ -150,7 +163,14 @@ export function InscriptionsPage() {
         onClearFilters={clearFilters}
         emptyIcon={<ClipboardList className="w-10 h-10" />}
         emptyTitle="Todavía no hay inscripciones"
-        emptyDescription="Cuando se registre la primera solicitud, va a aparecer acá para su revisión."
+        emptyDescription="Cuando se registre la primera solicitud va a aparecer acá para revisarla. También podés cargar una vos."
+        emptyAction={
+          <Button asChild className="gap-2">
+            <Link to={ROUTES.NEW_INSCRIPTION}>
+              <Plus className="w-4 h-4" aria-hidden="true" /> Nueva inscripción
+            </Link>
+          </Button>
+        }
         toolbar={
           <>
             <div className="relative flex-1 min-w-[200px]">

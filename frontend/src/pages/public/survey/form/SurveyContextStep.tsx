@@ -50,7 +50,7 @@ export function SurveyContextStep({ wizard }: SurveyContextStepProps) {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 md:py-14">
-      <h1 className="font-display text-2xl leading-tight font-extrabold tracking-tight text-primary-800 md:text-3xl">
+      <h1 className="type-h2 text-primary-800">
         Antes de arrancar, dos datos del deporte
       </h1>
       <p className="mt-3 text-base leading-relaxed text-primary-700">
@@ -165,11 +165,11 @@ export function SurveyContextStep({ wizard }: SurveyContextStepProps) {
       <button
         type="button"
         onClick={wizard.irAPreguntas}
-        className="group mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-primary-800 px-8 py-4 text-base font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-900 hover:shadow-lg active:translate-y-0 sm:w-auto"
+        className="group mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-primary-800 px-8 py-4 text-base font-bold text-white transition-[background-color,box-shadow,transform] duration-200 ease-out-soft hover:bg-primary-900 hover:shadow-lg active:scale-[0.98] active:duration-120 sm:w-auto"
       >
         Empezar la encuesta
         <ArrowRight
-          className="h-5 w-5 transition-transform group-hover:translate-x-1"
+          className="h-5 w-5 transition-transform duration-200 ease-out-soft group-hover:translate-x-1"
           aria-hidden="true"
         />
       </button>

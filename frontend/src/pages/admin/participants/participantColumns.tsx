@@ -38,13 +38,15 @@ export function createParticipantColumns({
       // Columna de identidad: va como `<th scope="row">` y ancla el link
       // primario que cubre la fila entera.
       rowHeader: true,
-      className: 'font-mono',
+      className: 'font-mono tabular-nums',
       headClassName: 'min-w-[120px]',
+      mobile: 'secondary',
       cell: (participant) => participant.dni,
     },
     {
       id: 'name',
       header: 'Apellido y Nombre',
+      mobile: 'primary',
       headClassName: 'min-w-[200px]',
       cell: (participant) => (
         <>
@@ -56,6 +58,7 @@ export function createParticipantColumns({
     {
       id: 'sex-birth',
       header: 'Sexo / F. Nacimiento',
+      mobile: 'secondary',
       cell: (participant) => (
         <div className="flex flex-col text-sm">
           <span>{SEX_LABELS[participant.sex]}</span>
@@ -68,6 +71,7 @@ export function createParticipantColumns({
     {
       id: 'location',
       header: 'Ubicación',
+      mobile: 'secondary',
       cell: (participant) => (
         <div className="flex flex-col text-sm">
           <span>{participant.department}</span>
@@ -87,6 +91,7 @@ export function createParticipantColumns({
       hideHeader: true,
       // Celda con controles propios: se eleva sobre el overlay del link primario.
       interactive: true,
+      mobile: 'actions',
       headClassName: 'w-[80px]',
       cell: (participant) => (
         <DropdownMenu>

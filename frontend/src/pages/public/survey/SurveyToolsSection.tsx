@@ -43,7 +43,7 @@ export function SurveyToolsSection() {
     <section className="bg-secondary-900 px-4 py-16 sm:px-6 md:py-20 lg:px-8">
       <div className="mx-auto max-w-5xl">
         <div className="max-w-2xl">
-          <h2 className="font-display text-2xl leading-tight font-extrabold tracking-tight text-white md:text-3xl">
+          <h2 className="type-h2 text-white">
             Pedir ayuda no te hace menos jugador
           </h2>
           <p className="mt-3 text-base leading-relaxed text-secondary-100">
@@ -61,7 +61,7 @@ export function SurveyToolsSection() {
               <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent-500 text-primary-900">
                 <Icon className="h-5 w-5" aria-hidden="true" />
               </span>
-              <h3 className="text-lg font-bold text-white">{titulo}</h3>
+              <h3 className="type-h3 text-white">{titulo}</h3>
               <p className="mt-2 text-sm leading-relaxed text-secondary-100">
                 {texto}
               </p>

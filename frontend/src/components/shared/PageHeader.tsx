@@ -26,7 +26,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-in',
+        'flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4',
         className,
       )}
     >
@@ -40,14 +40,18 @@ export function PageHeader({
           {icon}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-primary-800">{title}</h1>
+          <h1 className="type-h1 text-2xl text-primary-800">{title}</h1>
           {description && (
             <p className="text-sm text-primary-500">{description}</p>
           )}
         </div>
       </div>
 
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center [&>*]:w-full sm:[&>*]:w-auto">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

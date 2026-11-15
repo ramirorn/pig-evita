@@ -2,7 +2,9 @@
 // Venues Page — Public
 // ===========================================
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { MapPin, Building2 } from 'lucide-react';
+import { ROUTES } from '@/lib/constants';
 import { useAllVenues } from '@/hooks/useVenues';
 import { useAllCalendarEvents } from '@/hooks/useCalendar';
 import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
@@ -113,7 +115,7 @@ export function VenuesPage() {
                   decorativo —el significado está en el texto de al lado— y por
                   eso va con `aria-hidden`. */}
               <Building2 className="h-4 w-4 text-accent-700" aria-hidden="true" />
-              {totalDeSedes} sede{totalDeSedes !== 1 ? 's' : ''} activa{totalDeSedes !== 1 ? 's' : ''}
+              <span className="tabular-nums">{totalDeSedes}</span> sede{totalDeSedes !== 1 ? 's' : ''} activa{totalDeSedes !== 1 ? 's' : ''}
             </div>
           ) : undefined
         }
@@ -128,10 +130,10 @@ export function VenuesPage() {
               aria-pressed={departamento === opcion}
               onClick={() => setDepartamento(opcion)}
               className={cn(
-                'inline-flex min-h-11 items-center rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors',
+                'inline-flex min-h-11 items-center rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors duration-120 active:bg-primary-900 pointer-coarse:min-h-11',
                 departamento === opcion
                   ? 'bg-primary-800 text-white'
-                  : 'border border-primary-400 bg-white text-primary-600 hover:bg-primary-50',
+                  : 'border border-primary-400 bg-white text-primary-600 hover:bg-primary-50 active:bg-primary-100',
               )}
             >
               {opcion === TODOS ? 'Todos los departamentos' : opcion}
@@ -147,21 +149,31 @@ export function VenuesPage() {
         empty={
           <EmptyState
             icon={<MapPin className="w-10 h-10" />}
-            title="Sin sedes"
+            title={departamento === TODOS ? 'Todavía no hay sedes publicadas' : 'No hay sedes en ese departamento'}
             description={
               departamento === TODOS
-                ? 'No hay sedes cargadas en el sistema.'
-                : 'No hay sedes activas en ese departamento.'
+                ? 'Cuando se carguen las sedes vas a ver acá dónde se juega y cómo llegar. Mientras tanto, mirá el calendario.'
+                : 'Probá con otro departamento o mirá todas las sedes.'
+            }
+            action={
+              departamento === TODOS ? (
+                <Link to={ROUTES.CALENDAR} className="">
+                  Ver el calendario
+                </Link>
+              ) : (
+                <button type="button" onClick={() => setDepartamento(TODOS)} className="">
+                  Ver todas las sedes
+                </button>
+              )
             }
           />
         }
       >
         <div className={columnasSegunVolumen(sedes.length)}>
-          {sedes.map((venue, idx) => (
+          {sedes.map((venue) => (
             <VenueCard
               key={venue.id}
               venue={venue}
-              index={idx}
               eventosProgramados={
                 eventosPorSede === null ? null : eventosPorSede.get(venue.id) ?? 0
               }

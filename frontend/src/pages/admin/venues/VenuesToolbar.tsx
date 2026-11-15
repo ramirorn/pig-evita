@@ -3,6 +3,7 @@
 // ===========================================
 import { Search } from 'lucide-react';
 import type { VenueListFilters } from './venueFilters';
+import { FilterPanel } from '@/components/shared/FilterPanel';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -20,6 +21,8 @@ interface VenuesToolbarProps {
 }
 
 export function VenuesToolbar({ filters, onChange }: VenuesToolbarProps) {
+  const activeCount = [filters.department !== 'all', filters.status !== 'all'].filter(Boolean).length;
+
   return (
     <>
       <div className="relative flex-1">
@@ -42,6 +45,7 @@ export function VenuesToolbar({ filters, onChange }: VenuesToolbarProps) {
         />
       </div>
 
+      <FilterPanel activeCount={activeCount} className="md:w-auto">
       <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
         <Select value={filters.department} onValueChange={(val) => onChange({ department: val })}>
           <SelectTrigger
@@ -77,6 +81,7 @@ export function VenuesToolbar({ filters, onChange }: VenuesToolbarProps) {
           </SelectContent>
         </Select>
       </div>
+      </FilterPanel>
     </>
   );
 }

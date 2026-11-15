@@ -79,6 +79,7 @@ export function UsersPage() {
     {
       id: 'user',
       header: 'Usuario',
+      mobile: 'primary',
       rowHeader: true,
       cell: (user) => (
         <div>
@@ -92,6 +93,7 @@ export function UsersPage() {
     {
       id: 'role',
       header: 'Rol',
+      mobile: 'secondary',
       cell: (user) => (
         <Badge variant="outline" className="bg-primary-50 text-primary-700 border-primary-200">
           {ROLE_LABELS[user.role] || user.role}
@@ -101,6 +103,7 @@ export function UsersPage() {
     {
       id: 'scope',
       header: 'Departamento / Zona',
+      mobile: 'secondary',
       className: 'text-sm text-primary-700',
       cell: (user) =>
         user.department ? (
@@ -116,6 +119,7 @@ export function UsersPage() {
     {
       id: 'status',
       header: 'Estado',
+      mobile: 'secondary',
       cell: (user) =>
         user.isActive ? (
           <Badge
@@ -138,6 +142,7 @@ export function UsersPage() {
     columns.push({
       id: 'actions',
       header: 'Acciones',
+      mobile: 'actions',
       hideHeader: true,
       interactive: true,
       headClassName: 'w-[100px] text-right',
@@ -158,7 +163,7 @@ export function UsersPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Usuarios"
         description="Gestión de usuarios y administradores del sistema"

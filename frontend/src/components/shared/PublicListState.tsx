@@ -47,7 +47,7 @@ export function PublicListState({
     );
   }
 
-  if (isEmpty) return <>{empty}</>;
+  if (isEmpty) return <div className="animate-crossfade min-w-0">{empty}</div>;
 
-  return <>{children}</>;
+  return <div className="animate-crossfade min-w-0">{children}</div>;
 }

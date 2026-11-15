@@ -6,6 +6,7 @@
 // en la edición no están: `PATCH .../questions/:id` no las acepta (cada opción
 // tiene su endpoint) y por eso el formulario de edición tampoco las tiene.
 
+import { Switch } from '@/components/ui/switch';
 import type { Control } from 'react-hook-form';
 import type { SurveyQuestionFormValues } from '@/schemas';
 import { SurveyAudience, SurveyQuestionKind } from '@/types';
@@ -188,19 +189,14 @@ export function SurveyQuestionFields({ control, mostrarActiva }: SurveyQuestionF
         render={({ field }) => (
           <FormItem className="flex items-center gap-3 space-y-0 rounded-lg border border-primary-100 bg-primary-50/40 p-3">
             <FormControl>
-              <input
-                type="checkbox"
-                checked={field.value}
-                onChange={(e) => field.onChange(e.target.checked)}
-                className="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
+              <Switch checked={field.value} onCheckedChange={field.onChange} />
             </FormControl>
             <div className="space-y-0.5">
               <FormLabel className="cursor-pointer text-sm font-semibold text-primary-900">
                 Hay que contestarla para poder enviar
               </FormLabel>
               <FormDescription className="text-xs text-primary-500">
-                Si la destildás, quien responde puede saltearla.
+                Si la desactivás, quien responde puede saltearla.
               </FormDescription>
             </div>
           </FormItem>
@@ -214,19 +210,14 @@ export function SurveyQuestionFields({ control, mostrarActiva }: SurveyQuestionF
           render={({ field }) => (
             <FormItem className="flex items-center gap-3 space-y-0 rounded-lg border border-primary-100 bg-primary-50/40 p-3">
               <FormControl>
-                <input
-                  type="checkbox"
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
               <div className="space-y-0.5">
                 <FormLabel className="cursor-pointer text-sm font-semibold text-primary-900">
                   Se muestra en el cuestionario
                 </FormLabel>
                 <FormDescription className="text-xs text-primary-500">
-                  Destildala para sacarla del cuestionario sin borrarla: lo que
+                  Desactivala para sacarla del cuestionario sin borrarla: lo que
                   ya contestaron sigue contando en los resultados.
                 </FormDescription>
               </div>

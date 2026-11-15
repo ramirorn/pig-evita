@@ -45,7 +45,7 @@ function ContadorPlantel({
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
           completoTitulares
             ? 'bg-secondary-50 border-secondary-200 text-secondary-800'
-            : 'bg-amber-50 border-amber-200 text-amber-800'
+            : 'bg-warning-50 border-warning-200 text-warning-800'
         }`}
       >
         Titulares {titulares}/{requeridoTitulares}
@@ -81,14 +81,14 @@ function FilaIntegrante({
     <li
       className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
         enConflicto
-          ? 'border-red-300 bg-destructive-50'
+          ? 'border-destructive/30 bg-destructive-50'
           : enEdicion
             ? 'border-primary-500 bg-primary-50'
             : 'border-primary-100 bg-white'
       }`}
     >
       <span
-        className={`w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold ${
+        className={`w-9 h-9 flex-shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
           integrante.isSubstitute
             ? 'bg-surface text-primary-600 border border-primary-200'
             : 'bg-primary-800 text-white'
@@ -101,7 +101,7 @@ function FilaIntegrante({
         <p className="text-sm font-bold text-primary-900 truncate">
           {integrante.lastName}, {integrante.firstName}
           {integrante.isCaptain && (
-            <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-bold text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded-md align-middle">
+            <span className="ml-2 inline-flex items-center gap-1 text-xs font-bold text-accent-700 bg-accent-50 px-1.5 py-0.5 rounded-md align-middle">
               <Star className="w-3 h-3" aria-hidden="true" />
               Capitán
             </span>
@@ -168,8 +168,8 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
     return (
       <div className="card p-6 space-y-4 shadow-md" role="alert">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="text-sm text-amber-900">
+          <AlertTriangle className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <div className="text-sm text-warning-800">
             <p className="font-bold">No se puede armar el plantel todavía.</p>
             <p className="text-xs mt-1">
               La disciplina o la categoría elegidas no están disponibles, o la disciplina se quedó
@@ -193,13 +193,13 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
     wizard.integrantes.find((integrante) => integrante.id === wizard.editandoId) ?? null;
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5">
       {/* Encabezado pegajoso con el contador */}
       <div className="card p-5 shadow-md space-y-4 sticky top-2 z-20">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 text-primary-800 font-bold text-lg">
             <Users className="w-5 h-5 text-accent-600" aria-hidden="true" />
-            <span>Paso 2: Plantel</span>
+            <h2 className="type-h2 text-primary-800">Paso 2: plantel</h2>
           </div>
           <span className="text-xs font-bold text-primary-700 bg-primary-50 px-3 py-1 rounded-full border border-primary-200">
             {selectedDiscipline?.name} · {selectedCategory.name}
@@ -236,14 +236,14 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
                 <button
                   type="button"
                   onClick={wizard.descartarBorrador}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-destructive-600 hover:bg-destructive-700 transition-colors"
+                  className="px-3 py-1.5 pointer-coarse:min-h-11 rounded-lg text-xs font-bold text-white bg-destructive-600 hover:bg-destructive-700 active:bg-destructive-800 transition-colors duration-120"
                 >
                   Sí, descartar
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmandoDescarte(false)}
-                  className="text-xs font-bold text-secondary-800 underline underline-offset-2"
+                  className="text-xs font-bold text-secondary-800 underline underline-offset-2 pointer-coarse:min-h-11 hover:text-secondary-900 active:text-secondary-950 transition-colors duration-120"
                 >
                   No, seguir cargando
                 </button>
@@ -252,7 +252,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
               <button
                 type="button"
                 onClick={() => setConfirmandoDescarte(true)}
-                className="mt-2 text-xs font-bold text-secondary-800 underline underline-offset-2 hover:text-secondary-900"
+                className="mt-2 text-xs font-bold text-secondary-800 underline underline-offset-2 pointer-coarse:min-h-11 hover:text-secondary-900 active:text-secondary-950 transition-colors duration-120"
               >
                 Descartar y empezar de cero
               </button>
@@ -264,9 +264,9 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
       {!wizard.storageDisponible && (
         <div
           role="alert"
-          className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-sm text-amber-900"
+          className="p-4 rounded-xl bg-warning-50 border border-warning-200 flex items-start gap-3 text-sm text-warning-800"
         >
-          <AlertTriangle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          <AlertTriangle className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div>
             <p className="font-bold">Este navegador no está guardando tu avance.</p>
             <p className="text-xs mt-1">
@@ -281,7 +281,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
       {wizard.errorEnvio && (
         <div
           role="alert"
-          className="p-4 rounded-xl bg-destructive-50 border border-red-200 flex items-start gap-3 text-sm text-destructive-700"
+          className="p-4 rounded-xl bg-destructive-50 border border-destructive/30 flex items-start gap-3 text-sm text-destructive-700"
         >
           <AlertCircle className="w-5 h-5 text-destructive-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div>
@@ -304,7 +304,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-1">
             <label
-              className="block text-[11px] font-bold text-primary-700 uppercase tracking-wider mb-1"
+              className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1"
               htmlFor="equipo-nombre"
             >
               Nombre del equipo *
@@ -323,7 +323,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
           </div>
           <div>
             <label
-              className="block text-[11px] font-bold text-primary-700 uppercase tracking-wider mb-1"
+              className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1"
               htmlFor="equipo-departamento"
             >
               Departamento *
@@ -340,7 +340,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
           </div>
           <div>
             <label
-              className="block text-[11px] font-bold text-primary-700 uppercase tracking-wider mb-1"
+              className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1"
               htmlFor="equipo-localidad"
             >
               Localidad *
@@ -421,7 +421,7 @@ export function StepRoster({ wizard }: { wizard: TeamInscriptionWizard }) {
           type="button"
           onClick={wizard.irAConfirmacion}
           disabled={!wizard.completo}
-          className="inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all"
+          className="inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-colors duration-120"
         >
           Revisar el plantel
           <ArrowRight className="w-4 h-4" aria-hidden="true" />

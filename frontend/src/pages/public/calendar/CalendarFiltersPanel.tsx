@@ -73,7 +73,7 @@ export function CalendarFiltersPanel({
               type="button"
               onClick={() => onChange({ search: '' })}
               aria-label="Borrar búsqueda"
-              className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-primary-500 hover:bg-primary-50 hover:text-primary-700"
+              className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-primary-500 transition-colors duration-120 hover:bg-primary-50 hover:text-primary-700 active:bg-primary-100 pointer-coarse:h-11 pointer-coarse:w-11"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -107,14 +107,14 @@ export function CalendarFiltersPanel({
 
       <div className="mb-8 flex flex-wrap items-center justify-between gap-2 px-1">
         <p role="status" className="text-xs text-primary-600">
-          Mostrando <strong className="font-semibold text-primary-900">{resultCount}</strong>{' '}
+          Mostrando <strong className="font-semibold text-primary-900 tabular-nums">{resultCount}</strong>{' '}
           {resultCount === 1 ? 'evento encontrado' : 'eventos encontrados'}
         </p>
         {hasActiveFilters && (
           <button
             type="button"
             onClick={onReset}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary-50 px-2.5 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary-50 px-2.5 text-xs font-semibold text-primary-700 transition-colors duration-120 hover:bg-primary-100 active:bg-primary-200 pointer-coarse:h-11"
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
             Limpiar filtros

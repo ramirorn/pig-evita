@@ -61,7 +61,7 @@ export function Pagination({
               value={String(limit)}
               onValueChange={(v) => onLimitChange(Number(v))}
             >
-              <SelectTrigger className="w-[70px] h-8 text-xs">
+              <SelectTrigger className="w-[70px] h-8 text-xs pointer-coarse:h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -80,6 +80,7 @@ export function Pagination({
           <Button
             variant="outline"
             size="icon-xs"
+            className="pointer-coarse:size-11 pointer-coarse:[&_svg]:size-4"
             onClick={() => onPageChange(1)}
             disabled={page <= 1}
             aria-label="Primera página"
@@ -89,6 +90,7 @@ export function Pagination({
           <Button
             variant="outline"
             size="icon-xs"
+            className="pointer-coarse:size-11 pointer-coarse:[&_svg]:size-4"
             onClick={() => onPageChange(page - 1)}
             disabled={page <= 1}
             aria-label="Página anterior"
@@ -103,6 +105,7 @@ export function Pagination({
           <Button
             variant="outline"
             size="icon-xs"
+            className="pointer-coarse:size-11 pointer-coarse:[&_svg]:size-4"
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages}
             aria-label="Página siguiente"
@@ -112,6 +115,7 @@ export function Pagination({
           <Button
             variant="outline"
             size="icon-xs"
+            className="pointer-coarse:size-11 pointer-coarse:[&_svg]:size-4"
             onClick={() => onPageChange(totalPages)}
             disabled={page >= totalPages}
             aria-label="Última página"

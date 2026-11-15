@@ -23,16 +23,19 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
         {/* Mobile hamburger */}
         <button
           onClick={onMenuClick}
-          className="md:hidden p-2 -ml-2 rounded-lg text-primary-600 hover:bg-primary-50 transition-colors"
+          className="md:hidden p-2 -ml-2 rounded-lg text-primary-600 hover:bg-primary-50 active:bg-primary-100 transition-colors duration-120 pointer-coarse:flex pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:items-center pointer-coarse:justify-center"
           aria-label="Abrir menú"
         >
           <Menu className="w-5 h-5" />
         </button>
 
         {/* F-36b: no es un <h1>. El título de cada pantalla ya lo es, y dos
-            <h1> por vista dejaban al lector de pantalla sin saber cuál manda. */}
-        <p className="text-lg font-semibold text-primary-800">
-          Panel de Administración
+            <h1> por vista dejaban al lector de pantalla sin saber cuál manda.
+            Por eso acá sólo hay una marca compacta de una línea, sin competir
+            con el título de la página. */}
+        <p className="truncate text-sm font-semibold text-primary-800">
+          Juegos Evita
+          <span className="font-normal text-primary-600"> · Panel</span>
         </p>
       </div>
 
@@ -41,7 +44,7 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
         {/* Link to Public Website */}
         <Link
           to={ROUTES.HOME}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-600 hover:text-primary-800 bg-primary-50/70 hover:bg-primary-100/70 border border-primary-200 rounded-lg transition-all"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-600 hover:text-primary-800 bg-primary-50/70 hover:bg-primary-100/70 active:bg-primary-100 border border-primary-200 rounded-lg transition-colors duration-120 pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center"
           title="Ver portal público de Juegos Evita"
         >
           <Globe className="w-3.5 h-3.5 text-primary-500" />
@@ -69,7 +72,7 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
         {/* Logout */}
         <button
           onClick={logout}
-          className="p-2 rounded-lg text-primary-500 hover:bg-destructive-50 hover:text-destructive-500 transition-colors"
+          className="p-2 rounded-lg text-primary-500 hover:bg-destructive-50 hover:text-destructive-500 transition-colors duration-120 pointer-coarse:flex pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:items-center pointer-coarse:justify-center"
           title="Cerrar sesión"
           aria-label="Cerrar sesión"
         >

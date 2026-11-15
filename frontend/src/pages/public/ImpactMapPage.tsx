@@ -19,7 +19,7 @@ export function ImpactMapPage() {
         placement="public"
         header={
           <div className="flex flex-col gap-0.5 lg:flex-row lg:items-baseline lg:gap-3">
-            <h1 className="font-display flex shrink-0 items-center gap-2 whitespace-nowrap text-2xl font-extrabold tracking-tight text-primary-800">
+            <h1 className="type-h1 flex shrink-0 items-center gap-2 whitespace-nowrap text-primary-800 lg:leading-10">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary-800 text-white">
                 <MapIcon className="h-4 w-4" aria-hidden="true" />
               </span>

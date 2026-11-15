@@ -37,7 +37,7 @@ export function SurveyCtaButton({
 }: SurveyCtaButtonProps) {
   const base = cn(
     'group inline-flex min-h-14 items-center justify-center gap-3 rounded-full px-8 py-4 text-base font-bold',
-    'transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]',
+    'transition-[background-color,box-shadow,transform] duration-200 ease-out-soft active:scale-[0.98] active:duration-120',
     'sm:px-10 sm:text-lg',
     tono === 'oscuro'
       ? 'bg-accent-500 text-primary-900 hover:bg-accent-400 hover:shadow-[0_10px_40px_-10px_rgba(232,170,52,0.5)]'
@@ -48,7 +48,7 @@ export function SurveyCtaButton({
   const contenido = (
     <>
       {children}
-      <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+      <ArrowRight className="h-5 w-5 transition-transform duration-200 ease-out-soft group-hover:translate-x-1" />
     </>
   );
 

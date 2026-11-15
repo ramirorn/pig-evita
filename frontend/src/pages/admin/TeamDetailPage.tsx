@@ -3,18 +3,10 @@
 // ===========================================
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { UsersRound, ArrowLeft, Plus, Trash2, Loader2 } from 'lucide-react';
+import { UsersRound, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useTeam, useRemoveTeamMember } from '@/hooks/useTeams';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -26,13 +18,17 @@ import type { TeamMember } from '@/types';
 import { ROUTES } from '@/lib/constants';
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
 import { logError } from '@/lib/logger';
+import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
+import { DetailHeader } from './components/DetailHeader';
+import { DetailLoading, DetailNotFound } from './components/DetailState';
+import { FactList } from './components/FactList';
 
 function AddMemberModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Añadir Jugador</DialogTitle>
+          <DialogTitle>Añadir jugador</DialogTitle>
           <DialogDescription>
             Busca y selecciona un participante registrado para añadirlo a este equipo.
           </DialogDescription>
@@ -65,25 +61,90 @@ export function TeamDetailPage() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
-      </div>
-    );
-  }
+  if (isLoading) return <DetailLoading label="Cargando el equipo…" />;
 
   if (!team) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-primary-800">Equipo no encontrado</h2>
-        <Button variant="link" onClick={() => navigate(ROUTES.TEAMS)}>Volver a equipos</Button>
-      </div>
+      <DetailNotFound
+        title="No encontramos el equipo"
+        hint="Puede que se haya eliminado o que el enlace esté incompleto."
+        backLabel="Volver a equipos"
+        onBack={() => navigate(ROUTES.TEAMS)}
+      />
     );
   }
 
+  const rosterColumns: DataTableColumn<TeamMember>[] = [
+    {
+      id: 'dni',
+      header: 'DNI',
+      mobile: 'secondary',
+      className: 'text-primary-600 tabular-nums',
+      cell: (member) => member.participant?.dni,
+    },
+    {
+      id: 'player',
+      header: 'Jugador',
+      rowHeader: true,
+      mobile: 'primary',
+      className: 'font-medium text-primary-900',
+      cell: (member) => (
+        <>
+          {member.participant?.lastName}, {member.participant?.firstName}
+        </>
+      ),
+    },
+    {
+      id: 'number',
+      header: 'Nº',
+      mobile: 'secondary',
+      className: 'tabular-nums',
+      cell: (member) => member.shirtNumber || '-',
+    },
+    {
+      id: 'position',
+      header: 'Posición',
+      mobile: 'secondary',
+      cell: (member) => member.position || '-',
+    },
+    {
+      id: 'role',
+      header: 'Rol',
+      mobile: 'secondary',
+      cell: (member) =>
+        member.isCaptain ? (
+          <Badge variant="outline" className="bg-accent-50 text-accent-800 border-accent-300">
+            Capitán
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="bg-muted text-primary-700 border-primary-200">
+            Jugador
+          </Badge>
+        ),
+    },
+    {
+      id: 'actions',
+      header: 'Quitar del equipo',
+      hideHeader: true,
+      interactive: true,
+      mobile: 'actions',
+      headClassName: 'w-[80px]',
+      cell: (member) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-destructive-600 hover:text-destructive-700 hover:bg-destructive-50 active:bg-destructive-50"
+          onClick={() => setMemberToRemove(member)}
+          aria-label={`Quitar a ${member.participant?.lastName ?? ''} ${member.participant?.firstName ?? ''} del equipo`.replace(/s+/g, ' ')}
+        >
+          <Trash2 className="w-4 h-4" aria-hidden="true" />
+        </Button>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <Breadcrumbs
         items={[
           { label: 'Equipos', path: ROUTES.TEAMS },
@@ -91,108 +152,59 @@ export function TeamDetailPage() {
         ]}
       />
 
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => navigate(ROUTES.TEAMS)} aria-label="Volver a equipos">
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-primary-800">{team.name}</h1>
-          <div className="flex gap-2 text-sm text-primary-500 mt-1">
-            <span>{team.department}, {team.locality}</span>
-            <span>•</span>
-            <span>{team.discipline?.name} - {team.category?.name}</span>
-          </div>
-        </div>
-        <Button onClick={() => setIsAddModalOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Añadir Jugador
-        </Button>
-      </div>
+      <DetailHeader
+        title={team.name}
+        meta={
+          <>
+            {team.locality}, {team.department} · {team.discipline?.name} · {team.category?.name}
+          </>
+        }
+        backLabel="Volver a equipos"
+        onBack={() => navigate(ROUTES.TEAMS)}
+        actions={
+          <Button onClick={() => setIsAddModalOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            Añadir jugador
+          </Button>
+        }
+      />
 
       <div className="grid gap-6 md:grid-cols-4">
-        {/* Team Stats/Info */}
-        <div className="md:col-span-1 space-y-4">
-          <div className="card p-4 space-y-4">
-            <h3 className="font-semibold text-primary-900 border-b border-primary-100 pb-2">Información</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-primary-500">Disciplina</span>
-                <span className="font-medium text-primary-900">{team.discipline?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-primary-500">Categoría</span>
-                <span className="font-medium text-primary-900">{team.category?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-primary-500">Jugadores</span>
-                <span className="font-medium text-primary-900">
-                  {team.members?.length || 0} / {team.discipline?.maxPlayers || '-'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <section aria-labelledby="equipo-info" className="card p-5 space-y-4 md:col-span-1 self-start">
+          <h2 id="equipo-info" className="type-h2 text-primary-900">
+            Información
+          </h2>
+          <FactList
+            className="sm:grid-cols-1"
+            facts={[
+              { label: 'Disciplina', value: team.discipline?.name ?? '—' },
+              { label: 'Categoría', value: team.category?.name ?? '—' },
+              {
+                label: 'Jugadores',
+                value: `${team.members?.length || 0} de ${team.discipline?.maxPlayers ?? '—'}`,
+              },
+            ]}
+          />
+        </section>
 
         {/* Roster Table */}
-        <div className="md:col-span-3 card">
-          <div className="p-4 border-b border-primary-100">
-            <h2 className="text-lg font-semibold text-primary-900 flex items-center gap-2">
-              <UsersRound className="w-5 h-5 text-primary-500" />
-              Lista de Buena Fe
+        <DataTable
+          className="md:col-span-3"
+          entityName="jugadores"
+          columns={rosterColumns}
+          rows={team.members ?? []}
+          getRowId={(member) => member.id}
+          isLoading={false}
+          emptyIcon={<UsersRound className="w-10 h-10" />}
+          emptyTitle="No hay jugadores registrados en este equipo"
+          emptyDescription="Añadí jugadores para armar la lista de buena fe."
+          toolbar={
+            <h2 className="type-h2 text-primary-900 flex items-center gap-2">
+              <UsersRound className="w-5 h-5 text-primary-500" aria-hidden="true" />
+              Lista de buena fe
             </h2>
-          </div>
-          
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>DNI</TableHead>
-                <TableHead>Jugador</TableHead>
-                <TableHead>Nº</TableHead>
-                <TableHead>Posición</TableHead>
-                <TableHead>Rol</TableHead>
-                <TableHead className="w-[80px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(!team.members || team.members.length === 0) ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-primary-500">
-                    No hay jugadores registrados en este equipo
-                  </TableCell>
-                </TableRow>
-              ) : (
-                team.members.map((member) => (
-                  <TableRow key={member.id}>
-                    <TableCell className="text-primary-600">{member.participant?.dni}</TableCell>
-                    <TableCell className="font-medium text-primary-900">
-                      {member.participant?.lastName}, {member.participant?.firstName}
-                    </TableCell>
-                    <TableCell>{member.shirtNumber || '-'}</TableCell>
-                    <TableCell>{member.position || '-'}</TableCell>
-                    <TableCell>
-                      {member.isCaptain ? (
-                        <Badge className="bg-yellow-500 hover:bg-yellow-600">Capitán</Badge>
-                      ) : (
-                        <Badge variant="secondary">Jugador</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => setMemberToRemove(member)}
-                        aria-label="Quitar del equipo"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+          }
+        />
       </div>
 
       <AddMemberModal 
@@ -203,18 +215,18 @@ export function TeamDetailPage() {
       <Dialog open={!!memberToRemove} onOpenChange={(open) => !open && setMemberToRemove(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eliminar Jugador</DialogTitle>
+            <DialogTitle>Quitar jugador del equipo</DialogTitle>
             <DialogDescription>
-              ¿Estás seguro de que deseas eliminar a {memberToRemove?.participant?.firstName} del equipo? Esta acción puede requerir re-verificación de la lista de buena fe.
+              ¿Querés quitar a {memberToRemove?.participant?.firstName} {memberToRemove?.participant?.lastName} del equipo? Esta acción puede requerir re-verificación de la lista de buena fe.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-3 mt-4">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3 mt-4">
             <Button variant="outline" onClick={() => setMemberToRemove(null)}>
               Cancelar
             </Button>
             <Button variant="destructive" onClick={handleRemove} disabled={removeMemberMutation.isPending}>
-              {removeMemberMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Eliminar
+              {removeMemberMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />}
+              Quitar del equipo
             </Button>
           </div>
         </DialogContent>

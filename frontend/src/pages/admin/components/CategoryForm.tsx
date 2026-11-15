@@ -1,6 +1,8 @@
 // ===========================================
 // Category Form Component
 // ===========================================
+import { NumberField } from '@/components/ui/number-field';
+import { Switch } from '@/components/ui/switch';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +36,8 @@ import { logError } from '@/lib/logger';
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
 /** Input numérico vacío → `null`, que es lo que el schema y la API esperan. */
-const aEntero = (valor: string) => (valor ? parseInt(valor, 10) : null);
+// El campo numérico entrega `undefined` cuando queda vacío; acá un vacío viaja como `null`.
+const aEntero = (valor: number | undefined) => valor ?? null;
 
 /**
  * El par del criterio que no se eligió viaja en `null`. En el formulario se
@@ -159,7 +162,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre de la Categoría</FormLabel>
+              <FormLabel>Nombre de la categoría</FormLabel>
               <FormControl>
                 <Input placeholder="Ej. Sub 14, Libre" {...field} />
               </FormControl>
@@ -202,7 +205,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
         />
 
         {ageCriterion === AgeCriterion.BIRTH_YEAR ? (
-          <div className="grid grid-cols-2 items-start gap-4">
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
             <FormField
               key="minBirthYear"
               control={form.control}
@@ -211,12 +214,14 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
                 <FormItem>
                   <FormLabel>Año de nacimiento desde</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
+                    <NumberField
+                      min={0}
                       placeholder="Ej. 2012"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -232,12 +237,14 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
                 <FormItem>
                   <FormLabel>Año de nacimiento hasta</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
+                    <NumberField
+                      min={0}
                       placeholder="Ej. 2014"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -246,20 +253,22 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
             />
           </div>
         ) : (
-          <div className="grid grid-cols-2 items-start gap-4">
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
             <FormField
               key="minAge"
               control={form.control}
               name="minAge"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Edad Mínima</FormLabel>
+                  <FormLabel>Edad mínima</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                    <NumberField
+                      min={0}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -273,13 +282,15 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
               name="maxAge"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Edad Máxima</FormLabel>
+                  <FormLabel>Edad máxima</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(aEntero(e.target.value))}
+                    <NumberField
+                      min={0}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -288,6 +299,12 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
             />
           </div>
         )}
+
+        <p className="-mt-2 text-xs text-muted-foreground">
+          {ageCriterion === AgeCriterion.BIRTH_YEAR
+            ? 'Los dos años están incluidos. Dejá uno vacío si la categoría no tiene tope de ese lado.'
+            : 'Las dos edades están incluidas. Dejá una vacía si la categoría no tiene tope de ese lado.'}
+        </p>
 
         <FormField
           control={form.control}
@@ -320,31 +337,26 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <FormLabel className="text-base">Estado Activo</FormLabel>
+                <FormLabel className="text-base">Estado activo</FormLabel>
                 <p className="text-sm text-muted-foreground">
                   Habilita o deshabilita la categoría para inscripciones.
                 </p>
               </div>
               <FormControl>
-                <input
-                  type="checkbox"
-                  checked={field.value}
-                  onChange={field.onChange}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
             </FormItem>
           )}
         />
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
           )}
           <Button type="submit" disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {initialData ? 'Actualizar' : 'Crear'} Categoría
           </Button>
         </div>

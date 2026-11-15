@@ -117,7 +117,7 @@ export function CorteSuprimidoEntero({
       <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent-100 text-accent-800">
         <EyeOff className="h-6 w-6" aria-hidden="true" />
       </div>
-      <h3 className="text-base font-bold text-primary-900">
+      <h3 className="type-h3 text-primary-900">
         Los resultados de este recorte no se pueden mostrar
       </h3>
       <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-primary-700">

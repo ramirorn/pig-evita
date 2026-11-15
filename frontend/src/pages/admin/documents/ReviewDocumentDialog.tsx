@@ -96,7 +96,7 @@ function ReviewDocumentContent({
 
       <div className="rounded-xl border border-primary-100 bg-surface p-2">
         {url && isImage ? (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="block rounded-lg transition-shadow duration-120 hover:ring-2 hover:ring-primary-200 active:ring-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
             <img
               src={url}
               alt={`${label} de ${participantName}`}
@@ -140,7 +140,7 @@ function ReviewDocumentContent({
             aria-describedby={noteError ? noteErrorId : undefined}
             autoFocus
           />
-          <p id={noteErrorId} role="alert" className="text-xs text-red-700 min-h-4">
+          <p id={noteErrorId} role="alert" className="text-xs text-destructive-700 min-h-4">
             {noteError}
           </p>
         </div>

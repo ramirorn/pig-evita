@@ -45,7 +45,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="dni"
@@ -86,7 +86,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="firstName"
@@ -130,7 +130,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="department"
@@ -160,7 +160,7 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
             name="email"
@@ -204,12 +204,12 @@ export function ParticipantForm({ initialData, onSuccess, onCancel }: Participan
           )}
         />
 
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancelar
           </Button>
           <Button type="submit" disabled={isPending}>
-            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />}
             {isEditing ? 'Guardar Cambios' : 'Crear Participante'}
           </Button>
         </div>

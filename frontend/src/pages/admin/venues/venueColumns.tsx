@@ -34,6 +34,7 @@ export function createVenueColumns({ onEdit, onDelete }: VenueColumnActions): Da
       id: 'venue',
       header: 'Sede / Instalación',
       rowHeader: true,
+      mobile: 'primary',
       headClassName: 'min-w-[260px]',
       cell: (venue) => (
         <div className="flex items-center gap-3">
@@ -51,7 +52,7 @@ export function createVenueColumns({ onEdit, onDelete }: VenueColumnActions): Da
                 {venue.address}
               </p>
             )}
-            {!venue.imageUrl && <p className="text-[11px] text-primary-500 mt-0.5">Sin foto</p>}
+            {!venue.imageUrl && <p className="text-xs text-primary-500 mt-0.5">Sin foto</p>}
           </div>
         </div>
       ),
@@ -59,13 +60,14 @@ export function createVenueColumns({ onEdit, onDelete }: VenueColumnActions): Da
     {
       id: 'location',
       header: 'Ubicación',
+      mobile: 'secondary',
       headClassName: 'min-w-[160px]',
       cell: (venue) => (
         <div className="space-y-1">
           <p className="text-sm font-medium text-primary-800">{venue.locality}</p>
           <Badge
             variant="outline"
-            className="text-[11px] bg-white text-primary-600 border-primary-200"
+            className="text-xs bg-white text-primary-600 border-primary-200"
           >
             Dpto. {venue.department}
           </Badge>
@@ -75,12 +77,13 @@ export function createVenueColumns({ onEdit, onDelete }: VenueColumnActions): Da
     {
       id: 'capacity',
       header: 'Capacidad',
+      mobile: 'secondary',
       headClassName: 'min-w-[120px]',
       cell: (venue) =>
         venue.capacity ? (
           <div className="inline-flex items-center gap-1 text-xs font-semibold text-primary-700 bg-primary-50 px-2.5 py-1 rounded-md border border-primary-100">
             <Users className="w-3.5 h-3.5 text-primary-500" aria-hidden="true" />
-            {venue.capacity.toLocaleString('es-AR')} personas
+            <span className="tabular-nums">{venue.capacity.toLocaleString('es-AR')}</span> personas
           </div>
         ) : (
           // `primary-400` daba 3.75:1 sobre blanco (falla AA); `primary-500` da 6.52:1.
@@ -90,6 +93,7 @@ export function createVenueColumns({ onEdit, onDelete }: VenueColumnActions): Da
     {
       id: 'status',
       header: 'Estado',
+      mobile: 'secondary',
       headClassName: 'min-w-[100px]',
       cell: (venue) =>
         venue.isActive ? (
@@ -111,6 +115,7 @@ export function createVenueColumns({ onEdit, onDelete }: VenueColumnActions): Da
       header: 'Acciones',
       hideHeader: true,
       interactive: true,
+      mobile: 'actions',
       headClassName: 'w-[100px] text-right',
       className: 'text-right',
       cell: (venue) => {
@@ -154,7 +159,7 @@ export function createVenueColumns({ onEdit, onDelete }: VenueColumnActions): Da
                 </DropdownMenuItem>
 
                 {mapsUrl && (
-                  <DropdownMenuItem asChild className="gap-2 text-primary-800">
+                  <DropdownMenuItem asChild className="gap-2 text-primary-800 hover:bg-primary-50 focus:bg-primary-50">
                     <a
                       href={mapsUrl}
                       target="_blank"

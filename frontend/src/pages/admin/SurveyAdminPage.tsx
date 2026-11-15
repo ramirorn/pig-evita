@@ -1,6 +1,7 @@
 // ===========================================
 // Survey Admin Page — listado de campañas de la encuesta (S20)
 // ===========================================
+import { NumberField } from '@/components/ui/number-field';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
@@ -41,6 +42,7 @@ import { SurveyCampaignStatusBadge } from './survey/SurveyCampaignStatusBadge';
 import { puedeEliminarCampania, respuestasDe } from './survey/surveyRules';
 
 import { Button } from '@/components/ui/button';
+import { FilterPanel } from '@/components/shared/FilterPanel';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -126,6 +128,8 @@ export function SurveyAdminPage() {
     ventana !== TODOS ||
     etapa !== TODOS;
 
+  const filtrosActivos = [anio.trim().length > 0, status !== TODOS, ventana !== TODOS, etapa !== TODOS].filter(Boolean).length;
+
   const abrirAlta = () => {
     setEditando(undefined);
     setIsModalOpen(true);
@@ -150,6 +154,7 @@ export function SurveyAdminPage() {
     {
       id: 'campania',
       header: 'Encuesta',
+      mobile: 'primary',
       rowHeader: true,
       headClassName: 'min-w-[260px]',
       cell: (item) => (
@@ -167,27 +172,31 @@ export function SurveyAdminPage() {
     {
       id: 'anio',
       header: 'Año',
+      mobile: 'secondary',
       className: 'text-primary-700 tabular-nums',
       cell: (item) => item.anio,
     },
     {
       id: 'status',
       header: 'Estado',
+      mobile: 'secondary',
       cell: (item) => <SurveyCampaignStatusBadge status={item.status} />,
     },
     {
       id: 'preguntas',
       header: 'Preguntas',
+      mobile: 'secondary',
       cell: (item) => (
         <span className="inline-flex items-center gap-1.5 text-xs text-primary-700">
           <MessageSquareText className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
-          {item._count?.questions ?? 0}
+          <span className="tabular-nums">{item._count?.questions ?? 0}</span>
         </span>
       ),
     },
     {
       id: 'respuestas',
       header: 'Respuestas',
+      mobile: 'secondary',
       cell: (item) => (
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-800 tabular-nums">
           <Users className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
@@ -198,6 +207,7 @@ export function SurveyAdminPage() {
     {
       id: 'actions',
       header: 'Acciones',
+      mobile: 'actions',
       hideHeader: true,
       interactive: true,
       headClassName: 'w-[80px]',
@@ -246,7 +256,7 @@ export function SurveyAdminPage() {
   ];
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title="Encuesta"
         description="Campañas de la encuesta de salud mental, sus preguntas y sus resultados"
@@ -296,7 +306,7 @@ export function SurveyAdminPage() {
           )
         }
         toolbar={
-          <div className="flex flex-1 flex-wrap items-center gap-2">
+          <div className="flex flex-1 flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:gap-2">
             <div className="relative min-w-[200px] flex-1 md:max-w-xs">
               <Search
                 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
@@ -311,18 +321,19 @@ export function SurveyAdminPage() {
               />
             </div>
 
-            <Input
-              type="number"
-              inputMode="numeric"
+            <FilterPanel activeCount={filtrosActivos} className="md:w-auto">
+            <NumberField
+              stepper={false}
+              min={0}
               placeholder="Año"
               aria-label="Filtrar por año"
-              value={anio}
-              onChange={(e) => alFiltrar(() => setAnio(e.target.value))}
-              className="w-[110px]"
+              value={anio === '' ? undefined : Number(anio)}
+              onValueChange={(valor) => alFiltrar(() => setAnio(valor === undefined ? '' : String(valor)))}
+              wrapperClassName="w-full md:w-[110px]"
             />
 
             <Select value={status} onValueChange={(v) => alFiltrar(() => setStatus(v))}>
-              <SelectTrigger className="w-[170px]" aria-label="Filtrar por estado">
+              <SelectTrigger className="w-full md:w-[170px]" aria-label="Filtrar por estado">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -334,7 +345,7 @@ export function SurveyAdminPage() {
             </Select>
 
             <Select value={ventana} onValueChange={(v) => alFiltrar(() => setVentana(v))}>
-              <SelectTrigger className="w-[190px]" aria-label="Filtrar por momento">
+              <SelectTrigger className="w-full md:w-[190px]" aria-label="Filtrar por momento">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -348,7 +359,7 @@ export function SurveyAdminPage() {
             </Select>
 
             <Select value={etapa} onValueChange={(v) => alFiltrar(() => setEtapa(v))}>
-              <SelectTrigger className="w-[170px]" aria-label="Filtrar por etapa">
+              <SelectTrigger className="w-full md:w-[170px]" aria-label="Filtrar por etapa">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -367,6 +378,7 @@ export function SurveyAdminPage() {
                 Limpiar
               </Button>
             )}
+            </FilterPanel>
           </div>
         }
       />
@@ -409,7 +421,7 @@ export function SurveyAdminPage() {
         ¿Querés ver cómo la ven los chicos?{' '}
         <Link
           to={ROUTES.SURVEY}
-          className="font-semibold text-primary-600 underline underline-offset-2 hover:text-primary-800"
+          className="font-semibold text-primary-700 underline underline-offset-2 hover:text-primary-900 active:text-primary-950 transition-colors duration-120"
         >
           Abrí la página pública de la encuesta
         </Link>

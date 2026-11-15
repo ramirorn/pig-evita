@@ -110,10 +110,10 @@ export const INSCRIPTION_STATUS_LABELS: Record<InscriptionStatus, string> = {
 };
 
 export const INSCRIPTION_STATUS_COLORS: Record<InscriptionStatus, string> = {
-  [InscriptionStatus.PENDIENTE]: 'bg-amber-100 text-amber-800 border-amber-200',
-  [InscriptionStatus.REVISADA]: 'bg-blue-100 text-blue-800 border-blue-200',
-  [InscriptionStatus.APROBADA]: 'bg-green-100 text-green-800 border-green-200',
-  [InscriptionStatus.RECHAZADA]: 'bg-red-100 text-red-800 border-red-200',
+  [InscriptionStatus.PENDIENTE]: 'bg-warning-100 text-warning-800 border-warning-200',
+  [InscriptionStatus.REVISADA]: 'bg-primary-100 text-primary-700 border-primary-200',
+  [InscriptionStatus.APROBADA]: 'bg-success-100 text-success-800 border-success-200',
+  [InscriptionStatus.RECHAZADA]: 'bg-destructive-50 text-destructive-700 border-destructive-500/30',
 };
 
 export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {

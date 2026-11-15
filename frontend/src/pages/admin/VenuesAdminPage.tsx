@@ -73,7 +73,7 @@ export function VenuesAdminPage() {
   const columns = createVenueColumns({ onEdit: setEditingVenue, onDelete: setDeletingVenue });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Sedes de Competencia"
         description="Gestión de polideportivos, clubes, estadios y complejos deportivos"

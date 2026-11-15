@@ -34,7 +34,7 @@ export function CompetitionsPage() {
   }) || [];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Competencias"
         description="Gestión de torneos, fixtures y llaves"
@@ -49,9 +49,10 @@ export function CompetitionsPage() {
 
       <div className="card p-4 flex flex-wrap gap-4 items-center">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" aria-hidden="true" />
           <Input 
-            placeholder="Buscar competencia por nombre, disciplina o categoría..." 
+            placeholder="Buscar competencia por nombre, disciplina o categoría..."
+            aria-label="Buscar competencias"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -77,13 +78,13 @@ export function CompetitionsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCompetitions.map((competition) => (
-            <Link key={competition.id} to={`/admin/competencias/${competition.id}`}>
-              <div className="card hover:shadow-lg hover:-translate-y-1 transition-all p-5 h-full flex flex-col cursor-pointer border-l-4 border-l-primary-500">
+            <Link key={competition.id} to={`/admin/competencias/${competition.id}`} className="group block h-full rounded-lg">
+              <div className="card card-interactive group-hover:border-primary-300 group-active:bg-primary-50 p-5 h-full flex flex-col">
                 <div className="flex-1">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-primary-900 text-lg">
+                    <h2 className="type-h3 text-primary-900">
                       {competition.name || `${competition.discipline?.name} - ${competition.category?.name}`}
-                    </h3>
+                    </h2>
                   </div>
                   <div className="space-y-1 mt-4 text-sm">
                     <div className="flex justify-between text-primary-600">
@@ -105,7 +106,7 @@ export function CompetitionsPage() {
                   </div>
                 </div>
                 <div className="mt-6 pt-4 border-t border-primary-100">
-                  <span className="text-primary-600 text-sm font-medium hover:text-primary-800">
+                  <span className="text-primary-700 text-sm font-medium group-hover:text-primary-900 group-hover:underline underline-offset-2">
                     Ver Fixture y Partidos &rarr;
                   </span>
                 </div>

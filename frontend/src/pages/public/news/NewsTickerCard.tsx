@@ -22,15 +22,15 @@ export function NewsTickerCard({ news }: { news: News }) {
       news={news}
       className="group block h-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
     >
-      <article className="flex h-full items-center gap-3 rounded-xl border border-primary-100 bg-surface-elevated p-2.5 shadow-sm transition-shadow duration-300 group-hover:shadow-md">
+      <article className="flex h-full items-center gap-3 rounded-xl border border-primary-100 bg-surface-elevated p-2.5 shadow-sm transition-shadow duration-200 ease-out-soft group-hover:shadow-md group-active:shadow-sm">
         <div className="aspect-[5/4] w-20 shrink-0 overflow-hidden rounded-lg bg-primary-900">
           <SafeNewsImage imageUrl={news.imageUrl} alt={news.title} compacta />
         </div>
         <div className="min-w-0">
-          <h3 className="line-clamp-2 text-sm leading-snug font-bold text-primary-900 transition-colors group-hover:text-primary-600">
+          <h3 className="line-clamp-2 text-sm leading-snug font-bold text-primary-900 transition-colors duration-120 group-hover:text-primary-600">
             {news.title}
           </h3>
-          <p className="mt-1 truncate text-xs text-primary-600">
+          <p className="mt-1 truncate text-xs text-primary-600 tabular-nums">
             {etiquetaDeOrigen(news)}
             {antiguedad && (
               <>

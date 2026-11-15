@@ -34,18 +34,18 @@ export function NewsSidebarList({ news }: NewsSidebarListProps) {
               news={item}
               className="group block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
             >
-              <article className="flex items-center gap-3 rounded-lg p-1.5 transition-colors group-hover:bg-primary-50">
+              <article className="flex items-center gap-3 rounded-lg p-1.5 transition-colors duration-120 group-hover:bg-primary-50 group-active:bg-primary-100">
                 <span
                   aria-hidden="true"
-                  className="font-display w-6 shrink-0 text-center text-2xl leading-none font-extrabold text-primary-500"
+                  className="font-display w-6 shrink-0 text-center text-2xl leading-none font-extrabold text-primary-500 tabular-nums"
                 >
                   {idx + 1}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h3 className="line-clamp-2 text-sm leading-snug font-bold text-primary-900 transition-colors group-hover:text-primary-600">
+                  <h3 className="line-clamp-2 text-sm leading-snug font-bold text-primary-900 transition-colors duration-120 group-hover:text-primary-600">
                     {item.title}
                   </h3>
-                  <p className="mt-1 truncate text-xs text-primary-600">
+                  <p className="mt-1 truncate text-xs text-primary-600 tabular-nums">
                     {etiquetaDeOrigen(item)}
                     {antiguedad && (
                       <>
