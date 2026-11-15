@@ -329,6 +329,18 @@ export const ACCIONES = {
     Role.ADMIN_ZONAL,
     Role.COORDINADOR,
   ],
+  /**
+   * Métricas de la encuesta: los mismos roles que el dashboard. Son agregados
+   * anónimos (k-anonimato), así que quien lee el resumen general también puede
+   * leer esto; crear o editar un KPI sigue siendo `SURVEY_MANAGE`.
+   */
+  METRICS_READ: [
+    Role.SUPER_ADMIN,
+    Role.ADMIN_PROVINCIAL,
+    Role.ADMIN_DEPARTAMENTAL,
+    Role.ADMIN_ZONAL,
+    Role.COORDINADOR,
+  ],
 
   // --- Sistema ---
   USER_READ: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
@@ -365,4 +377,47 @@ export function accionesDe(
   role: Role | string | undefined | null,
 ): AccionProtegida[] {
   return TODAS_LAS_ACCIONES.filter((accion) => puedeAccion(role, accion));
+}
+
+// ===========================================
+// Territorio: capital vs. interior
+// ===========================================
+
+/**
+ * La capital es la **localidad** "Formosa", no el departamento del mismo
+ * nombre: el departamento Formosa también contiene Gran Guardia, Mariano
+ * Boedo o San Hilario, que son interior. Las métricas de la encuesta separan
+ * las respuestas en estas dos zonas porque es la pregunta que la Secretaría
+ * necesita responder ante otros ministerios ("los chicos del interior…").
+ */
+export const CAPITAL = {
+  localidad: 'Formosa',
+  departamento: 'Formosa',
+} as const;
+
+export type Zona = 'CAPITAL' | 'INTERIOR';
+
+/** Normaliza para comparar nombres de localidad: tildes, mayúsculas y espacios. */
+function normalizarNombre(valor: string): string {
+  return valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Zona de una localidad. Es CAPITAL sólo cuando localidad y departamento son
+ * los de `CAPITAL`; cualquier otra combinación (incluida una localidad sin
+ * cargar) cuenta como INTERIOR.
+ */
+export function zonaDeLocalidad(
+  localidad: string | null | undefined,
+  departamento: string | null | undefined,
+): Zona {
+  if (!localidad || !departamento) return 'INTERIOR';
+  const esCapital =
+    normalizarNombre(localidad) === normalizarNombre(CAPITAL.localidad) &&
+    normalizarNombre(departamento) === normalizarNombre(CAPITAL.departamento);
+  return esCapital ? 'CAPITAL' : 'INTERIOR';
 }
