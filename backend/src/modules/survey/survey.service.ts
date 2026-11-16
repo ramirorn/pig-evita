@@ -19,6 +19,8 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
+import { finDelRango, inicioDelRango } from '../../common/dto/date-range';
+import { CAPITAL } from '../../common/constants';
 import {
   ActiveSurveyQueryDto,
   CAMPOS_ORDEN_SURVEY_CAMPAIGNS,
@@ -912,6 +914,41 @@ export class SurveyService {
     if (query.disciplineId) where.disciplineId = query.disciplineId;
     if (query.disciplineType) where.disciplineType = query.disciplineType;
     if (query.localityId) where.localityId = query.localityId;
+    if (query.categoryId) where.categoryId = query.categoryId;
+    if (query.sexo) where.sexo = query.sexo;
+
+    // Departamento y zona se resuelven por la relación con la localidad. Una
+    // respuesta sin localidad cargada no es de ningún departamento y, para la
+    // zona, cuenta como INTERIOR (mismo criterio que `zonaDeLocalidad`).
+    if (query.departmentId) {
+      where.locality = { departmentId: query.departmentId };
+    }
+    if (query.zona === 'CAPITAL') {
+      where.locality = {
+        ...(where.locality as Prisma.LocalityWhereInput | undefined),
+        name: { equals: CAPITAL.localidad, mode: 'insensitive' },
+        department: {
+          name: { equals: CAPITAL.departamento, mode: 'insensitive' },
+        },
+      };
+    } else if (query.zona === 'INTERIOR') {
+      where.NOT = {
+        locality: {
+          name: { equals: CAPITAL.localidad, mode: 'insensitive' },
+          department: {
+            name: { equals: CAPITAL.departamento, mode: 'insensitive' },
+          },
+        },
+      };
+    }
+
+    // `desde`/`hasta` con sólo la fecha abarcan el día entero, igual que los
+    // filtros del calendario y la auditoría.
+    if (query.desde || query.hasta) {
+      where.enviadaEn = {};
+      if (query.desde) where.enviadaEn.gte = inicioDelRango(query.desde);
+      if (query.hasta) where.enviadaEn.lte = finDelRango(query.hasta);
+    }
 
     return where;
   }
