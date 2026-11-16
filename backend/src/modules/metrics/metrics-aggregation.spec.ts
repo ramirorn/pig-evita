@@ -9,6 +9,7 @@
 import { MOTIVO_SUPRESION } from '../survey/survey.constants';
 import {
   aplicarUmbral,
+  aplicarUmbralCelda,
   aplicarUmbralTabla,
   cruzarRespuestas,
   esDimensionValida,
@@ -116,6 +117,15 @@ describe('aplicarUmbral', () => {
       conteo: null,
     });
     expect(aplicarUmbral(5)).toEqual({ suprimido: false, conteo: 5 });
+  });
+});
+
+describe('aplicarUmbralCelda', () => {
+  it('publica el cero y suprime de 1 a 4', () => {
+    expect(aplicarUmbralCelda(0)).toEqual({ suprimido: false, conteo: 0 });
+    expect(aplicarUmbralCelda(1).suprimido).toBe(true);
+    expect(aplicarUmbralCelda(4).suprimido).toBe(true);
+    expect(aplicarUmbralCelda(5)).toEqual({ suprimido: false, conteo: 5 });
   });
 });
 

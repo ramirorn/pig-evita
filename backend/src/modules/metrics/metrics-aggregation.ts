@@ -37,6 +37,16 @@ export function aplicarUmbral(conteo: number): Corte {
     : { suprimido: false, conteo };
 }
 
+/**
+ * Umbral para una celda de tabla: el cero se publica. "Nadie eligió esta
+ * opción" no identifica a nadie (el panel de la encuesta ya lo muestra) y, si
+ * se suprimiera, toda fila con una opción sin elegir perdería su total.
+ * Lo que se oculta son los conteos de 1 a k-1.
+ */
+export function aplicarUmbralCelda(conteo: number): Corte {
+  return conteo === 0 ? { suprimido: false, conteo: 0 } : aplicarUmbral(conteo);
+}
+
 const SUPRIMIDO: Corte = {
   suprimido: true,
   motivo: MOTIVO_SUPRESION,
@@ -229,7 +239,7 @@ export function cruzarRespuestas(
         optionId: o.optionId,
         valor: o.valor,
         texto: o.texto,
-        ...aplicarUmbral(fila.porOpcion.get(o.optionId) ?? 0),
+        ...aplicarUmbralCelda(fila.porOpcion.get(o.optionId) ?? 0),
       })),
       totalFila: aplicarUmbral(fila.respondieron),
     })),
