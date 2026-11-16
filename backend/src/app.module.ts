@@ -53,6 +53,7 @@ import { ZonesModule } from './modules/zones/zones.module';
 import { SurveyModule } from './modules/survey/survey.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { LocalitiesModule } from './modules/localities/localities.module';
+import { MetricsModule } from './modules/metrics/metrics.module';
 
 // Auth Guards
 import { JwtAuthGuard } from './modules/auth/guards';
@@ -134,6 +135,7 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     SurveyModule,
     StatsModule,
     LocalitiesModule,
+    MetricsModule,
   ],
   providers: [
     // Global Exception Filter
