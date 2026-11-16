@@ -38,3 +38,13 @@ export const MOTIVO_SUPRESION = 'MUESTRA_INSUFICIENTE' as const;
  * problema que tuvo la edición anterior— y corta cualquier script.
  */
 export const SURVEY_SUBMIT_RATE_LIMIT = { limit: 3, ttl: 60_000 } as const;
+
+/**
+ * Clave en Redis del contador de versión de una campaña. Sube con cada
+ * respuesta nueva y con cada cambio de preguntas u opciones; las métricas la
+ * usan para invalidar agregados cacheados y el panel la consulta para saber
+ * si tiene que volver a pedir los datos. Compartida entre survey y metrics.
+ */
+export function claveVersionCampania(campaignId: string): string {
+  return `metrics:survey:${campaignId}:version`;
+}

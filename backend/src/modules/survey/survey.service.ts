@@ -6,6 +6,7 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  Optional,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -34,7 +35,12 @@ import {
   UpdateSurveyOptionDto,
   UpdateSurveyQuestionDto,
 } from './dto';
-import { MOTIVO_SUPRESION, UMBRAL_K_ANONIMATO } from './survey.constants';
+import {
+  claveVersionCampania,
+  MOTIVO_SUPRESION,
+  UMBRAL_K_ANONIMATO,
+} from './survey.constants';
+import { RedisCacheService } from '../../common/cache';
 import type {
   Corte,
   SurveyFlowDisciplina,
@@ -58,7 +64,23 @@ const INCLUDE_CUESTIONARIO = {
 export class SurveyService {
   private readonly logger = new Logger(SurveyService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  /**
+   * El cache es opcional a propósito: los specs arman el servicio sólo con
+   * Prisma, y sin Redis la encuesta tiene que seguir funcionando igual. Lo
+   * único que se pierde sin él es el versionado que usan las métricas.
+   */
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly cache?: RedisCacheService,
+  ) {}
+
+  /**
+   * Sube la versión de la campaña en Redis. Fire-and-forget: ni espera ni
+   * falla; si Redis no está, las métricas caen al conteo de respuestas.
+   */
+  private subirVersion(campaignId: string): void {
+    void this.cache?.incr(claveVersionCampania(campaignId));
+  }
 
   // ===========================================
   // Público
@@ -261,6 +283,7 @@ export class SurveyService {
     this.logger.log(
       `Respuesta de encuesta registrada (campaña ${campaign.id})`,
     );
+    this.subirVersion(campaign.id);
 
     return { registrada: true, enviadaEn: response.enviadaEn };
   }
@@ -551,6 +574,7 @@ export class SurveyService {
       },
       include: { options: { orderBy: { orden: 'asc' } } },
     });
+    this.subirVersion(campaignId);
 
     return question;
   }
@@ -563,7 +587,7 @@ export class SurveyService {
     const { campaign } = await this.findQuestion(campaignId, questionId);
     this.rechazarSiEstaCerrada(campaign.status, 'editar');
 
-    return this.prisma.surveyQuestion.update({
+    const actualizada = await this.prisma.surveyQuestion.update({
       where: { id: questionId },
       data: {
         texto: dto.texto,
@@ -576,6 +600,8 @@ export class SurveyService {
       },
       include: { options: { orderBy: { orden: 'asc' } } },
     });
+    this.subirVersion(campaignId);
+    return actualizada;
   }
 
   /**
@@ -595,7 +621,11 @@ export class SurveyService {
       );
     }
 
-    return this.prisma.surveyQuestion.delete({ where: { id: questionId } });
+    const borrada = await this.prisma.surveyQuestion.delete({
+      where: { id: questionId },
+    });
+    this.subirVersion(campaignId);
+    return borrada;
   }
 
   async createOption(
@@ -615,7 +645,7 @@ export class SurveyService {
       );
     }
 
-    return this.prisma.surveyOption.create({
+    const creada = await this.prisma.surveyOption.create({
       data: {
         questionId,
         texto: dto.texto,
@@ -623,6 +653,8 @@ export class SurveyService {
         orden: dto.orden ?? this.siguienteOrden(question.options),
       },
     });
+    this.subirVersion(campaignId);
+    return creada;
   }
 
   /**
@@ -663,10 +695,12 @@ export class SurveyService {
       }
     }
 
-    return this.prisma.surveyOption.update({
+    const actualizada = await this.prisma.surveyOption.update({
       where: { id: optionId },
       data: { texto: dto.texto, valor: dto.valor, orden: dto.orden },
     });
+    this.subirVersion(campaignId);
+    return actualizada;
   }
 
   async removeOption(campaignId: string, questionId: string, optionId: string) {
@@ -690,7 +724,11 @@ export class SurveyService {
       );
     }
 
-    return this.prisma.surveyOption.delete({ where: { id: optionId } });
+    const borrada = await this.prisma.surveyOption.delete({
+      where: { id: optionId },
+    });
+    this.subirVersion(campaignId);
+    return borrada;
   }
 
   // ===========================================
