@@ -250,20 +250,20 @@ model Discipline {
 
 /// Categorías por disciplina (edad, sexo)
 model Category {
-  id           String   @id @default(uuid()) @db.Uuid
-  disciplineId String   @map("discipline_id") @db.Uuid
+  id           String       @id @default(uuid()) @db.Uuid
+  disciplineId String       @map("discipline_id") @db.Uuid
   name         String /// e.g., "Sub-14 Masculino"
   ageCriterion AgeCriterion @default(AGE) @map("age_criterion")
   /// Rango por edad: sólo con `ageCriterion = AGE`, NULL en el otro caso.
-  minAge       Int?     @map("min_age")
-  maxAge       Int?     @map("max_age")
+  minAge       Int?         @map("min_age")
+  maxAge       Int?         @map("max_age")
   /// Rango por año de nacimiento: sólo con `ageCriterion = BIRTH_YEAR`.
-  minBirthYear Int?     @map("min_birth_year")
-  maxBirthYear Int?     @map("max_birth_year")
+  minBirthYear Int?         @map("min_birth_year")
+  maxBirthYear Int?         @map("max_birth_year")
   sex          Sex
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
 
   // Relations
   discipline      Discipline       @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
@@ -664,10 +664,36 @@ model SurveyCampaign {
   createdBy User?            @relation("SurveyCampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   questions SurveyQuestion[]
   responses SurveyResponse[]
+  kpis      SurveyKpi[]
 
   @@index([status, ventana, etapa])
   @@index([anio])
   @@map("survey_campaigns")
+}
+
+/// Indicador compuesto (KPI) sobre las respuestas de la encuesta.
+///
+/// La definición es declarativa y matchea opciones por su `valor` (slug), no
+/// por id: las preguntas se reescriben cada edición y un KPI tiene que
+/// sobrevivir a eso. `campaignId` en `null` significa "reutilizable para
+/// cualquier campaña": el indicador se evalúa sobre la que se esté mirando.
+model SurveyKpi {
+  id          String   @id @default(uuid()) @db.Uuid
+  campaignId  String?  @map("campaign_id") @db.Uuid
+  nombre      String
+  descripcion String?  @db.Text
+  orden       Int      @default(0)
+  activo      Boolean  @default(true)
+  /// `{ numerador: [{ valores: string[] }], denominador: 'todas' | 'contestaron' | [{ valores }], formato: 'porcentaje' | 'conteo' }`
+  definicion  Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  campaign SurveyCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, activo, orden])
+  @@map("survey_kpis")
 }
 
 /// Pregunta del cuestionario.
