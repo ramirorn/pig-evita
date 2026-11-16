@@ -54,6 +54,8 @@ import { AuditController } from '../src/modules/audit/audit.controller';
 import { ZonesController } from '../src/modules/zones/zones.controller';
 import { DashboardController } from '../src/modules/dashboard/dashboard.controller';
 import { SurveyController } from '../src/modules/survey/survey.controller';
+import { MetricsController } from '../src/modules/metrics/metrics.controller';
+import { MetricsService } from '../src/modules/metrics/metrics.service';
 import { ZonesService } from '../src/modules/zones/zones.service';
 
 import { JwtStrategy } from '../src/modules/auth/strategies';
@@ -100,6 +102,7 @@ const CONTROLLERS = [
   ZonesController,
   DashboardController,
   SurveyController,
+  MetricsController,
 ];
 
 /**
@@ -238,6 +241,12 @@ describe('Permisos por acción (R22)', () => {
       },
       { accion: 'AUDIT_READ', metodo: 'get', url: '/audit' },
       { accion: 'ZONE_READ', metodo: 'get', url: '/zones' },
+      { accion: 'METRICS_READ', metodo: 'get', url: '/metrics/catalog' },
+      {
+        accion: 'SURVEY_MANAGE',
+        metodo: 'delete',
+        url: '/metrics/kpis/11111111-1111-4111-8111-111111111111',
+      },
     ];
 
     beforeAll(async () => {
@@ -277,6 +286,7 @@ describe('Permisos por acción (R22)', () => {
           UsersController,
           AuditController,
           ZonesController,
+          MetricsController,
         ],
         providers: [
           JwtStrategy,
@@ -288,6 +298,7 @@ describe('Permisos por acción (R22)', () => {
           { provide: UsersService, useValue: servicioMudo },
           { provide: ZonesService, useValue: servicioMudo },
           { provide: AuditService, useValue: servicioMudo },
+          { provide: MetricsService, useValue: servicioMudo },
           { provide: MinioService, useValue: servicioMudo },
           { provide: PrismaService, useValue: servicioMudo },
           {
