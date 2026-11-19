@@ -65,6 +65,7 @@ const EJE = { fontSize: 12, fill: 'var(--color-primary-700)' };
 const EJE_NUMERICO = 'number' as const;
 const EJE_CATEGORIAS = 'category' as const;
 const GRILLA = 'var(--color-primary-100)';
+const LEYENDA = { fontSize: 12, lineHeight: '18px' };
 
 function SinDatos() {
   return (
@@ -181,7 +182,7 @@ export default function MetricsChart({
             </text>
           )}
           <Tooltip />
-          {!sinLeyenda && <Legend />}
+          {!sinLeyenda && <Legend wrapperStyle={LEYENDA} />}
         </PieChart>
       </ResponsiveContainer>
     );
@@ -273,7 +274,7 @@ export default function MetricsChart({
             tickFormatter={(t: string) => recortarEtiqueta(t, maximo)}
           />
           <Tooltip formatter={(v) => (porcentaje ? `${v} %` : v)} />
-          <Legend />
+          <Legend wrapperStyle={LEYENDA} />
           {cruce.columnas.map((columna, i) => (
             <Bar
               key={columna.optionId}
@@ -302,7 +303,7 @@ export default function MetricsChart({
           domain={porcentaje && apiladas ? [0, 100] : undefined}
         />
         <Tooltip formatter={(v) => (porcentaje ? `${v} %` : v)} />
-        <Legend />
+        <Legend wrapperStyle={LEYENDA} />
         {cruce.columnas.map((columna, i) => (
           <Bar
             key={columna.optionId}
