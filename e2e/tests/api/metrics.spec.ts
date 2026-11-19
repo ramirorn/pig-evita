@@ -164,6 +164,39 @@ test.describe('KPIs', () => {
   });
 });
 
+test.describe('destacados', () => {
+  test('ranking publicable, sin opciones chicas, y ABM sólo para quien gestiona la encuesta', async () => {
+    const { c, lesion, estudios, s } = await campaniaPublicada();
+    const [no, atendido, sinAtencion] = opciones(lesion);
+    const sigue = { questionId: estudios.id, optionIds: [opciones(estudios)[0].id] };
+    // 20 No, 9 atendidos, 2 sin atención (base 31): el 2 se oculta y, como la
+    // pregunta es de opción única, también el 9 (31 − 20 lo despejaría).
+    for (let i = 0; i < 20; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [no.id] }, sigue]);
+    for (let i = 0; i < 9; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [atendido.id] }, sigue]);
+    for (let i = 0; i < 2; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [sinAtencion.id] }, sigue]);
+
+    const coord = (await as('COORDINADOR')).api;
+    const definicion = { opciones: [no.valor, atendido.valor, sinAtencion.valor], top: 3 };
+    expect((await coord.post('/metrics/highlights', { titulo: 'X', definicion })).status()).toBe(403);
+    expect((await s.post('/metrics/highlights', { titulo: 'Sin opciones', definicion: { opciones: [], top: 3 } })).status()).toBe(400);
+
+    const destacado = await data(
+      await s.post('/metrics/highlights', { campaignId: c.id, titulo: uniq('Lesiones'), definicion }),
+      201,
+    );
+    const res = await data(await coord.get(`/metrics/survey/${c.id}/highlights`));
+    const propio = res.destacados.find((d: any) => d.id === destacado.id);
+    expect(propio.base).toMatchObject({ suprimido: false, conteo: 31 });
+    expect(propio.opciones.map((o: any) => o.valor)).toEqual([no.valor]);
+    expect(propio.ocultas).toBe(2);
+    expect(propio.puedeAfirmar).toBe(true);
+    expect(JSON.stringify(propio)).not.toMatch(/"conteo":(2|9)[,}]/);
+
+    expect((await s.del(`/metrics/highlights/${destacado.id}`)).status()).toBeLessThan(300);
+    await s.post(`/survey/campaigns/${c.id}/close`);
+  });
+});
+
 test.describe('permisos', () => {
   test('COORDINADOR lee métricas pero no edita KPIs; DELEGADO y anónimo no entran', async () => {
     const { c, s } = await campaniaPublicada();
