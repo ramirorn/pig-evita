@@ -1,7 +1,7 @@
 // Listados del panel: búsqueda, filtros con selectores propios, paginación y detalle.
 import { Page } from '@playwright/test';
 import { DEPTO, as, data, nextDni, uniq } from '../../lib/api';
-import { elegir, expect, relevantes, test } from '../../lib/ui';
+import { abrirFiltros, elegir, expect, filas, relevantes, test } from '../../lib/ui';
 
 const sa = async () => (await as('SUPER_ADMIN')).api;
 
@@ -25,6 +25,7 @@ test.describe('participantes', () => {
     await buscar.fill(apellido);
     await expect(page.locator('table tbody tr')).toHaveCount(1);
     await buscar.fill('');
+    await abrirFiltros(page);
     await page.getByRole('textbox', { name: 'Filtrar por departamento' }).fill('Pilcomayo');
     await expect.poll(async () => page.locator('table tbody tr', { hasText: 'Pilcomayo' }).count()).toBeGreaterThan(0);
     expect(await page.locator('table tbody tr', { hasNotText: 'Pilcomayo' }).count()).toBe(0);
@@ -40,6 +41,7 @@ test.describe('participantes', () => {
     await loginAs('ADMIN_PROVINCIAL');
     await page.goto('/admin/participantes');
     await sinCargando(page);
+    await abrirFiltros(page);
     const cat = page.getByRole('combobox', { name: 'Filtrar por categoría' });
     await expect(cat).toBeDisabled();
     await elegir(page, page.getByRole('combobox', { name: 'Filtrar por disciplina' }), 'Ajedrez');
@@ -119,8 +121,9 @@ test.describe('otras listas', () => {
     await loginAs('ADMIN_PROVINCIAL');
     await page.goto('/admin/sedes');
     await sinCargando(page);
+    await abrirFiltros(page);
     await elegir(page, page.getByRole('combobox', { name: 'Filtrar por departamento' }).or(page.getByRole('button', { name: 'Filtrar por departamento' })), 'Formosa');
-    await expect(page.locator('table tbody tr').first()).toBeVisible();
+    await expect(filas(page).first()).toBeVisible();
   });
 
   test('equipos: el detalle de un equipo muestra su plantel', async ({ page, loginAs }) => {
