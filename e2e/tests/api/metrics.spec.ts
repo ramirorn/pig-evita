@@ -92,21 +92,31 @@ test.describe('métricas en vivo', () => {
     expect(v1, 'cada respuesta sube la versión').toBeGreaterThan(v0);
 
     const overview = await data(await s.get(`/metrics/survey/${c.id}/overview`));
-    expect(overview.totalRespuestas).toBe(7);
+    expect(overview.totalRespuestas).toEqual({ suprimido: false, conteo: 7 });
     const porZona = Object.fromEntries(overview.porZona.map((z: any) => [z.zona, z]));
-    expect(porZona.INTERIOR).toMatchObject({ suprimido: false, conteo: 5 });
+    // Capital 2 y total 7: con el interior visible, 7 − 5 despejaría la
+    // capital; por eso el interior también se oculta (supresión por masa).
+    expect(porZona.INTERIOR).toMatchObject({ suprimido: true, conteo: null });
     expect(porZona.CAPITAL).toMatchObject({ suprimido: true, conteo: null });
 
     const cruce = await data(await s.get(`/metrics/survey/${c.id}/cross?pregunta=${lesion.id}&por=zona`));
     const filaInterior = cruce.filas.find((f: any) => f.clave === 'INTERIOR');
     const filaCapital = cruce.filas.find((f: any) => f.clave === 'CAPITAL');
-    expect(filaInterior.totalFila).toMatchObject({ suprimido: false, conteo: 5 });
+    expect(filaInterior.totalFila, 'mismo criterio que el resumen por zona').toMatchObject({ suprimido: true, conteo: null });
     expect(filaCapital.totalFila, 'dos respuestas de la capital no se publican').toMatchObject({ suprimido: true, conteo: null });
     expect(JSON.stringify(filaCapital)).not.toContain('"conteo":2');
 
     // Filtrar por zona en el backend da lo mismo que la fila del cruce.
     const soloInterior = await data(await s.get(`/metrics/survey/${c.id}/overview?zona=INTERIOR`));
-    expect(soloInterior.totalRespuestas).toBe(5);
+    expect(soloInterior.totalRespuestas).toEqual({ suprimido: false, conteo: 5 });
+
+    // La capital tiene 2: su total no se publica y su cruce no deja ceros
+    // que permitan despejar por resta qué contestaron.
+    const soloCapital = await data(await s.get(`/metrics/survey/${c.id}/overview?zona=CAPITAL`));
+    expect(soloCapital.totalRespuestas).toMatchObject({ suprimido: true, conteo: null });
+    const cruceCapital = await data(await s.get(`/metrics/survey/${c.id}/cross?pregunta=${lesion.id}&por=ventana&zona=CAPITAL`));
+    expect(cruceCapital.totalRespuestas).toMatchObject({ suprimido: true, conteo: null });
+    for (const celda of cruceCapital.filas[0].celdas) expect(celda).toMatchObject({ suprimido: true, conteo: null });
 
     await s.post(`/survey/campaigns/${c.id}/close`);
   });
