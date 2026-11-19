@@ -80,7 +80,8 @@ test.describe('panel de Métricas', () => {
     const { c, s } = await campaniaConRespuestas(2);
     await loginAs('COORDINADOR');
     await page.goto(`/admin/metricas?campania=${c.id}`);
-    await expect(page.getByTestId('metricas-total')).toHaveText('2');
+    // Dos respuestas: ni el total se publica (con el total, los ceros despejarían la celda oculta).
+    await expect(page.getByTestId('metricas-total')).toContainText('Sin publicar');
     await expect(page.locator('main')).toContainText(/anonimato|sin publicar|Sin publicar/i);
     await s.post(`/survey/campaigns/${c.id}/close`);
   });
