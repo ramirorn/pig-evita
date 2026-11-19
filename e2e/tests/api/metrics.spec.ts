@@ -74,8 +74,8 @@ test.describe('métricas en vivo', () => {
 
     const v0 = (await data(await s.get(`/metrics/survey/${c.id}/version`))).version;
 
-    // 5 del interior (sin atención) y 2 de la capital (atendidos).
-    for (let i = 0; i < 5; i++) {
+    // 8 del interior (sin atención) y 2 de la capital (atendidos): 10, dos tandas.
+    for (let i = 0; i < 8; i++) {
       await responder(c.id, [
         { questionId: lesion.id, optionIds: [opciones(lesion)[2].id] },
         { questionId: estudios.id, optionIds: [opciones(estudios)[1].id] },
@@ -92,9 +92,9 @@ test.describe('métricas en vivo', () => {
     expect(v1, 'cada respuesta sube la versión').toBeGreaterThan(v0);
 
     const overview = await data(await s.get(`/metrics/survey/${c.id}/overview`));
-    expect(overview.totalRespuestas).toEqual({ suprimido: false, conteo: 7 });
+    expect(overview.totalRespuestas).toEqual({ suprimido: false, conteo: 10 });
     const porZona = Object.fromEntries(overview.porZona.map((z: any) => [z.zona, z]));
-    // Capital 2 y total 7: con el interior visible, 7 − 5 despejaría la
+    // Capital 2 y total 10: con el interior visible, 10 − 8 despejaría la
     // capital; por eso el interior también se oculta (supresión por masa).
     expect(porZona.INTERIOR).toMatchObject({ suprimido: true, conteo: null });
     expect(porZona.CAPITAL).toMatchObject({ suprimido: true, conteo: null });
@@ -106,7 +106,7 @@ test.describe('métricas en vivo', () => {
     expect(filaCapital.totalFila, 'dos respuestas de la capital no se publican').toMatchObject({ suprimido: true, conteo: null });
     expect(JSON.stringify(filaCapital)).not.toContain('"conteo":2');
 
-    // Filtrar por zona en el backend da lo mismo que la fila del cruce.
+    // Filtrado, el interior también se publica de a 5: de sus 8 salen 5.
     const soloInterior = await data(await s.get(`/metrics/survey/${c.id}/overview?zona=INTERIOR`));
     expect(soloInterior.totalRespuestas).toEqual({ suprimido: false, conteo: 5 });
 
@@ -116,7 +116,22 @@ test.describe('métricas en vivo', () => {
     expect(soloCapital.totalRespuestas).toMatchObject({ suprimido: true, conteo: null });
     const cruceCapital = await data(await s.get(`/metrics/survey/${c.id}/cross?pregunta=${lesion.id}&por=ventana&zona=CAPITAL`));
     expect(cruceCapital.totalRespuestas).toMatchObject({ suprimido: true, conteo: null });
-    for (const celda of cruceCapital.filas[0].celdas) expect(celda).toMatchObject({ suprimido: true, conteo: null });
+    expect(cruceCapital.filas, 'sin una tanda completa no sale ninguna fila').toEqual([]);
+
+    // Una respuesta más (la 11.ª) no cambia nada hasta completar la tanda.
+    await responder(c.id, [
+      { questionId: lesion.id, optionIds: [opciones(lesion)[2].id] },
+      { questionId: estudios.id, optionIds: [opciones(estudios)[1].id] },
+    ], interior.id);
+    const otraVez = await data(await s.get(`/metrics/survey/${c.id}/overview`));
+    expect(otraVez.totalRespuestas, 'la 11.ª espera a la tanda siguiente').toEqual({ suprimido: false, conteo: 10 });
+
+    // Un rango con hora se redondea al día: no aísla minutos.
+    const hoy = new Date().toISOString().slice(0, 10);
+    const ahora = new Date().toISOString();
+    const conHora = await data(await s.get(`/metrics/survey/${c.id}/overview?desde=${encodeURIComponent(ahora)}&hasta=${encodeURIComponent(ahora)}`));
+    expect(conHora.filtros).toMatchObject({ desde: hoy, hasta: hoy });
+    expect(conHora.totalRespuestas).toEqual({ suprimido: false, conteo: 10 });
 
     await s.post(`/survey/campaigns/${c.id}/close`);
   });
@@ -137,7 +152,8 @@ test.describe('KPIs', () => {
     const sigue = { questionId: estudios.id, optionIds: [opciones(estudios)[0].id] };
     for (let i = 0; i < 6; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [atendido.id] }, sigue]);
     for (let i = 0; i < 5; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [sinAtencion.id] }, sigue]);
-    await responder(c.id, [{ questionId: lesion.id, optionIds: [no.id] }, sigue]);
+    // 6 + 5 + 4 = 15: tres tandas completas, todo publicado.
+    for (let i = 0; i < 4; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [no.id] }, sigue]);
 
     expect(
       (await s.post('/metrics/kpis', { nombre: 'Malo', definicion: { numerador: [], denominador: 'todas', formato: 'conteo' } })).status(),
@@ -179,9 +195,9 @@ test.describe('destacados', () => {
     const { c, lesion, estudios, s } = await campaniaPublicada();
     const [no, atendido, sinAtencion] = opciones(lesion);
     const sigue = { questionId: estudios.id, optionIds: [opciones(estudios)[0].id] };
-    // 20 No, 9 atendidos, 2 sin atención (base 31): el 2 se oculta y, como la
-    // pregunta es de opción única, también el 9 (31 − 20 lo despejaría).
-    for (let i = 0; i < 20; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [no.id] }, sigue]);
+    // 24 No, 9 atendidos, 2 sin atención (base 35): el 2 se oculta y, como la
+    // pregunta es de opción única, también el 9 (35 − 24 lo despejaría).
+    for (let i = 0; i < 24; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [no.id] }, sigue]);
     for (let i = 0; i < 9; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [atendido.id] }, sigue]);
     for (let i = 0; i < 2; i++) await responder(c.id, [{ questionId: lesion.id, optionIds: [sinAtencion.id] }, sigue]);
 
@@ -196,7 +212,7 @@ test.describe('destacados', () => {
     );
     const res = await data(await coord.get(`/metrics/survey/${c.id}/highlights`));
     const propio = res.destacados.find((d: any) => d.id === destacado.id);
-    expect(propio.base).toMatchObject({ suprimido: false, conteo: 31 });
+    expect(propio.base).toMatchObject({ suprimido: false, conteo: 35 });
     expect(propio.opciones.map((o: any) => o.valor)).toEqual([no.valor]);
     expect(propio.ocultas).toBe(2);
     expect(propio.puedeAfirmar).toBe(true);

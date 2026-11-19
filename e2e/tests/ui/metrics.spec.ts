@@ -57,7 +57,9 @@ test.describe('panel de Métricas', () => {
     await page.goto(`/admin/metricas?campania=${c.id}`);
 
     await expect(page.getByRole('heading', { name: 'Métricas', level: 1 })).toBeVisible();
-    await expect(page.getByTestId('metricas-total')).toHaveText('6');
+    // Seis enviadas: el panel suma de a 5, así que muestra 5.
+    await expect(page.getByTestId('metricas-total')).toHaveText('5');
+    await expect(page.locator('main')).toContainText('de a 5 respuestas');
     await expect(page.getByRole('heading', { name: 'Indicadores' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Lo más importante' })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: /En vivo/ })).toBeVisible();
@@ -103,16 +105,17 @@ test.describe('panel de Métricas', () => {
 
     const tarjeta = page.getByRole('article').filter({ hasText: titulo });
     await expect(tarjeta).toBeVisible();
-    // 16 de 36 eligieron transporte (44 %): la frase no exagera a "la mitad".
-    await expect(tarjeta).toContainText('4 de cada 10 eligieron «Transporte»');
-    await expect(tarjeta).toContainText(/Sobre 36 respuestas · datos al \d\d\/\d\d \d\d:\d\d/);
+    // 36 enviadas, publicadas 35 (de a 5): 16 eligieron transporte (45,7 %).
+    // La frase no exagera a "la mitad".
+    await expect(tarjeta).toContainText('Casi la mitad eligió «Transporte»');
+    await expect(tarjeta).toContainText(/Sobre 35 respuestas · datos al \d\d\/\d\d \d\d:\d\d/);
     await expect(tarjeta.getByRole('list', { name: 'Ranking' }).getByRole('listitem')).toHaveCount(3);
 
     // El modo presentación, sin menú lateral, con el mismo corte.
     const href = await page.getByRole('link', { name: 'Presentar' }).getAttribute('href');
     await page.goto(href!);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(c.titulo);
-    await expect(page.getByRole('article').filter({ hasText: titulo })).toContainText('4 de cada 10');
+    await expect(page.getByRole('article').filter({ hasText: titulo })).toContainText('Casi la mitad');
     await expect(page.getByRole('link', { name: 'Salir de la presentación' })).toBeVisible();
     await expect(page.getByRole('navigation')).toHaveCount(0);
     expect(relevantes(problems)).toEqual([]);
