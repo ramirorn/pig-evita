@@ -41,7 +41,7 @@ export function HeatmapCard({ cruce, cargando }: HeatmapCardProps) {
                 <tr>
                   <th scope="col" className="sr-only">Departamento</th>
                   {mapa.columnas.map((c, i) => (
-                    <th key={c.optionId} scope="col" className="w-9 font-semibold text-primary-600" title={c.texto}>
+                    <th key={c.optionId} scope="col" className="w-8 font-semibold text-primary-600" title={c.texto}>
                       <span aria-hidden="true">{i + 1}</span>
                       <span className="sr-only">{c.texto}</span>
                     </th>
@@ -51,7 +51,7 @@ export function HeatmapCard({ cruce, cargando }: HeatmapCardProps) {
               <tbody>
                 {filas.map((fila) => (
                   <tr key={fila.clave}>
-                    <th scope="row" className="max-w-28 truncate pr-2 text-left font-medium text-primary-800" title={fila.etiqueta}>
+                    <th scope="row" className="max-w-24 truncate pr-2 text-left font-medium text-primary-800" title={fila.etiqueta}>
                       {fila.etiqueta}
                     </th>
                     {fila.celdas.map((celda, i) => {
@@ -59,7 +59,7 @@ export function HeatmapCard({ cruce, cargando }: HeatmapCardProps) {
                       if (celda.suprimida) {
                         return (
                           <td key={celda.optionId} title={`${fila.etiqueta} · ${texto}: menos de 5 respuestas`}>
-                            <span className="block h-8 w-9 rounded-md" style={{ background: RAYADO }} aria-label="menos de 5" />
+                            <span className="block h-7 w-8 rounded-md" style={{ background: RAYADO }} aria-label="menos de 5" />
                           </td>
                         );
                       }
@@ -68,7 +68,7 @@ export function HeatmapCard({ cruce, cargando }: HeatmapCardProps) {
                       return (
                         <td key={celda.optionId} title={`${fila.etiqueta} · ${texto}: ${celda.conteo} respuestas`}>
                           <span
-                            className="flex h-8 w-9 items-center justify-center rounded-md text-[10px] font-bold tabular-nums"
+                            className="flex h-7 w-8 items-center justify-center rounded-md text-[10px] font-bold tabular-nums"
                             style={color ? { background: color.fondo, color: color.texto } : { background: 'var(--color-primary-50)' }}
                           >
                             {porcentaje === null ? celda.conteo : `${porcentaje}%`}
