@@ -149,6 +149,14 @@ export class NewsImagesController {
       id,
       puedeVerBorradores(user),
     );
+    // S9 — helmet pone `Cross-Origin-Resource-Policy: same-site` en toda la
+    // API, y eso bloquea el <img> cuando el frontend se sirve desde otro sitio.
+    // Sólo la imagen publicada se habilita para cualquier origen (el handler
+    // corre después de helmet, así que este header lo pisa); la de un borrador
+    // es contenido no publicado y conserva la política global.
+    if (publicada) {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    }
     await enviarImagen(
       res,
       imagen,

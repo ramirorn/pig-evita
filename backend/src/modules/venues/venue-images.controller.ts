@@ -116,7 +116,14 @@ export class VenueImagesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Res() res: Response,
   ): Promise<void> {
+    const imagen = await this.venueImages.getImage(id);
+    // S9 — helmet pone `Cross-Origin-Resource-Policy: same-site` en toda la
+    // API, y eso bloquea el <img> cuando el frontend se sirve desde otro sitio.
+    // La foto es pública: se habilita sólo en esta respuesta (el handler corre
+    // después de helmet, así que este header lo pisa). Se pone después de
+    // buscar la imagen para que un 404 conserve la política global.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     // `?v=<versión>` en la URL: se cachea un año (`immutable`), con o sin sesión.
-    await enviarImagen(res, await this.venueImages.getImage(id));
+    await enviarImagen(res, imagen);
   }
 }
