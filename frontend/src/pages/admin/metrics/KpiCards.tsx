@@ -71,7 +71,7 @@ export function KpiCards({
         {cargando && kpis.length === 0
           ? [0, 1].map((i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-primary-50" />)
           : kpis.map((kpi, i) => {
-              const motivo = motivoKpiOculto(kpi, umbral);
+              const oculto = motivoKpiOculto(kpi, umbral) !== null;
               const definicion = definiciones.find((d) => d.id === kpi.id) ?? null;
               const base =
                 kpi.formato === 'porcentaje' && !kpi.numerador.suprimido && !kpi.denominador.suprimido
@@ -84,20 +84,22 @@ export function KpiCards({
                   valor={formatearKpi(kpi)}
                   acento={(cantidadResumen + i) % 2 === 0 ? 'primary' : 'secondary'}
                   testId="kpi-valor"
+                  titulo={kpi.descripcion ?? undefined}
                   pie={
-                    <>
-                      {motivo ?? base}
-                      {kpi.descripcion && <span className="mt-1 block text-primary-600">{kpi.descripcion}</span>}
-                    </>
+                    oculto
+                      ? kpi.numerador.suprimido || kpi.denominador.suprimido
+                        ? `Sin publicar: menos de ${umbral} respuestas en este corte`
+                        : 'Todavía sin respuestas para calcularlo'
+                      : base
                   }
                   acciones={
                     puedeEditar && definicion ? (
                       <>
-                        <Button type="button" variant="ghost" size="icon" aria-label={`Editar ${kpi.nombre}`} onClick={() => abrir(definicion)}>
-                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Editar ${kpi.nombre}`} onClick={() => abrir(definicion)}>
+                          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                         </Button>
-                        <Button type="button" variant="ghost" size="icon" aria-label={`Borrar ${kpi.nombre}`} onClick={() => setABorrar(definicion)}>
-                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Borrar ${kpi.nombre}`} onClick={() => setABorrar(definicion)}>
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                         </Button>
                       </>
                     ) : undefined
