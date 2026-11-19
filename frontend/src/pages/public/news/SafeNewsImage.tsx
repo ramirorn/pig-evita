@@ -1,9 +1,9 @@
 // ===========================================
 // SafeNewsImage — imagen de noticia con fallback visual
 // ===========================================
-import { useState } from "react";
 import { Newspaper } from "lucide-react";
 import { newsImageSrc } from "@/lib/news/newsImageRules";
+import { useImageRetry } from "@/lib/images/useImageRetry";
 import { cn } from "@/lib/utils";
 
 // Fallback visual elegante cuando no hay imagen o falla la carga
@@ -70,18 +70,15 @@ export function SafeNewsImage({
   /** Miniatura: placeholder reducido a un icono. */
   compacta?: boolean;
 }) {
-  // Se guarda **qué** src falló, no un booleano (hallazgo R30): con un
-  // `hasError` suelto, reutilizar el componente con otra imagen sin
-  // desmontarlo seguía mostrando el placeholder de la anterior. Hoy no se
-  // dispara porque los padres keyean por `news.id`, pero deja de depender de
-  // eso el día que alguien agregue paginación o keyee por índice.
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-
   // Subida: ruta de la API, resuelta contra su origen. Externa: URL entera que
   // viene del backend, así que pasa por `safeImageSrc` (sólo `https:`).
   const safeSrc = newsImageSrc(imageUrl);
 
-  const hasError = failedSrc !== null && failedSrc === safeSrc;
+  // El estado de fallos se guarda por url, no como un booleano (hallazgo R30):
+  // reutilizar el componente con otra imagen sin desmontarlo empieza de cero.
+  // Antes del placeholder se reintenta una vez (S9).
+  const { mostrar, onError } = useImageRetry(safeSrc);
+  const hasError = !mostrar;
 
   if (!safeSrc || hasError) {
     return <NewsImagePlaceholder isLarge={isLarge} compacta={compacta} />;
@@ -94,7 +91,7 @@ export function SafeNewsImage({
       loading={prioritaria ? 'eager' : 'lazy'}
       fetchPriority={prioritaria ? 'high' : 'auto'}
       decoding="async"
-      onError={() => setFailedSrc(safeSrc)}
+      onError={onError}
       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-320 ease-out-soft"
     />
   );

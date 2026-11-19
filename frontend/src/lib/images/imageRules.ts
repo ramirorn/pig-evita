@@ -248,3 +248,64 @@ export function buildImageUploaderRules(config: {
     announceDone: () => config.announceDone,
   };
 }
+
+// -------------------------------------------------
+// Reintento al fallar la carga (S9)
+// -------------------------------------------------
+//
+// Antes, el primer `onError` marcaba la URL como rota para siempre: un 429 del
+// rate limit al cargar una grilla entera, o un corte de señal de un segundo,
+// dejaban el placeholder aunque la foto existiera. Ahora se reintenta UNA vez,
+// después de una pausa, y recién ahí se muestra el placeholder. Mientras se
+// espera se pinta el placeholder (no el ícono de imagen rota del navegador).
+
+/** Pausa antes del reintento. */
+export const IMAGE_RETRY_DELAY_MS = 1500;
+/** Reintentos antes de rendirse: uno solo, para no martillar al servidor. */
+export const IMAGE_MAX_RETRIES = 1;
+
+/** Fallos de carga acumulados para UNA url. */
+export interface EstadoCargaImagen {
+  /** La url a la que se refieren los fallos; otra url empieza de cero. */
+  src: string | null;
+  fallos: number;
+  /** `true` entre un fallo y su reintento. */
+  esperando: boolean;
+}
+
+export const ESTADO_CARGA_INICIAL: EstadoCargaImagen = {
+  src: null,
+  fallos: 0,
+  esperando: false,
+};
+
+/**
+ * Registra un `onError` de `src`. Devuelve el estado nuevo y cuándo
+ * reintentar (`null`: no se reintenta más, queda el placeholder).
+ */
+export function registrarFalloImagen(
+  estado: EstadoCargaImagen,
+  src: string,
+): { estado: EstadoCargaImagen; reintentarEnMs: number | null } {
+  const fallos = estado.src === src ? estado.fallos + 1 : 1;
+  const reintenta = fallos <= IMAGE_MAX_RETRIES;
+  return {
+    estado: { src, fallos, esperando: reintenta },
+    reintentarEnMs: reintenta ? IMAGE_RETRY_DELAY_MS : null,
+  };
+}
+
+/** Termina la pausa: se vuelve a montar el `<img>` con la misma url. */
+export function reintentarImagen(estado: EstadoCargaImagen, src: string): EstadoCargaImagen {
+  return estado.src === src ? { ...estado, esperando: false } : estado;
+}
+
+/**
+ * Si hay que pintar el `<img>` de `src`. `false` es placeholder: no hay url,
+ * se está esperando el reintento o ya se agotaron los reintentos.
+ */
+export function debeMostrarImagen(estado: EstadoCargaImagen, src: string | null): boolean {
+  if (src === null) return false;
+  if (estado.src !== src) return true;
+  return !estado.esperando && estado.fallos <= IMAGE_MAX_RETRIES;
+}

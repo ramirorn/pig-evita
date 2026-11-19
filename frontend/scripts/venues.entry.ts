@@ -23,6 +23,14 @@ export {
   venueImageAlt,
 } from '@/lib/venues/venueImageRules';
 export {
+  IMAGE_RETRY_DELAY_MS,
+  IMAGE_MAX_RETRIES,
+  ESTADO_CARGA_INICIAL,
+  registrarFalloImagen,
+  reintentarImagen,
+  debeMostrarImagen,
+} from '@/lib/images/imageRules';
+export {
   DOCUMENT_ACCEPT_ATTRIBUTE,
   DOCUMENT_UPLOADER_RULES,
   validateDocumentFile,

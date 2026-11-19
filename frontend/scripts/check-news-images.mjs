@@ -375,7 +375,7 @@ const sinComentarios = (fuente) =>
     comprobar(`${rel} pasa imageUrl a SafeNewsImage`, /<SafeNewsImage[^>]*imageUrl=\{\w+\.imageUrl\}/s.test(await leer(rel)));
   }
   for (const rel of ['src/pages/public/home/LatestNewsSection.tsx', 'src/pages/public/NewsDetailPage.tsx']) {
-    comprobar(`${rel} resuelve con newsImageSrc(…imageUrl)`, /newsImageSrc\(\w+\.imageUrl\)/.test(await leer(rel)));
+    comprobar(`${rel} resuelve con newsImageSrc(…imageUrl)`, /newsImageSrc\(\w+\??\.imageUrl\)/.test(await leer(rel)));
   }
   comprobar(
     'SafeNewsImage resuelve con newsImageSrc',
@@ -431,6 +431,16 @@ const sinComentarios = (fuente) =>
     const fuente = await leer(rel);
     comprobar(`${rel} no depende de React`, !/from 'react'/.test(fuente));
     comprobar(`${rel} no toca el DOM`, !/\bdocument\.|createImageBitmap|window\./.test(fuente));
+  }
+
+  // S9 — un reintento antes del placeholder. La decisión (pura) la fija
+  // check:venues; acá se fija que las vistas de noticia la usen.
+  for (const rel of ['src/pages/public/news/SafeNewsImage.tsx', 'src/pages/public/NewsDetailPage.tsx']) {
+    const fuente = await leer(rel);
+    comprobar(
+      `${rel} reintenta con useImageRetry antes del placeholder`,
+      fuente.includes('useImageRetry(') && !fuente.includes('setFailedSrc'),
+    );
   }
 }
 

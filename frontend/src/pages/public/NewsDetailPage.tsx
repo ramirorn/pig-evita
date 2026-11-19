@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/lib/constants';
 import { newsImageSrc } from '@/lib/news/newsImageRules';
+import { useImageRetry } from '@/lib/images/useImageRetry';
 import { esNoticiaExterna, fechaDeNoticia, fechaDePublicacion, hostDeLaFuente } from './news/newsSource';
 import { NewsCard } from './news/NewsCard';
 import { logError } from '@/lib/logger';
@@ -53,7 +54,6 @@ function ArticleSkeleton() {
 export function NewsDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [copied, setCopied] = useState(false);
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
   const { data: news, isLoading } = useNewsBySlug(slug || '');
   // Un renglón más que lo que se muestra: si la nota actual viene en la lista,
@@ -64,6 +64,11 @@ export function NewsDetailPage() {
     () => (recientes?.data ?? []).filter((n) => n.id !== news?.id).slice(0, RELACIONADAS),
     [recientes, news?.id],
   );
+
+  // La portada se resuelve antes de los `return` tempranos: el reintento de
+  // carga (S9) es un hook y tiene que llamarse siempre.
+  const coverSrc = newsImageSrc(news?.imageUrl);
+  const { mostrar: mostrarPortada, onError: onErrorPortada } = useImageRetry(coverSrc);
 
   if (isLoading) return <ArticleSkeleton />;
 
@@ -117,8 +122,7 @@ export function NewsDetailPage() {
     }
   };
 
-  const coverSrc = newsImageSrc(news.imageUrl);
-  const imgError = coverSrc !== null && failedSrc === coverSrc;
+  const imgError = coverSrc !== null && !mostrarPortada;
 
   // S19 — a esta pantalla se puede llegar por URL directa con el slug de una
   // noticia del portal. De esas **no tenemos el cuerpo del artículo**: lo que
@@ -207,7 +211,7 @@ export function NewsDetailPage() {
               height={720}
               fetchPriority="high"
               decoding="async"
-              onError={() => setFailedSrc(coverSrc)}
+              onError={onErrorPortada}
               className="h-full w-full object-cover"
             />
           </div>

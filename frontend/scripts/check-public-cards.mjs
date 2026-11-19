@@ -465,13 +465,13 @@ const SEDE_BASE = {
     );
   }
 
-  // Error de carga: el componente guarda QUÉ URL falló y cae al placeholder.
-  // El `onError` no corre en render estático, así que se fija el fuente y la
-  // decisión (la función pura la prueba `check:venues`).
+  // Error de carga: el componente reintenta una vez (`useImageRetry`) y recién
+  // después cae al placeholder. El `onError` no corre en render estático, así
+  // que se fija el fuente; la máquina de reintento la prueba `check:venues`.
   const foto = sinComentarios(await readFile(path.join(SRC, 'components/venues/VenuePhoto.tsx'), 'utf8'));
   comprobar(
-    '[Sedes] si la foto falla al cargar, cae al placeholder (onError → failedSrc)',
-    /onError=\{\(\) => setFailedSrc\(src\)\}/.test(foto) && /pickVenueImageSrc\(/.test(foto),
+    '[Sedes] si la foto falla al cargar, reintenta y después cae al placeholder (useImageRetry)',
+    /onError=\{onError\}/.test(foto) && /useImageRetry\(/.test(foto) && /pickVenueImageSrc\(/.test(foto),
   );
 }
 

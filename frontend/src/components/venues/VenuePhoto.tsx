@@ -5,11 +5,16 @@
 // Presentacional: recibe el `imageUrl` crudo de la API y lo resuelve con
 // `resolveVenueImageUrl` (origen de la API + validación). Sin foto, o si la
 // foto falla al cargar, pinta un placeholder decorativo con los tokens del
-// sitio — nunca una imagen inventada.
-import { useState } from 'react';
+// sitio — nunca una imagen inventada. Antes del placeholder por error se
+// reintenta una vez (`useImageRetry`, S9).
 import { Building2, MapPin } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/apiBase';
-import { pickVenueImageSrc, venueImageAlt } from '@/lib/venues/venueImageRules';
+import { useImageRetry } from '@/lib/images/useImageRetry';
+import {
+  pickVenueImageSrc,
+  resolveVenueImageUrl,
+  venueImageAlt,
+} from '@/lib/venues/venueImageRules';
 
 interface VenuePhotoProps {
   imageUrl: string | null | undefined;
@@ -20,8 +25,10 @@ interface VenuePhotoProps {
 }
 
 export function VenuePhoto({ imageUrl, name, variant }: VenuePhotoProps) {
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const src = pickVenueImageSrc(imageUrl, API_BASE_URL, failedSrc);
+  const resuelta = resolveVenueImageUrl(imageUrl, API_BASE_URL);
+  const { mostrar, onError } = useImageRetry(resuelta);
+  // Esperando el reintento o ya agotado: se trata como una url que falló.
+  const src = pickVenueImageSrc(imageUrl, API_BASE_URL, mostrar ? null : resuelta);
 
   if (variant === 'thumb') {
     return src ? (
@@ -32,7 +39,7 @@ export function VenuePhoto({ imageUrl, name, variant }: VenuePhotoProps) {
         height={48}
         loading="lazy"
         decoding="async"
-        onError={() => setFailedSrc(src)}
+        onError={onError}
         className="size-12 shrink-0 rounded-lg border border-primary-100 bg-primary-50 object-cover"
       />
     ) : (
@@ -54,7 +61,7 @@ export function VenuePhoto({ imageUrl, name, variant }: VenuePhotoProps) {
       height={360}
       loading="lazy"
       decoding="async"
-      onError={() => setFailedSrc(src)}
+      onError={onError}
       className="block aspect-video w-full bg-primary-100 object-cover"
     />
   ) : (
