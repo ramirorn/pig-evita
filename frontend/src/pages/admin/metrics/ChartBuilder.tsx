@@ -27,6 +27,7 @@ import {
   type TipoGrafico,
 } from '@/lib/metrics/metricsRules';
 import { SelectField } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { ConteoCorte, NotaSupresion } from '@/pages/admin/survey/SupresionKAnonimato';
 import { descargarCsv, exportarSvgComoPng } from './exportarGrafico';
@@ -252,15 +253,11 @@ export function ChartBuilder({
       </div>
 
       {(tipo === 'barras' || tipo === 'barras_apiladas') && dimension && (
-        <label className="flex items-center gap-2 text-sm text-primary-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-primary-600"
-            checked={porcentaje}
-            onChange={(e) => setPorcentaje(e.target.checked)}
-          />
-          Mostrar como porcentaje de cada fila
-        </label>
+        <Checkbox
+          checked={porcentaje}
+          onCheckedChange={setPorcentaje}
+          label="Mostrar como porcentaje de cada fila"
+        />
       )}
 
       <div className={filtrosComparacion ? 'grid gap-6 lg:grid-cols-2' : ''}>

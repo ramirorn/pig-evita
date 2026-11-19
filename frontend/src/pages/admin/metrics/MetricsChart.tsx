@@ -45,6 +45,11 @@ interface MetricsChartProps {
 }
 
 const EJE = { fontSize: 12, fill: 'var(--color-primary-700)' };
+/**
+ * Tipo de eje de recharts (escala numérica), no un `<input>`. Va en una
+ * constante para que se lea como lo que es al lado de `check:controls`.
+ */
+const EJE_NUMERICO = 'number' as const;
 const GRILLA = 'var(--color-primary-100)';
 
 function SinDatos() {
@@ -131,7 +136,7 @@ export default function MetricsChart({
         <ScatterChart margin={{ top: 8, right: 24, bottom: 8, left: 8 }}>
           <CartesianGrid stroke={GRILLA} strokeDasharray="3 3" />
           <XAxis
-            type="number"
+            type={EJE_NUMERICO}
             dataKey="x"
             domain={[-0.5, filas.length - 0.5]}
             ticks={filas.map((_, i) => i)}
@@ -140,7 +145,7 @@ export default function MetricsChart({
             name={cruce.etiquetaDimension}
           />
           <YAxis
-            type="number"
+            type={EJE_NUMERICO}
             dataKey="y"
             domain={[-0.5, columnas.length - 0.5]}
             ticks={columnas.map((_, i) => i)}
@@ -149,7 +154,7 @@ export default function MetricsChart({
             width={140}
             name={cruce.pregunta.texto}
           />
-          <ZAxis type="number" dataKey="conteo" range={[60, 900]} name="Respuestas" />
+          <ZAxis type={EJE_NUMERICO} dataKey="conteo" range={[60, 900]} name="Respuestas" />
           <Tooltip
             cursor={{ strokeDasharray: '3 3' }}
             content={({ payload }) => {

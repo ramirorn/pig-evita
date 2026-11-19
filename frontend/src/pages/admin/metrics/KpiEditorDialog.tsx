@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { SelectField } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type ModoDenominador = 'todas' | 'contestaron' | 'condicion';
 
@@ -72,15 +73,12 @@ function SelectorOpciones({
         <fieldset className="grid gap-1.5 rounded-lg border border-primary-100 p-3 sm:grid-cols-2">
           <legend className="px-1 text-xs font-semibold text-primary-700">Cuentan las respuestas…</legend>
           {pregunta.opciones.map((o) => (
-            <label key={o.optionId} className="flex items-center gap-2 text-sm text-primary-800">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-primary-600"
-                checked={valores.includes(o.valor)}
-                onChange={() => alternar(o.valor)}
-              />
-              {o.texto}
-            </label>
+            <Checkbox
+              key={o.optionId}
+              checked={valores.includes(o.valor)}
+              onCheckedChange={() => alternar(o.valor)}
+              label={o.texto}
+            />
           ))}
         </fieldset>
       )}
@@ -223,15 +221,12 @@ export function KpiEditorDialog({ open, onOpenChange, campaignId, preguntas, kpi
                 className="mt-1"
               />
             </div>
-            <label className="flex items-center gap-2 self-end pb-2 text-sm text-primary-800">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-primary-600"
-                checked={reutilizable}
-                onChange={(e) => setReutilizable(e.target.checked)}
-              />
-              Usarlo también en las próximas ediciones
-            </label>
+            <Checkbox
+              checked={reutilizable}
+              onCheckedChange={setReutilizable}
+              label="Usarlo también en las próximas ediciones"
+              wrapperClassName="self-end pb-2"
+            />
           </div>
 
           {error && <p className="text-sm font-medium text-destructive-600">{error}</p>}
