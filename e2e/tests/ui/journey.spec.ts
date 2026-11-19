@@ -44,7 +44,7 @@ async function inscribirEquipoPorUI(page: Page, equipo: string) {
   await agregarIntegrante(page, 1, equipo);
   await agregarIntegrante(page, 2, equipo);
   await page.getByRole('button', { name: 'Revisar el plantel' }).click();
-  await expect(page.getByText(/Paso 3: Verificación del Plantel/)).toBeVisible();
+  await expect(page.getByText(/Paso 3: verificación del plantel/i)).toBeVisible();
   await page.getByRole('checkbox').check(); // declaración jurada
   await page.getByRole('button', { name: /Inscribir a los 2 integrantes/ }).click();
   await expect(page.getByText(/EVITA-[A-Z0-9]{8}/).first()).toBeVisible({ timeout: 20_000 });
@@ -205,7 +205,7 @@ test.describe('recorrido completo', () => {
   test('8. la página pública muestra la competencia y una tabla de posiciones con partidos jugados', async ({ page }) => {
     await page.goto(`/competencias/${competenciaId}`);
     await expect(page.getByText(`Torneo ${RUN}`).first()).toBeVisible();
-    await expect(page.getByText('Tabla de Posiciones')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tabla de Posiciones' })).toBeVisible();
     const filas = page.locator('table tbody tr');
     await expect(filas).toHaveCount(2);
     await expect(filas.first()).toContainText('3'); // 3 puntos del ganador
@@ -215,7 +215,7 @@ test.describe('recorrido completo', () => {
 
   test('8a. la página pública de la competencia no desborda el ancho de la pantalla', async ({ page }) => {
     await page.goto(`/competencias/${competenciaId}`);
-    await expect(page.getByText('Tabla de Posiciones')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tabla de Posiciones' })).toBeVisible();
     await sinDesbordeHorizontal(page);
   });
 
