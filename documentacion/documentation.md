@@ -480,6 +480,46 @@ Todos los endpoints de reportes soportan formato CSV (por defecto) y Excel (vía
 
 ---
 
+### 4.18 Localities
+
+| Método | Ruta | Descripción | Acceso |
+|---|---|---|---|
+| `GET` | `/localities` | Departamentos con sus localidades y la zona de cada una (`CAPITAL` = localidad Formosa; el resto `INTERIOR`). Cacheable. | Público |
+
+---
+
+### 4.19 Metrics (métricas de la encuesta)
+
+Lectura analítica sobre las respuestas de la encuesta. Todo corte con menos de `UMBRAL_K_ANONIMATO` (5) respuestas se devuelve suprimido (`conteo: null`); en una tabla cruzada, una celda suprimida también suprime el total de su fila. Los agregados se cachean en Redis bajo la **versión** de la campaña, que sube con cada respuesta nueva o con cambios en el cuestionario o en un KPI.
+
+| Método | Ruta | Descripción | Acceso |
+|---|---|---|---|
+| `GET` | `/metrics/catalog` | Campañas, preguntas y opciones, dimensiones de cruce, departamentos/localidades, disciplinas y categorías (`?campaignId=`, por defecto la activa) | Admins, COORDINADOR |
+| `GET` | `/metrics/survey/:id/version` | Versión de la campaña; el panel la consulta cada 10 s para refrescarse | Admins, COORDINADOR |
+| `GET` | `/metrics/survey/:id/overview` | Total, por etapa/ventana, por zona y serie temporal | Admins, COORDINADOR |
+| `GET` | `/metrics/survey/:id/cross` | Tabla cruzada: `pregunta=<questionId>` por `por=etapa\|ventana\|sexo\|disciplineType\|disciplina\|categoria\|localidad\|departamento\|zona\|pregunta:<id>` | Admins, COORDINADOR |
+| `GET` | `/metrics/survey/:id/kpis` | Indicadores activos evaluados sobre el corte | Admins, COORDINADOR |
+| `GET` | `/metrics/kpis` | Definiciones de KPI (de la campaña y reutilizables) | Admins, COORDINADOR |
+| `POST` / `PATCH` / `DELETE` | `/metrics/kpis[/:id]` | Crear, editar o borrar un KPI | Admins (SURVEY_MANAGE) |
+
+**Filtros comunes:** `etapa`, `ventana`, `disciplineId`, `disciplineType`, `localityId`, `departmentId`, `zona` (`CAPITAL`/`INTERIOR`), `categoryId`, `sexo`, `desde`, `hasta`.
+
+**Definición de un KPI** (`SurveyKpi.definicion`, matchea opciones por su `valor`, así sobrevive a que las preguntas cambien cada edición):
+
+```json
+{
+  "numerador": [{ "valores": ["lesion_atendido_en_sede", "lesion_derivado"] }],
+  "denominador": [{ "valores": ["lesion_atendido_en_sede", "lesion_derivado", "lesion_sin_atencion"] }],
+  "formato": "porcentaje"
+}
+```
+
+`denominador` acepta también `"todas"` (todo el corte) o `"contestaron"` (quienes contestaron las preguntas del numerador). Un KPI con `campaignId: null` se evalúa en cualquier campaña.
+
+**Datos de demo:** `npm run db:seed:encuesta -- --cantidad 300 [--publicar]` (backend) completa la campaña con las preguntas de salud y educación, crea los KPIs semilla y genera respuestas de prueba. Se niega a correr con `NODE_ENV=production`.
+
+---
+
 ## 5. Modelo de Datos
 
 El schema de Prisma define **16 modelos** y **10 enums**. A continuación se muestra el diagrama entidad-relación simplificado:
