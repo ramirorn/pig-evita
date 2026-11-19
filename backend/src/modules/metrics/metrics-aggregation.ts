@@ -215,7 +215,16 @@ export function cruzarRespuestas(
   opciones: OpcionCatalogo[],
   dimension: Dimension,
   mapas: MapasDeNombres,
-): { filas: FilaCruce[]; totalRespuestas: number } {
+  {
+    unica = false,
+    particion = false,
+  }: {
+    /** La pregunta es de opción única: las celdas de una fila suman su total. */
+    unica?: boolean;
+    /** Las filas reparten a quienes contestaron (cada uno en una sola fila). */
+    particion?: boolean;
+  } = {},
+): { filas: FilaCruce[]; totalRespuestas: number; totalOculto: boolean } {
   const filas = new Map<string | null, FilaAcumulada>();
   const otraPregunta = preguntaDeDimension(dimension);
   const opcionesOtra = otraPregunta
@@ -274,19 +283,69 @@ export function cruzarRespuestas(
 
   const ordenadas = ordenarFilas([...filas.values()], dimension, opcionesOtra);
 
+  // 1. Dentro de cada fila. Una fila chica no publica nada, ni sus ceros: con
+  //    el total a mano, "No=0 | Atendido=0" despeja la celda oculta. En una
+  //    fila grande, una celda no se publica si es chica o si el resto de la
+  //    fila queda de 1 a 4; y en opción única, lo oculto tiene que sumar 0 o
+  //    al menos k (si no, dos celdas de 1 se despejan con el total).
+  const protegidas = ordenadas.map((fila) => {
+    const conteos = opciones.map((o) => fila.porOpcion.get(o.optionId) ?? 0);
+    const chica = fila.respondieron < UMBRAL_K_ANONIMATO;
+    let ocultas = conteos.map(
+      (c) =>
+        chica ||
+        (c > 0 && c < UMBRAL_K_ANONIMATO) ||
+        complementoRevela(c, fila.respondieron),
+    );
+    if (unica && !chica) {
+      ocultas = completarOcultamiento(conteos, ocultas, fila.respondieron);
+    }
+    return {
+      fila,
+      conteos,
+      ocultas,
+      totalOculto: chica || ocultas.some(Boolean),
+    };
+  });
+
+  // 2. Entre filas. Si las filas reparten a quienes contestaron, el total de
+  //    una fila oculta se despeja con el total del cruce menos las visibles:
+  //    también ahí lo oculto tiene que sumar 0 o al menos k. Una fila que se
+  //    oculta por esto se oculta entera (sus celdas sumarían su total).
+  const totalesFila = protegidas.map((p) => p.fila.respondieron);
+  const filasOcultas = particion
+    ? completarOcultamiento(
+        totalesFila,
+        protegidas.map((p) => p.totalOculto),
+        totalRespuestas,
+      )
+    : protegidas.map((p) => p.totalOculto);
+
   return {
     totalRespuestas,
-    filas: ordenadas.map((fila) => ({
-      clave: fila.clave,
-      etiqueta: fila.etiqueta,
-      celdas: opciones.map((o) => ({
-        optionId: o.optionId,
-        valor: o.valor,
-        texto: o.texto,
-        ...aplicarUmbralCelda(fila.porOpcion.get(o.optionId) ?? 0),
-      })),
-      totalFila: aplicarUmbral(fila.respondieron),
-    })),
+    // Todas las filas ocultas y aun así despejable (cinco filas de 1 y un
+    // total de 5): el total del cruce tampoco se puede publicar.
+    totalOculto:
+      totalRespuestas < UMBRAL_K_ANONIMATO ||
+      (particion && despejable(totalesFila, filasOcultas, totalRespuestas)),
+    filas: protegidas.map(({ fila, conteos, ocultas, totalOculto }, i) => {
+      const enteraOculta = filasOcultas[i] && !totalOculto;
+      return {
+        clave: fila.clave,
+        etiqueta: fila.etiqueta,
+        celdas: opciones.map((o, j) => ({
+          optionId: o.optionId,
+          valor: o.valor,
+          texto: o.texto,
+          ...(enteraOculta || ocultas[j]
+            ? SUPRIMIDO
+            : { suprimido: false, conteo: conteos[j]! }),
+        })),
+        totalFila: filasOcultas[i]
+          ? SUPRIMIDO
+          : { suprimido: false, conteo: fila.respondieron },
+      };
+    }),
   };
 }
 
@@ -340,35 +399,68 @@ export function complementoRevela(parte: number, total: number): boolean {
 }
 
 /**
- * Supresión secundaria para celdas que suman un total conocido (pregunta de
- * opción única: cada respuesta cae en una sola celda). Con una sola celda
- * oculta, la resta la despeja; se oculta además la menor visible distinta de
- * cero, así lo que queda es la suma de dos celdas y no una sola.
+ * ¿Se despeja lo oculto de un grupo de partes que suman un total conocido?
+ * Lo oculto (total − visibles) se despeja si suma de 1 a k−1, o si no supera
+ * la cantidad de partes ocultas distintas de cero: cada una vale al menos 1
+ * (los ceros se publican, y una fila o un día sólo existen con respuestas),
+ * así que con 5 ocultas que suman 5 cada una vale exactamente 1.
  */
-export function suprimirComplementaria<T extends Corte>(celdas: T[]): T[] {
-  const ocultas = celdas.filter((c) => c.suprimido).length;
-  if (ocultas !== 1) return celdas;
-  let menor = -1;
-  let menorConteo = Infinity;
-  celdas.forEach((c, i) => {
-    if (c.suprimido || c.conteo === 0) return;
-    if (c.conteo < menorConteo) {
-      menor = i;
-      menorConteo = c.conteo;
-    }
+export function despejable(
+  conteos: readonly number[],
+  ocultas: readonly boolean[],
+  total: number,
+): boolean {
+  let visibles = 0;
+  let ocultasConPiso = 0;
+  conteos.forEach((c, i) => {
+    if (!ocultas[i]) visibles += c;
+    else if (c > 0) ocultasConPiso += 1;
   });
-  if (menor === -1) return celdas;
-  return celdas.map((c, i) => (i === menor ? { ...c, ...SUPRIMIDO } : c));
+  const masa = total - visibles;
+  return masa > 0 && (masa < UMBRAL_K_ANONIMATO || masa <= ocultasConPiso);
 }
 
-/** `suprimirComplementaria` fila por fila de una tabla cruzada. */
-export function aplicarSupresionComplementaria(
-  filas: FilaCruce[],
-): FilaCruce[] {
-  return filas.map((fila) => ({
-    ...fila,
-    celdas: suprimirComplementaria(fila.celdas),
-  }));
+/**
+ * Supresión secundaria por masa. En un grupo de partes que suman un total que
+ * se conoce (las celdas de una fila de opción única, las filas de una
+ * dimensión, las zonas, los días de la serie), mientras lo oculto sea
+ * `despejable` se oculta además la parte visible más chica distinta de cero.
+ * Si no queda nada visible y sigue despejable, el que llama oculta el total.
+ */
+export function completarOcultamiento(
+  conteos: readonly number[],
+  ocultas: readonly boolean[],
+  total: number,
+): boolean[] {
+  const resultado = [...ocultas];
+  while (despejable(conteos, resultado, total)) {
+    let menor = -1;
+    conteos.forEach((c, i) => {
+      if (resultado[i] || c === 0) return;
+      if (menor === -1 || c < conteos[menor]!) menor = i;
+    });
+    if (menor === -1) break;
+    resultado[menor] = true;
+  }
+  return resultado;
+}
+
+/**
+ * Partes de un total (zonas, etapa y ventana): umbral en cada una (el cero
+ * también se oculta, como en `aplicarUmbral`) y supresión secundaria por masa.
+ */
+export function protegerGrupo(
+  conteos: readonly number[],
+  total: number,
+): Corte[] {
+  const ocultas = completarOcultamiento(
+    conteos,
+    conteos.map((c) => c < UMBRAL_K_ANONIMATO),
+    total,
+  );
+  return conteos.map((c, i) =>
+    ocultas[i] ? SUPRIMIDO : { suprimido: false, conteo: c },
+  );
 }
 
 // ===========================================
@@ -573,24 +665,35 @@ export function rankingDestacado(
 } {
   const baseCorte = aplicarUmbral(base);
   if (baseCorte.suprimido) {
-    return {
-      base: baseCorte,
-      opciones: [],
-      ocultas: opciones.filter((o) => o.conteo > 0).length,
-      puedeAfirmar: false,
-    };
+    // Ni cuántas opciones se ocultan: en opción única, base oculta y 4
+    // opciones ocultas fijarían base 4 y 1 por opción.
+    return { base: baseCorte, opciones: [], ocultas: 0, puedeAfirmar: false };
   }
 
-  let celdas: (Corte & { valor: string; texto: string })[] = opciones.map(
-    (o) => ({
+  const conteos = opciones.map((o) => o.conteo);
+  let ocultas = conteos.map(
+    (c) => (c > 0 && c < UMBRAL_K_ANONIMATO) || complementoRevela(c, base),
+  );
+  if (unica) {
+    ocultas = completarOcultamiento(conteos, ocultas, base);
+    // Nada visible y aun así despejable (cinco opciones de 1 con base 5): la
+    // base tampoco se publica.
+    if (despejable(conteos, ocultas, base)) {
+      return {
+        base: SUPRIMIDO,
+        opciones: [],
+        ocultas: 0,
+        puedeAfirmar: false,
+      };
+    }
+  }
+  const celdas: (Corte & { valor: string; texto: string })[] = opciones.map(
+    (o, i) => ({
       valor: o.valor,
       texto: o.texto,
-      ...(complementoRevela(o.conteo, base)
-        ? SUPRIMIDO
-        : aplicarUmbralCelda(o.conteo)),
+      ...(ocultas[i] ? SUPRIMIDO : { suprimido: false, conteo: o.conteo }),
     }),
   );
-  if (unica) celdas = suprimirComplementaria(celdas);
 
   const visibles: OpcionDestacada[] = [];
   for (const c of celdas) {
@@ -662,9 +765,16 @@ export function serieTemporal(
     const clave = claveTemporal(f, granularidad);
     buckets.set(clave, (buckets.get(clave) ?? 0) + 1);
   }
-  return [...buckets.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([fecha, conteo]) => ({ fecha, ...aplicarUmbral(conteo) }));
+  const ordenados = [...buckets.entries()].sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
+  // El total del corte se publica: un día oculto se despejaría restando los
+  // visibles, así que la serie pasa por la misma regla de masa.
+  const cortes = protegerGrupo(
+    ordenados.map(([, conteo]) => conteo),
+    fechas.length,
+  );
+  return ordenados.map(([fecha], i) => ({ fecha, ...cortes[i]! }));
 }
 
 /** Granularidad razonable para el rango observado: por hora si cabe en 2 días. */
