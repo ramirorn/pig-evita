@@ -9,7 +9,11 @@
 // no hace más que esa lectura liviana.
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { metricsApi, type SurveyKpiPayload } from '@/api/metrics.api';
+import {
+  metricsApi,
+  type SurveyHighlightPayload,
+  type SurveyKpiPayload,
+} from '@/api/metrics.api';
 import { STALE_TIME } from '@/lib/queryClient';
 import { getFriendlyError } from '@/lib/utils';
 import type { MetricsDimension, MetricsFiltros } from '@/types';
@@ -41,6 +45,10 @@ export const METRICS_KEYS = {
     [...METRICS_KEYS.campaign(scope, campaignId), 'kpis', version, { filtros }] as const,
   kpiDefinitions: (scope: string, campaignId?: string) =>
     [...METRICS_KEYS.all(scope), 'kpi-definitions', campaignId ?? 'todas'] as const,
+  highlights: (scope: string, campaignId: string, version: number, filtros?: MetricsFiltros) =>
+    [...METRICS_KEYS.campaign(scope, campaignId), 'highlights', version, { filtros }] as const,
+  highlightDefinitions: (scope: string, campaignId?: string) =>
+    [...METRICS_KEYS.all(scope), 'highlight-definitions', campaignId ?? 'todas'] as const,
 };
 
 export function useMetricsCatalog(campaignId?: string) {
@@ -126,6 +134,30 @@ export function useMetricsKpis(
   });
 }
 
+export function useMetricsHighlights(
+  campaignId: string | null | undefined,
+  version: number | undefined,
+  filtros?: MetricsFiltros,
+) {
+  const scope = useQueryScope();
+  return useQuery({
+    queryKey: METRICS_KEYS.highlights(scope, campaignId ?? '', version ?? -1, filtros),
+    queryFn: () => metricsApi.getHighlights(campaignId!, filtros),
+    enabled: !!campaignId && version !== undefined,
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useHighlightDefinitions(campaignId?: string) {
+  const scope = useQueryScope();
+  return useQuery({
+    queryKey: METRICS_KEYS.highlightDefinitions(scope, campaignId),
+    queryFn: () => metricsApi.listHighlights(campaignId),
+    staleTime: STALE_TIME.OPERATIONAL,
+  });
+}
+
 export function useKpiDefinitions(campaignId?: string) {
   const scope = useQueryScope();
   return useQuery({
@@ -179,5 +211,42 @@ export function useDeleteKpi() {
       void invalidar();
     },
     onError: (error) => toast.error(getFriendlyError(error, 'No se pudo borrar el indicador')),
+  });
+}
+
+export function useCreateHighlight() {
+  const invalidar = useInvalidarMetricas();
+  return useMutation({
+    mutationFn: (payload: SurveyHighlightPayload) => metricsApi.createHighlight(payload),
+    onSuccess: () => {
+      toast.success('Destacado creado');
+      void invalidar();
+    },
+    onError: (error) => toast.error(getFriendlyError(error, 'No se pudo crear el destacado')),
+  });
+}
+
+export function useUpdateHighlight() {
+  const invalidar = useInvalidarMetricas();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<SurveyHighlightPayload> }) =>
+      metricsApi.updateHighlight(id, payload),
+    onSuccess: () => {
+      toast.success('Destacado actualizado');
+      void invalidar();
+    },
+    onError: (error) => toast.error(getFriendlyError(error, 'No se pudo actualizar el destacado')),
+  });
+}
+
+export function useDeleteHighlight() {
+  const invalidar = useInvalidarMetricas();
+  return useMutation({
+    mutationFn: (id: string) => metricsApi.removeHighlight(id),
+    onSuccess: () => {
+      toast.success('Destacado borrado');
+      void invalidar();
+    },
+    onError: (error) => toast.error(getFriendlyError(error, 'No se pudo borrar el destacado')),
   });
 }
