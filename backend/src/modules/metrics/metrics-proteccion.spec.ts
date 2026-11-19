@@ -14,6 +14,9 @@ import {
   completarOcultamiento,
   despejable,
   complementoRevela,
+  diaDelFiltro,
+  enTandas,
+  publicarEnTandas,
   cruzarRespuestas,
   protegerGrupo,
   serieTemporal,
@@ -506,5 +509,82 @@ describe('validarDefinicionDestacado', () => {
     expect(
       validarDefinicionDestacado({ opciones: ['a'], top: 2.5 }),
     ).not.toBeNull();
+  });
+});
+
+describe('publicarEnTandas', () => {
+  const r = (id: string, hora: string) => ({
+    id,
+    enviadaEn: new Date(`2026-11-10T${hora}:00Z`),
+  });
+  const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
+
+  it('publica sólo tandas completas de 5: con 7 salen las 5 más viejas', () => {
+    const respuestas = [
+      r('g', '10:07'),
+      r('a', '10:01'),
+      r('f', '10:06'),
+      r('b', '10:02'),
+      r('e', '10:05'),
+      r('c', '10:03'),
+      r('d', '10:04'),
+    ];
+    expect(ids(publicarEnTandas(respuestas, (x) => x.id))).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+    ]);
+  });
+
+  it('con menos de 5 no publica ninguna; con 10 publica las 10', () => {
+    const cuatro = ['a', 'b', 'c', 'd'].map((id, i) => r(id, `10:0${i}`));
+    expect(publicarEnTandas(cuatro, (x) => x.id)).toEqual([]);
+    const diez = Array.from({ length: 10 }, (_, i) =>
+      r(`x${i}`, `10:${String(i).padStart(2, '0')}`),
+    );
+    expect(publicarEnTandas(diez, (x) => x.id)).toHaveLength(10);
+  });
+
+  it('a igual hora desempata por id: el resultado no depende del orden de llegada', () => {
+    const mismas = ['e', 'b', 'f', 'a', 'd', 'c'].map((id) => r(id, '10:00'));
+    expect(ids(publicarEnTandas(mismas, (x) => x.id))).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+    ]);
+  });
+
+  it('entre una lectura y la siguiente cambia por 0 o por 5 respuestas, nunca por 1', () => {
+    const todas = Array.from({ length: 23 }, (_, i) =>
+      r(`x${String(i).padStart(2, '0')}`, `10:${String(i).padStart(2, '0')}`),
+    );
+    let anterior = 0;
+    for (let n = 1; n <= todas.length; n += 1) {
+      const publicadas = publicarEnTandas(todas.slice(0, n), (x) => x.id);
+      expect([0, 5]).toContain(publicadas.length - anterior);
+      anterior = publicadas.length;
+    }
+  });
+});
+
+describe('enTandas', () => {
+  it('redondea un conteo hacia abajo a la tanda de 5', () => {
+    expect([0, 4, 5, 9, 10, 23].map(enTandas)).toEqual([0, 0, 5, 5, 10, 20]);
+  });
+});
+
+describe('diaDelFiltro', () => {
+  it('una fecha sola queda igual', () => {
+    expect(diaDelFiltro('2026-11-10')).toBe('2026-11-10');
+  });
+
+  it('una fecha con hora pierde la hora: el filtro mínimo es el día (UTC)', () => {
+    expect(diaDelFiltro('2026-11-10T10:05:00Z')).toBe('2026-11-10');
+    expect(diaDelFiltro('2026-11-10T10:05:00.123Z')).toBe('2026-11-10');
+    expect(diaDelFiltro('2026-11-10T23:30:00-03:00')).toBe('2026-11-11');
   });
 });

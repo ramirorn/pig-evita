@@ -5,8 +5,9 @@
 // Lo que fija este spec: a través de HTTP, con validación de query y todo,
 // ningún corte con menos de 5 respuestas sale con un conteo; una celda
 // suprimida arrastra el total de su fila; un KPI no publica cociente si
-// alguno de sus lados está suprimido; y la versión de la campaña, sin Redis,
-// es el conteo de respuestas. El doble de Prisma es en memoria, como en
+// alguno de sus lados está suprimido; la versión de la campaña, sin Redis,
+// es el conteo de respuestas; cada corte se publica en tandas de 5; y los
+// filtros de fecha se redondean al día. El doble de Prisma es en memoria, como en
 // `survey-anonimato.e2e-spec.ts`.
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -136,7 +137,8 @@ function respuesta(
     disciplineId: null,
     categoryId: null,
     localityId,
-    enviadaEn: new Date('2026-11-10T10:00:00Z'),
+    // Un segundo después de la anterior: el orden de llegada es el de alta.
+    enviadaEn: new Date(Date.UTC(2026, 10, 10, 10, 0, secuencia)),
     answers,
   };
 }
@@ -145,12 +147,15 @@ const repetir = <T>(veces: number, crear: () => T): T[] =>
   Array.from({ length: veces }, crear);
 
 /**
- * Filtro mínimo del doble: `campaignId`, `localityId` y el recorte por zona
- * (`locality.name`/`NOT.locality`). Alcanza para lo que este spec ejercita.
+ * Filtro mínimo del doble: `campaignId`, `localityId`, el recorte por zona
+ * (`locality.name`/`NOT.locality`) y el rango de `enviadaEn`. Alcanza para lo
+ * que este spec ejercita.
  */
 function pasaFiltro(r: Respuesta, where: Record<string, any>): boolean {
   if (where.campaignId && r.campaignId !== where.campaignId) return false;
   if (where.localityId && r.localityId !== where.localityId) return false;
+  if (where.enviadaEn?.gte && r.enviadaEn < where.enviadaEn.gte) return false;
+  if (where.enviadaEn?.lte && r.enviadaEn > where.enviadaEn.lte) return false;
   const esCapital = r.localityId === LOC_FORMOSA;
   if (where.locality?.name && !esCapital) return false;
   if (where.NOT?.locality && esCapital) return false;
@@ -281,26 +286,19 @@ describe('/metrics (e2e) — k-anonimato', () => {
       motivo: MOTIVO_SUPRESION,
       conteo: null,
     });
-    expect(res.body.porEtapaVentana[0]).toMatchObject({
-      etapa: 'ZONAL',
-      ventana: 'DURANTE',
-      suprimido: true,
-      motivo: MOTIVO_SUPRESION,
-      conteo: null,
-    });
-    for (const punto of res.body.serie.puntos) {
-      expect(punto.suprimido).toBe(true);
-    }
+    // Con 4 todavía no hay una tanda completa: no se publica ninguna parte.
+    expect(res.body.porEtapaVentana).toEqual([]);
+    expect(res.body.serie.puntos).toEqual([]);
     expect(JSON.stringify(res.body)).not.toContain('"conteo":4');
   });
 
-  it('overview: total 13 con 10 en la capital: el interior (3) no se despeja restando', async () => {
+  it('overview: total 15 con 12 en la capital: el interior (3) no se despeja restando', async () => {
     respuestas.push(
-      ...repetir(10, () => respuesta(LOC_FORMOSA, OPC.no, null)),
+      ...repetir(12, () => respuesta(LOC_FORMOSA, OPC.no, null)),
       ...repetir(3, () => respuesta(LOC_PIRANE, OPC.no, null)),
     );
     const res = await get(`/metrics/survey/${CAMPAIGN_ID}/overview`);
-    expect(res.body.totalRespuestas).toEqual({ suprimido: false, conteo: 13 });
+    expect(res.body.totalRespuestas).toEqual({ suprimido: false, conteo: 15 });
     for (const zona of res.body.porZona) {
       expect(zona).toMatchObject({ suprimido: true, conteo: null });
     }
@@ -310,7 +308,7 @@ describe('/metrics (e2e) — k-anonimato', () => {
     for (const fila of cruce.body.filas) {
       expect(fila.totalFila).toMatchObject({ suprimido: true, conteo: null });
     }
-    expect(JSON.stringify(cruce.body.filas)).not.toMatch(/"conteo":(3|10)[,}]/);
+    expect(JSON.stringify(cruce.body.filas)).not.toMatch(/"conteo":(3|12)[,}]/);
   });
 
   it('cross: un corte chico no publica ni su total ni los ceros (no se despeja por resta)', async () => {
@@ -326,9 +324,8 @@ describe('/metrics (e2e) — k-anonimato', () => {
       suprimido: true,
       conteo: null,
     });
-    for (const celda of res.body.filas[0].celdas) {
-      expect(celda).toMatchObject({ suprimido: true, conteo: null });
-    }
+    // Con 3 en el corte no hay tanda completa: no sale ninguna fila.
+    expect(res.body.filas).toEqual([]);
     expect(JSON.stringify(res.body)).not.toMatch(/"conteo":(0|3)[,}]/);
 
     const overview = await get(
@@ -440,14 +437,16 @@ describe('/metrics (e2e) — k-anonimato', () => {
       valor: null,
     });
 
-    // Un sin atención más (6 de 11, resto 5): todo visible.
-    respuestas.push(respuesta(LOC_PIRANE, OPC.sinAtencion, null));
+    // Cinco sin atención más (una tanda; 6 de 15, resto 9): todo visible.
+    respuestas.push(
+      ...repetir(5, () => respuesta(LOC_PIRANE, OPC.sinAtencion, null)),
+    );
     const visible = await get(`/metrics/survey/${CAMPAIGN_ID}/kpis`);
     expect(visible.body.kpis[0]).toMatchObject({
       nombre: 'Lesionados atendidos',
       numerador: { suprimido: false, conteo: 6 },
-      denominador: { suprimido: false, conteo: 11 },
-      valor: 54.5,
+      denominador: { suprimido: false, conteo: 15 },
+      valor: 40,
     });
 
     // Filtrando a la capital no hay lesionados: numerador suprimido ⇒ sin valor.
@@ -506,10 +505,10 @@ describe('/metrics (e2e) — k-anonimato', () => {
 
   it('highlights: ranking sin celdas chicas ni resta posible en opción única', async () => {
     destacados.push(LESIONES);
-    // 20 + 9 + 4 = 33. El 4 se oculta; como la pregunta es de opción única y
-    // la base es visible, 33 − 20 − 9 lo despejaría: se oculta también el 9.
+    // 22 + 9 + 4 = 35. El 4 se oculta; como la pregunta es de opción única y
+    // la base es visible, 35 − 22 − 9 lo despejaría: se oculta también el 9.
     respuestas.push(
-      ...repetir(20, () => respuesta(LOC_PIRANE, OPC.no, null)),
+      ...repetir(22, () => respuesta(LOC_PIRANE, OPC.no, null)),
       ...repetir(9, () => respuesta(LOC_PIRANE, OPC.atendido, null)),
       ...repetir(4, () => respuesta(LOC_PIRANE, OPC.sinAtencion, null)),
     );
@@ -518,9 +517,9 @@ describe('/metrics (e2e) — k-anonimato', () => {
     expect(res.body.minimoFrases).toBe(30);
     const [d] = res.body.destacados;
     expect(d.titulo).toBe('Lo que más les pasa');
-    expect(d.base).toEqual({ suprimido: false, conteo: 33 });
+    expect(d.base).toEqual({ suprimido: false, conteo: 35 });
     expect(d.opciones).toEqual([
-      { valor: 'no', texto: 'No', conteo: 20, porcentaje: 60.6 },
+      { valor: 'no', texto: 'No', conteo: 22, porcentaje: 62.9 },
     ]);
     expect(d.ocultas).toBe(2);
     expect(d.puedeAfirmar).toBe(true);
@@ -564,6 +563,69 @@ describe('/metrics (e2e) — k-anonimato', () => {
       });
     expect(bueno.status).toBe(201);
     expect(destacados).toHaveLength(1);
+  });
+
+  it('tandas: de la 6.ª a la 9.ª respuesta nada cambia; la 10.ª suma las cinco juntas', async () => {
+    respuestas.push(...repetir(5, () => respuesta(LOC_PIRANE, OPC.no, null)));
+    const base = await get(`/metrics/survey/${CAMPAIGN_ID}/overview`);
+    expect(base.body.totalRespuestas).toEqual({ suprimido: false, conteo: 5 });
+    const cruceBase = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/cross?pregunta=${Q_LESION}&por=ventana`,
+    );
+
+    // Un coordinador que ve contestar a alguien y recarga no ve su respuesta.
+    for (let i = 0; i < 4; i += 1) {
+      respuestas.push(respuesta(LOC_PIRANE, OPC.sinAtencion, null));
+      const ahora = await get(`/metrics/survey/${CAMPAIGN_ID}/overview`);
+      expect(ahora.body.totalRespuestas).toEqual(base.body.totalRespuestas);
+      expect(ahora.body.porZona).toEqual(base.body.porZona);
+      const cruce = await get(
+        `/metrics/survey/${CAMPAIGN_ID}/cross?pregunta=${Q_LESION}&por=ventana`,
+      );
+      expect(cruce.body.filas).toEqual(cruceBase.body.filas);
+    }
+
+    respuestas.push(respuesta(LOC_PIRANE, OPC.sinAtencion, null));
+    const despues = await get(`/metrics/survey/${CAMPAIGN_ID}/overview`);
+    expect(despues.body.totalRespuestas).toEqual({
+      suprimido: false,
+      conteo: 10,
+    });
+  });
+
+  it('tandas: un corte filtrado también se publica de a 5 (7 en Pirané ⇒ 5)', async () => {
+    respuestas.push(
+      ...repetir(7, () => respuesta(LOC_PIRANE, OPC.no, null)),
+      ...repetir(10, () => respuesta(LOC_FORMOSA, OPC.no, null)),
+    );
+    const pirane = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?localityId=${LOC_PIRANE}`,
+    );
+    expect(pirane.body.totalRespuestas).toEqual({
+      suprimido: false,
+      conteo: 5,
+    });
+    const catalogo = await get('/metrics/catalog');
+    expect(catalogo.body.campanias[0].totalRespuestas).toBe(15);
+  });
+
+  it('fechas: un rango con hora se amplía al día completo (no aísla minutos)', async () => {
+    respuestas.push(...repetir(10, () => respuesta(LOC_PIRANE, OPC.no, null)));
+    // Entre el segundo 3 y el 4 hay dos respuestas; redondeado al día, diez.
+    const res = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?desde=2026-11-10T10:00:03Z&hasta=2026-11-10T10:00:04Z`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.totalRespuestas).toEqual({ suprimido: false, conteo: 10 });
+    expect(res.body.filtros).toMatchObject({
+      desde: '2026-11-10',
+      hasta: '2026-11-10',
+    });
+
+    const otroDia = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?desde=2026-11-11T00:00:00Z`,
+    );
+    expect(otroDia.body.totalRespuestas).toMatchObject({ suprimido: true });
   });
 
   it('catalog: devuelve preguntas, dimensiones y localidades con zona, sin datos personales', async () => {

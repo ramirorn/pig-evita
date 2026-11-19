@@ -33,6 +33,8 @@ import {
   aplicarUmbral,
   aplicarUmbralTabla,
   cruzarRespuestas,
+  diaDelFiltro,
+  enTandas,
   esDimensionValida,
   ETIQUETAS_DIMENSION,
   evaluarDestacado,
@@ -40,6 +42,7 @@ import {
   granularidadPara,
   preguntaDeDimension,
   protegerGrupo,
+  publicarEnTandas,
   publicarKpi,
   rankingDestacado,
   serieTemporal,
@@ -183,7 +186,8 @@ export class MetricsService {
         anio: c.anio,
         status: c.status,
         ventana: c.ventana,
-        totalRespuestas: c._count.responses,
+        // De a k, como cada corte: si no, el catálogo delata cada envío.
+        totalRespuestas: enTandas(c._count.responses),
       })),
       campaniaId: elegida?.id ?? null,
       preguntas,
@@ -229,10 +233,19 @@ export class MetricsService {
     if (cacheado) return cacheado;
 
     const where = this.construirWhere(campaignId, query);
-    const respuestas = await this.prisma.surveyResponse.findMany({
-      where,
-      select: { etapa: true, ventana: true, localityId: true, enviadaEn: true },
-    });
+    const respuestas = publicarEnTandas(
+      await this.prisma.surveyResponse.findMany({
+        where,
+        select: {
+          id: true,
+          etapa: true,
+          ventana: true,
+          localityId: true,
+          enviadaEn: true,
+        },
+      }),
+      (r) => r.id,
+    );
     const mapas = await this.resolverNombres(
       respuestas.map((r) => r.localityId),
       [],
@@ -749,8 +762,8 @@ export class MetricsService {
       zona: query.zona,
       categoryId: query.categoryId,
       sexo: query.sexo,
-      desde: query.desde,
-      hasta: query.hasta,
+      desde: query.desde && diaDelFiltro(query.desde),
+      hasta: query.hasta && diaDelFiltro(query.hasta),
     };
   }
 
@@ -790,8 +803,13 @@ export class MetricsService {
 
     if (query.desde || query.hasta) {
       where.enviadaEn = {};
-      if (query.desde) where.enviadaEn.gte = inicioDelRango(query.desde);
-      if (query.hasta) where.enviadaEn.lte = finDelRango(query.hasta);
+      // Siempre días completos: la hora que mande el cliente se descarta.
+      if (query.desde) {
+        where.enviadaEn.gte = inicioDelRango(diaDelFiltro(query.desde));
+      }
+      if (query.hasta) {
+        where.enviadaEn.lte = finDelRango(diaDelFiltro(query.hasta));
+      }
     }
 
     return where;
@@ -820,7 +838,8 @@ export class MetricsService {
       },
     });
 
-    return filas.map((r) => {
+    // Cada corte se publica de a k (ver `publicarEnTandas`).
+    return publicarEnTandas(filas, (r) => r.id).map((r) => {
       const opciones = new Map<string, string[]>();
       for (const a of r.answers) {
         const lista = opciones.get(a.questionId);
@@ -921,6 +940,6 @@ export class MetricsService {
       .slice(0, 16);
     // `p2`: formato de respuesta con totales como Corte y supresión por masa;
     // las claves viejas (formato anterior) quedan huérfanas al desplegar.
-    return `metrics:p2:survey:${campaignId}:v${version}:${endpoint}:${huella}`;
+    return `metrics:p3:survey:${campaignId}:v${version}:${endpoint}:${huella}`;
   }
 }

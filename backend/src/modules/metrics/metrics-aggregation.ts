@@ -64,6 +64,48 @@ const SUPRIMIDO: Corte = {
 };
 
 // ===========================================
+// Publicación en tandas y fechas
+// ===========================================
+//
+// Restar dos lecturas del mismo corte despeja lo que entró entre una y otra:
+// quien ve a alguien contestar en la sede y recarga el panel vería su
+// respuesta (una celda que pasa de 12 a 13). Por eso cada corte publica sus
+// respuestas de a k: entre dos lecturas cambia por 0 o por al menos k.
+
+/** Un conteo redondeado hacia abajo a la tanda de k: 7 ⇒ 5, 4 ⇒ 0. */
+export function enTandas(conteo: number): number {
+  return Math.floor(conteo / UMBRAL_K_ANONIMATO) * UMBRAL_K_ANONIMATO;
+}
+
+/**
+ * Las respuestas que un corte publica: sus `enTandas(n)` más viejas, por fecha
+ * de envío y, a igual fecha, por id (el resultado no depende del orden en que
+ * llegan de la base). Las más nuevas esperan a completar la tanda siguiente.
+ */
+export function publicarEnTandas<T extends { enviadaEn: Date }>(
+  respuestas: readonly T[],
+  idDe: (respuesta: T) => string,
+): T[] {
+  const ordenadas = [...respuestas].sort((a, b) => {
+    const porFecha = a.enviadaEn.getTime() - b.enviadaEn.getTime();
+    if (porFecha !== 0) return porFecha;
+    const ia = idDe(a);
+    const ib = idDe(b);
+    return ia < ib ? -1 : ia > ib ? 1 : 0;
+  });
+  return ordenadas.slice(0, enTandas(ordenadas.length));
+}
+
+/**
+ * El día (UTC, `YYYY-MM-DD`) de un filtro `desde`/`hasta`. El filtro mínimo
+ * de las métricas es el día: dos ventanas que difieren en minutos aislarían
+ * las respuestas de esos minutos, muchas veces una sola.
+ */
+export function diaDelFiltro(valor: string): string {
+  return new Date(valor).toISOString().slice(0, 10);
+}
+
+// ===========================================
 // Dimensiones
 // ===========================================
 
