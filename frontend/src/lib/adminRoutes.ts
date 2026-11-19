@@ -35,6 +35,8 @@ export const ADMIN_ROUTE_ROLES = {
   // Métricas de la encuesta: agregados anónimos, los ve quien ve el dashboard
   // (espejo de `ACCIONES.METRICS_READ` del backend).
   [ROUTES.METRICS]: DASHBOARD_VIEWERS,
+  // Modo presentación de Métricas: mismos datos, pantalla completa.
+  [ROUTES.METRICS_PRESENT]: DASHBOARD_VIEWERS,
   // Mapa de impacto: los datos son públicos, pero en el panel es una vista de
   // resumen para autoridades, así que lo ve quien ve el dashboard.
   [ROUTES.IMPACT_MAP_ADMIN]: DASHBOARD_VIEWERS,

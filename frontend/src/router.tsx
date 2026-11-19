@@ -44,6 +44,7 @@ import {
   SurveyFormPage,
   DashboardPage,
   MetricsPage,
+  MetricsPresentationPage,
   ImpactMapAdminPage,
   ParticipantsPage,
   ParticipantDetailPage,
@@ -190,6 +191,15 @@ export const router = createBrowserRouter([
 
   // ============ AUTH ============
   { path: ROUTES.LOGIN, element: sinLayout(<LoginPage />), errorElement: <RouteErrorBoundary /> },
+
+  // ============ MÉTRICAS: MODO PRESENTACIÓN (pantalla completa) ============
+  // Fuera del AdminLayout a propósito: sin menú lateral para proyectarla. El
+  // control de acceso es el mismo que el de la pantalla de Métricas.
+  {
+    path: ROUTES.METRICS_PRESENT,
+    element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.METRICS_PRESENT], sinLayout(<MetricsPresentationPage />)),
+    errorElement: <RouteErrorBoundary />,
+  },
 
   // ============ ADMIN ROUTES (Protected) ============
   {

@@ -117,6 +117,9 @@ const SIN_ENTRADA_EN_EL_MENU = new Set([
   // está en el menú. Un link directo al detalle necesitaría un `:id` que el
   // menú no tiene de dónde sacar.
   ROUTES.SURVEY_CAMPAIGN_DETAIL,
+  // El modo presentación se abre con el botón "Presentar" de Métricas, que sí
+  // está en el menú; es la misma pantalla en versión para proyectar.
+  ROUTES.METRICS_PRESENT,
 ]);
 
 // -------------------------------------------------
