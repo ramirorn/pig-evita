@@ -492,9 +492,14 @@ Todos los endpoints de reportes soportan formato CSV (por defecto) y Excel (vía
 
 Lectura analítica sobre las respuestas de la encuesta. Todo corte con menos de `UMBRAL_K_ANONIMATO` (5) respuestas se devuelve suprimido (`conteo: null`). Además, ningún número se publica si permite despejar por resta un grupo chico:
 
-- en una tabla cruzada, una celda suprimida también suprime el total de su fila; si la pregunta es de **opción única** y en la fila queda una sola celda oculta, se oculta además la menor visible (supresión secundaria: el total de la fila puede saberse por otro endpoint);
+- los **totales** (`totalRespuestas` del resumen y del cruce) pasan por el mismo umbral: con menos de 5 se devuelven suprimidos;
+- en una tabla cruzada, una fila con menos de 5 respuestas oculta **todas** sus celdas, ceros incluidos (con el total de esa fila a mano, "No=0 | Atendido=0" despejaba la celda oculta); en una fila más grande, una celda no se publica si el resto de la fila queda entre 1 y 4;
+- una celda suprimida también suprime el total de su fila;
+- **supresión secundaria por masa:** en todo grupo de partes que suman un total que se conoce (las celdas de una fila de opción única, las filas de una dimensión que reparte a quienes contestaron, las zonas y las etapas del resumen, los días de la serie), lo oculto tiene que sumar 0, o al menos 5 **y** más que la cantidad de partes ocultas. Si suma de 1 a 4 se despejaría restando; y como los ceros se publican (y una fila o un día sólo existen con respuestas), cinco ocultas que suman 5 valen 1 cada una. Mientras pase eso se ocultan además las partes visibles más chicas; si ya no queda nada visible, se oculta también el total del cruce o la base del destacado. Por eso, con 2 respuestas de la capital y 5 del interior, el resumen oculta las dos zonas;
 - en un KPI, si `denominador − numerador` queda entre 1 y 4 (p. ej. 9 atendidos de 11 lesionados ⇒ 2 sin atención), el numerador y el valor no se publican;
-- en un destacado, cada opción pasa por el umbral, por el complemento contra la base y, en opción única, por la supresión secundaria; lo oculto no entra al ranking (nunca hay una fila "Otras").
+- en un destacado, cada opción pasa por el umbral, por el complemento contra la base y, en opción única, por la supresión por masa; lo oculto no entra al ranking (nunca hay una fila "Otras") y, con la base oculta, tampoco se informa cuántas opciones se ocultaron.
+
+Fuera de esta protección (fases siguientes, decisión pendiente): la resta entre consultas distintas (por ejemplo, el total sin filtro menos el total filtrado por interior), la resta entre dos momentos de la actualización en vivo y el registro de quién consulta qué. Se acepta publicar un corte de 5 o más respuestas donde todos eligieron la misma opción.
 
 Los agregados se cachean en Redis bajo la **versión** de la campaña, que sube con cada respuesta nueva o con cambios en el cuestionario, en un KPI o en un destacado.
 
