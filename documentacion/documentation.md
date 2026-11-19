@@ -499,7 +499,19 @@ Lectura analítica sobre las respuestas de la encuesta. Todo corte con menos de 
 - en un KPI, si `denominador − numerador` queda entre 1 y 4 (p. ej. 9 atendidos de 11 lesionados ⇒ 2 sin atención), el numerador y el valor no se publican;
 - en un destacado, cada opción pasa por el umbral, por el complemento contra la base y, en opción única, por la supresión por masa; lo oculto no entra al ranking (nunca hay una fila "Otras") y, con la base oculta, tampoco se informa cuántas opciones se ocultaron.
 
-Fuera de esta protección (fases siguientes, decisión pendiente): la resta entre consultas distintas (por ejemplo, el total sin filtro menos el total filtrado por interior), la resta entre dos momentos de la actualización en vivo y el registro de quién consulta qué. Se acepta publicar un corte de 5 o más respuestas donde todos eligieron la misma opción.
+Contra la resta **en el tiempo** y entre ventanas de fecha:
+
+- **publicación en tandas de 5:** cada corte (la combinación de filtros pedida) publica sólo sus respuestas más viejas en múltiplos de 5 (`publicarEnTandas`: por fecha de envío y, a igual fecha, por id). Con 7 respuestas se publican las 5 primeras; la 6.ª a la 9.ª no cambian nada y la 10.ª suma las cinco juntas. Entre dos lecturas, un corte cambia por 0 o por al menos 5 respuestas: quien ve a alguien contestar en la sede y recarga el panel no aísla su respuesta. El conteo de respuestas por campaña del catálogo también va de a 5. El costo: el panel "en vivo" se mueve de a 5 y hasta 4 respuestas por corte esperan a la tanda siguiente;
+- **fechas en días completos:** `desde`/`hasta` se redondean al día (UTC) y la hora que mande el cliente se descarta (`diaDelFiltro`); los filtros que se devuelven ya vienen como `YYYY-MM-DD`. Así, dos ventanas que difieren en minutos no aíslan las respuestas de esos minutos.
+
+Fuera de esta protección (fases siguientes, decisión pendiente):
+
+- la resta entre consultas con filtros distintos (por ejemplo, el total sin filtro menos el total filtrado por interior), el tope de filtros simultáneos y el registro de quién consulta qué;
+- como cada corte corta sus tandas en un lugar distinto, combinar tres cortes de fecha ("todo", "hasta ayer" y "desde hoy") puede volver a aislar una respuesta cuando lo de los días anteriores no es múltiplo de 5; es de la misma familia que la resta entre filtros;
+- la versión de la campaña (`/version`, y el campo `version` de los resultados) sube con cada respuesta: revela cuándo alguien contestó y, sin Redis, es el conteo exacto de respuestas;
+- el panel anterior de la encuesta (`/survey/campaigns/:id/metrics`) y el listado de campañas publican conteos sin tandas ni redondeo de fechas (sólo para quien gestiona la encuesta).
+
+Se acepta publicar un corte de 5 o más respuestas donde todos eligieron la misma opción.
 
 Los agregados se cachean en Redis bajo la **versión** de la campaña, que sube con cada respuesta nueva o con cambios en el cuestionario, en un KPI o en un destacado.
 
@@ -516,7 +528,7 @@ Los agregados se cachean en Redis bajo la **versión** de la campaña, que sube 
 | `GET` | `/metrics/highlights` | Definiciones de destacados (de la campaña y reutilizables) | Admins, COORDINADOR |
 | `POST` / `PATCH` / `DELETE` | `/metrics/highlights[/:id]` | Crear, editar o borrar un destacado | Admins (SURVEY_MANAGE) |
 
-**Filtros comunes:** `etapa`, `ventana`, `disciplineId`, `disciplineType`, `localityId`, `departmentId`, `zona` (`CAPITAL`/`INTERIOR`), `categoryId`, `sexo`, `desde`, `hasta`.
+**Filtros comunes:** `etapa`, `ventana`, `disciplineId`, `disciplineType`, `localityId`, `departmentId`, `zona` (`CAPITAL`/`INTERIOR`), `categoryId`, `sexo`, `desde`, `hasta` (días completos: una fecha con hora se redondea a su día UTC).
 
 **Definición de un KPI** (`SurveyKpi.definicion`, matchea opciones por su `valor`, así sobrevive a que las preguntas cambien cada edición):
 
