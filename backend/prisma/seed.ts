@@ -22,6 +22,7 @@ import pg from 'pg';
 import * as argon2 from 'argon2';
 import 'dotenv/config';
 import {
+  DESTACADOS_SEMILLA,
   KPIS_SEMILLA,
   PREGUNTAS_SALUD_Y_EDUCACION,
 } from './survey-seed-data';
@@ -1904,6 +1905,29 @@ async function main() {
     kpisCreados += 1;
   }
   console.log(`  ✅ Indicadores de la encuesta: ${kpisCreados} creados`);
+
+  // --- Destacados reutilizables del panel de Métricas ---
+  // Idempotente por título, igual que los KPIs.
+  let destacadosCreados = 0;
+  for (const destacado of DESTACADOS_SEMILLA) {
+    const existe = await prisma.surveyHighlight.findFirst({
+      where: { titulo: destacado.titulo, campaignId: null },
+      select: { id: true },
+    });
+    if (existe) continue;
+    await prisma.surveyHighlight.create({
+      data: {
+        titulo: destacado.titulo,
+        descripcion: destacado.descripcion,
+        orden: destacado.orden,
+        definicion: destacado.definicion as unknown as Prisma.InputJsonValue,
+      },
+    });
+    destacadosCreados += 1;
+  }
+  console.log(
+    `  ✅ Destacados del panel de Métricas: ${destacadosCreados} creados`,
+  );
 
   console.log('\n🎉 Seed completed successfully!');
   console.log('\n📋 Para probar la generación de fixture:');
