@@ -11,6 +11,13 @@ import {
   MOTIVO_SUPRESION,
   UMBRAL_K_ANONIMATO,
 } from '../survey/survey.constants';
+import type {
+  CompetitionStage,
+  DisciplineType,
+  Sex,
+  SurveyWindow,
+} from '@prisma/client';
+import type { Zona } from '../../common/constants';
 import type { Corte } from '../survey/survey.types';
 import type {
   CeldaCruce,
@@ -86,6 +93,37 @@ export function esDimensionValida(valor: string): valor is Dimension {
 }
 
 /**
+ * Etiquetas en castellano de las dimensiones que son enums, para que el panel
+ * nunca muestre un código (`INTERIOR`, `DURANTE`). Espejan `lib/constants.ts`
+ * del frontend; tipadas con los enums para que un valor nuevo no compile.
+ */
+export const ETIQUETAS_VALOR = {
+  etapa: {
+    ZONAL: 'Zonal',
+    DEPARTAMENTAL: 'Departamental',
+    PROVINCIAL: 'Provincial',
+  } satisfies Record<CompetitionStage, string>,
+  ventana: {
+    PRE: 'Antes de competir',
+    DURANTE: 'Durante la competencia',
+    POST: 'Después de competir',
+  } satisfies Record<SurveyWindow, string>,
+  sexo: {
+    MASCULINO: 'Masculino',
+    FEMENINO: 'Femenino',
+    MIXTO: 'Mixto',
+  } satisfies Record<Sex, string>,
+  disciplineType: {
+    INDIVIDUAL: 'Individual',
+    EQUIPO: 'Equipo',
+  } satisfies Record<DisciplineType, string>,
+  zona: {
+    CAPITAL: 'Capital',
+    INTERIOR: 'Interior',
+  } satisfies Record<Zona, string>,
+} as const;
+
+/**
  * Etiqueta visible de una fila del cruce. `null` es "sin dato": una respuesta
  * que no cargó localidad, categoría, etc. Se muestra, no se oculta, porque
  * ocultarla haría que la suma de filas no cierre con el total.
@@ -105,8 +143,11 @@ function etiquetaDeClave(
       return mapas.localidades.get(clave)?.nombre ?? clave;
     case 'departamento':
       return mapas.departamentos.get(clave) ?? clave;
-    default:
-      return clave;
+    default: {
+      const etiquetas: Readonly<Record<string, string>> =
+        ETIQUETAS_VALOR[dimension];
+      return etiquetas[clave] ?? clave;
+    }
   }
 }
 
