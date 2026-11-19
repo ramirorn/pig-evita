@@ -26,4 +26,8 @@ export {
   recortarEtiqueta,
   disponerBarras,
   FILAS_VISIBLES_BARRAS,
+  fraseOpcion,
+  textoBase,
+  colorCalor,
+  heatmapDesdeCruce,
 } from '@/lib/metrics/metricsRules';

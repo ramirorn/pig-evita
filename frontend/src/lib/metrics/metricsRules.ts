@@ -346,6 +346,119 @@ export function colorDeSerie(indice: number): string {
 }
 
 // ===========================================
+// Lenguaje simple
+// ===========================================
+//
+// Frases para quien no lee gráficos: "4 de cada 10 eligieron «Transporte»".
+// Redondean al décimo más cercano pero nunca exageran: 47 % es "casi la
+// mitad", no "la mitad"; "casi todos" pide al menos 95 %. Sólo se muestran
+// cuando el backend dice que la base alcanza el mínimo (`puedeAfirmar`).
+
+export function fraseOpcion(porcentaje: number, texto: string): string {
+  const opcion = `«${texto}»`;
+  if (porcentaje >= 95) return `Casi todos eligieron ${opcion}`;
+  if (porcentaje >= 50 && porcentaje < 55) return `La mitad eligió ${opcion}`;
+  if (porcentaje >= 45 && porcentaje < 50) return `Casi la mitad eligió ${opcion}`;
+  if (porcentaje < 5) return `Menos de 1 de cada 10 eligió ${opcion}`;
+  const decimos = Math.min(9, Math.max(1, Math.round(porcentaje / 10)));
+  return decimos === 1
+    ? `1 de cada 10 eligió ${opcion}`
+    : `${decimos} de cada 10 eligieron ${opcion}`;
+}
+
+const ZONA_HORARIA = 'America/Argentina/Cordoba';
+
+/** "Sobre 312 respuestas · datos al 18/11 12:04" (hora de Formosa). */
+export function textoBase(respuestas: number, generadoEn: string): string {
+  const partes = new Intl.DateTimeFormat('es-AR', {
+    timeZone: ZONA_HORARIA,
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(generadoEn));
+  const parte = (tipo: Intl.DateTimeFormatPartTypes) =>
+    partes.find((p) => p.type === tipo)?.value ?? '';
+  const sustantivo = respuestas === 1 ? 'respuesta' : 'respuestas';
+  return `Sobre ${respuestas.toLocaleString('es-AR')} ${sustantivo} · datos al ${parte('day')}/${parte('month')} ${parte('hour')}:${parte('minute')}`;
+}
+
+// ===========================================
+// Mapa de calor
+// ===========================================
+
+export interface ColorCalor {
+  fondo: string;
+  texto: string;
+}
+
+/** Rampa celeste → azul de la marca; los tonos oscuros llevan texto blanco. */
+const RAMPA_CALOR: readonly { hasta: number; token: string; claro: boolean }[] = [
+  { hasta: 0, token: 'celeste-50', claro: true },
+  { hasta: 0.2, token: 'celeste-200', claro: true },
+  { hasta: 0.4, token: 'celeste-400', claro: true },
+  { hasta: 0.6, token: 'primary-400', claro: false },
+  { hasta: 0.8, token: 'primary-600', claro: false },
+  { hasta: Infinity, token: 'primary-800', claro: false },
+];
+
+export function colorCalor(fraccion: number): ColorCalor {
+  const valor = Math.min(1, Math.max(0, fraccion));
+  const paso =
+    valor === 0
+      ? RAMPA_CALOR[0]!
+      : (RAMPA_CALOR.slice(1).find((p) => valor < p.hasta) ?? RAMPA_CALOR[RAMPA_CALOR.length - 1]!);
+  return {
+    fondo: `var(--color-${paso.token})`,
+    texto: paso.claro ? 'var(--color-primary-900)' : 'var(--color-white, #ffffff)',
+  };
+}
+
+export interface CeldaCalor {
+  optionId: string;
+  /** `null` = suprimida por k-anonimato. */
+  conteo: number | null;
+  suprimida: boolean;
+  /** Proporción dentro de la fila (0 a 1); `null` si no se puede calcular. */
+  intensidad: number | null;
+}
+
+export interface MapaCalor {
+  columnas: { optionId: string; texto: string }[];
+  filas: { clave: string | null; etiqueta: string; total: number | null; celdas: CeldaCalor[] }[];
+}
+
+/**
+ * Tabla cruzada → mapa de calor. La intensidad es la proporción de cada
+ * opción dentro de su fila (así un departamento chico y uno grande se
+ * comparan); sólo se calcula con el total de la fila visible. Una celda
+ * suprimida queda sin color, nunca en cero.
+ */
+export function heatmapDesdeCruce(cruce: MetricsCross): MapaCalor {
+  return {
+    columnas: cruce.columnas.map((c) => ({ optionId: c.optionId, texto: c.texto })),
+    filas: cruce.filas.map((fila) => {
+      const total = visible(fila.totalFila) ? fila.totalFila.conteo : null;
+      return {
+        clave: fila.clave,
+        etiqueta: fila.etiqueta,
+        total,
+        celdas: fila.celdas.map((celda) => {
+          const conteo = visible(celda) ? celda.conteo : null;
+          return {
+            optionId: celda.optionId,
+            conteo,
+            suprimida: conteo === null,
+            intensidad: conteo !== null && total ? conteo / total : null,
+          };
+        }),
+      };
+    }),
+  };
+}
+
+// ===========================================
 // KPIs
 // ===========================================
 

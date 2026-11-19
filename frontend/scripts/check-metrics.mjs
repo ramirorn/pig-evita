@@ -66,6 +66,10 @@ const {
   recortarEtiqueta,
   disponerBarras,
   FILAS_VISIBLES_BARRAS,
+  fraseOpcion,
+  textoBase,
+  colorCalor,
+  heatmapDesdeCruce,
 } = await import(pathToFileURL(SALIDA).href);
 
 // -------------------------------------------------
@@ -277,6 +281,47 @@ comprobar(
     'barras: en columnas se respeta el orden original y la altura fija',
     pocas.orientacion === 'vertical' && pocas.filas[0].etiqueta === 'ZONAL' && pocas.alto === null,
   );
+}
+
+// -------------------------------------------------
+// Lenguaje simple: frases honestas, nunca exageradas
+// -------------------------------------------------
+comprobar('frase: 42 % son 4 de cada 10', fraseOpcion(42, 'Transporte') === '4 de cada 10 eligieron «Transporte»');
+comprobar('frase: 12 % es 1 de cada 10 (singular)', fraseOpcion(12, 'Beca') === '1 de cada 10 eligió «Beca»');
+comprobar('frase: 3 % es menos de 1 de cada 10', fraseOpcion(3, 'Comida') === 'Menos de 1 de cada 10 eligió «Comida»');
+comprobar('frase: 47 % es casi la mitad (no "la mitad")', fraseOpcion(47, 'X') === 'Casi la mitad eligió «X»');
+comprobar('frase: 52 % es la mitad', fraseOpcion(52, 'X') === 'La mitad eligió «X»');
+comprobar('frase: 61 % son 6 de cada 10', fraseOpcion(61, 'X') === '6 de cada 10 eligieron «X»');
+comprobar('frase: 97 % es casi todos', fraseOpcion(97, 'X') === 'Casi todos eligieron «X»');
+comprobar('frase: 94 % son 9 de cada 10, no "casi todos"', fraseOpcion(94, 'X') === '9 de cada 10 eligieron «X»');
+comprobar(
+  'base: dice sobre cuántas respuestas y con singular correcto',
+  textoBase(312, '2026-11-18T15:04:00.000Z').startsWith('Sobre 312 respuestas · datos al ') &&
+    textoBase(1, '2026-11-18T15:04:00.000Z').startsWith('Sobre 1 respuesta · '),
+);
+comprobar(
+  'base: la fecha va en hora de Formosa',
+  textoBase(40, '2026-11-18T15:04:00.000Z').endsWith('18/11 12:04'),
+);
+
+// -------------------------------------------------
+// Mapa de calor
+// -------------------------------------------------
+comprobar('calor: el cero es el tono más claro', colorCalor(0).fondo === 'var(--color-celeste-50)');
+comprobar('calor: el máximo es el más oscuro con texto blanco', colorCalor(1).fondo === 'var(--color-primary-800)' && colorCalor(1).texto === 'var(--color-white, #ffffff)');
+comprobar('calor: los tonos claros llevan texto oscuro', colorCalor(0.1).texto === 'var(--color-primary-900)');
+comprobar('calor: fuera de rango se acota', colorCalor(-1).fondo === colorCalor(0).fondo && colorCalor(7).fondo === colorCalor(1).fondo);
+{
+  const mapa = heatmapDesdeCruce(
+    cruce([
+      { clave: 'd1', etiqueta: 'Pirané', celdas: celdas(vis(10), vis(30)), totalFila: vis(40) },
+      { clave: 'd2', etiqueta: 'Patiño', celdas: celdas(SUP, vis(8)), totalFila: SUP },
+    ]),
+  );
+  comprobar('calor: una fila por departamento y una columna por opción', mapa.filas.length === 2 && mapa.columnas.length === 2);
+  comprobar('calor: la intensidad es la proporción dentro de la fila', mapa.filas[0].celdas[1].intensidad === 0.75);
+  comprobar('calor: una celda suprimida queda sin intensidad, nunca en cero', mapa.filas[1].celdas[0].suprimida === true && mapa.filas[1].celdas[0].intensidad === null);
+  comprobar('calor: con el total de la fila oculto no se calculan proporciones', mapa.filas[1].celdas[1].intensidad === null && mapa.filas[1].celdas[1].conteo === 8);
 }
 
 // -------------------------------------------------
