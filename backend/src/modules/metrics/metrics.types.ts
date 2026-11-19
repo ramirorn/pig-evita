@@ -166,7 +166,8 @@ export interface MetricsOverview {
   version: number;
   umbral: number;
   filtros: MetricsFiltros;
-  totalRespuestas: number;
+  /** Total del corte, con el mismo umbral que cualquier otra cifra. */
+  totalRespuestas: Corte;
   porEtapaVentana: CorteEtapaVentana[];
   porZona: ({ zona: Zona } & Corte)[];
   serie: { granularidad: Granularidad; puntos: PuntoSerie[] };
@@ -200,7 +201,7 @@ export interface MetricsCross {
   etiquetaDimension: string;
   columnas: OpcionCatalogo[];
   filas: FilaCruce[];
-  totalRespuestas: number;
+  totalRespuestas: Corte;
 }
 
 // ===========================================
