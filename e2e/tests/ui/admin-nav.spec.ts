@@ -12,6 +12,7 @@ const PART: RoleName[] = [...ADMIN, 'DELEGADO', 'COORDINADOR'];
 /** ruta → etiqueta del menú → roles que deben verla (espejo de lib/adminRoutes.ts + lib/roles.ts). */
 const MAPA: Array<{ ruta: string; menu: string; roles: RoleName[] }> = [
   { ruta: '/admin/dashboard', menu: 'Dashboard', roles: [...ADMIN, 'COORDINADOR'] },
+  { ruta: '/admin/metricas', menu: 'Métricas', roles: [...ADMIN, 'COORDINADOR'] },
   { ruta: '/admin/mapa', menu: 'Mapa de impacto', roles: [...ADMIN, 'COORDINADOR'] },
   { ruta: '/admin/participantes', menu: 'Participantes', roles: PART },
   { ruta: '/admin/inscripciones', menu: 'Inscripciones', roles: INSC },
