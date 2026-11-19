@@ -9,7 +9,8 @@
 //   3. una pregunta en foco en dona, por departamento y en mapa de calor;
 //   4. "Explorar en detalle": el constructor de gráficos para cruzar todo;
 //   5. "Detalle técnico": cómo se protege el anonimato.
-// Se actualiza solo a medida que llegan respuestas (polling de la versión).
+// Se actualiza solo a medida que llegan respuestas (polling de la versión);
+// el servidor publica cada corte de a 5 respuestas para cuidar el anonimato.
 //
 // Todo es anónimo y agregado: los cortes con menos respuestas que el umbral
 // de k-anonimato se muestran como "sin publicar", nunca como cero.
@@ -150,7 +151,7 @@ export function MetricsPage() {
   const encabezado = (
     <PageHeader
       title="Métricas"
-      description="Lo que dicen los deportistas en la encuesta, en números simples. Se actualiza solo a medida que llegan respuestas."
+      description="Lo que dicen los deportistas en la encuesta, en números simples. Se actualiza sola de a 5 respuestas, para cuidar el anonimato."
       icon={<BarChart3 className="h-5 w-5 text-white" />}
       actions={
         campaignId ? (

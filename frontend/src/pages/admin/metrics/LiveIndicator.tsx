@@ -34,6 +34,7 @@ export function LiveIndicator({ actualizadoEn, error }: LiveIndicatorProps) {
       className="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-white px-3 py-1 text-xs font-semibold text-primary-700"
       role="status"
       aria-live="polite"
+      title="Las respuestas nuevas se suman de a 5 para cuidar el anonimato"
     >
       <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
         {!error && !atrasado && (
