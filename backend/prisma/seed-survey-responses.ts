@@ -7,7 +7,7 @@
 // Deja una campaña lista para mostrar el panel de Métricas:
 //   1. toma la campaña ACTIVA (o, si no hay, el borrador más reciente);
 //   2. le agrega las preguntas de salud y educación si le faltan;
-//   3. crea los KPIs reutilizables si no existen;
+//   3. crea los KPIs y los destacados reutilizables si no existen;
 //   4. genera N respuestas anónimas, respetando audiencia y UNICA/MULTIPLE;
 //   5. con `--publicar`, pasa un borrador a ACTIVA para poder contestarla
 //      desde /encuesta y ver el panel actualizarse en vivo.
@@ -30,6 +30,7 @@ import pg from 'pg';
 import Redis from 'ioredis';
 import 'dotenv/config';
 import {
+  DESTACADOS_SEMILLA,
   KPIS_SEMILLA,
   PREGUNTAS_SALUD_Y_EDUCACION,
   VALORES,
@@ -82,6 +83,13 @@ function pesoDe(valor: string, esInterior: boolean): number {
     [VALORES.ESTUDIAR_Y_TRABAJAR]: [25, 22],
     [VALORES.SOLO_TRABAJAR]: [10, 30],
     [VALORES.NO_SE_ESTUDIOS]: [15, 23],
+    [VALORES.NEC_TRANSPORTE]: [15, 40],
+    [VALORES.NEC_INDUMENTARIA]: [30, 25],
+    [VALORES.NEC_ENTRENADOR]: [20, 15],
+    [VALORES.NEC_LUGAR_ENTRENAR]: [10, 30],
+    [VALORES.NEC_ATENCION_MEDICA]: [8, 20],
+    [VALORES.NEC_BECA_ESTUDIO]: [12, 18],
+    [VALORES.NEC_ALIMENTACION]: [5, 12],
   };
   const par = pesos[valor];
   return par ? par[esInterior ? 1 : 0] : 1;
@@ -143,6 +151,27 @@ async function asegurarKpis() {
   return creados;
 }
 
+async function asegurarDestacados() {
+  let creados = 0;
+  for (const destacado of DESTACADOS_SEMILLA) {
+    const existe = await prisma.surveyHighlight.findFirst({
+      where: { titulo: destacado.titulo, campaignId: null },
+      select: { id: true },
+    });
+    if (existe) continue;
+    await prisma.surveyHighlight.create({
+      data: {
+        titulo: destacado.titulo,
+        descripcion: destacado.descripcion,
+        orden: destacado.orden,
+        definicion: destacado.definicion as unknown as Prisma.InputJsonValue,
+      },
+    });
+    creados += 1;
+  }
+  return creados;
+}
+
 /** Sube la versión de la campaña para que el panel abierto se refresque. */
 async function subirVersion(campaignId: string) {
   const redis = new Redis({
@@ -190,8 +219,9 @@ async function main() {
 
   const agregadas = await asegurarPreguntas(campania.id);
   const kpisCreados = await asegurarKpis();
+  const destacadosCreados = await asegurarDestacados();
   console.log(
-    `  ✅ Preguntas de salud y educación agregadas: ${agregadas} · KPIs creados: ${kpisCreados}`,
+    `  ✅ Preguntas de salud, educación y necesidades agregadas: ${agregadas} · KPIs creados: ${kpisCreados} · Destacados creados: ${destacadosCreados}`,
   );
 
   if (publicar && campania.status === SurveyCampaignStatus.BORRADOR) {
