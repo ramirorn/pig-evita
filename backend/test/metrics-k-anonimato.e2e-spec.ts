@@ -275,7 +275,12 @@ describe('/metrics (e2e) — k-anonimato', () => {
     const res = await get(`/metrics/survey/${CAMPAIGN_ID}/overview`);
 
     expect(res.status).toBe(200);
-    expect(res.body.totalRespuestas).toBe(4);
+    // El total del corte también pasa por el umbral: con 4 no se publica.
+    expect(res.body.totalRespuestas).toEqual({
+      suprimido: true,
+      motivo: MOTIVO_SUPRESION,
+      conteo: null,
+    });
     expect(res.body.porEtapaVentana[0]).toMatchObject({
       etapa: 'ZONAL',
       ventana: 'DURANTE',
@@ -287,6 +292,52 @@ describe('/metrics (e2e) — k-anonimato', () => {
       expect(punto.suprimido).toBe(true);
     }
     expect(JSON.stringify(res.body)).not.toContain('"conteo":4');
+  });
+
+  it('overview: total 13 con 10 en la capital: el interior (3) no se despeja restando', async () => {
+    respuestas.push(
+      ...repetir(10, () => respuesta(LOC_FORMOSA, OPC.no, null)),
+      ...repetir(3, () => respuesta(LOC_PIRANE, OPC.no, null)),
+    );
+    const res = await get(`/metrics/survey/${CAMPAIGN_ID}/overview`);
+    expect(res.body.totalRespuestas).toEqual({ suprimido: false, conteo: 13 });
+    for (const zona of res.body.porZona) {
+      expect(zona).toMatchObject({ suprimido: true, conteo: null });
+    }
+    const cruce = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/cross?pregunta=${Q_LESION}&por=zona`,
+    );
+    for (const fila of cruce.body.filas) {
+      expect(fila.totalFila).toMatchObject({ suprimido: true, conteo: null });
+    }
+    expect(JSON.stringify(cruce.body.filas)).not.toMatch(/"conteo":(3|10)[,}]/);
+  });
+
+  it('cross: un corte chico no publica ni su total ni los ceros (no se despeja por resta)', async () => {
+    respuestas.push(
+      ...repetir(3, () => respuesta(LOC_PIRANE, OPC.sinAtencion, null)),
+      ...repetir(6, () => respuesta(LOC_FORMOSA, OPC.no, null)),
+    );
+    const res = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/cross?pregunta=${Q_LESION}&por=ventana&localityId=${LOC_PIRANE}`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.totalRespuestas).toMatchObject({
+      suprimido: true,
+      conteo: null,
+    });
+    for (const celda of res.body.filas[0].celdas) {
+      expect(celda).toMatchObject({ suprimido: true, conteo: null });
+    }
+    expect(JSON.stringify(res.body)).not.toMatch(/"conteo":(0|3)[,}]/);
+
+    const overview = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?localityId=${LOC_PIRANE}`,
+    );
+    expect(overview.body.totalRespuestas).toMatchObject({
+      suprimido: true,
+      conteo: null,
+    });
   });
 
   it('cross: una celda suprimida arrastra el total de su fila', async () => {
