@@ -337,8 +337,8 @@ describe('/metrics (e2e) — k-anonimato', () => {
     expect(
       res.body.filas.map((f: any) => [f.etiqueta, f.totalFila.conteo]),
     ).toEqual([
-      ['INTERIOR', 10],
-      ['CAPITAL', 5],
+      ['Interior', 10],
+      ['Capital', 5],
     ]);
   });
 

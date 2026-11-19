@@ -157,10 +157,30 @@ describe('cruzarRespuestas', () => {
 
     expect(totalRespuestas).toBe(13);
     // Sin localidad cuenta como INTERIOR (6 + 2) y CAPITAL son las 5 de Formosa.
-    expect(filas.map((f) => [f.etiqueta, f.totalFila.conteo])).toEqual([
-      ['INTERIOR', 8],
-      ['CAPITAL', 5],
-    ]);
+    // La clave es el código; la etiqueta, el texto en castellano.
+    expect(filas.map((f) => [f.clave, f.etiqueta, f.totalFila.conteo])).toEqual(
+      [
+        ['INTERIOR', 'Interior', 8],
+        ['CAPITAL', 'Capital', 5],
+      ],
+    );
+
+    for (const [dimension, etiqueta] of [
+      ['etapa', 'Zonal'],
+      ['ventana', 'Durante la competencia'],
+      ['sexo', 'Masculino'],
+      ['disciplineType', 'Equipo'],
+    ] as const) {
+      const { filas: porEnum } = cruzarRespuestas(
+        respuestas,
+        Q_LESION,
+        OPC_LESION,
+        dimension,
+        mapas,
+      );
+      expect(porEnum.map((f) => f.etiqueta)).toContain(etiqueta);
+      expect(porEnum.every((f) => !/^[A-Z_]+$/.test(f.etiqueta))).toBe(true);
+    }
 
     const { filas: porDepto } = cruzarRespuestas(
       respuestas,
