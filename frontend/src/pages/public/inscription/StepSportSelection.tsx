@@ -6,6 +6,8 @@ import { Trophy, ArrowLeft, ArrowRight, CheckCircle2, AlertCircle } from 'lucide
 import { Sex, type Discipline, type Category } from '@/types';
 import type { InscriptionFormData } from './StepPersonalData';
 import { evaluarRango, formatCategoryRange } from '@/lib/categoryRange';
+import { DISCIPLINE_TYPE_LABELS, SEX_LABELS } from '@/lib/constants';
+import { etiquetaEnum } from '@/lib/format';
 
 interface StepSportSelectionProps {
   formData: InscriptionFormData;
@@ -71,7 +73,7 @@ export function StepSportSelection({
                   <span className="font-bold text-xs line-clamp-1">{discipline.name}</span>
                   <div className="flex items-center gap-1 mt-2">
                     <span className="text-xs font-semibold uppercase px-1.5 py-0.5 rounded-md bg-white border border-primary-100 text-primary-600">
-                      {discipline.type}
+                      {etiquetaEnum(DISCIPLINE_TYPE_LABELS, discipline.type)}
                     </span>
                   </div>
                 </button>
@@ -124,7 +126,7 @@ export function StepSportSelection({
                     </div>
                     <div className="flex items-center gap-2 mt-2 text-xs">
                       <span className="font-medium text-primary-600">
-                        Rama: {category.sex}
+                        Rama: {etiquetaEnum(SEX_LABELS, category.sex)}
                       </span>
                       {isValid ? (
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-secondary-600">

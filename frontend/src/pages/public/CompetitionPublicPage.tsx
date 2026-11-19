@@ -8,6 +8,7 @@ import { FORMAT_LABELS, ROUTES, STAGE_LABELS } from '@/lib/constants';
 import { Badge } from '@/components/ui/badge';
 import { CompetitionFormat } from '@/types';
 import { cn } from '@/lib/utils';
+import { etiquetaEnum } from '@/lib/format';
 
 /** Esqueleto con la forma de la página: encabezado y dos paneles. */
 function CompetitionSkeleton() {
@@ -76,7 +77,7 @@ export function CompetitionPublicPage() {
         </div>
         <div className="relative z-10">
           <Badge variant="outline" className="mb-4 border-white/40 bg-white/15 text-white uppercase">
-            Etapa {STAGE_LABELS[competition.stage as keyof typeof STAGE_LABELS] || competition.stage}
+            Etapa {etiquetaEnum(STAGE_LABELS, competition.stage)}
           </Badge>
           <h1 className="type-h1 mb-4 break-words">{titulo}</h1>
           <div className="flex flex-wrap gap-x-6 gap-y-2 font-medium text-primary-100">
@@ -87,7 +88,7 @@ export function CompetitionPublicPage() {
             )}
             <span className="flex items-center gap-2">
               <LayoutGrid className="h-5 w-5" aria-hidden="true" /> Formato:{' '}
-              {FORMAT_LABELS[competition.format as keyof typeof FORMAT_LABELS] || competition.format}
+              {etiquetaEnum(FORMAT_LABELS, competition.format)}
             </span>
           </div>
         </div>

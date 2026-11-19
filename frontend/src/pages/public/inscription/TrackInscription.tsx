@@ -4,6 +4,8 @@
 import React from 'react';
 import { QrCode, Search, XCircle, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { InscriptionStatus, type PublicInscription } from '@/types';
+import { INSCRIPTION_STATUS_LABELS } from '@/lib/constants';
+import { etiquetaEnum } from '@/lib/format';
 
 interface TrackInscriptionProps {
   searchQr: string;
@@ -119,7 +121,7 @@ export function TrackInscription({
                   : 'bg-accent-50 text-accent-800 border-accent-300'
               }`}
             >
-              {trackedInscription.status}
+              {etiquetaEnum(INSCRIPTION_STATUS_LABELS, trackedInscription.status)}
             </span>
           </div>
 

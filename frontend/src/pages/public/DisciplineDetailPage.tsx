@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
 import { Link } from 'react-router';
 import { formatCategoryRange } from '@/lib/categoryRange';
+import { DISCIPLINE_TYPE_LABELS, RESULT_TYPE_LABELS, SEX_LABELS } from '@/lib/constants';
+import { etiquetaEnum, rangoJugadores, SIN_DATO } from '@/lib/format';
 
 export function DisciplineDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -50,7 +52,7 @@ export function DisciplineDetailPage() {
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-sm font-medium mb-4 backdrop-blur-sm">
             <Trophy className="w-4 h-4" />
-            {discipline.type}
+            {etiquetaEnum(DISCIPLINE_TYPE_LABELS, discipline.type)}
           </div>
           <h1 className="type-h1 mb-4">{discipline.name}</h1>
           <p className="text-primary-100 text-lg max-w-2xl">
@@ -104,7 +106,7 @@ export function DisciplineDetailPage() {
                     <h3 className="type-h3 text-primary-800">{category.name}</h3>
                     <div className="mt-2 space-y-1 text-sm text-primary-600">
                       <p>Rango: <span className="tabular-nums">{formatCategoryRange(category)}</span></p>
-                      <p>Modalidad: {category.sex}</p>
+                      <p>Modalidad: {etiquetaEnum(SEX_LABELS, category.sex)}</p>
                     </div>
                   </div>
                 ))}
@@ -119,18 +121,18 @@ export function DisciplineDetailPage() {
             <div className="space-y-4 text-sm">
               <div>
                 <span className="block text-primary-500 mb-1">Tipo de Modalidad</span>
-                <span className="font-medium text-primary-800">{discipline.type}</span>
+                <span className="font-medium text-primary-800">{etiquetaEnum(DISCIPLINE_TYPE_LABELS, discipline.type)}</span>
               </div>
               <div>
                 <span className="block text-primary-500 mb-1">Tipo de Resultado</span>
-                <span className="font-medium text-primary-800">{discipline.resultType}</span>
+                <span className="font-medium text-primary-800">{etiquetaEnum(RESULT_TYPE_LABELS, discipline.resultType)}</span>
               </div>
               <div>
                 <span className="block text-primary-500 mb-1">Jugadores</span>
                 <span className="font-medium text-primary-800">
-                  {discipline.minPlayers === discipline.maxPlayers 
-                    ? `${discipline.minPlayers} por equipo`
-                    : `De ${discipline.minPlayers} a ${discipline.maxPlayers} por equipo`}
+                  {rangoJugadores(discipline.minPlayers, discipline.maxPlayers) === SIN_DATO
+                    ? SIN_DATO
+                    : `${rangoJugadores(discipline.minPlayers, discipline.maxPlayers)} por equipo`}
                 </span>
               </div>
             </div>

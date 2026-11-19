@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { logError } from '@/lib/logger';
+import { etiquetaEnum, rangoJugadores } from '@/lib/format';
 
 export function DisciplinesAdminPage() {
   const [search, setSearch] = useState('');
@@ -114,7 +115,7 @@ export function DisciplinesAdminPage() {
               : 'bg-muted text-primary-700 border-primary-200'
           }
         >
-          {DISCIPLINE_TYPE_LABELS[discipline.type]}
+          {etiquetaEnum(DISCIPLINE_TYPE_LABELS, discipline.type)}
         </Badge>
       ),
     },
@@ -122,14 +123,14 @@ export function DisciplinesAdminPage() {
       id: 'result',
       header: 'Resultado',
       mobile: 'hidden',
-      cell: (discipline) => RESULT_TYPE_LABELS[discipline.resultType],
+      cell: (discipline) => etiquetaEnum(RESULT_TYPE_LABELS, discipline.resultType),
     },
     {
       id: 'players',
       header: 'Jugadores',
       mobile: 'secondary',
       className: 'tabular-nums',
-      cell: (discipline) => `${discipline.minPlayers} - ${discipline.maxPlayers}`,
+      cell: (discipline) => rangoJugadores(discipline.minPlayers, discipline.maxPlayers),
     },
     {
       id: 'roster',

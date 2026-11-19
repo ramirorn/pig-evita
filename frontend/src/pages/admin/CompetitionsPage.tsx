@@ -16,6 +16,8 @@ import {
 import { Link } from 'react-router';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { FORMAT_LABELS, STAGE_LABELS } from '@/lib/constants';
+import { etiquetaEnum, tituloCompuesto } from '@/lib/format';
 
 export function CompetitionsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,7 +85,7 @@ export function CompetitionsPage() {
                 <div className="flex-1">
                   <div className="flex justify-between items-start mb-2">
                     <h2 className="type-h3 text-primary-900">
-                      {competition.name || `${competition.discipline?.name} - ${competition.category?.name}`}
+                      {competition.name || tituloCompuesto([competition.discipline?.name, competition.category?.name])}
                     </h2>
                   </div>
                   <div className="space-y-1 mt-4 text-sm">
@@ -97,11 +99,11 @@ export function CompetitionsPage() {
                     </div>
                     <div className="flex justify-between text-primary-600">
                       <span>Etapa:</span>
-                      <span className="font-medium capitalize">{competition.stage}</span>
+                      <span className="font-medium">{etiquetaEnum(STAGE_LABELS, competition.stage)}</span>
                     </div>
                     <div className="flex justify-between text-primary-600">
                       <span>Formato:</span>
-                      <span className="font-medium capitalize">{competition.format}</span>
+                      <span className="font-medium">{etiquetaEnum(FORMAT_LABELS, competition.format)}</span>
                     </div>
                   </div>
                 </div>

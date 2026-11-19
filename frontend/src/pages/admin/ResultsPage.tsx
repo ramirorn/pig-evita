@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { COMPETITION_STATUS_LABELS, STAGE_LABELS } from '@/lib/constants';
+import { etiquetaEnum, tituloCompuesto } from '@/lib/format';
 
 export function ResultsPage() {
   const [search, setSearch] = useState('');
@@ -71,14 +73,14 @@ export function ResultsPage() {
               >
                 <div className="flex-1 w-full sm:w-auto">
                   <h4 className="font-semibold text-primary-900">
-                    {competition.name || `${competition.discipline?.name} - ${competition.category?.name}`}
+                    {competition.name || tituloCompuesto([competition.discipline?.name, competition.category?.name])}
                   </h4>
                   <div className="flex flex-wrap gap-2 text-xs text-primary-500 mt-1">
                     <span>{competition.discipline?.name}</span>
                     <span>•</span>
                     <span>{competition.category?.name}</span>
                     <span>•</span>
-                    <span className="capitalize">{competition.stage}</span>
+                    <span>{etiquetaEnum(STAGE_LABELS, competition.stage)}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
@@ -87,7 +89,7 @@ export function ResultsPage() {
                     competition.status === 'BORRADOR' ? 'bg-accent-50 text-accent-800 border-accent-300' :
                     'bg-primary-50 text-primary-700 border-primary-200'
                   }>
-                    {competition.status}
+                    {etiquetaEnum(COMPETITION_STATUS_LABELS, competition.status)}
                   </Badge>
                   <Button asChild size="sm" variant="outline" className="gap-1">
                     <Link to={`/admin/competencias/${competition.id}`}>

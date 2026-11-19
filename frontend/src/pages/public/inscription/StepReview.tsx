@@ -6,6 +6,8 @@ import { FileCheck2, User, Trophy, CheckCircle2, ArrowLeft } from 'lucide-react'
 import type { Discipline, Category } from '@/types';
 import type { InscriptionFormData } from './StepPersonalData';
 import { formatCategoryRange } from '@/lib/categoryRange';
+import { DISCIPLINE_TYPE_LABELS, RESULT_TYPE_LABELS, SEX_LABELS } from '@/lib/constants';
+import { etiquetaEnum } from '@/lib/format';
 
 interface StepReviewProps {
   formData: InscriptionFormData;
@@ -53,7 +55,7 @@ export function StepReview({
           </div>
           <div className="text-xs text-primary-700 space-y-1">
             <p><span className="font-semibold">DNI:</span> {formData.dni}</p>
-            <p><span className="font-semibold">Sexo:</span> {formData.sex}</p>
+            <p><span className="font-semibold">Sexo:</span> {etiquetaEnum(SEX_LABELS, formData.sex)}</p>
             <p><span className="font-semibold">Fecha de Nac.:</span> {formData.birthDate} ({calculatedAge} años)</p>
             <p><span className="font-semibold">Departamento:</span> {formData.department}</p>
             <p><span className="font-semibold">Localidad:</span> {formData.locality}</p>
@@ -73,8 +75,8 @@ export function StepReview({
           <div className="text-xs text-primary-700 space-y-1">
             <p><span className="font-semibold">Categoría:</span> {selectedCategory?.name}</p>
             <p><span className="font-semibold">Rango:</span> {selectedCategory ? formatCategoryRange(selectedCategory) : '—'}</p>
-            <p><span className="font-semibold">Modalidad:</span> {selectedDiscipline?.type}</p>
-            <p><span className="font-semibold">Sistema de Puntuación:</span> {selectedDiscipline?.resultType}</p>
+            <p><span className="font-semibold">Modalidad:</span> {etiquetaEnum(DISCIPLINE_TYPE_LABELS, selectedDiscipline?.type)}</p>
+            <p><span className="font-semibold">Sistema de Puntuación:</span> {etiquetaEnum(RESULT_TYPE_LABELS, selectedDiscipline?.resultType)}</p>
             <p className="inline-flex items-center gap-1 text-secondary-700 font-bold bg-secondary-50 px-2 py-0.5 rounded-md mt-1">
               <CheckCircle2 className="w-3.5 h-3.5" /> Requisitos Cumplidos
             </p>

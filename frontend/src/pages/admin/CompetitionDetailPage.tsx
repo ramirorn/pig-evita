@@ -18,6 +18,7 @@ import { logError } from '@/lib/logger';
 import { CompetitionHeader } from './competition-detail/CompetitionHeader';
 import { FixtureSection } from './competition-detail/FixtureSection';
 import { AvailableTeamsCard } from './competition-detail/AvailableTeamsCard';
+import { tituloCompuesto } from '@/lib/format';
 
 /**
  * Detalle de una competencia.
@@ -113,7 +114,7 @@ export function CompetitionDetailPage() {
           puedeGestionar
             ? { label: 'Competencias', path: ROUTES.COMPETITIONS }
             : { label: 'Resultados', path: ROUTES.RESULTS },
-          { label: competition.name || `${competition.discipline?.name} - ${competition.category?.name}` },
+          { label: competition.name || tituloCompuesto([competition.discipline?.name, competition.category?.name]) },
         ]}
       />
 

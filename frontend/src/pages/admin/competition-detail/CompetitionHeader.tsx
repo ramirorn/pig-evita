@@ -6,6 +6,7 @@ import type { Competition } from '@/types';
 import { COMPETITION_STATUS_LABELS, FORMAT_LABELS, STAGE_LABELS } from '@/lib/constants';
 import { DetailHeader } from '../components/DetailHeader';
 import { Badge } from '@/components/ui/badge';
+import { etiquetaEnum, tituloCompuesto } from '@/lib/format';
 
 interface CompetitionHeaderProps {
   competition: Competition;
@@ -20,9 +21,9 @@ interface CompetitionHeaderProps {
 }
 
 export function CompetitionHeader({ competition, teamCount, unidad = 'equipos', onBack }: CompetitionHeaderProps) {
-  const titulo = competition.name || `${competition.discipline?.name} - ${competition.category?.name}`;
+  const titulo = competition.name || tituloCompuesto([competition.discipline?.name, competition.category?.name]);
   const estado =
-    COMPETITION_STATUS_LABELS[competition.status as keyof typeof COMPETITION_STATUS_LABELS] ?? competition.status;
+    etiquetaEnum(COMPETITION_STATUS_LABELS, competition.status);
 
   return (
     <DetailHeader
@@ -30,7 +31,7 @@ export function CompetitionHeader({ competition, teamCount, unidad = 'equipos', 
       status={
         <span className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="bg-primary-50 text-primary-700 border-primary-200 uppercase">
-            {STAGE_LABELS[competition.stage as keyof typeof STAGE_LABELS] || competition.stage}
+            {etiquetaEnum(STAGE_LABELS, competition.stage)}
           </Badge>
           <Badge
             variant="outline"
@@ -56,7 +57,7 @@ export function CompetitionHeader({ competition, teamCount, unidad = 'equipos', 
           </li>
           <li className="flex items-center gap-1.5">
             <LayoutGrid className="w-4 h-4" aria-hidden="true" />{' '}
-            {FORMAT_LABELS[competition.format as keyof typeof FORMAT_LABELS] || competition.format}
+            {etiquetaEnum(FORMAT_LABELS, competition.format)}
           </li>
           {teamCount !== undefined && (
             <li className="flex items-center gap-1.5 tabular-nums">
