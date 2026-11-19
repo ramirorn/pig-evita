@@ -70,6 +70,10 @@ const {
   textoBase,
   colorCalor,
   heatmapDesdeCruce,
+  hoyEnFormosa,
+  rangoDePeriodo,
+  periodoActivo,
+  puntosSparkline,
 } = await import(pathToFileURL(SALIDA).href);
 
 // -------------------------------------------------
@@ -323,6 +327,26 @@ comprobar('calor: fuera de rango se acota', colorCalor(-1).fondo === colorCalor(
   comprobar('calor: una celda suprimida queda sin intensidad, nunca en cero', mapa.filas[1].celdas[0].suprimida === true && mapa.filas[1].celdas[0].intensidad === null);
   comprobar('calor: con el total de la fila oculto no se calculan proporciones', mapa.filas[1].celdas[1].intensidad === null && mapa.filas[1].celdas[1].conteo === 8);
 }
+
+// -------------------------------------------------
+// Período (Día / Semana / Todo)
+// -------------------------------------------------
+comprobar('período: hoy en Formosa a las 23:30 UTC sigue siendo el mismo día', hoyEnFormosa(new Date('2026-11-18T23:30:00Z')) === '2026-11-18');
+comprobar('período: hoy en Formosa a las 02:00 UTC es el día anterior', hoyEnFormosa(new Date('2026-11-19T02:00:00Z')) === '2026-11-18');
+comprobar('período: día = desde y hasta hoy', JSON.stringify(rangoDePeriodo('dia', '2026-11-18')) === JSON.stringify({ desde: '2026-11-18', hasta: '2026-11-18' }));
+comprobar('período: semana = los últimos 7 días contando hoy', JSON.stringify(rangoDePeriodo('semana', '2026-11-03')) === JSON.stringify({ desde: '2026-10-28', hasta: '2026-11-03' }));
+comprobar('período: todo limpia las fechas', JSON.stringify(rangoDePeriodo('todo', '2026-11-18')) === JSON.stringify({ desde: undefined, hasta: undefined }));
+comprobar('período: sin fechas es "todo"', periodoActivo({}, '2026-11-18') === 'todo');
+comprobar('período: reconoce la semana', periodoActivo({ desde: '2026-11-12', hasta: '2026-11-18' }, '2026-11-18') === 'semana');
+comprobar('período: un rango a mano no marca ningún botón', periodoActivo({ desde: '2026-11-01', hasta: '2026-11-18' }, '2026-11-18') === 'personalizado');
+
+// -------------------------------------------------
+// Mini tendencia
+// -------------------------------------------------
+comprobar('sparkline: sin datos no dibuja', puntosSparkline([], 60, 20) === '');
+comprobar('sparkline: un punto es una línea plana al medio', puntosSparkline([5], 60, 20) === '0,10 60,10');
+comprobar('sparkline: escala de abajo (mínimo) a arriba (máximo)', puntosSparkline([0, 10], 60, 20) === '0,20 60,0');
+comprobar('sparkline: los huecos suprimidos (null) no se inventan', puntosSparkline([2, null, 4], 60, 20) === '0,20 60,0');
 
 // -------------------------------------------------
 // Resultado

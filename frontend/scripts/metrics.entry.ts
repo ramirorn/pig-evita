@@ -30,4 +30,8 @@ export {
   textoBase,
   colorCalor,
   heatmapDesdeCruce,
+  hoyEnFormosa,
+  rangoDePeriodo,
+  periodoActivo,
+  puntosSparkline,
 } from '@/lib/metrics/metricsRules';
