@@ -11,15 +11,23 @@ import {
   MOTIVO_SUPRESION,
 } from '../survey/survey.constants';
 import {
-  aplicarSupresionComplementaria,
+  completarOcultamiento,
+  despejable,
   complementoRevela,
+  cruzarRespuestas,
+  protegerGrupo,
+  serieTemporal,
   evaluarDestacado,
   publicarKpi,
   rankingDestacado,
-  suprimirComplementaria,
   validarDefinicionDestacado,
 } from './metrics-aggregation';
-import type { Corte, FilaCruce, RespuestaProyectada } from './metrics.types';
+import type {
+  Corte,
+  MapasDeNombres,
+  OpcionCatalogo,
+  RespuestaProyectada,
+} from './metrics.types';
 
 const SUP: Corte = { suprimido: true, motivo: MOTIVO_SUPRESION, conteo: null };
 const vis = (conteo: number): Corte => ({ suprimido: false, conteo });
@@ -59,47 +67,255 @@ describe('publicarKpi', () => {
   });
 });
 
-describe('suprimirComplementaria', () => {
-  it('con una sola celda oculta, oculta también la menor visible distinta de cero', () => {
-    expect(suprimirComplementaria([vis(20), SUP, vis(7), vis(0)])).toEqual([
-      vis(20),
-      SUP,
-      SUP,
-      vis(0),
+describe('completarOcultamiento (supresión secundaria por masa)', () => {
+  it('lo oculto suma de 1 a 4: se oculta además la menor visible distinta de cero', () => {
+    // 10 + 8 + 1 + 1 = 20 con los dos 1 ocultos: 20 − 18 = 2 en dos celdas ⇒ 1 y 1.
+    expect(
+      completarOcultamiento([10, 8, 1, 1], [false, false, true, true], 20),
+    ).toEqual([false, true, true, true]);
+  });
+
+  it('no oculta de más: si lo oculto ya suma 5 o más, queda igual', () => {
+    expect(completarOcultamiento([10, 3, 4], [false, true, true], 17)).toEqual([
+      false,
+      true,
+      true,
     ]);
   });
 
-  it('con dos o más celdas ocultas no toca nada', () => {
-    const celdas = [vis(20), SUP, SUP, vis(7)];
-    expect(suprimirComplementaria(celdas)).toEqual(celdas);
+  it('nada oculto, nada que completar', () => {
+    expect(completarOcultamiento([10, 8], [false, false], 18)).toEqual([
+      false,
+      false,
+    ]);
   });
 
-  it('sin celdas ocultas no toca nada', () => {
-    const celdas = [vis(20), vis(7)];
-    expect(suprimirComplementaria(celdas)).toEqual(celdas);
+  it('lo oculto suma justo la cantidad de partes ocultas: también se despeja (1 cada una)', () => {
+    // 20 + 5 × 1 = 25: 25 − 20 = 5 en 5 celdas ⇒ cada una vale 1.
+    expect(
+      completarOcultamiento(
+        [20, 1, 1, 1, 1, 1],
+        [false, true, true, true, true, true],
+        25,
+      ),
+    ).toEqual([true, true, true, true, true, true]);
+  });
+
+  it('despejable: de 1 a 4, o tanto como partes ocultas distintas de cero', () => {
+    expect(
+      despejable(
+        [20, 1, 1, 1, 1, 1],
+        [false, true, true, true, true, true],
+        25,
+      ),
+    ).toBe(true);
+    expect(
+      despejable(
+        [20, 2, 1, 1, 1, 1],
+        [false, true, true, true, true, true],
+        26,
+      ),
+    ).toBe(false);
+    expect(despejable([10, 3], [false, true], 13)).toBe(true);
+    expect(despejable([10, 7], [false, false], 17)).toBe(false);
+    // Todo oculto y cada parte vale 1: aun así se despeja (hay que ocultar el total).
+    expect(despejable([1, 1, 1, 1, 1], [true, true, true, true, true], 5)).toBe(
+      true,
+    );
+  });
+
+  it('sigue ocultando hasta cerrar la brecha', () => {
+    // Oculto 1; la menor visible es 2 (masa 3), después 3 (masa 6).
+    expect(
+      completarOcultamiento([20, 3, 2, 1], [false, false, false, true], 26),
+    ).toEqual([false, true, true, true]);
   });
 });
 
-describe('aplicarSupresionComplementaria', () => {
-  const fila = (conteos: (number | null)[]): FilaCruce => ({
-    clave: 'INTERIOR',
-    etiqueta: 'Interior',
-    celdas: conteos.map((c, i) => ({
-      optionId: `o${i}`,
-      valor: `v${i}`,
-      texto: `Opción ${i}`,
-      ...(c === null ? SUP : vis(c)),
-    })),
-    totalFila: SUP,
+describe('cruzarRespuestas: total del cruce', () => {
+  it('cinco filas de 1 y nada más: el total del cruce tampoco se publica', () => {
+    const OPC: OpcionCatalogo[] = [
+      { optionId: 'o', valor: 'o', texto: 'O', orden: 0 },
+    ];
+    const localidades = ['l1', 'l2', 'l3', 'l4', 'l5'];
+    const respuestas: RespuestaProyectada[] = localidades.map(
+      (localityId, i) => ({
+        responseId: `t${i}`,
+        etapa: 'ZONAL',
+        ventana: 'DURANTE',
+        sexo: null,
+        disciplineType: 'EQUIPO',
+        disciplineId: null,
+        categoryId: null,
+        localityId,
+        enviadaEn: new Date('2026-11-10T12:00:00Z'),
+        opciones: new Map([['q', ['o']]]),
+      }),
+    );
+    const mapas: MapasDeNombres = {
+      disciplinas: new Map(),
+      categorias: new Map(),
+      departamentos: new Map(),
+      preguntas: new Map(),
+      localidades: new Map(
+        localidades.map((id) => [
+          id,
+          {
+            nombre: id,
+            departmentId: 'd',
+            departamento: 'D',
+            zona: 'INTERIOR',
+          },
+        ]),
+      ) as MapasDeNombres['localidades'],
+    };
+    const res = cruzarRespuestas(respuestas, 'q', OPC, 'localidad', mapas, {
+      unica: true,
+      particion: true,
+    });
+    expect(res.totalOculto).toBe(true);
+  });
+});
+
+describe('protegerGrupo', () => {
+  it('total 13, Capital 10 e Interior 3: Interior no se despeja restando', () => {
+    expect(protegerGrupo([10, 3], 13)).toEqual([SUP, SUP]);
   });
 
-  it('aplica la regla fila por fila', () => {
-    const [a, b] = aplicarSupresionComplementaria([
-      fila([20, null, 7]),
-      fila([20, 9, 7]),
+  it('serie por hora: 20 en una hora y 1 en otras cinco no deja despejar las de 1', () => {
+    expect(
+      protegerGrupo([20, 1, 1, 1, 1, 1], 25).every((c) => c.suprimido),
+    ).toBe(true);
+  });
+
+  it('dos partes grandes se publican', () => {
+    expect(protegerGrupo([10, 7], 17)).toEqual([vis(10), vis(7)]);
+  });
+});
+
+describe('serieTemporal', () => {
+  it('total 13 con 10 un día y 3 otro: el día grande también se oculta', () => {
+    const dia = (d: string, k: number) =>
+      Array.from({ length: k }, () => new Date(`${d}T12:00:00Z`));
+    const puntos = serieTemporal(
+      [...dia('2026-01-01', 10), ...dia('2026-01-03', 3)],
+      'dia',
+    );
+    expect(puntos.map((p) => p.conteo)).toEqual([null, null]);
+  });
+});
+
+describe('cruzarRespuestas: filas chicas y complemento por fila', () => {
+  const OPCIONES: OpcionCatalogo[] = [
+    { optionId: 'o-no', valor: 'no', texto: 'No', orden: 0 },
+    { optionId: 'o-at', valor: 'at', texto: 'Atendido', orden: 1 },
+    { optionId: 'o-sin', valor: 'sin', texto: 'Nadie me atendió', orden: 2 },
+  ];
+  const MAPAS: MapasDeNombres = {
+    disciplinas: new Map(),
+    categorias: new Map(),
+    localidades: new Map(),
+    departamentos: new Map(),
+    preguntas: new Map(),
+  };
+  let n = 0;
+  const responde = (optionId: string): RespuestaProyectada => ({
+    responseId: `r${++n}`,
+    etapa: 'ZONAL',
+    ventana: 'DURANTE',
+    sexo: null,
+    disciplineType: 'EQUIPO',
+    disciplineId: null,
+    categoryId: null,
+    localityId: null,
+    enviadaEn: new Date('2026-11-10T12:00:00Z'),
+    opciones: new Map([['q', [optionId]]]),
+  });
+  const veces = (k: number, optionId: string) =>
+    Array.from({ length: k }, () => responde(optionId));
+  const celdas = (respuestas: RespuestaProyectada[]) =>
+    cruzarRespuestas(
+      respuestas,
+      'q',
+      OPCIONES,
+      'ventana',
+      MAPAS,
+    ).filas[0]!.celdas.map((c) => (c.suprimido ? null : c.conteo));
+
+  it('una fila con menos de 5 respuestas oculta todas sus celdas, ceros incluidos', () => {
+    // Antes: No=0 | Atendido=0 | Nadie=oculto con 3 respuestas ⇒ 3 − 0 − 0 = 3.
+    expect(celdas(veces(3, 'o-sin'))).toEqual([null, null, null]);
+  });
+
+  it('una celda no se publica si el resto de su fila queda entre 1 y 4', () => {
+    // 7 + 2 = 9: el 2 se oculta por chico y el 7 porque 9 − 7 = 2.
+    expect(celdas([...veces(7, 'o-no'), ...veces(2, 'o-sin')])).toEqual([
+      null,
+      0,
+      null,
     ]);
-    expect(a!.celdas.map((c) => c.conteo)).toEqual([20, null, null]);
-    expect(b!.celdas.map((c) => c.conteo)).toEqual([20, 9, 7]);
+  });
+
+  it('con 5 o más respuestas, una opción elegida por todos se publica (el 100 % no deja resto)', () => {
+    expect(celdas(veces(7, 'o-sin'))).toEqual([0, 0, 7]);
+  });
+
+  it('opción única: dos celdas de 1 no se despejan con el total de la fila', () => {
+    const OP4: OpcionCatalogo[] = [
+      ...OPCIONES,
+      { optionId: 'o-der', valor: 'der', texto: 'Derivado', orden: 3 },
+    ];
+    const { filas } = cruzarRespuestas(
+      [
+        ...veces(10, 'o-no'),
+        ...veces(8, 'o-at'),
+        ...veces(1, 'o-sin'),
+        ...veces(1, 'o-der'),
+      ],
+      'q',
+      OP4,
+      'ventana',
+      MAPAS,
+      { unica: true, particion: true },
+    );
+    expect(filas[0]!.celdas.map((c) => c.conteo)).toEqual([
+      10,
+      null,
+      null,
+      null,
+    ]);
+  });
+
+  it('filas que particionan: total 33 con una fila de 3 oculta la otra también', () => {
+    const enEtapa = (
+      k: number,
+      etapa: 'ZONAL' | 'DEPARTAMENTAL',
+      optionId: string,
+    ) => veces(k, optionId).map((r) => ({ ...r, etapa }));
+    const { filas, totalRespuestas } = cruzarRespuestas(
+      [
+        ...enEtapa(10, 'ZONAL', 'o-no'),
+        ...enEtapa(10, 'ZONAL', 'o-at'),
+        ...enEtapa(10, 'ZONAL', 'o-sin'),
+        ...enEtapa(3, 'DEPARTAMENTAL', 'o-no'),
+      ],
+      'q',
+      OPCIONES,
+      'etapa',
+      MAPAS,
+      { unica: true, particion: true },
+    );
+    expect(totalRespuestas).toBe(33);
+    for (const fila of filas) {
+      expect(fila.totalFila.suprimido).toBe(true);
+      expect(fila.celdas.every((c) => c.suprimido)).toBe(true);
+    }
+  });
+
+  it('una fila grande y repartida se publica entera', () => {
+    expect(
+      celdas([...veces(10, 'o-no'), ...veces(6, 'o-at'), ...veces(5, 'o-sin')]),
+    ).toEqual([10, 6, 5]);
   });
 });
 
@@ -198,11 +414,59 @@ describe('rankingDestacado', () => {
     expect(res.opciones.map((o) => o.valor)).toEqual(['a']);
   });
 
-  it('una base chica no publica nada', () => {
-    const res = rankingDestacado(4, [opcion('a', 4)], { top: 3, unica: false });
+  it('una base chica no publica nada, ni cuántas opciones se ocultaron', () => {
+    // Antes: base oculta + 4 opciones ocultas en opción única ⇒ base 4, 1 cada una.
+    const res = rankingDestacado(
+      4,
+      [opcion('a', 1), opcion('b', 1), opcion('c', 1), opcion('d', 1)],
+      { top: 3, unica: true },
+    );
     expect(res.base).toEqual(SUP);
     expect(res.opciones).toEqual([]);
+    expect(res.ocultas).toBe(0);
     expect(res.puedeAfirmar).toBe(false);
+  });
+
+  it('opción única: base 25 con 20 y cinco de 1: no se publica ninguna', () => {
+    const res = rankingDestacado(
+      25,
+      [
+        opcion('a', 20),
+        opcion('b', 1),
+        opcion('c', 1),
+        opcion('d', 1),
+        opcion('e', 1),
+        opcion('f', 1),
+      ],
+      { top: 5, unica: true },
+    );
+    expect(res.opciones).toEqual([]);
+  });
+
+  it('opción única: base 5 con cinco opciones de 1: tampoco se publica la base', () => {
+    const res = rankingDestacado(
+      5,
+      [
+        opcion('a', 1),
+        opcion('b', 1),
+        opcion('c', 1),
+        opcion('d', 1),
+        opcion('e', 1),
+      ],
+      { top: 5, unica: true },
+    );
+    expect(res.base).toEqual(SUP);
+    expect(res.ocultas).toBe(0);
+  });
+
+  it('opción única: base 20 con 10, 8, 1 y 1: se oculta también el 8', () => {
+    const res = rankingDestacado(
+      20,
+      [opcion('a', 10), opcion('b', 8), opcion('c', 1), opcion('d', 1)],
+      { top: 5, unica: true },
+    );
+    expect(res.opciones.map((o) => o.valor)).toEqual(['a']);
+    expect(res.ocultas).toBe(3);
   });
 
   it(`las frases necesitan al menos ${MINIMO_PARA_FRASES} respuestas en la base`, () => {

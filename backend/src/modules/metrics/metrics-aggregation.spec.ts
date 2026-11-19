@@ -157,10 +157,12 @@ describe('cruzarRespuestas', () => {
 
     expect(totalRespuestas).toBe(13);
     // Sin localidad cuenta como INTERIOR (6 + 2) y CAPITAL son las 5 de Formosa.
-    // La clave es el código; la etiqueta, el texto en castellano.
+    // La clave es el código; la etiqueta, el texto en castellano. El total
+    // de INTERIOR no se publica: tiene celdas ocultas (el 2, y el 6 porque
+    // 8 − 6 = 2).
     expect(filas.map((f) => [f.clave, f.etiqueta, f.totalFila.conteo])).toEqual(
       [
-        ['INTERIOR', 'Interior', 8],
+        ['INTERIOR', 'Interior', null],
         ['CAPITAL', 'Capital', 5],
       ],
     );
@@ -249,14 +251,17 @@ describe('aplicarUmbralTabla', () => {
       'localidad',
       mapas,
     );
-    // Antes de la segunda pasada la fila publica 9 y ocultaría sólo la celda de 2.
-    expect(filas[0].totalFila).toEqual({ suprimido: false, conteo: 9 });
+    // El cruce ya oculta el total de una fila con celdas ocultas; la segunda
+    // pasada es idempotente y sigue siendo la red de seguridad.
+    expect(filas[0].totalFila.suprimido).toBe(true);
 
     const protegidas = aplicarUmbralTabla(filas);
     expect(protegidas[0].totalFila.suprimido).toBe(true);
+    // El 7 tampoco se publica: con el total de la localidad a mano (otro
+    // corte), 9 − 7 despejaría el 2 (complemento por fila).
     expect(protegidas[0].celdas.find((c) => c.valor === 'no')).toMatchObject({
-      suprimido: false,
-      conteo: 7,
+      suprimido: true,
+      conteo: null,
     });
   });
 
@@ -401,8 +406,10 @@ describe('serieTemporal', () => {
     ];
     const serie = serieTemporal(fechas, 'dia');
     expect(serie.map((p) => [p.fecha, p.conteo])).toEqual([
+      // Total 13: con 6 y 5 visibles, el 11/11 (2) saldría restando; se
+      // oculta también el día más chico de los visibles (supresión por masa).
       ['2026-11-09', 6],
-      ['2026-11-10', 5],
+      ['2026-11-10', null],
       ['2026-11-11', null],
     ]);
   });
