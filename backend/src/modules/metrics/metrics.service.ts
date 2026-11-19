@@ -30,7 +30,6 @@ import {
   UMBRAL_K_ANONIMATO,
 } from '../survey/survey.constants';
 import {
-  aplicarSupresionComplementaria,
   aplicarUmbral,
   aplicarUmbralTabla,
   cruzarRespuestas,
@@ -40,6 +39,7 @@ import {
   evaluarKpi,
   granularidadPara,
   preguntaDeDimension,
+  protegerGrupo,
   publicarKpi,
   rankingDestacado,
   serieTemporal,
@@ -263,20 +263,33 @@ export class MetricsService {
       version,
       umbral: UMBRAL_K_ANONIMATO,
       filtros: this.filtrosDe(query),
-      totalRespuestas: respuestas.length,
-      porEtapaVentana: [...porEtapaVentana.entries()].map(([k, conteo]) => {
-        const [etapa, ventana] = k.split('|');
-        return {
-          etapa: etapa as MetricsOverview['porEtapaVentana'][number]['etapa'],
-          ventana:
-            ventana as MetricsOverview['porEtapaVentana'][number]['ventana'],
-          ...aplicarUmbral(conteo),
-        };
-      }),
-      porZona: [...porZona.entries()].map(([zona, conteo]) => ({
-        zona,
-        ...aplicarUmbral(conteo),
-      })),
+      totalRespuestas: aplicarUmbral(respuestas.length),
+      // Las partes suman el total publicado: además del umbral, lo oculto
+      // tiene que sumar 0 o al menos k (si no, total − visibles lo despeja).
+      porEtapaVentana: (() => {
+        const entradas = [...porEtapaVentana.entries()];
+        const cortes = protegerGrupo(
+          entradas.map(([, conteo]) => conteo),
+          respuestas.length,
+        );
+        return entradas.map(([k], i) => {
+          const [etapa, ventana] = k.split('|');
+          return {
+            etapa: etapa as MetricsOverview['porEtapaVentana'][number]['etapa'],
+            ventana:
+              ventana as MetricsOverview['porEtapaVentana'][number]['ventana'],
+            ...cortes[i]!,
+          };
+        });
+      })(),
+      porZona: (() => {
+        const entradas = [...porZona.entries()];
+        const cortes = protegerGrupo(
+          entradas.map(([, conteo]) => conteo),
+          respuestas.length,
+        );
+        return entradas.map(([zona], i) => ({ zona, ...cortes[i]! }));
+      })(),
       serie: { granularidad, puntos: serieTemporal(fechas, granularidad) },
     };
 
@@ -330,12 +343,21 @@ export class MetricsService {
     );
 
     const columnas = pregunta.options.map(this.aOpcionCatalogo);
-    const { filas, totalRespuestas } = cruzarRespuestas(
+    // Opción única: las celdas de una fila suman su total. Partición: cada
+    // respuesta cae en una sola fila (dimensión fija, u otra pregunta de
+    // opción única con su fila "Sin dato").
+    const unica = pregunta.kind === SurveyQuestionKind.UNICA;
+    const particion =
+      !otraPregunta ||
+      campania.questions.find((q) => q.id === otraPregunta)?.kind ===
+        SurveyQuestionKind.UNICA;
+    const { filas, totalRespuestas, totalOculto } = cruzarRespuestas(
       respuestas,
       pregunta.id,
       columnas,
       dimension,
       mapas,
+      { unica, particion },
     );
 
     const resultado: MetricsCross = {
@@ -353,12 +375,10 @@ export class MetricsService {
       // En opción única cada fila suma su total, que puede saberse por otro
       // lado (el resumen por zona, el total de respuestas): una sola celda
       // oculta se despejaría restando.
-      filas: aplicarUmbralTabla(
-        pregunta.kind === SurveyQuestionKind.UNICA
-          ? aplicarSupresionComplementaria(filas)
-          : filas,
-      ),
-      totalRespuestas,
+      filas: aplicarUmbralTabla(filas),
+      totalRespuestas: totalOculto
+        ? aplicarUmbral(0)
+        : aplicarUmbral(totalRespuestas),
     };
 
     await this.cache?.setex(clave, TTL_AGREGADOS_SEGUNDOS, resultado);
@@ -899,6 +919,8 @@ export class MetricsService {
       .update(canonico)
       .digest('hex')
       .slice(0, 16);
-    return `metrics:survey:${campaignId}:v${version}:${endpoint}:${huella}`;
+    // `p2`: formato de respuesta con totales como Corte y supresión por masa;
+    // las claves viejas (formato anterior) quedan huérfanas al desplegar.
+    return `metrics:p2:survey:${campaignId}:v${version}:${endpoint}:${huella}`;
   }
 }
