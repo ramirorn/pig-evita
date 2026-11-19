@@ -969,3 +969,54 @@ export interface MetricsKpis {
   filtros: MetricsFiltros;
   kpis: KpiResultado[];
 }
+
+/** Ranking de opciones del panel ("Lo que más necesitan los deportistas es:"). */
+export interface DestacadoDefinicion {
+  /** `valor` de las opciones que entran al ranking. */
+  opciones: string[];
+  /** Cuántas muestra (1 a 10). */
+  top: number;
+}
+
+export interface SurveyHighlight {
+  id: string;
+  campaignId: string | null;
+  titulo: string;
+  descripcion: string | null;
+  orden: number;
+  activo: boolean;
+  definicion: DestacadoDefinicion;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OpcionDestacada {
+  valor: string;
+  texto: string;
+  conteo: number;
+  /** Sobre la base; en opción múltiple suman más de 100. */
+  porcentaje: number;
+}
+
+export interface DestacadoResultado {
+  id: string;
+  titulo: string;
+  descripcion: string | null;
+  orden: number;
+  base: CorteEncuesta;
+  opciones: OpcionDestacada[];
+  /** Opciones que no se muestran para no identificar a nadie. */
+  ocultas: number;
+  /** La base alcanza el mínimo para escribir frases en lenguaje simple. */
+  puedeAfirmar: boolean;
+}
+
+export interface MetricsHighlights {
+  campaignId: string;
+  version: number;
+  umbral: number;
+  minimoFrases: number;
+  filtros: MetricsFiltros;
+  generadoEn: string;
+  destacados: DestacadoResultado[];
+}
