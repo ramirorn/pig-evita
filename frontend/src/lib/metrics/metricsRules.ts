@@ -346,6 +346,21 @@ export function colorDeSerie(indice: number): string {
 }
 
 // ===========================================
+// Totales
+// ===========================================
+
+/**
+ * "12 respuestas en el corte" o, si el total está suprimido, "Menos de 5
+ * respuestas en el corte": el total pasa por el mismo umbral que las celdas
+ * (con el total exacto, los ceros de una fila chica despejaban la celda oculta).
+ */
+export function textoTotal(total: CorteEncuesta, umbral: number, sufijo: string): string {
+  if (total.suprimido) return `Menos de ${umbral} respuestas ${sufijo}`;
+  const sustantivo = total.conteo === 1 ? 'respuesta' : 'respuestas';
+  return `${total.conteo.toLocaleString('es-AR')} ${sustantivo} ${sufijo}`;
+}
+
+// ===========================================
 // Lenguaje simple
 // ===========================================
 //

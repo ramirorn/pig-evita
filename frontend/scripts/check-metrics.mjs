@@ -74,6 +74,7 @@ const {
   rangoDePeriodo,
   periodoActivo,
   puntosSparkline,
+  textoTotal,
 } = await import(pathToFileURL(SALIDA).href);
 
 // -------------------------------------------------
@@ -347,6 +348,13 @@ comprobar('sparkline: sin datos no dibuja', puntosSparkline([], 60, 20) === '');
 comprobar('sparkline: un punto es una línea plana al medio', puntosSparkline([5], 60, 20) === '0,10 60,10');
 comprobar('sparkline: escala de abajo (mínimo) a arriba (máximo)', puntosSparkline([0, 10], 60, 20) === '0,20 60,0');
 comprobar('sparkline: los huecos suprimidos (null) no se inventan', puntosSparkline([2, null, 4], 60, 20) === '0,20 60,0');
+
+// -------------------------------------------------
+// Totales con umbral
+// -------------------------------------------------
+comprobar('total: visible con plural', textoTotal(vis(12), 5, 'en el corte') === '12 respuestas en el corte');
+comprobar('total: visible en singular', textoTotal(vis(1), 5, 'en el corte') === '1 respuesta en el corte');
+comprobar('total: suprimido dice "menos de", nunca el número', textoTotal(SUP, 5, 'en el corte') === 'Menos de 5 respuestas en el corte');
 
 // -------------------------------------------------
 // Resultado

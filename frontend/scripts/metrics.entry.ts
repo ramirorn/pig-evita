@@ -34,4 +34,5 @@ export {
   rangoDePeriodo,
   periodoActivo,
   puntosSparkline,
+  textoTotal,
 } from '@/lib/metrics/metricsRules';
