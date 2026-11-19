@@ -900,7 +900,7 @@ export interface MetricsOverview {
   version: number;
   umbral: number;
   filtros: MetricsFiltros;
-  totalRespuestas: number;
+  totalRespuestas: CorteEncuesta;
   porEtapaVentana: ({ etapa: CompetitionStage; ventana: SurveyWindow } & CorteEncuesta)[];
   porZona: ({ zona: ZonaTerritorial } & CorteEncuesta)[];
   serie: { granularidad: 'dia' | 'hora'; puntos: ({ fecha: string } & CorteEncuesta)[] };
@@ -925,7 +925,7 @@ export interface MetricsCross {
   etiquetaDimension: string;
   columnas: MetricsOpcion[];
   filas: MetricsFila[];
-  totalRespuestas: number;
+  totalRespuestas: CorteEncuesta;
 }
 
 export interface KpiCondicion {
