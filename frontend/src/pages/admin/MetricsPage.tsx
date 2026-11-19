@@ -275,7 +275,7 @@ export function MetricsPage() {
           <>
             <StatTile
               etiqueta="Respuestas en el corte"
-              valor={resumen?.totalRespuestas.toLocaleString('es-AR') ?? '—'}
+              valor={resumen ? <ConteoCorte corte={resumen.totalRespuestas} umbral={umbral} /> : '—'}
               testId="metricas-total"
               tendencia={resumen?.serie.puntos.map((p) => (p.suprimido ? null : p.conteo))}
             />

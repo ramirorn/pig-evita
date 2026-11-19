@@ -107,7 +107,7 @@ export function MetricsPresentationPage() {
               <StatTile
                 grande
                 etiqueta="Respuestas"
-                valor={resumen?.totalRespuestas.toLocaleString('es-AR') ?? '—'}
+                valor={resumen ? <ConteoCorte corte={resumen.totalRespuestas} umbral={umbral} /> : '—'}
                 tendencia={resumen?.serie.puntos.map((p) => (p.suprimido ? null : p.conteo))}
               />
               {(['CAPITAL', 'INTERIOR'] as const).map((zona, i) => {
