@@ -1,0 +1,250 @@
+// ===========================================
+// Red del panel de Métricas de la encuesta
+//
+// Lo que este chequeo fija es la promesa de anonimato del lado del navegador:
+// un corte suprimido por k-anonimato nunca se dibuja ni se exporta como cero.
+// Además, que cada gráfico se ofrezca sólo donde tiene sentido, que el CSV no
+// abra una fórmula en Excel y que los filtros sobrevivan a la URL.
+//
+// Se bundlea el **fuente real** con esbuild, igual que check-survey.mjs: no hay
+// runner de tests en el frontend y el presupuesto de dependencias nuevas es
+// cero.
+//
+// Corre con: npm run check:metrics
+// ===========================================
+import { execSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+
+const RAIZ = path.resolve(import.meta.dirname, '..');
+const SRC = path.join(RAIZ, 'src');
+const SALIDA = path.join(RAIZ, 'node_modules', '.cache', 'check-metrics.mjs');
+
+const problemas = [];
+const verificaciones = [];
+
+function comprobar(descripcion, condicion, detalle) {
+  verificaciones.push(descripcion);
+  if (!condicion) problemas.push(`${descripcion}${detalle ? ` — ${detalle}` : ''}`);
+}
+
+execSync(
+  [
+    'npx esbuild',
+    `"${path.join(RAIZ, 'scripts', 'metrics.entry.ts')}"`,
+    `"--outfile=${SALIDA}"`,
+    '--bundle --format=esm --platform=node --log-level=error',
+    `"--alias:@=${SRC}"`,
+    '"--define:import.meta.env={\\"DEV\\":false}"',
+  ].join(' '),
+  { cwd: RAIZ, stdio: ['ignore', 'ignore', 'inherit'] },
+);
+
+const {
+  TIPOS_GRAFICO,
+  DIMENSION_SIN_DESGLOSE,
+  graficoCompatible,
+  tiposDisponibles,
+  ajustarTipo,
+  aDatosTorta,
+  aDatosBarras,
+  aDatosDispersion,
+  aDatosSerie,
+  etiquetaFecha,
+  colorDeSerie,
+  formatearKpi,
+  motivoKpiOculto,
+  celdaCsv,
+  tablaACsv,
+  nombreArchivo,
+  filtrosDesdeBusqueda,
+  filtrosABusqueda,
+  hayFiltrosActivos,
+  aplicarCambioDeFiltro,
+} = await import(pathToFileURL(SALIDA).href);
+
+// -------------------------------------------------
+// Datos de prueba
+// -------------------------------------------------
+const SUP = { suprimido: true, motivo: 'MUESTRA_INSUFICIENTE', conteo: null };
+const vis = (conteo) => ({ suprimido: false, conteo });
+const COLUMNAS = [
+  { optionId: 'o1', valor: 'no', texto: 'No', orden: 0 },
+  { optionId: 'o2', valor: 'si', texto: 'Sí', orden: 1 },
+];
+const celdas = (a, b) => [
+  { optionId: 'o1', valor: 'no', texto: 'No', ...a },
+  { optionId: 'o2', valor: 'si', texto: 'Sí', ...b },
+];
+function cruce(filas, extra = {}) {
+  return {
+    campaignId: 'c',
+    version: 1,
+    umbral: 5,
+    filtros: {},
+    pregunta: { questionId: 'q', orden: 1, texto: 'P', kind: 'UNICA', audiencia: 'TODOS', activa: true, opciones: COLUMNAS },
+    dimension: 'zona',
+    etiquetaDimension: 'Zona',
+    columnas: COLUMNAS,
+    filas,
+    totalRespuestas: 0,
+    ...extra,
+  };
+}
+
+// -------------------------------------------------
+// 1. Qué gráfico se ofrece con qué configuración
+// -------------------------------------------------
+comprobar('hay cinco tipos de gráfico', TIPOS_GRAFICO.length === 5);
+comprobar('sin desglose se ofrece torta', graficoCompatible('torta', undefined) === true);
+comprobar('con desglose no se ofrece torta', graficoCompatible('torta', 'zona') === false);
+comprobar('barras apiladas necesitan desglose', graficoCompatible('barras_apiladas', undefined) === false);
+comprobar(
+  'dispersión sólo para pregunta × pregunta',
+  graficoCompatible('dispersion', 'zona') === false &&
+    graficoCompatible('dispersion', 'pregunta:abc') === true,
+);
+comprobar(
+  'los tipos disponibles sin desglose son barras, torta y líneas',
+  tiposDisponibles(undefined).join() === 'barras,torta,lineas',
+);
+comprobar(
+  'si el tipo elegido deja de servir, se cambia al primero disponible',
+  ajustarTipo('torta', 'zona') === 'barras' && ajustarTipo('lineas', 'zona') === 'lineas',
+);
+comprobar('sin desglose se cruza por ventana (una sola fila)', DIMENSION_SIN_DESGLOSE === 'ventana');
+
+// -------------------------------------------------
+// 2. Un suprimido nunca se dibuja como cero
+// -------------------------------------------------
+{
+  const torta = aDatosTorta(cruce([{ clave: 'DURANTE', etiqueta: 'Durante', celdas: celdas(vis(8), SUP), totalFila: SUP }]));
+  comprobar('torta: la celda suprimida no aparece', torta.datos.length === 1 && torta.datos[0].valor === 8);
+  comprobar('torta: se cuenta la suprimida para avisarlo', torta.suprimidas === 1);
+
+  const ceros = aDatosTorta(cruce([{ clave: 'D', etiqueta: 'D', celdas: celdas(vis(0), vis(6)), totalFila: vis(6) }]));
+  comprobar('torta: una opción en cero no dibuja una porción vacía', ceros.datos.length === 1 && ceros.suprimidas === 0);
+}
+{
+  const filas = [
+    { clave: 'INTERIOR', etiqueta: 'INTERIOR', celdas: celdas(vis(7), SUP), totalFila: SUP },
+    { clave: 'CAPITAL', etiqueta: 'CAPITAL', celdas: celdas(vis(5), vis(5)), totalFila: vis(10) },
+  ];
+  const barras = aDatosBarras(cruce(filas));
+  comprobar('barras: la fila con celda suprimida conserva sus visibles', barras.datos[0].No === 7);
+  comprobar('barras: la celda suprimida no se convierte en cero', !('Sí' in barras.datos[0]));
+  comprobar('barras: se cuentan las suprimidas', barras.suprimidas === 1);
+
+  const porcentaje = aDatosBarras(cruce(filas), { porcentaje: true });
+  comprobar(
+    'barras %: una fila con total oculto queda afuera (el % lo revelaría)',
+    porcentaje.datos.length === 1 && porcentaje.datos[0].etiqueta === 'CAPITAL',
+  );
+  comprobar('barras %: el porcentaje se calcula sobre el total de la fila', porcentaje.datos[0].No === 50);
+}
+{
+  const disp = aDatosDispersion(
+    cruce([
+      { clave: 'o-a', etiqueta: 'A', celdas: celdas(vis(6), SUP), totalFila: SUP },
+      { clave: 'o-b', etiqueta: 'B', celdas: celdas(vis(0), vis(9)), totalFila: vis(9) },
+    ], { dimension: 'pregunta:x' }),
+  );
+  comprobar('dispersión: una burbuja por combinación visible con respuestas', disp.datos.length === 2);
+  comprobar('dispersión: x = fila, y = columna', disp.datos[1].x === 1 && disp.datos[1].y === 1 && disp.datos[1].conteo === 9);
+  comprobar('dispersión: se cuentan las suprimidas', disp.suprimidas === 1);
+}
+{
+  const serie = aDatosSerie({
+    serie: {
+      granularidad: 'dia',
+      puntos: [
+        { fecha: '2026-11-09', ...vis(12) },
+        { fecha: '2026-11-10', ...SUP },
+      ],
+    },
+  });
+  comprobar('serie: un día suprimido corta la línea (null), no baja a cero', serie.datos[1].respuestas === null);
+  comprobar('serie: la etiqueta del día es dd/mm', serie.datos[0].etiqueta === '09/11');
+  comprobar('serie: etiqueta por hora', etiquetaFecha('2026-11-10T14:00', 'hora') === '10/11 14 h');
+}
+
+// -------------------------------------------------
+// 3. KPIs
+// -------------------------------------------------
+{
+  const kpi = (valor, numerador, denominador, formato = 'porcentaje') => ({
+    id: 'k', nombre: 'K', descripcion: null, orden: 0, formato, numerador, denominador, valor,
+  });
+  comprobar('kpi: porcentaje con coma decimal', formatearKpi(kpi(60.5, vis(6), vis(10))) === '60,5 %');
+  comprobar('kpi: conteo', formatearKpi(kpi(12, vis(12), vis(20), 'conteo')) === '12');
+  comprobar('kpi: oculto se muestra como —', formatearKpi(kpi(null, SUP, vis(10))) === '—');
+  comprobar(
+    'kpi: el motivo de ocultarlo nombra el umbral',
+    /Menos de 5 respuestas/.test(motivoKpiOculto(kpi(null, SUP, vis(10)), 5) ?? ''),
+  );
+  comprobar('kpi: visible no tiene motivo', motivoKpiOculto(kpi(60, vis(6), vis(10)), 5) === null);
+}
+
+// -------------------------------------------------
+// 4. CSV
+// -------------------------------------------------
+comprobar('csv: una fórmula queda neutralizada', celdaCsv('=SUMA(A1)') === `"'=SUMA(A1)"`);
+comprobar('csv: comillas escapadas', celdaCsv('dijo "hola"') === '"dijo ""hola"""');
+comprobar('csv: null es celda vacía, no "null"', celdaCsv(null) === '""');
+{
+  const csv = tablaACsv(cruce([{ clave: 'I', etiqueta: 'Interior', celdas: celdas(vis(7), SUP), totalFila: SUP }]));
+  const lineas = csv.split('\r\n');
+  comprobar('csv: encabezado con la dimensión, las opciones y el total', lineas[0] === '"Zona";"No";"Sí";"Total"');
+  comprobar('csv: el suprimido se escribe "< 5", nunca 0', lineas[1] === '"Interior";"7";"< 5";"< 5"');
+}
+comprobar('nombre de archivo sin tildes ni espacios', nombreArchivo('¿Te lesionaste? por Zona', 'csv') === 'te-lesionaste-por-zona.csv');
+
+// -------------------------------------------------
+// 5. Filtros ↔ URL
+// -------------------------------------------------
+{
+  const busqueda = new URLSearchParams('zona=INTERIOR&campania=abc&sexo=FEMENINO&basura=1');
+  const filtros = filtrosDesdeBusqueda(busqueda);
+  comprobar('url: lee sólo las claves de filtro', JSON.stringify(filtros) === '{"zona":"INTERIOR","sexo":"FEMENINO"}');
+  const escrita = filtrosABusqueda({ zona: 'CAPITAL' }, busqueda);
+  comprobar(
+    'url: escribe los filtros y conserva las claves ajenas',
+    escrita.get('zona') === 'CAPITAL' && escrita.get('campania') === 'abc' && !escrita.has('sexo'),
+  );
+  comprobar('url: sin filtros no hay filtros activos', hayFiltrosActivos({}) === false);
+}
+{
+  const catalogo = {
+    departamentos: [
+      { id: 'd1', localidades: [{ id: 'l1' }] },
+      { id: 'd2', localidades: [{ id: 'l2' }] },
+    ],
+    categorias: [{ id: 'c1', disciplineId: 'x' }],
+  };
+  comprobar(
+    'filtros: cambiar de departamento limpia una localidad ajena',
+    aplicarCambioDeFiltro({ localityId: 'l1' }, { departmentId: 'd2' }, catalogo).localityId === undefined,
+  );
+  comprobar(
+    'filtros: cambiar de disciplina limpia una categoría ajena',
+    aplicarCambioDeFiltro({ categoryId: 'c1' }, { disciplineId: 'y' }, catalogo).categoryId === undefined,
+  );
+  comprobar(
+    'filtros: el mismo departamento conserva la localidad',
+    aplicarCambioDeFiltro({ localityId: 'l1' }, { departmentId: 'd1' }, catalogo).localityId === 'l1',
+  );
+}
+comprobar('paleta: usa variables del tema y cicla', colorDeSerie(0).startsWith('var(--color-') && colorDeSerie(0) === colorDeSerie(10));
+
+// -------------------------------------------------
+// Resultado
+// -------------------------------------------------
+if (problemas.length > 0) {
+  console.error(`\n❌ ${problemas.length} problema(s) en el panel de métricas:\n`);
+  for (const problema of problemas) console.error(`  · ${problema}`);
+  console.error('');
+  process.exit(1);
+}
+
+console.log(`Chequeos ejecutados: ${verificaciones.length}`);
+console.log('✅ Ningún corte suprimido se dibuja ni se exporta como cero.');

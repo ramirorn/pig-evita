@@ -10,6 +10,7 @@
     "check:nav": "node scripts/check-nav-roles.mjs",
     "check:cards": "node scripts/check-public-cards.mjs",
     "check:survey": "node scripts/check-survey.mjs",
+    "check:metrics": "node scripts/check-metrics.mjs",
     "check:roster": "node scripts/check-roster.mjs",
     "check:documents": "node scripts/check-documents.mjs",
     "check:map": "node scripts/check-map.mjs",
