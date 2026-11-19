@@ -61,6 +61,11 @@ const {
   filtrosABusqueda,
   hayFiltrosActivos,
   aplicarCambioDeFiltro,
+  orientacionBarras,
+  anchoEjeEtiquetas,
+  recortarEtiqueta,
+  disponerBarras,
+  FILAS_VISIBLES_BARRAS,
 } = await import(pathToFileURL(SALIDA).href);
 
 // -------------------------------------------------
@@ -235,6 +240,44 @@ comprobar('nombre de archivo sin tildes ni espacios', nombreArchivo('¿Te lesion
   );
 }
 comprobar('paleta: usa variables del tema y cicla', colorDeSerie(0).startsWith('var(--color-') && colorDeSerie(0) === colorDeSerie(10));
+comprobar(
+  'paleta: el rojo de error no se usa para series comunes',
+  Array.from({ length: 10 }, (_, i) => colorDeSerie(i)).every((c) => !c.includes('destructive')),
+);
+
+// -------------------------------------------------
+// Barras legibles: nunca etiquetas encimadas
+// -------------------------------------------------
+comprobar('barras: pocas categorías cortas van en columnas', orientacionBarras(['Capital', 'Interior']) === 'vertical');
+comprobar(
+  'barras: más de 5 categorías pasan a horizontal',
+  orientacionBarras(['A', 'B', 'C', 'D', 'E', 'F']) === 'horizontal',
+);
+comprobar(
+  'barras: una etiqueta larga pasa a horizontal',
+  orientacionBarras(['Formosa', 'Ingeniero Juárez']) === 'horizontal',
+);
+comprobar('barras: el eje crece con la etiqueta más larga', anchoEjeEtiquetas(['Laguna Blanca']) > anchoEjeEtiquetas(['Pirané']));
+comprobar('barras: el eje tiene tope', anchoEjeEtiquetas(['x'.repeat(200)]) === 180);
+comprobar('barras: una etiqueta corta queda igual', recortarEtiqueta('Clorinda', 20) === 'Clorinda');
+comprobar(
+  'barras: una etiqueta larga se recorta con puntos suspensivos',
+  recortarEtiqueta('Comandante Fontana del Norte', 12) === 'Comandante…' && recortarEtiqueta('Comandante Fontana del Norte', 12).length <= 12,
+);
+{
+  const muchas = Array.from({ length: 20 }, (_, i) => ({ etiqueta: `Localidad ${i}`, No: i, Sí: 1 }));
+  const d = disponerBarras(muchas);
+  comprobar('barras: con muchas filas se muestran las primeras', d.filas.length === FILAS_VISIBLES_BARRAS && d.ocultas === 20 - FILAS_VISIBLES_BARRAS);
+  comprobar('barras: en horizontal se ordena de mayor a menor', d.filas[0].etiqueta === 'Localidad 19');
+  comprobar('barras: en horizontal la altura crece con las filas', d.alto !== null && d.alto >= FILAS_VISIBLES_BARRAS * 36);
+  const todas = disponerBarras(muchas, { verTodas: true });
+  comprobar('barras: "Ver todas" muestra todas las filas', todas.filas.length === 20 && todas.ocultas === 0);
+  const pocas = disponerBarras([{ etiqueta: 'ZONAL', No: 1 }, { etiqueta: 'PROVINCIAL', No: 9 }]);
+  comprobar(
+    'barras: en columnas se respeta el orden original y la altura fija',
+    pocas.orientacion === 'vertical' && pocas.filas[0].etiqueta === 'ZONAL' && pocas.alto === null,
+  );
+}
 
 // -------------------------------------------------
 // Resultado

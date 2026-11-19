@@ -21,4 +21,9 @@ export {
   filtrosABusqueda,
   hayFiltrosActivos,
   aplicarCambioDeFiltro,
+  orientacionBarras,
+  anchoEjeEtiquetas,
+  recortarEtiqueta,
+  disponerBarras,
+  FILAS_VISIBLES_BARRAS,
 } from '@/lib/metrics/metricsRules';
