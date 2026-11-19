@@ -14,7 +14,11 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { Prisma, SurveyCampaignStatus } from '@prisma/client';
+import {
+  Prisma,
+  SurveyCampaignStatus,
+  SurveyQuestionKind,
+} from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisCacheService } from '../../common/cache';
@@ -22,35 +26,45 @@ import { CAPITAL, zonaDeLocalidad } from '../../common/constants';
 import { finDelRango, inicioDelRango } from '../../common/dto/date-range';
 import {
   claveVersionCampania,
+  MINIMO_PARA_FRASES,
   UMBRAL_K_ANONIMATO,
 } from '../survey/survey.constants';
 import {
+  aplicarSupresionComplementaria,
   aplicarUmbral,
   aplicarUmbralTabla,
   cruzarRespuestas,
   esDimensionValida,
   ETIQUETAS_DIMENSION,
+  evaluarDestacado,
   evaluarKpi,
   granularidadPara,
-  porcentajeKpi,
   preguntaDeDimension,
+  publicarKpi,
+  rankingDestacado,
   serieTemporal,
+  validarDefinicionDestacado,
   validarDefinicionKpi,
 } from './metrics-aggregation';
 import type {
+  CreateSurveyHighlightDto,
   CreateSurveyKpiDto,
   MetricsCrossQueryDto,
   MetricsQueryDto,
+  UpdateSurveyHighlightDto,
   UpdateSurveyKpiDto,
 } from './dto';
 import type {
+  DefinicionDestacado,
   DefinicionKpi,
+  DestacadoResultado,
   Dimension,
   KpiResultado,
   MapasDeNombres,
   MetricsCatalog,
   MetricsCross,
   MetricsFiltros,
+  MetricsHighlights,
   MetricsKpis,
   MetricsOverview,
   OpcionCatalogo,
@@ -336,7 +350,14 @@ export class MetricsService {
           dimension)
         : ETIQUETAS_DIMENSION[dimension as keyof typeof ETIQUETAS_DIMENSION],
       columnas,
-      filas: aplicarUmbralTabla(filas),
+      // En opción única cada fila suma su total, que puede saberse por otro
+      // lado (el resumen por zona, el total de respuestas): una sola celda
+      // oculta se despejaría restando.
+      filas: aplicarUmbralTabla(
+        pregunta.kind === SurveyQuestionKind.UNICA
+          ? aplicarSupresionComplementaria(filas)
+          : filas,
+      ),
       totalRespuestas,
     };
 
@@ -383,17 +404,13 @@ export class MetricsService {
         valorDeOpcion,
         preguntaDeValor,
       );
-      const num = aplicarUmbral(numerador);
-      const den = aplicarUmbral(denominador);
       return {
         id: k.id,
         nombre: k.nombre,
         descripcion: k.descripcion,
         orden: k.orden,
         formato: def.formato,
-        numerador: num,
-        denominador: den,
-        valor: def.formato === 'conteo' ? num.conteo : porcentajeKpi(num, den),
+        ...publicarKpi(numerador, denominador, def.formato),
       };
     });
 
@@ -407,6 +424,159 @@ export class MetricsService {
 
     await this.cache?.setex(clave, TTL_AGREGADOS_SEGUNDOS, resultado);
     return resultado;
+  }
+
+  // ===========================================
+  // Destacados
+  // ===========================================
+
+  async highlights(
+    campaignId: string,
+    query: MetricsQueryDto,
+  ): Promise<MetricsHighlights> {
+    const campania = await this.findCampania(campaignId);
+    const version = await this.version(campaignId);
+    const clave = this.claveDeCache(campaignId, version, 'highlights', query);
+    const cacheado = await this.cache?.get<MetricsHighlights>(clave);
+    if (cacheado) return cacheado;
+
+    const definiciones = await this.prisma.surveyHighlight.findMany({
+      where: {
+        activo: true,
+        OR: [{ campaignId }, { campaignId: null }],
+      },
+      orderBy: [{ orden: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    const where = this.construirWhere(campaignId, query);
+    const respuestas = await this.proyectarRespuestas(where);
+
+    const valorDeOpcion = new Map<string, string>();
+    const opcionDeValor = new Map<
+      string,
+      { texto: string; questionId: string; kind: SurveyQuestionKind }
+    >();
+    for (const q of campania.questions) {
+      for (const o of q.options) {
+        valorDeOpcion.set(o.id, o.valor);
+        opcionDeValor.set(o.valor, {
+          texto: o.texto,
+          questionId: q.id,
+          kind: q.kind,
+        });
+      }
+    }
+
+    const destacados: DestacadoResultado[] = definiciones.map((h) => {
+      const def = h.definicion as unknown as DefinicionDestacado;
+      // Sólo las opciones que existen en esta campaña: un destacado
+      // reutilizable puede nombrar opciones de otra edición.
+      const presentes = def.opciones.filter((v) => opcionDeValor.has(v));
+      const { base, conteos } = evaluarDestacado(
+        respuestas,
+        { ...def, opciones: presentes },
+        valorDeOpcion,
+      );
+      const preguntas = new Set(
+        presentes.map((v) => opcionDeValor.get(v)!.questionId),
+      );
+      const unica =
+        preguntas.size === 1 &&
+        presentes.every(
+          (v) => opcionDeValor.get(v)!.kind === SurveyQuestionKind.UNICA,
+        );
+      return {
+        id: h.id,
+        titulo: h.titulo,
+        descripcion: h.descripcion,
+        orden: h.orden,
+        ...rankingDestacado(
+          base,
+          presentes.map((v) => ({
+            valor: v,
+            texto: opcionDeValor.get(v)!.texto,
+            conteo: conteos.get(v) ?? 0,
+          })),
+          { top: def.top, unica },
+        ),
+      };
+    });
+
+    const resultado: MetricsHighlights = {
+      campaignId,
+      version,
+      umbral: UMBRAL_K_ANONIMATO,
+      minimoFrases: MINIMO_PARA_FRASES,
+      filtros: this.filtrosDe(query),
+      generadoEn: new Date().toISOString(),
+      destacados,
+    };
+
+    await this.cache?.setex(clave, TTL_AGREGADOS_SEGUNDOS, resultado);
+    return resultado;
+  }
+
+  async listHighlights(campaignId?: string) {
+    return this.prisma.surveyHighlight.findMany({
+      where: campaignId
+        ? { OR: [{ campaignId }, { campaignId: null }] }
+        : undefined,
+      orderBy: [{ orden: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async createHighlight(dto: CreateSurveyHighlightDto) {
+    this.validarDestacado(dto.definicion);
+    if (dto.campaignId) await this.findCampania(dto.campaignId);
+
+    const creado = await this.prisma.surveyHighlight.create({
+      data: {
+        campaignId: dto.campaignId ?? null,
+        titulo: dto.titulo,
+        descripcion: dto.descripcion ?? null,
+        orden: dto.orden ?? 0,
+        activo: dto.activo ?? true,
+        definicion: dto.definicion as Prisma.InputJsonValue,
+      },
+    });
+    this.invalidar(creado.campaignId);
+    return creado;
+  }
+
+  async updateHighlight(id: string, dto: UpdateSurveyHighlightDto) {
+    const actual = await this.prisma.surveyHighlight.findUnique({
+      where: { id },
+    });
+    if (!actual) throw new NotFoundException('Destacado no encontrado');
+    if (dto.definicion) this.validarDestacado(dto.definicion);
+    if (dto.campaignId) await this.findCampania(dto.campaignId);
+
+    const actualizado = await this.prisma.surveyHighlight.update({
+      where: { id },
+      data: {
+        campaignId: dto.campaignId === undefined ? undefined : dto.campaignId,
+        titulo: dto.titulo,
+        descripcion: dto.descripcion,
+        orden: dto.orden,
+        activo: dto.activo,
+        definicion: dto.definicion as Prisma.InputJsonValue | undefined,
+      },
+    });
+    this.invalidar(actual.campaignId);
+    this.invalidar(actualizado.campaignId);
+    return actualizado;
+  }
+
+  async removeHighlight(id: string) {
+    const actual = await this.prisma.surveyHighlight.findUnique({
+      where: { id },
+    });
+    if (!actual) throw new NotFoundException('Destacado no encontrado');
+    const borrado = await this.prisma.surveyHighlight.delete({
+      where: { id },
+    });
+    this.invalidar(actual.campaignId);
+    return borrado;
   }
 
   // ===========================================
@@ -476,6 +646,11 @@ export class MetricsService {
 
   private validarDefinicion(definicion: unknown): void {
     const error = validarDefinicionKpi(definicion);
+    if (error) throw new BadRequestException(`Definición inválida: ${error}`);
+  }
+
+  private validarDestacado(definicion: unknown): void {
+    const error = validarDefinicionDestacado(definicion);
     if (error) throw new BadRequestException(`Definición inválida: ${error}`);
   }
 
