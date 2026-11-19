@@ -3,13 +3,16 @@
 // ===========================================
 import apiClient from './client';
 import type {
+  DestacadoDefinicion,
   KpiDefinicion,
   MetricsCatalog,
   MetricsCross,
   MetricsDimension,
   MetricsFiltros,
+  MetricsHighlights,
   MetricsKpis,
   MetricsOverview,
+  SurveyHighlight,
   SurveyKpi,
 } from '@/types';
 
@@ -20,6 +23,15 @@ export interface SurveyKpiPayload {
   orden?: number;
   activo?: boolean;
   definicion: KpiDefinicion;
+}
+
+export interface SurveyHighlightPayload {
+  campaignId?: string | null;
+  titulo: string;
+  descripcion?: string | null;
+  orden?: number;
+  activo?: boolean;
+  definicion: DestacadoDefinicion;
 }
 
 /** Saca los filtros vacíos: `?zona=` no es lo mismo que no filtrar. */
@@ -94,5 +106,37 @@ export const metricsApi = {
 
   async removeKpi(id: string): Promise<void> {
     await apiClient.delete(`/metrics/kpis/${id}`);
+  },
+
+  async getHighlights(campaignId: string, filtros?: MetricsFiltros): Promise<MetricsHighlights> {
+    const { data } = await apiClient.get<MetricsHighlights>(
+      `/metrics/survey/${campaignId}/highlights`,
+      { params: limpiar(filtros) },
+    );
+    return data;
+  },
+
+  async listHighlights(campaignId?: string): Promise<SurveyHighlight[]> {
+    const { data } = await apiClient.get<SurveyHighlight[]>('/metrics/highlights', {
+      params: campaignId ? { campaignId } : undefined,
+    });
+    return data;
+  },
+
+  async createHighlight(payload: SurveyHighlightPayload): Promise<SurveyHighlight> {
+    const { data } = await apiClient.post<SurveyHighlight>('/metrics/highlights', payload);
+    return data;
+  },
+
+  async updateHighlight(
+    id: string,
+    payload: Partial<SurveyHighlightPayload>,
+  ): Promise<SurveyHighlight> {
+    const { data } = await apiClient.patch<SurveyHighlight>(`/metrics/highlights/${id}`, payload);
+    return data;
+  },
+
+  async removeHighlight(id: string): Promise<void> {
+    await apiClient.delete(`/metrics/highlights/${id}`);
   },
 };
