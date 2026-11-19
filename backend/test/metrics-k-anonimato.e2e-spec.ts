@@ -486,6 +486,18 @@ describe('/metrics (e2e) — k-anonimato', () => {
     expect(d.puedeAfirmar).toBe(false);
   });
 
+  it('highlights: un destacado sin opciones en esta campaña no aparece', async () => {
+    destacados.push({
+      ...LESIONES,
+      titulo: 'De otra edición',
+      definicion: { opciones: ['nec_transporte'], top: 3 },
+    });
+    respuestas.push(...repetir(6, () => respuesta(LOC_PIRANE, OPC.no, null)));
+    const res = await get(`/metrics/survey/${CAMPAIGN_ID}/highlights`);
+    expect(res.status).toBe(200);
+    expect(res.body.destacados).toEqual([]);
+  });
+
   it('highlights: crear valida la definición', async () => {
     const malo = await request(app.getHttpServer())
       .post('/metrics/highlights')
