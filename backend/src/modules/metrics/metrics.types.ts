@@ -245,3 +245,52 @@ export interface MetricsKpis {
   filtros: MetricsFiltros;
   kpis: KpiResultado[];
 }
+
+// ===========================================
+// Destacados
+// ===========================================
+
+/**
+ * Ranking de opciones definido por el panel ("Lo que más necesitan los
+ * deportistas es:"). Como los KPIs, se refiere a opciones por su `valor`, así
+ * sobrevive a que cada edición reescriba las preguntas.
+ */
+export interface DefinicionDestacado {
+  opciones: string[];
+  /** Cuántas opciones muestra el ranking (1 a 10). */
+  top: number;
+}
+
+export interface OpcionDestacada {
+  valor: string;
+  texto: string;
+  conteo: number;
+  /** Sobre la base, a 1 decimal. En MULTIPLE los porcentajes suman más de 100. */
+  porcentaje: number;
+}
+
+export interface DestacadoResultado {
+  id: string;
+  titulo: string;
+  descripcion: string | null;
+  orden: number;
+  /** Quienes eligieron alguna de las opciones del destacado. */
+  base: Corte;
+  /** Ranking publicable, de mayor a menor; nunca incluye un "resto". */
+  opciones: OpcionDestacada[];
+  /** Opciones que no se muestran para no identificar a nadie. */
+  ocultas: number;
+  /** La base alcanza `MINIMO_PARA_FRASES`: el panel puede escribir frases. */
+  puedeAfirmar: boolean;
+}
+
+export interface MetricsHighlights {
+  campaignId: string;
+  version: number;
+  umbral: number;
+  minimoFrases: number;
+  filtros: MetricsFiltros;
+  /** Momento del cálculo (ISO), para el "datos al …" del panel. */
+  generadoEn: string;
+  destacados: DestacadoResultado[];
+}
