@@ -490,7 +490,13 @@ Todos los endpoints de reportes soportan formato CSV (por defecto) y Excel (vía
 
 ### 4.19 Metrics (métricas de la encuesta)
 
-Lectura analítica sobre las respuestas de la encuesta. Todo corte con menos de `UMBRAL_K_ANONIMATO` (5) respuestas se devuelve suprimido (`conteo: null`); en una tabla cruzada, una celda suprimida también suprime el total de su fila. Los agregados se cachean en Redis bajo la **versión** de la campaña, que sube con cada respuesta nueva o con cambios en el cuestionario o en un KPI.
+Lectura analítica sobre las respuestas de la encuesta. Todo corte con menos de `UMBRAL_K_ANONIMATO` (5) respuestas se devuelve suprimido (`conteo: null`). Además, ningún número se publica si permite despejar por resta un grupo chico:
+
+- en una tabla cruzada, una celda suprimida también suprime el total de su fila; si la pregunta es de **opción única** y en la fila queda una sola celda oculta, se oculta además la menor visible (supresión secundaria: el total de la fila puede saberse por otro endpoint);
+- en un KPI, si `denominador − numerador` queda entre 1 y 4 (p. ej. 9 atendidos de 11 lesionados ⇒ 2 sin atención), el numerador y el valor no se publican;
+- en un destacado, cada opción pasa por el umbral, por el complemento contra la base y, en opción única, por la supresión secundaria; lo oculto no entra al ranking (nunca hay una fila "Otras").
+
+Los agregados se cachean en Redis bajo la **versión** de la campaña, que sube con cada respuesta nueva o con cambios en el cuestionario, en un KPI o en un destacado.
 
 | Método | Ruta | Descripción | Acceso |
 |---|---|---|---|
@@ -501,6 +507,9 @@ Lectura analítica sobre las respuestas de la encuesta. Todo corte con menos de 
 | `GET` | `/metrics/survey/:id/kpis` | Indicadores activos evaluados sobre el corte | Admins, COORDINADOR |
 | `GET` | `/metrics/kpis` | Definiciones de KPI (de la campaña y reutilizables) | Admins, COORDINADOR |
 | `POST` / `PATCH` / `DELETE` | `/metrics/kpis[/:id]` | Crear, editar o borrar un KPI | Admins (SURVEY_MANAGE) |
+| `GET` | `/metrics/survey/:id/highlights` | Destacados evaluados sobre el corte: ranking publicable, opciones ocultas y `puedeAfirmar` | Admins, COORDINADOR |
+| `GET` | `/metrics/highlights` | Definiciones de destacados (de la campaña y reutilizables) | Admins, COORDINADOR |
+| `POST` / `PATCH` / `DELETE` | `/metrics/highlights[/:id]` | Crear, editar o borrar un destacado | Admins (SURVEY_MANAGE) |
 
 **Filtros comunes:** `etapa`, `ventana`, `disciplineId`, `disciplineType`, `localityId`, `departmentId`, `zona` (`CAPITAL`/`INTERIOR`), `categoryId`, `sexo`, `desde`, `hasta`.
 
@@ -516,7 +525,11 @@ Lectura analítica sobre las respuestas de la encuesta. Todo corte con menos de 
 
 `denominador` acepta también `"todas"` (todo el corte) o `"contestaron"` (quienes contestaron las preguntas del numerador). Un KPI con `campaignId: null` se evalúa en cualquier campaña.
 
-**Datos de demo:** `npm run db:seed:encuesta -- --cantidad 300 [--publicar]` (backend) completa la campaña con las preguntas de salud y educación, crea los KPIs semilla y genera respuestas de prueba. Se niega a correr con `NODE_ENV=production`.
+**Destacados** (`SurveyHighlight`): un ranking de opciones con un título en lenguaje simple, por ejemplo *"Lo que más necesitan los deportistas es:"*. La definición es `{ "opciones": ["nec_transporte", "nec_indumentaria", …], "top": 3 }`, también por `valor`. La base son quienes eligieron alguna de esas opciones. El panel escribe frases como *"4 de cada 10 eligieron «Transporte»"* sólo si la base alcanza `MINIMO_PARA_FRASES` (30) respuestas; con menos muestra los porcentajes y aclara que todavía hay pocas respuestas. Un destacado reutilizable cuyas opciones no existen en la campaña no aparece.
+
+**Panel (`/admin/metricas`)**, de lo simple a lo técnico: tarjetas de número grande (respuestas, capital, interior, indicadores), destacados y evolución en área, una pregunta en foco (dona, barras horizontales por departamento y mapa de calor departamento × opción), "Explorar en detalle" (constructor de gráficos) y "Detalle técnico". Las barras pasan a horizontales cuando hay más de 5 categorías o nombres largos, así las etiquetas nunca se enciman. **Modo presentación:** `/admin/metricas/presentar?campania=…` (mismos roles), pantalla completa sin menú ni filtros, con el corte con el que se abrió y actualización en vivo.
+
+**Datos de demo:** `npm run db:seed:encuesta -- --cantidad 300 [--publicar]` (backend) completa la campaña con las preguntas de salud, educación y necesidades, crea los KPIs y el destacado semilla y genera respuestas de prueba. Se niega a correr con `NODE_ENV=production`.
 
 ---
 
