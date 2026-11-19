@@ -379,17 +379,22 @@ test.describe('auditoría (filtros)', () => {
     await loginAs('SUPER_ADMIN');
     await page.goto('/admin/auditoria');
     const hoy = new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Cordoba', day: '2-digit', month: '2-digit', year: 'numeric' });
-    await page.getByLabel('Filtrar por día').fill(hoy);
+    await page.getByLabel('Filtrar desde el día').fill(hoy);
+    await page.getByLabel('Filtrar hasta el día').fill(hoy);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test('el buscador filtra por acción y no deja el listado en blanco sin explicación', async ({ page, loginAs }) => {
+  test('el filtro de acción muestra etiquetas en castellano y un rango vacío lo explica', async ({ page, loginAs }) => {
     await loginAs('SUPER_ADMIN');
     await page.goto('/admin/auditoria');
-    await page.getByPlaceholder(/Buscar por usuario o acción/).fill('LOGIN');
+    await elegir(page, page.getByLabel('Filtrar por acción'), 'Inicio de sesión');
     await page.waitForLoadState('networkidle');
-    await page.getByPlaceholder(/Buscar por usuario o acción/).fill('zzz-no-existe-zzz');
+    const tabla = page.locator('table tbody');
+    await expect(tabla.locator('tr').first()).toBeVisible({ timeout: 5000 });
+    await expect(tabla).toContainText('Inicio de sesión');
+    await expect(tabla).not.toContainText(/\bLOGIN\b/);
+    await page.getByLabel('Filtrar desde el día').fill('01/01/2099');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main')).toContainText(/sin resultados|no hay|no se encontr|ningún/i);
     await sinDesbordeHorizontal(page);

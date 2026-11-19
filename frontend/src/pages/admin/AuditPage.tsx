@@ -3,70 +3,123 @@
 // ===========================================
 import { formatDateTime } from '@/lib/utils';
 import { useState } from 'react';
-import { Shield, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Shield } from 'lucide-react';
 import { DatePicker } from '@/components/ui/date-picker';
-import { localIsoFromDate } from '@/lib/datePicker';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { FilterPanel } from '@/components/shared/FilterPanel';
+import { useAuditLogs } from '@/hooks/useAudit';
+import type { AuditLogRow } from '@/api/audit.api';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
+import {
+  AUDIT_ACTION_LABELS,
+  AUDIT_ENTITY_FILTERS,
+  autorAuditoria,
+  etiquetaAccion,
+  etiquetaEntidad,
+  rangoAuditoria,
+  tonoAccion,
+  type TonoAccion,
+} from '@/lib/audit/auditLabels';
 
-// Mock data for audit logs
-type AuditLog = (typeof MOCK_AUDIT_LOGS)[number];
+/** Valor del Select que significa "sin filtro" (Radix no admite ""). */
+const TODAS = 'all';
 
-const MOCK_AUDIT_LOGS = [
-  { id: '1', action: 'LOGIN', user: 'admin@evita.com', entity: 'Auth', timestamp: new Date().toISOString(), details: 'Inicio de sesión exitoso' },
-  { id: '2', action: 'CREATE', user: 'admin@evita.com', entity: 'Competition', timestamp: new Date(Date.now() - 3600000).toISOString(), details: 'Competencia creada: Fútbol Sub 14' },
-  { id: '3', action: 'UPDATE', user: 'delegado@evita.com', entity: 'Inscription', timestamp: new Date(Date.now() - 7200000).toISOString(), details: 'Inscripción actualizada: Equipo Los Pumas' },
-  { id: '4', action: 'DELETE', user: 'admin@evita.com', entity: 'News', timestamp: new Date(Date.now() - 86400000).toISOString(), details: 'Noticia eliminada: Suspensión por lluvia' },
-];
+const CLASES_TONO: Record<TonoAccion, string> = {
+  info: 'bg-celeste-50 text-primary-700 border-celeste-200',
+  exito: 'bg-success-50 text-success-700 border-success-200',
+  aviso: 'bg-warning-50 text-warning-700 border-warning-200',
+  peligro: 'bg-destructive-50 text-destructive-700 border-destructive/30',
+  neutro: 'bg-muted text-muted-foreground border-border',
+};
+
+const OPCIONES_ACCION = Object.keys(AUDIT_ACTION_LABELS)
+  .map((valor) => ({ valor, etiqueta: etiquetaAccion(valor) }))
+  .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
+
+const OPCIONES_ENTIDAD = AUDIT_ENTITY_FILTERS.map((valor) => ({
+  valor,
+  etiqueta: etiquetaEntidad(valor),
+})).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
 
 export function AuditPage() {
-  const [search, setSearch] = useState('');
-  const [day, setDay] = useState('');
+  const [action, setAction] = useState(TODAS);
+  const [entity, setEntity] = useState(TODAS);
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
 
-  const getActionColor = (action: string) => {
-    switch (action) {
-      case 'LOGIN': return 'bg-celeste-50 text-primary-700 border-celeste-200';
-      case 'CREATE': return 'bg-success-50 text-success-700 border-success-200';
-      case 'UPDATE': return 'bg-warning-50 text-warning-700 border-warning-200';
-      case 'DELETE': return 'bg-destructive-50 text-destructive-700 border-destructive/30';
-      default: return 'bg-muted text-muted-foreground border-border';
-    }
+  const { data, isLoading, isFetching, isError, refetch } = useAuditLogs({
+    page,
+    limit,
+    action: action === TODAS ? undefined : action,
+    entity: entity === TODAS ? undefined : entity,
+    ...rangoAuditoria(desde, hasta),
+  });
+
+  // Tocar un filtro vuelve a la primera página: el resultado es otro y la
+  // página en la que estabas puede ya no existir.
+  const conPrimeraPagina =
+    <T,>(set: (valor: T) => void) =>
+    (valor: T) => {
+      set(valor);
+      setPage(1);
+    };
+
+  const activeCount = [desde, hasta].filter(Boolean).length;
+  const hasActiveFilters = action !== TODAS || entity !== TODAS || activeCount > 0;
+
+  const clearFilters = () => {
+    setAction(TODAS);
+    setEntity(TODAS);
+    setDesde('');
+    setHasta('');
+    setPage(1);
   };
 
-  const filtered = MOCK_AUDIT_LOGS.filter(
-    (log) =>
-      (log.user.toLowerCase().includes(search.toLowerCase()) ||
-        log.action.toLowerCase().includes(search.toLowerCase()) ||
-        log.details.toLowerCase().includes(search.toLowerCase())) &&
-      // El día se compara en hora local: un evento de las 22 h de Argentina es de ese día.
-      (!day || localIsoFromDate(new Date(log.timestamp)) === day),
-  );
-
-  const columns: DataTableColumn<AuditLog>[] = [
+  const columns: DataTableColumn<AuditLogRow>[] = [
     {
       id: 'timestamp',
       header: 'Fecha y hora',
       className: 'text-primary-600 font-mono text-xs tabular-nums',
       mobile: 'secondary',
-      cell: (log) => formatDateTime(log.timestamp),
+      cell: (log) => formatDateTime(log.createdAt),
     },
     {
       id: 'user',
       header: 'Usuario',
       className: 'font-medium text-primary-900',
       mobile: 'primary',
-      cell: (log) => log.user,
+      cell: (log) => {
+        const autor = autorAuditoria(log.user);
+        return (
+          <div className="min-w-0">
+            <span className="block truncate">{autor.nombre}</span>
+            {autor.email && (
+              <span className="block truncate text-xs font-normal text-primary-500">
+                {autor.email}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: 'action',
       header: 'Acción',
       mobile: 'secondary',
       cell: (log) => (
-        <Badge variant="outline" className={getActionColor(log.action)}>
-          {log.action}
+        <Badge variant="outline" className={CLASES_TONO[tonoAccion(log.action)]}>
+          {etiquetaAccion(log.action)}
         </Badge>
       ),
     },
@@ -75,14 +128,23 @@ export function AuditPage() {
       header: 'Entidad',
       className: 'text-primary-600',
       mobile: 'secondary',
-      cell: (log) => log.entity,
+      cell: (log) => etiquetaEntidad(log.entity),
     },
     {
       id: 'details',
       header: 'Detalles',
       className: 'text-primary-800',
       mobile: 'secondary',
-      cell: (log) => log.details,
+      cell: (log) => (
+        <div className="min-w-0 text-xs">
+          <span className="block font-mono truncate">
+            {log.entityId ? `Registro ${log.entityId.slice(0, 8)}` : 'Sin registro asociado'}
+          </span>
+          {log.ipAddress && (
+            <span className="block text-primary-500">IP {log.ipAddress}</span>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -97,39 +159,71 @@ export function AuditPage() {
       <DataTable
         entityName="registros de auditoría"
         columns={columns}
-        rows={filtered}
+        rows={data?.data ?? []}
         getRowId={(log) => log.id}
-        isLoading={false}
-        hasActiveFilters={Boolean(search.trim() || day)}
-        onClearFilters={() => {
-          setSearch('');
-          setDay('');
+        isLoading={isLoading}
+        isFetching={isFetching && !isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        meta={data?.meta}
+        onPageChange={setPage}
+        onLimitChange={(nuevo) => {
+          setLimit(nuevo);
+          setPage(1);
         }}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
         emptyIcon={<Shield className="w-10 h-10" />}
-        emptyTitle="No hay eventos que coincidan"
-        emptyDescription="Probá con otro usuario o acción, o quitá el filtro de fecha para ver todos los eventos."
+        emptyTitle={hasActiveFilters ? 'No hay eventos que coincidan' : 'Todavía no hay eventos registrados'}
+        emptyDescription={
+          hasActiveFilters
+            ? 'Probá con otra acción o entidad, o ampliá el rango de fechas para ver más eventos.'
+            : 'Los movimientos del sistema aparecen acá a medida que se registran.'
+        }
         toolbar={
           <>
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400"
-                aria-hidden="true"
-              />
-              <Input
-                placeholder="Buscar por usuario o acción..."
-                aria-label="Buscar en la auditoría"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <FilterPanel activeCount={day ? 1 : 0} className="md:w-auto">
+            <Select value={action} onValueChange={conPrimeraPagina(setAction)}>
+              <SelectTrigger className="w-full md:w-[240px]" aria-label="Filtrar por acción">
+                <SelectValue placeholder="Acción" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODAS}>Todas las acciones</SelectItem>
+                {OPCIONES_ACCION.map((opcion) => (
+                  <SelectItem key={opcion.valor} value={opcion.valor}>
+                    {opcion.etiqueta}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={entity} onValueChange={conPrimeraPagina(setEntity)}>
+              <SelectTrigger className="w-full md:w-[220px]" aria-label="Filtrar por entidad">
+                <SelectValue placeholder="Entidad" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODAS}>Todas las entidades</SelectItem>
+                {OPCIONES_ENTIDAD.map((opcion) => (
+                  <SelectItem key={opcion.valor} value={opcion.valor}>
+                    {opcion.etiqueta}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FilterPanel activeCount={activeCount} className="md:w-auto">
               <DatePicker
-                aria-label="Filtrar por día"
-                value={day}
-                onChange={setDay}
-                wrapperClassName="w-full md:w-48"
-                pickerLabel="Elegir día"
+                aria-label="Filtrar desde el día"
+                value={desde}
+                max={hasta || undefined}
+                onChange={conPrimeraPagina(setDesde)}
+                wrapperClassName="w-full md:w-44"
+                pickerLabel="Elegir día de inicio"
+              />
+              <DatePicker
+                aria-label="Filtrar hasta el día"
+                value={hasta}
+                min={desde || undefined}
+                onChange={conPrimeraPagina(setHasta)}
+                wrapperClassName="w-full md:w-44"
+                pickerLabel="Elegir día de fin"
               />
             </FilterPanel>
           </>

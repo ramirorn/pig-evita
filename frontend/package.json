@@ -19,6 +19,7 @@
     "check:palette": "node scripts/check-palette.mjs",
     "check:controls": "node scripts/check-controls.mjs",
     "check:news-images": "node scripts/check-news-images.mjs",
+    "check:audit": "node scripts/check-audit.mjs",
     "geo:build": "node scripts/geo/build-geo.mjs",
     "preview": "vite preview"
   },
