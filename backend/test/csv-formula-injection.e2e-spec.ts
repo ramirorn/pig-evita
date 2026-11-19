@@ -18,7 +18,10 @@ import { Writable } from 'stream';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   ReportsService,
+  etiquetaExportacion,
   neutralizarFormulaCsv,
+  puntajeExportado,
+  ETIQUETAS_EXPORTACION,
 } from '../src/modules/reports/reports.service';
 import { PrismaService } from '../src/database/prisma.service';
 import { ALCANCE_PROVINCIAL, ScopeService } from '../src/common/scope';
@@ -68,9 +71,13 @@ function participante(indice: number, lastName: string) {
 describe('Exportación CSV — inyección de fórmulas (R15)', () => {
   let service: ReportsService;
   let apellidos: string[];
+  let partidos: unknown[];
+  let inscripciones: unknown[];
 
   beforeEach(async () => {
     apellidos = [];
+    partidos = [];
+    inscripciones = [];
 
     const prisma = {
       participant: {
@@ -81,9 +88,17 @@ describe('Exportación CSV — inyección de fórmulas (R15)', () => {
           ),
         ),
       },
-      inscription: { findMany: jest.fn(() => Promise.resolve([])) },
+      inscription: {
+        findMany: jest.fn(({ cursor }: { cursor?: { id: string } }) =>
+          Promise.resolve(cursor ? [] : inscripciones),
+        ),
+      },
       team: { findMany: jest.fn(() => Promise.resolve([])) },
-      match: { findMany: jest.fn(() => Promise.resolve([])) },
+      match: {
+        findMany: jest.fn(({ skip }: { skip?: number }) =>
+          Promise.resolve(skip ? [] : partidos),
+        ),
+      },
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -225,9 +240,11 @@ describe('Exportación CSV — inyección de fórmulas (R15)', () => {
       expect(neutralizarFormulaCsv('+2')).toBe('+2');
     });
 
-    it('mantiene la representación de siempre para los valores raros', () => {
-      expect(neutralizarFormulaCsv(null)).toBe('null');
+    it('un valor vacío (null/undefined) es una celda vacía, no el texto "null" (S10)', () => {
+      expect(neutralizarFormulaCsv(null)).toBe('');
+      expect(neutralizarFormulaCsv(undefined)).toBe('');
       expect(neutralizarFormulaCsv(7)).toBe('7');
+      expect(neutralizarFormulaCsv(0)).toBe('0');
       expect(neutralizarFormulaCsv('')).toBe('');
     });
 
@@ -235,6 +252,134 @@ describe('Exportación CSV — inyección de fórmulas (R15)', () => {
       expect(neutralizarFormulaCsv('=1+1')).toBe("'=1+1");
       expect(neutralizarFormulaCsv('-1+1')).toBe("'-1+1");
       expect(neutralizarFormulaCsv('@juan')).toBe("'@juan");
+    });
+  });
+
+  // -------------------------------------------------
+  // S10 — etiquetas en castellano y celdas vacías
+  // -------------------------------------------------
+  /** Celdas de una fila del CSV, sin comillas. */
+  function celdas(fila: string): string[] {
+    return (fila.match(/"(?:[^"]|"")*"/g) ?? []).map((c) =>
+      c.slice(1, -1).replace(/""/g, '"'),
+    );
+  }
+
+  async function csvDe(
+    especificacion: ReturnType<ReportsService['especificacionResults']>,
+  ): Promise<string[]> {
+    const destino = new DestinoBuffer();
+    await service.escribirCsv(destino, especificacion);
+    destino.end();
+    await destino.terminado;
+    return destino.texto
+      .replace(/^\uFEFF/, '')
+      .split('\n')
+      .slice(2);
+  }
+
+  describe('etiquetas y vacíos (S10)', () => {
+    it('el padrón escribe el sexo en castellano', async () => {
+      const [fila] = await generarCsv('Pérez');
+      expect(celdas(fila)[3]).toBe('Masculino');
+    });
+
+    it('las inscripciones escriben sexo y estado en castellano', async () => {
+      inscripciones = [
+        {
+          id: 'i1',
+          qrCode: 'QR-1',
+          status: 'APROBADA',
+          createdAt: new Date('2026-03-01T12:00:00.000Z'),
+          participant: participante(0, 'Gómez'),
+          category: { name: 'Sub 14', discipline: { name: 'Fútbol' } },
+          team: null,
+        },
+      ];
+      const [fila] = await csvDe(
+        service.especificacionInscriptions(ALCANCE_PROVINCIAL),
+      );
+      const c = celdas(fila);
+      expect(c[4]).toBe('Masculino');
+      expect(c[10]).toBe('Aprobada');
+    });
+
+    it('los partidos escriben etapa y estado en castellano y un puntaje null no sale como "null"', async () => {
+      partidos = [
+        {
+          id: 'm1',
+          round: 1,
+          matchNumber: 3,
+          status: 'EN_CURSO',
+          competition: {
+            name: 'Copa',
+            stage: 'DEPARTAMENTAL',
+            discipline: { name: 'Fútbol' },
+            category: { name: 'Sub 14' },
+          },
+          venue: null,
+          results: [
+            {
+              isWinner: false,
+              team: { name: 'Los Pumas' },
+              participant: null,
+              scoreData: { goles: null },
+            },
+            {
+              isWinner: false,
+              team: { name: 'Las Garzas' },
+              participant: null,
+              scoreData: { goles: 2 },
+            },
+          ],
+        },
+      ];
+      const [fila] = await csvDe(
+        service.especificacionResults(ALCANCE_PROVINCIAL),
+      );
+      const c = celdas(fila);
+      expect(c[3]).toBe('Departamental');
+      expect(c[6]).toBe('En curso');
+      // Sin puntaje sale el mismo "-" que cuando falta el resultado, tal cual:
+      // un guion suelto no es una fórmula y no se prefija.
+      expect(c[8]).toBe('-');
+      expect(neutralizarFormulaCsv('-')).toBe('-');
+      expect(neutralizarFormulaCsv('-1+1')).toBe("'-1+1");
+      expect(c[10]).toBe('2');
+      expect(fila).not.toContain('null');
+    });
+
+    it('etiquetaExportacion: vacío es celda vacía y lo desconocido se conserva', () => {
+      expect(etiquetaExportacion(ETIQUETAS_EXPORTACION.sexo, 'FEMENINO')).toBe(
+        'Femenino',
+      );
+      expect(etiquetaExportacion(ETIQUETAS_EXPORTACION.sexo, null)).toBe('');
+      expect(etiquetaExportacion(ETIQUETAS_EXPORTACION.sexo, undefined)).toBe(
+        '',
+      );
+      // Un código que el mapa no conoce sale tal cual: es una exportación y no
+      // se puede perder el dato.
+      expect(etiquetaExportacion(ETIQUETAS_EXPORTACION.etapa, 'NACIONAL')).toBe(
+        'NACIONAL',
+      );
+    });
+
+    it('toda etiqueta de exportación está en castellano (ninguna es su código)', () => {
+      for (const mapa of Object.values(ETIQUETAS_EXPORTACION)) {
+        for (const [codigo, etiqueta] of Object.entries(mapa)) {
+          expect(etiqueta).not.toBe(codigo);
+          expect(etiqueta.trim()).not.toBe('');
+        }
+      }
+    });
+
+    it('puntajeExportado: null, ausente o vacío es "-"; el cero se escribe', () => {
+      expect(puntajeExportado(null)).toBe('-');
+      expect(puntajeExportado(undefined)).toBe('-');
+      expect(puntajeExportado({})).toBe('-');
+      expect(puntajeExportado({ goles: null })).toBe('-');
+      expect(puntajeExportado({ goles: 0 })).toBe('0');
+      expect(puntajeExportado({ tiempo: '1:02.5' })).toBe('1:02.5');
     });
   });
 });

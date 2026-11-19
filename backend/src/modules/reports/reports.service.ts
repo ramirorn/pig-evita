@@ -14,7 +14,13 @@
 //
 // El pico de memoria pasa a depender del tamaño del lote, no del total de filas.
 import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import {
+  CompetitionStage,
+  InscriptionStatus,
+  MatchStatus,
+  Prisma,
+  Sex,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { Alcance, descripcionAlcance, ScopeService } from '../../common/scope';
 import * as ExcelJS from 'exceljs';
@@ -134,17 +140,81 @@ const ES_NUMERO = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
  * abre el archivo.
  */
 export function neutralizarFormulaCsv(celda: unknown): string {
-  // `String(celda)` y no `String(celda ?? '')`: el formato de salida tiene que
-  // seguir siendo byte a byte el de antes para todo lo que no sea una fórmula
-  // (un `null` se venía escribiendo como el texto "null", y hay un test que lo
-  // fija). Este cambio toca sólo las celdas peligrosas.
+  // S10 — un dato que falta es una celda vacía. Antes salía el texto "null",
+  // que en una planilla se lee como un valor más y no se puede filtrar como
+  // vacío.
+  if (celda === null || celda === undefined) return '';
   const texto = String(celda);
 
   if (typeof celda === 'number' || typeof celda === 'bigint') return texto;
+  // El "-" suelto es el marcador de "sin dato" de las exportaciones: Excel lo
+  // muestra como texto, no lo evalúa. Prefijarlo dejaba "'-" en la planilla.
+  if (texto === '-') return texto;
   if (!INICIO_DE_FORMULA.test(texto)) return texto;
   if (ES_NUMERO.test(texto)) return texto;
 
   return `'${texto}`;
+}
+
+// ===========================================
+// Etiquetas de las exportaciones (S10)
+// ===========================================
+//
+// Los reportes los abre la Secretaría en una planilla: un código de enum
+// ("EN_CURSO", "MASCULINO") no es un dato que se lea. Las etiquetas viven acá,
+// dentro del módulo, y espejan las del frontend (`lib/constants.ts`). Los
+// mapas se tipan con los enums de Prisma para que un valor nuevo del schema
+// sin etiqueta no compile.
+
+/** Etiquetas en castellano de los enums que salen en las exportaciones. */
+export const ETIQUETAS_EXPORTACION = {
+  sexo: {
+    MASCULINO: 'Masculino',
+    FEMENINO: 'Femenino',
+    MIXTO: 'Mixto',
+  } satisfies Record<Sex, string>,
+  estadoInscripcion: {
+    PENDIENTE: 'Pendiente',
+    REVISADA: 'Revisada',
+    APROBADA: 'Aprobada',
+    RECHAZADA: 'Rechazada',
+  } satisfies Record<InscriptionStatus, string>,
+  estadoPartido: {
+    PROGRAMADO: 'Programado',
+    EN_CURSO: 'En curso',
+    FINALIZADO: 'Finalizado',
+    SUSPENDIDO: 'Suspendido',
+  } satisfies Record<MatchStatus, string>,
+  etapa: {
+    ZONAL: 'Zonal',
+    DEPARTAMENTAL: 'Departamental',
+    PROVINCIAL: 'Provincial',
+  } satisfies Record<CompetitionStage, string>,
+} as const;
+
+/**
+ * Etiqueta de un código para la exportación. Vacío es celda vacía; un código
+ * que el mapa no conoce se escribe tal cual (es una exportación: el dato no se
+ * puede perder por falta de traducción).
+ */
+export function etiquetaExportacion(
+  mapa: Readonly<Record<string, string>>,
+  valor: string | null | undefined,
+): string {
+  if (valor === null || valor === undefined || valor === '') return '';
+  return mapa[valor] ?? valor;
+}
+
+/**
+ * Puntaje de un resultado: el primer valor de `scoreData`. Sin puntaje (no hay
+ * `scoreData`, está vacío o el valor es `null`) se escribe "-", lo mismo que
+ * se escribía cuando faltaba el resultado; nunca el texto "null".
+ */
+export function puntajeExportado(scoreData: unknown): string {
+  if (scoreData === null || typeof scoreData !== 'object') return '-';
+  const valor: unknown = Object.values(scoreData)[0];
+  if (valor === null || valor === undefined || valor === '') return '-';
+  return typeof valor === 'object' ? JSON.stringify(valor) : String(valor);
 }
 
 @Injectable()
@@ -636,7 +706,7 @@ export class ReportsService {
             p.dni,
             p.firstName,
             p.lastName,
-            p.sex,
+            etiquetaExportacion(ETIQUETAS_EXPORTACION.sexo, p.sex),
             p.birthDate ? p.birthDate.toISOString().split('T')[0] : '',
             p.department,
             p.locality,
@@ -710,13 +780,16 @@ export class ReportsService {
             i.participant.dni,
             i.participant.firstName,
             i.participant.lastName,
-            i.participant.sex,
+            etiquetaExportacion(ETIQUETAS_EXPORTACION.sexo, i.participant.sex),
             i.category.discipline.name,
             i.category.name,
             i.team?.name || 'Individual',
             i.participant.department,
             i.participant.locality,
-            i.status,
+            etiquetaExportacion(
+              ETIQUETAS_EXPORTACION.estadoInscripcion,
+              i.status,
+            ),
             i.createdAt ? i.createdAt.toISOString().split('T')[0] : '',
           ],
         ),
@@ -869,14 +942,8 @@ export class ReportsService {
               (r2?.participant
                 ? `${r2.participant.lastName}, ${r2.participant.firstName}`
                 : '-');
-            const homeScore =
-              r1?.scoreData && Object.values(r1.scoreData)[0] !== undefined
-                ? String(Object.values(r1.scoreData)[0])
-                : '-';
-            const awayScore =
-              r2?.scoreData && Object.values(r2.scoreData)[0] !== undefined
-                ? String(Object.values(r2.scoreData)[0])
-                : '-';
+            const homeScore = puntajeExportado(r1?.scoreData);
+            const awayScore = puntajeExportado(r2?.scoreData);
 
             let winnerName = '-';
             if (r1?.isWinner) winnerName = homeName;
@@ -887,10 +954,16 @@ export class ReportsService {
                 `${m.competition.discipline.name} - ${m.competition.category.name}`,
               m.competition.discipline.name,
               m.competition.category.name,
-              m.competition.stage,
+              etiquetaExportacion(
+                ETIQUETAS_EXPORTACION.etapa,
+                m.competition.stage,
+              ),
               `Fecha ${m.round}`,
               m.matchNumber,
-              m.status,
+              etiquetaExportacion(
+                ETIQUETAS_EXPORTACION.estadoPartido,
+                m.status,
+              ),
               homeName,
               homeScore,
               awayName,
