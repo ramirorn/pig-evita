@@ -661,10 +661,11 @@ model SurveyCampaign {
   updatedAt   DateTime             @updatedAt @map("updated_at")
 
   // Relations
-  createdBy User?            @relation("SurveyCampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  questions SurveyQuestion[]
-  responses SurveyResponse[]
-  kpis      SurveyKpi[]
+  createdBy  User?             @relation("SurveyCampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  questions  SurveyQuestion[]
+  responses  SurveyResponse[]
+  kpis       SurveyKpi[]
+  highlights SurveyHighlight[]
 
   @@index([status, ventana, etapa])
   @@index([anio])
@@ -694,6 +695,30 @@ model SurveyKpi {
 
   @@index([campaignId, activo, orden])
   @@map("survey_kpis")
+}
+
+/// Destacado del panel de Métricas: un ranking de opciones con un título en
+/// lenguaje simple ("Lo que más necesitan los deportistas es:").
+///
+/// Igual que `SurveyKpi`, la definición matchea opciones por su `valor` y
+/// `campaignId` en `null` lo hace reutilizable entre ediciones.
+model SurveyHighlight {
+  id          String   @id @default(uuid()) @db.Uuid
+  campaignId  String?  @map("campaign_id") @db.Uuid
+  titulo      String
+  descripcion String?  @db.Text
+  orden       Int      @default(0)
+  activo      Boolean  @default(true)
+  /// `{ opciones: string[] (valor de opción), top: 1..10 }`
+  definicion  Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  campaign SurveyCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, activo, orden])
+  @@map("survey_highlights")
 }
 
 /// Pregunta del cuestionario.
