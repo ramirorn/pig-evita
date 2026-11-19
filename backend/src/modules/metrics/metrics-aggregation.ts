@@ -7,6 +7,7 @@
 // las reglas de k-anonimato se prueban con listas en memoria y el mismo
 // código sirve para cualquier campaña, sea cual sea su cuestionario.
 import {
+  MINIMO_PARA_FRASES,
   MOTIVO_SUPRESION,
   UMBRAL_K_ANONIMATO,
 } from '../survey/survey.constants';
@@ -14,6 +15,7 @@ import type { Corte } from '../survey/survey.types';
 import type {
   CeldaCruce,
   CondicionKpi,
+  DefinicionDestacado,
   DefinicionKpi,
   Dimension,
   DimensionFija,
@@ -21,6 +23,7 @@ import type {
   Granularidad,
   MapasDeNombres,
   OpcionCatalogo,
+  OpcionDestacada,
   PuntoSerie,
   RespuestaProyectada,
 } from './metrics.types';
@@ -282,6 +285,52 @@ export function aplicarUmbralTabla(filas: FilaCruce[]): FilaCruce[] {
 }
 
 // ===========================================
+// Protección por complemento
+// ===========================================
+//
+// El umbral por celda no alcanza cuando al lado hay un total publicado (o
+// derivable de otro endpoint, como el total de respuestas): total − parte
+// despeja lo oculto. Dos reglas lo cierran sin tocar lo que ya era seguro.
+
+/** `total − parte` queda entre 1 y k−1: publicar la parte revelaría ese resto. */
+export function complementoRevela(parte: number, total: number): boolean {
+  const resto = total - parte;
+  return resto > 0 && resto < UMBRAL_K_ANONIMATO;
+}
+
+/**
+ * Supresión secundaria para celdas que suman un total conocido (pregunta de
+ * opción única: cada respuesta cae en una sola celda). Con una sola celda
+ * oculta, la resta la despeja; se oculta además la menor visible distinta de
+ * cero, así lo que queda es la suma de dos celdas y no una sola.
+ */
+export function suprimirComplementaria<T extends Corte>(celdas: T[]): T[] {
+  const ocultas = celdas.filter((c) => c.suprimido).length;
+  if (ocultas !== 1) return celdas;
+  let menor = -1;
+  let menorConteo = Infinity;
+  celdas.forEach((c, i) => {
+    if (c.suprimido || c.conteo === 0) return;
+    if (c.conteo < menorConteo) {
+      menor = i;
+      menorConteo = c.conteo;
+    }
+  });
+  if (menor === -1) return celdas;
+  return celdas.map((c, i) => (i === menor ? { ...c, ...SUPRIMIDO } : c));
+}
+
+/** `suprimirComplementaria` fila por fila de una tabla cruzada. */
+export function aplicarSupresionComplementaria(
+  filas: FilaCruce[],
+): FilaCruce[] {
+  return filas.map((fila) => ({
+    ...fila,
+    celdas: suprimirComplementaria(fila.celdas),
+  }));
+}
+
+// ===========================================
 // KPIs
 // ===========================================
 
@@ -370,6 +419,28 @@ export function porcentajeKpi(
 }
 
 /**
+ * Lo que se publica de un KPI a partir de sus dos conteos crudos: umbral en
+ * cada lado y, además, el complemento. Si `denominador − numerador` queda
+ * entre 1 y k−1 (por ejemplo, 9 atendidos de 11 lesionados ⇒ 2 sin atención),
+ * el numerador y el valor no se publican.
+ */
+export function publicarKpi(
+  numerador: number,
+  denominador: number,
+  formato: DefinicionKpi['formato'],
+): { numerador: Corte; denominador: Corte; valor: number | null } {
+  const den = aplicarUmbral(denominador);
+  const num = complementoRevela(numerador, denominador)
+    ? SUPRIMIDO
+    : aplicarUmbral(numerador);
+  return {
+    numerador: num,
+    denominador: den,
+    valor: formato === 'conteo' ? num.conteo : porcentajeKpi(num, den),
+  };
+}
+
+/**
  * Validación estructural de una definición que llega del panel. Devuelve el
  * primer problema encontrado o `null`. Los `valores` desconocidos no son un
  * error acá: un KPI puede referirse a opciones de otra edición.
@@ -405,6 +476,123 @@ export function validarDefinicionKpi(def: unknown): string | null {
 
   if (d.formato !== 'porcentaje' && d.formato !== 'conteo') {
     return 'formato debe ser porcentaje o conteo';
+  }
+  return null;
+}
+
+// ===========================================
+// Destacados
+// ===========================================
+
+/**
+ * Conteos crudos de un destacado: la base son las respuestas que eligieron
+ * alguna de sus opciones; cada opción cuenta una vez por respuesta.
+ * `valorDeOpcion`: optionId → valor (slug).
+ */
+export function evaluarDestacado(
+  respuestas: RespuestaProyectada[],
+  definicion: DefinicionDestacado,
+  valorDeOpcion: Map<string, string>,
+): { base: number; conteos: Map<string, number> } {
+  const buscados = new Set(definicion.opciones);
+  const conteos = new Map<string, number>(
+    definicion.opciones.map((v) => [v, 0]),
+  );
+  let base = 0;
+  for (const r of respuestas) {
+    const elegidos = new Set<string>();
+    for (const ids of r.opciones.values()) {
+      for (const id of ids) {
+        const valor = valorDeOpcion.get(id);
+        if (valor && buscados.has(valor)) elegidos.add(valor);
+      }
+    }
+    if (elegidos.size === 0) continue;
+    base += 1;
+    for (const v of elegidos) conteos.set(v, (conteos.get(v) ?? 0) + 1);
+  }
+  return { base, conteos };
+}
+
+/**
+ * Ranking publicable de un destacado. Cada opción pasa por el umbral, por el
+ * complemento contra la base y, si todas las opciones son de una misma
+ * pregunta de opción única, por la supresión secundaria. Lo oculto no entra al
+ * ranking (ni como "Otras": sería otra resta) y sólo se informa cuántas son.
+ */
+export function rankingDestacado(
+  base: number,
+  opciones: { valor: string; texto: string; conteo: number }[],
+  { top, unica }: { top: number; unica: boolean },
+): {
+  base: Corte;
+  opciones: OpcionDestacada[];
+  ocultas: number;
+  puedeAfirmar: boolean;
+} {
+  const baseCorte = aplicarUmbral(base);
+  if (baseCorte.suprimido) {
+    return {
+      base: baseCorte,
+      opciones: [],
+      ocultas: opciones.filter((o) => o.conteo > 0).length,
+      puedeAfirmar: false,
+    };
+  }
+
+  let celdas: (Corte & { valor: string; texto: string })[] = opciones.map(
+    (o) => ({
+      valor: o.valor,
+      texto: o.texto,
+      ...(complementoRevela(o.conteo, base)
+        ? SUPRIMIDO
+        : aplicarUmbralCelda(o.conteo)),
+    }),
+  );
+  if (unica) celdas = suprimirComplementaria(celdas);
+
+  const visibles: OpcionDestacada[] = [];
+  for (const c of celdas) {
+    if (c.suprimido || c.conteo === 0) continue;
+    visibles.push({
+      valor: c.valor,
+      texto: c.texto,
+      conteo: c.conteo,
+      porcentaje: Math.round((c.conteo / base) * 1000) / 10,
+    });
+  }
+  visibles.sort(
+    (a, b) => b.conteo - a.conteo || a.texto.localeCompare(b.texto),
+  );
+
+  return {
+    base: baseCorte,
+    opciones: visibles.slice(0, top),
+    ocultas: celdas.filter((c) => c.suprimido).length,
+    puedeAfirmar: base >= MINIMO_PARA_FRASES,
+  };
+}
+
+/** Validación estructural de un destacado que llega del panel. */
+export function validarDefinicionDestacado(def: unknown): string | null {
+  if (!def || typeof def !== 'object')
+    return 'La definición debe ser un objeto';
+  const d = def as Partial<DefinicionDestacado>;
+  if (
+    !Array.isArray(d.opciones) ||
+    d.opciones.length === 0 ||
+    !d.opciones.every((v) => typeof v === 'string' && v.length > 0)
+  ) {
+    return 'opciones debe ser una lista de valores';
+  }
+  if (d.opciones.length > 30) return 'Un destacado admite hasta 30 opciones';
+  if (
+    typeof d.top !== 'number' ||
+    !Number.isInteger(d.top) ||
+    d.top < 1 ||
+    d.top > 10
+  ) {
+    return 'top debe ser un entero entre 1 y 10';
   }
   return null;
 }
