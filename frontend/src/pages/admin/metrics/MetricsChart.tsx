@@ -30,7 +30,10 @@ import {
   aDatosDispersion,
   aDatosSerie,
   aDatosTorta,
+  caracteresEnEje,
   colorDeSerie,
+  disponerBarras,
+  recortarEtiqueta,
   type TipoGrafico,
 } from '@/lib/metrics/metricsRules';
 
@@ -42,6 +45,8 @@ interface MetricsChartProps {
   porcentaje?: boolean;
   /** Avisa cuántas celdas quedaron sin dibujar por k-anonimato. */
   onSuprimidas?: (cantidad: number) => void;
+  /** Barras horizontales: todas las filas en vez de las primeras. */
+  verTodas?: boolean;
 }
 
 const EJE = { fontSize: 12, fill: 'var(--color-primary-700)' };
@@ -50,6 +55,7 @@ const EJE = { fontSize: 12, fill: 'var(--color-primary-700)' };
  * constante para que se lea como lo que es al lado de `check:controls`.
  */
 const EJE_NUMERICO = 'number' as const;
+const EJE_CATEGORIAS = 'category' as const;
 const GRILLA = 'var(--color-primary-100)';
 
 function SinDatos() {
@@ -66,6 +72,7 @@ export default function MetricsChart({
   overview,
   porcentaje = false,
   onSuprimidas,
+  verTodas = false,
 }: MetricsChartProps) {
   if (tipo === 'lineas') {
     if (!overview) return <SinDatos />;
@@ -180,9 +187,57 @@ export default function MetricsChart({
   onSuprimidas?.(suprimidas);
   if (datos.length === 0) return <SinDatos />;
   const apiladas = tipo === 'barras_apiladas';
+  const disposicion = disponerBarras(datos, { verTodas });
+
+  if (disposicion.orientacion === 'horizontal') {
+    // Muchas categorías o nombres largos: el nombre va a la izquierda de su
+    // barra y nunca se enciman (recharts llama `vertical` a este layout).
+    const maximo = caracteresEnEje(disposicion.anchoEje);
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          layout="vertical"
+          data={disposicion.filas}
+          margin={{ top: 8, right: 24, bottom: 8, left: 0 }}
+          barCategoryGap="20%"
+        >
+          <CartesianGrid stroke={GRILLA} strokeDasharray="3 3" horizontal={false} />
+          <XAxis
+            type={EJE_NUMERICO}
+            allowDecimals={false}
+            tick={EJE}
+            unit={porcentaje ? ' %' : undefined}
+            domain={porcentaje && apiladas ? [0, 100] : [0, 'auto']}
+          />
+          <YAxis
+            type={EJE_CATEGORIAS}
+            dataKey="etiqueta"
+            width={disposicion.anchoEje}
+            interval={0}
+            tick={EJE}
+            tickFormatter={(t: string) => recortarEtiqueta(t, maximo)}
+          />
+          <Tooltip formatter={(v) => (porcentaje ? `${v} %` : v)} />
+          <Legend />
+          {cruce.columnas.map((columna, i) => (
+            <Bar
+              key={columna.optionId}
+              dataKey={columna.texto}
+              name={columna.texto}
+              fill={colorDeSerie(i)}
+              stackId={apiladas ? 'pila' : undefined}
+              radius={apiladas ? 0 : [0, 4, 4, 0]}
+              isAnimationActive={false}
+            />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={datos} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+      <BarChart data={disposicion.filas} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
         <CartesianGrid stroke={GRILLA} strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="etiqueta" tick={EJE} interval={0} />
         <YAxis
