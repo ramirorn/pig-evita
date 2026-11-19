@@ -467,40 +467,53 @@ export class MetricsService {
       }
     }
 
-    const destacados: DestacadoResultado[] = definiciones.map((h) => {
-      const def = h.definicion as unknown as DefinicionDestacado;
-      // Sólo las opciones que existen en esta campaña: un destacado
-      // reutilizable puede nombrar opciones de otra edición.
-      const presentes = def.opciones.filter((v) => opcionDeValor.has(v));
-      const { base, conteos } = evaluarDestacado(
-        respuestas,
-        { ...def, opciones: presentes },
-        valorDeOpcion,
-      );
-      const preguntas = new Set(
-        presentes.map((v) => opcionDeValor.get(v)!.questionId),
-      );
-      const unica =
-        preguntas.size === 1 &&
-        presentes.every(
-          (v) => opcionDeValor.get(v)!.kind === SurveyQuestionKind.UNICA,
+    // Un destacado reutilizable cuyas opciones no existen en esta campaña (otra
+    // edición, otro cuestionario) no aparece: sin la pregunta no hay de dónde
+    // afirmarlo. De los demás, sólo cuentan las opciones presentes.
+    const aplicables = definiciones
+      .map((h) => ({
+        h,
+        def: h.definicion as unknown as DefinicionDestacado,
+      }))
+      .map(({ h, def }) => ({
+        h,
+        def,
+        presentes: def.opciones.filter((v) => opcionDeValor.has(v)),
+      }))
+      .filter(({ presentes }) => presentes.length > 0);
+
+    const destacados: DestacadoResultado[] = aplicables.map(
+      ({ h, def, presentes }) => {
+        const { base, conteos } = evaluarDestacado(
+          respuestas,
+          { ...def, opciones: presentes },
+          valorDeOpcion,
         );
-      return {
-        id: h.id,
-        titulo: h.titulo,
-        descripcion: h.descripcion,
-        orden: h.orden,
-        ...rankingDestacado(
-          base,
-          presentes.map((v) => ({
-            valor: v,
-            texto: opcionDeValor.get(v)!.texto,
-            conteo: conteos.get(v) ?? 0,
-          })),
-          { top: def.top, unica },
-        ),
-      };
-    });
+        const preguntas = new Set(
+          presentes.map((v) => opcionDeValor.get(v)!.questionId),
+        );
+        const unica =
+          preguntas.size === 1 &&
+          presentes.every(
+            (v) => opcionDeValor.get(v)!.kind === SurveyQuestionKind.UNICA,
+          );
+        return {
+          id: h.id,
+          titulo: h.titulo,
+          descripcion: h.descripcion,
+          orden: h.orden,
+          ...rankingDestacado(
+            base,
+            presentes.map((v) => ({
+              valor: v,
+              texto: opcionDeValor.get(v)!.texto,
+              conteo: conteos.get(v) ?? 0,
+            })),
+            { top: def.top, unica },
+          ),
+        };
+      },
+    );
 
     const resultado: MetricsHighlights = {
       campaignId,
