@@ -21,8 +21,10 @@ interface StatTileProps {
   tendencia?: readonly (number | null)[];
   /** Texto chico debajo del rótulo (base, motivo de "—"). */
   pie?: ReactNode;
-  /** Botones (editar/borrar) para quien gestiona la encuesta. */
+  /** Botones (editar/borrar) para quien gestiona la encuesta; van al pie. */
   acciones?: ReactNode;
+  /** Texto largo (descripción) como tooltip, para no estirar la fila. */
+  titulo?: string;
   testId?: string;
   /** Modo presentación: todo más grande. */
   grande?: boolean;
@@ -35,6 +37,7 @@ export function StatTile({
   tendencia,
   pie,
   acciones,
+  titulo,
   testId,
   grande = false,
 }: StatTileProps) {
@@ -44,27 +47,36 @@ export function StatTile({
   return (
     <article
       aria-label={etiqueta}
+      title={titulo}
       className={cn(
-        'flex min-w-0 flex-col justify-between gap-2 rounded-xl border-2 bg-white p-4 shadow-sm',
+        'flex h-full min-w-0 flex-col justify-between gap-3 rounded-xl border-2 bg-white p-4 shadow-sm',
         acento === 'primary' ? 'border-primary-500' : 'border-secondary-500',
         grande && 'p-6',
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div
-          className={cn(
-            'min-w-0 font-black tabular-nums leading-none text-primary-900',
-            grande ? 'text-5xl' : 'text-3xl',
-          )}
-          data-testid={testId}
-        >
-          {valor}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {acciones}
+      {/* El número tiene todo el ancho: "42,9 %" no choca con la tendencia. */}
+      <div
+        className={cn(
+          'min-w-0 whitespace-nowrap font-black tabular-nums leading-none text-primary-900',
+          grande ? 'text-5xl' : 'text-3xl',
+        )}
+        data-testid={testId}
+      >
+        {valor}
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-end justify-between gap-2">
+          <p
+            className={cn(
+              'min-w-0 font-semibold uppercase tracking-wide text-primary-800',
+              grande ? 'text-sm' : 'text-[11px] leading-snug',
+            )}
+          >
+            {etiqueta}
+          </p>
           <span
             className={cn(
-              'flex h-8 w-16 items-center justify-center rounded-md',
+              'flex h-8 w-16 shrink-0 items-center justify-center rounded-md',
               acento === 'primary' ? 'bg-primary-50' : 'bg-secondary-50',
             )}
             aria-hidden="true"
@@ -78,17 +90,8 @@ export function StatTile({
             )}
           </span>
         </div>
-      </div>
-      <div className="min-w-0">
-        <p
-          className={cn(
-            'font-semibold uppercase tracking-wide text-primary-800',
-            grande ? 'text-sm' : 'text-[11px] leading-snug',
-          )}
-        >
-          {etiqueta}
-        </p>
         {pie && <div className="mt-1 text-xs leading-snug text-primary-500">{pie}</div>}
+        {acciones && <div className="-mb-2 -ml-2 mt-1 flex gap-0.5">{acciones}</div>}
       </div>
     </article>
   );
