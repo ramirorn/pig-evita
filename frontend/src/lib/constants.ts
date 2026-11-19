@@ -53,6 +53,8 @@ export const ROUTES = {
   // Admin
   ADMIN: '/admin',
   DASHBOARD: '/admin/dashboard',
+  /** Métricas e indicadores de la encuesta, en vivo. */
+  METRICS: '/admin/metricas',
   /** El mismo mapa de impacto del sitio público, dentro del panel. */
   IMPACT_MAP_ADMIN: '/admin/mapa',
   PARTICIPANTS: '/admin/participantes',

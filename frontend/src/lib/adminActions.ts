@@ -227,6 +227,13 @@ export const ACTION_ROLES = {
     UserRole.ADMIN_ZONAL,
     UserRole.COORDINADOR,
   ],
+  METRICS_READ: [
+    UserRole.SUPER_ADMIN,
+    UserRole.ADMIN_PROVINCIAL,
+    UserRole.ADMIN_DEPARTAMENTAL,
+    UserRole.ADMIN_ZONAL,
+    UserRole.COORDINADOR,
+  ],
 
   // --- Sistema ---
   USER_READ: [UserRole.SUPER_ADMIN, UserRole.ADMIN_PROVINCIAL],
@@ -293,5 +300,7 @@ export const ACCIONES_POR_PANTALLA: Partial<
   // vive en el listado y la edición del cuestionario en el detalle.
   [ROUTES.SURVEY_ADMIN]: ['SURVEY_MANAGE'],
   [ROUTES.SURVEY_CAMPAIGN_DETAIL]: ['SURVEY_MANAGE'],
+  // Las tarjetas de KPI se crean, editan y borran desde Métricas.
+  [ROUTES.METRICS]: ['SURVEY_MANAGE'],
   [ROUTES.USERS]: ['USER_MANAGE'],
 };

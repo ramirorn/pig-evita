@@ -92,6 +92,9 @@ export const AdminLayout = lazy(() =>
 export const DashboardPage = lazy(() =>
   import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 );
+export const MetricsPage = lazy(() =>
+  import('@/pages/admin/MetricsPage').then((m) => ({ default: m.MetricsPage })),
+);
 export const ImpactMapAdminPage = lazy(() =>
   import('@/pages/admin/ImpactMapAdminPage').then((m) => ({ default: m.ImpactMapAdminPage })),
 );
