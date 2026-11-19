@@ -7,6 +7,8 @@
 // viaja en el chunk de la ruta. Toda la transformación de datos ya viene hecha
 // desde `lib/metrics/metricsRules.ts`; acá sólo se dibuja.
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -47,6 +49,12 @@ interface MetricsChartProps {
   onSuprimidas?: (cantidad: number) => void;
   /** Barras horizontales: todas las filas en vez de las primeras. */
   verTodas?: boolean;
+  /** Torta como dona, con el total al centro. */
+  dona?: boolean;
+  /** Evolución como área rellena en vez de línea. */
+  area?: boolean;
+  /** Oculta la leyenda de recharts (la tarjeta dibuja la suya). */
+  sinLeyenda?: boolean;
 }
 
 const EJE = { fontSize: 12, fill: 'var(--color-primary-700)' };
@@ -73,12 +81,44 @@ export default function MetricsChart({
   porcentaje = false,
   onSuprimidas,
   verTodas = false,
+  dona = false,
+  area = false,
+  sinLeyenda = false,
 }: MetricsChartProps) {
   if (tipo === 'lineas') {
     if (!overview) return <SinDatos />;
     const { datos, suprimidas } = aDatosSerie(overview);
     onSuprimidas?.(suprimidas);
     if (datos.length === 0) return <SinDatos />;
+    if (area) {
+      return (
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={datos} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+            <defs>
+              <linearGradient id="relleno-evolucion" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={colorDeSerie(0)} stopOpacity={0.55} />
+                <stop offset="100%" stopColor={colorDeSerie(0)} stopOpacity={0.05} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke={GRILLA} strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="etiqueta" tick={EJE} minTickGap={16} />
+            <YAxis allowDecimals={false} tick={EJE} domain={[0, 'auto']} width={40} />
+            <Tooltip formatter={(v) => [v ?? 'Sin publicar', 'Respuestas']} />
+            <Area
+              type="monotone"
+              dataKey="respuestas"
+              name="Respuestas"
+              stroke={colorDeSerie(0)}
+              strokeWidth={2}
+              fill="url(#relleno-evolucion)"
+              // Un tramo suprimido corta el área: unirlo inventaría un valor.
+              connectNulls={false}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      );
+    }
     return (
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={datos} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
@@ -108,6 +148,7 @@ export default function MetricsChart({
     const { datos, suprimidas } = aDatosTorta(cruce);
     onSuprimidas?.(suprimidas);
     if (datos.length === 0) return <SinDatos />;
+    const total = datos.reduce((suma, d) => suma + d.valor, 0);
     return (
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
@@ -117,16 +158,30 @@ export default function MetricsChart({
             nameKey="nombre"
             cx="50%"
             cy="50%"
-            outerRadius="80%"
-            label={({ percent }) => `${Math.round((percent ?? 0) * 100)} %`}
+            innerRadius={dona ? '62%' : 0}
+            outerRadius="85%"
+            paddingAngle={dona ? 2 : 0}
+            label={dona ? false : ({ percent }) => `${Math.round((percent ?? 0) * 100)} %`}
+            stroke="var(--color-white, #ffffff)"
             isAnimationActive={false}
           >
             {datos.map((d, i) => (
               <Cell key={d.clave} fill={colorDeSerie(i)} />
             ))}
           </Pie>
+          {dona && (
+            <text
+              x="50%"
+              y="50%"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="fill-primary-900 text-2xl font-black"
+            >
+              {total.toLocaleString('es-AR')}
+            </text>
+          )}
           <Tooltip />
-          <Legend />
+          {!sinLeyenda && <Legend />}
         </PieChart>
       </ResponsiveContainer>
     );
