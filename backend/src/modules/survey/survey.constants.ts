@@ -27,6 +27,15 @@ export const UMBRAL_K_ANONIMATO = 5;
 export const MOTIVO_SUPRESION = 'MUESTRA_INSUFICIENTE' as const;
 
 /**
+ * Respuestas mínimas en la base de un destacado para escribir frases en
+ * lenguaje simple ("4 de cada 10", "la mayoría"). El k-anonimato protege a las
+ * personas; este piso protege la lectura: con 8 respuestas un "la mitad
+ * necesita transporte" es anecdótico, y en un panel que se presenta a
+ * funcionarios se toma como conclusión.
+ */
+export const MINIMO_PARA_FRASES = 30;
+
+/**
  * Cupo del endpoint público de envío de respuestas.
  *
  * Más estricto que `PUBLIC_READ_RATE_LIMIT` (20/min) porque no es una lectura:
