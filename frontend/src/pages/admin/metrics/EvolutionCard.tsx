@@ -2,6 +2,7 @@
 // EvolutionCard — respuestas en el tiempo, en área
 // ===========================================
 import type { MetricsOverview } from '@/types';
+import { textoTotal } from '@/lib/metrics/metricsRules';
 import { NotaSupresion } from '@/pages/admin/survey/SupresionKAnonimato';
 import { ChartFrame } from './ChartFrame';
 
@@ -28,7 +29,7 @@ export function EvolutionCard({ overview, umbral, grande = false }: EvolutionCar
             area
             overview={overview}
             alto={grande ? 360 : 'h-64 lg:h-80'}
-            etiqueta={`Respuestas en el tiempo: ${overview.totalRespuestas} en total`}
+            etiqueta={`Respuestas en el tiempo: ${textoTotal(overview.totalRespuestas, umbral, 'en total')}`}
           />
           {overview.serie.puntos.some((p) => p.suprimido) && <NotaSupresion umbral={umbral} />}
         </>

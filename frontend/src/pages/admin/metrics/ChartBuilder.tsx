@@ -25,6 +25,7 @@ import {
   disponerBarras,
   nombreArchivo,
   tablaACsv,
+  textoTotal,
   tiposDisponibles,
   type TipoGrafico,
 } from '@/lib/metrics/metricsRules';
@@ -127,8 +128,8 @@ function ChartPanel({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-primary-500">
           {tipo === 'lineas'
-            ? `${overview?.totalRespuestas ?? 0} respuestas en el corte`
-            : `${cruce?.totalRespuestas ?? 0} respuestas contestaron esta pregunta`}
+            ? overview && textoTotal(overview.totalRespuestas, umbral, 'en el corte')
+            : cruce && textoTotal(cruce.totalRespuestas, umbral, 'contestaron esta pregunta')}
         </p>
         <div className="flex gap-2">
           <Button type="button" size="sm" variant="outline" onClick={exportarPng} className="gap-1.5">
