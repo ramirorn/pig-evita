@@ -3,7 +3,7 @@
 // usuario, y el filtro por día de la auditoría. También verifica que no queden controles nativos.
 import { Page } from '@playwright/test';
 import { Api, PNG, as, data, nextDni, uniq } from '../../lib/api';
-import { elegir, expect, sinDesbordeHorizontal, test } from '../../lib/ui';
+import { abrirFiltros, elegir, expect, filas, sinDesbordeHorizontal, test } from '../../lib/ui';
 
 const sa = async () => (await as('SUPER_ADMIN')).api;
 
@@ -169,7 +169,7 @@ test.describe('alta de participante (diálogo)', () => {
     const p = await data(await s.post('/participants', { dni, firstName: 'Fecha', lastName: uniq('F'), birthDate: '2012-05-05', sex: 'MASCULINO', locality: 'Formosa', department: 'Formosa' }), 201);
     await loginAs('SUPER_ADMIN');
     await page.goto(`/admin/participantes/${p.id}`);
-    await expect(page.getByText(/Fecha de Nacimiento/)).toBeVisible();
+    await expect(page.getByText(/Fecha de nacimiento/i)).toBeVisible();
     await expect(page.locator('main')).toContainText(/(^|\D)0?5[/.-]0?5[/.-]2012/);
   });
 });
@@ -201,7 +201,7 @@ test.describe('calendario (admin)', () => {
     await expect(page.getByText(titulo).first()).toBeVisible();
     await page.goto('/admin/calendario');
     await page.getByRole('textbox', { name: /Buscar evento/ }).fill(titulo);
-    await page.locator('tr', { hasText: titulo }).getByRole('button').click();
+    await filas(page).filter({ hasText: titulo }).getByRole('button').click();
     await page.getByRole('menuitem', { name: 'Editar' }).click();
     await page.getByRole('dialog').getByLabel('Título del Evento *').fill(titulo + ' v2');
     await page.getByRole('dialog').getByRole('button', { name: /Guardar|Actualizar/ }).click();
@@ -353,7 +353,7 @@ test.describe('usuarios (admin)', () => {
     await dlg.getByLabel('Nombre', { exact: true }).fill('Uno');
     await dlg.getByLabel('Apellido').fill('Dos');
     await dlg.getByLabel('Correo Electrónico').fill(email);
-    await dlg.getByLabel('Contraseña').fill('Clave-segura-123');
+    await dlg.getByLabel('Contraseña', { exact: true }).fill('Clave-segura-123');
     await elegir(page, dlg.getByLabel('Rol en el Sistema'), 'Árbitro');
     await dlg.getByRole('button', { name: 'Crear Usuario' }).click();
     await expect(dlg).toHaveCount(0);
@@ -368,7 +368,7 @@ test.describe('usuarios (admin)', () => {
     await page.goto('/admin/usuarios');
     await page.getByRole('button', { name: 'Nuevo Usuario' }).click();
     const dlg = page.getByRole('dialog');
-    await dlg.getByLabel('Contraseña').fill('123');
+    await dlg.getByLabel('Contraseña', { exact: true }).fill('123');
     await dlg.getByRole('button', { name: 'Crear Usuario' }).click();
     await expect(dlg.getByText(/8 caracteres/).first()).toBeVisible();
   });
@@ -379,10 +379,11 @@ test.describe('auditoría (filtros)', () => {
     await loginAs('SUPER_ADMIN');
     await page.goto('/admin/auditoria');
     const hoy = new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Cordoba', day: '2-digit', month: '2-digit', year: 'numeric' });
+    await abrirFiltros(page);
     await page.getByLabel('Filtrar desde el día').fill(hoy);
     await page.getByLabel('Filtrar hasta el día').fill(hoy);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 5000 });
+    await expect(filas(page).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('el filtro de acción muestra etiquetas en castellano y un rango vacío lo explica', async ({ page, loginAs }) => {
@@ -390,10 +391,10 @@ test.describe('auditoría (filtros)', () => {
     await page.goto('/admin/auditoria');
     await elegir(page, page.getByLabel('Filtrar por acción'), 'Inicio de sesión');
     await page.waitForLoadState('networkidle');
-    const tabla = page.locator('table tbody');
-    await expect(tabla.locator('tr').first()).toBeVisible({ timeout: 5000 });
-    await expect(tabla).toContainText('Inicio de sesión');
-    await expect(tabla).not.toContainText(/\bLOGIN\b/);
+    await expect(filas(page).first()).toBeVisible({ timeout: 5000 });
+    await expect(filas(page).first()).toContainText('Inicio de sesión');
+    await expect(page.locator('main')).not.toContainText(/\bLOGIN\b/);
+    await abrirFiltros(page);
     await page.getByLabel('Filtrar desde el día').fill('01/01/2099');
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main')).toContainText(/sin resultados|no hay|no se encontr|ningún/i);
