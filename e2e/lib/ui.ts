@@ -56,3 +56,27 @@ export async function elegir(page: Page, combo: import('@playwright/test').Locat
   await combo.click();
   await page.getByRole('option', { name: opcion }).first().click();
 }
+
+/**
+ * En celular los filtros de los listados viven plegados detrás del botón
+ * "Filtros" (FilterPanel). En celular espera el botón y despliega cada panel
+ * cerrado; en escritorio (desde 768 px, `md`) no hace nada porque los controles
+ * se muestran siempre.
+ */
+export async function abrirFiltros(page: Page) {
+  if ((page.viewportSize()?.width ?? 1280) >= 768) return;
+  const botones = page.getByRole('button', { name: /^Filtros/ });
+  await expect(botones.first()).toBeVisible();
+  for (const boton of await botones.all()) {
+    if (!(await boton.isVisible())) continue;
+    if ((await boton.getAttribute('aria-expanded')) !== 'true') await boton.click();
+    await expect(boton).toHaveAttribute('aria-expanded', 'true');
+  }
+}
+
+/**
+ * Filas visibles de un listado: las de la tabla en escritorio o las tarjetas
+ * (`<ul aria-label="Lista de …">`) que DataTable muestra en celular.
+ */
+export const filas = (page: Page) =>
+  page.locator('table tbody tr:visible, ul[aria-label^="Lista de"] > li:visible');
