@@ -22,7 +22,7 @@ export function TerritoryCard({ cruce, cargando }: TerritoryCardProps) {
   const disposicion = cruce ? disponerBarras(aDatosBarras(cruce).datos, { verTodas }) : null;
 
   return (
-    <section className="card flex h-full flex-col gap-4 p-5" aria-labelledby="titulo-territorio">
+    <section className="card flex h-full min-w-0 flex-col gap-4 p-5" aria-labelledby="titulo-territorio">
       <h2 id="titulo-territorio" className="type-h3 text-primary-900">Por departamento</h2>
       {cargando && !cruce ? (
         <div className="h-72 animate-pulse rounded-xl bg-primary-50" />
@@ -33,7 +33,7 @@ export function TerritoryCard({ cruce, cargando }: TerritoryCardProps) {
       ) : (
         <>
           <ChartFrame
-            tipo="barras"
+            tipo="barras_apiladas"
             cruce={cruce}
             verTodas={verTodas}
             onSuprimidas={setSuprimidas}
