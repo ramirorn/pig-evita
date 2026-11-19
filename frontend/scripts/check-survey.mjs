@@ -93,6 +93,9 @@ const {
   encolarEnvio,
   quitarPendiente,
   marcarIntento,
+  localidadesDeDepartamento,
+  departamentoDeLocalidad,
+  localidadTrasCambiarDepartamento,
   DisciplineType,
   SurveyAudience,
   SurveyQuestionKind,
@@ -318,7 +321,11 @@ const CUESTIONARIO = [P_INACTIVA, ...P_EQUIPO, ...P_TODOS, ...P_INDIVIDUAL];
   // acá porque Zod descarta lo que no esté declarado en el schema: mientras
   // `surveyContextSchema` no la tuvo, el borrador volvía sin etapa y el
   // selector aparecía otra vez en blanco (visto en el navegador, no en teoría).
-  const contexto = { disciplineId: UUID(7), etapa: CompetitionStage.PROVINCIAL };
+  const contexto = {
+    disciplineId: UUID(7),
+    etapa: CompetitionStage.PROVINCIAL,
+    localityId: UUID(901),
+  };
   const respuestas = { [P_TODOS[0].id]: [P_TODOS[0].options[0].id] };
 
   comprobar('sin nada guardado, no hay borrador', leerBorrador(campania) === null);
@@ -327,6 +334,10 @@ const CUESTIONARIO = [P_INACTIVA, ...P_EQUIPO, ...P_TODOS, ...P_INDIVIDUAL];
   const recuperado = leerBorrador(campania);
 
   comprobar('el borrador vuelve después de guardarlo', recuperado !== null);
+  comprobar(
+    'el borrador conserva la localidad elegida (si no, el envío restaurado sale sin corte territorial)',
+    recuperado?.contexto?.localityId === contexto.localityId,
+  );
   comprobar(
     'el borrador conserva el contexto',
     recuperado?.contexto?.disciplineId === contexto.disciplineId,
@@ -432,6 +443,49 @@ const CUESTIONARIO = [P_INACTIVA, ...P_EQUIPO, ...P_TODOS, ...P_INDIVIDUAL];
   comprobar(
     'un envío en cola que no valida contra el DTO se descarta',
     leerPendientes().length === 0,
+  );
+}
+
+// -------------------------------------------------
+// Selector territorial: departamento → localidad
+// -------------------------------------------------
+{
+  const CATALOGO = [
+    {
+      id: UUID(900),
+      name: 'Formosa',
+      localities: [
+        { id: UUID(901), name: 'Formosa', zona: 'CAPITAL' },
+        { id: UUID(902), name: 'Gran Guardia', zona: 'INTERIOR' },
+      ],
+    },
+    {
+      id: UUID(910),
+      name: 'Pirané',
+      localities: [{ id: UUID(911), name: 'Pirané', zona: 'INTERIOR' }],
+    },
+  ];
+
+  comprobar(
+    'sin departamento no se ofrecen localidades',
+    localidadesDeDepartamento(CATALOGO, undefined).length === 0,
+  );
+  comprobar(
+    'un departamento ofrece sólo sus localidades',
+    localidadesDeDepartamento(CATALOGO, UUID(900)).map((l) => l.name).join() ===
+      'Formosa,Gran Guardia',
+  );
+  comprobar(
+    'al restaurar, el departamento se deduce de la localidad guardada',
+    departamentoDeLocalidad(CATALOGO, UUID(911)) === UUID(910),
+  );
+  comprobar(
+    'cambiar a un departamento que no la contiene limpia la localidad',
+    localidadTrasCambiarDepartamento(CATALOGO, UUID(910), UUID(901)) === undefined,
+  );
+  comprobar(
+    'volver a elegir el mismo departamento conserva la localidad',
+    localidadTrasCambiarDepartamento(CATALOGO, UUID(900), UUID(902)) === UUID(902),
   );
 }
 

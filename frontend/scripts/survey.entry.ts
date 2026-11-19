@@ -17,6 +17,11 @@ export {
   marcarIntento,
 } from '@/pages/public/survey/form/surveyDraft';
 export {
+  localidadesDeDepartamento,
+  departamentoDeLocalidad,
+  localidadTrasCambiarDepartamento,
+} from '@/pages/public/survey/form/surveyLocality';
+export {
   DisciplineType,
   SurveyAudience,
   SurveyQuestionKind,
