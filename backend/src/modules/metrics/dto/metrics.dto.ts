@@ -156,3 +156,47 @@ export class CreateSurveyKpiDto {
 }
 
 export class UpdateSurveyKpiDto extends PartialType(CreateSurveyKpiDto) {}
+
+/** Destacado (ranking de opciones); la definición la valida `validarDefinicionDestacado`. */
+export class CreateSurveyHighlightDto {
+  @ApiPropertyOptional({
+    description: 'Campaña a la que pertenece; vacío = reutilizable para todas',
+  })
+  @IsOptional()
+  @IsUUID()
+  campaignId?: string | null;
+
+  @ApiProperty({ example: 'Lo que más necesitan los deportistas es:' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(160)
+  titulo: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  descripcion?: string | null;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  orden?: number;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @ToBoolean()
+  @IsBoolean()
+  activo?: boolean;
+
+  @ApiProperty({
+    description: '{ opciones: string[] (valor de opción), top: 1..10 }',
+  })
+  @IsObject()
+  definicion: Record<string, unknown>;
+}
+
+export class UpdateSurveyHighlightDto extends PartialType(
+  CreateSurveyHighlightDto,
+) {}
