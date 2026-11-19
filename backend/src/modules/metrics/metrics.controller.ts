@@ -22,10 +22,12 @@ import { Roles } from '../../common/decorators';
 import { ACCIONES } from '../../common/constants';
 import { MetricsService } from './metrics.service';
 import {
+  CreateSurveyHighlightDto,
   CreateSurveyKpiDto,
   MetricsCatalogQueryDto,
   MetricsCrossQueryDto,
   MetricsQueryDto,
+  UpdateSurveyHighlightDto,
   UpdateSurveyKpiDto,
 } from './dto';
 
@@ -102,6 +104,57 @@ export class MetricsController {
     @Query() query: MetricsQueryDto,
   ) {
     return this.metricsService.kpis(id, query);
+  }
+
+  @Get('survey/:id/highlights')
+  @Roles(...ACCIONES.METRICS_READ)
+  @ApiOperation({
+    summary: 'Destacados (rankings de opciones) evaluados sobre el corte',
+    description:
+      'Cada opción pasa por el umbral, por el complemento contra la base y, en opción única, por la supresión secundaria. Lo oculto no entra al ranking. `puedeAfirmar` indica si la base alcanza el mínimo para escribir frases.',
+  })
+  highlights(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: MetricsQueryDto,
+  ) {
+    return this.metricsService.highlights(id, query);
+  }
+
+  // ===========================================
+  // ABM de destacados (quien gestiona la encuesta)
+  // ===========================================
+
+  @Get('highlights')
+  @Roles(...ACCIONES.METRICS_READ)
+  @ApiOperation({
+    summary: 'Definiciones de destacados (de la campaña y reutilizables)',
+  })
+  listHighlights(@Query() query: MetricsCatalogQueryDto) {
+    return this.metricsService.listHighlights(query.campaignId);
+  }
+
+  @Post('highlights')
+  @Roles(...ACCIONES.SURVEY_MANAGE)
+  @ApiOperation({ summary: 'Crear un destacado' })
+  createHighlight(@Body() dto: CreateSurveyHighlightDto) {
+    return this.metricsService.createHighlight(dto);
+  }
+
+  @Patch('highlights/:id')
+  @Roles(...ACCIONES.SURVEY_MANAGE)
+  @ApiOperation({ summary: 'Editar un destacado' })
+  updateHighlight(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSurveyHighlightDto,
+  ) {
+    return this.metricsService.updateHighlight(id, dto);
+  }
+
+  @Delete('highlights/:id')
+  @Roles(...ACCIONES.SURVEY_MANAGE)
+  @ApiOperation({ summary: 'Borrar un destacado' })
+  removeHighlight(@Param('id', ParseUUIDPipe) id: string) {
+    return this.metricsService.removeHighlight(id);
   }
 
   // ===========================================
