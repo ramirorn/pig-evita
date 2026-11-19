@@ -20,7 +20,9 @@ import { useMetricsCross } from '@/hooks/useMetrics';
 import {
   ETIQUETAS_GRAFICO,
   DIMENSION_SIN_DESGLOSE,
+  aDatosBarras,
   ajustarTipo,
+  disponerBarras,
   nombreArchivo,
   tablaACsv,
   tiposDisponibles,
@@ -65,6 +67,13 @@ function ChartPanel({
 }) {
   const contenedor = useRef<HTMLDivElement>(null);
   const [suprimidas, setSuprimidas] = useState(0);
+  const [verTodas, setVerTodas] = useState(false);
+
+  // Barras con muchas categorías: el alto lo dan las filas, no el contenedor.
+  const esBarras = tipo === 'barras' || tipo === 'barras_apiladas';
+  const disposicion =
+    esBarras && cruce ? disponerBarras(aDatosBarras(cruce, { porcentaje }).datos, { verTodas }) : null;
+  const alto = disposicion?.alto ?? null;
 
   const exportarPng = async () => {
     if (!contenedor.current) return;
@@ -81,7 +90,12 @@ function ChartPanel({
   return (
     <div className="min-w-0 space-y-3">
       {titulo && <p className="text-sm font-bold text-primary-800">{titulo}</p>}
-      <div ref={contenedor} className="relative h-80 w-full" data-testid="metrics-chart">
+      <div
+        ref={contenedor}
+        className={alto === null ? 'relative h-80 w-full' : 'relative w-full'}
+        style={alto === null ? undefined : { height: alto }}
+        data-testid="metrics-chart"
+      >
         {cargando && !cruce && !overview ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-primary-400" aria-hidden="true" />
@@ -100,10 +114,16 @@ function ChartPanel({
               overview={overview}
               porcentaje={porcentaje}
               onSuprimidas={setSuprimidas}
+              verTodas={verTodas}
             />
           </Suspense>
         )}
       </div>
+      {disposicion && (disposicion.ocultas > 0 || verTodas) && (
+        <Button type="button" size="sm" variant="ghost" onClick={() => setVerTodas((v) => !v)}>
+          {verTodas ? 'Ver menos' : `Ver todas (${disposicion.ocultas} más)`}
+        </Button>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-primary-500">
           {tipo === 'lineas'
