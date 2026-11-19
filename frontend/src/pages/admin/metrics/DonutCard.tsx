@@ -20,7 +20,7 @@ export function DonutCard({ cruce, cargando, selector, grande = false }: DonutCa
   const titulo = cruce?.pregunta.texto ?? 'Respuestas';
 
   return (
-    <section className="card flex h-full flex-col gap-4 p-5" aria-labelledby="titulo-dona">
+    <section className="card flex h-full min-w-0 flex-col gap-4 p-5" aria-labelledby="titulo-dona">
       <div className="space-y-2">
         <h2 id="titulo-dona" className="type-h3 text-primary-900">Cómo respondieron</h2>
         {selector}
@@ -32,7 +32,7 @@ export function DonutCard({ cruce, cargando, selector, grande = false }: DonutCa
           No hay respuestas publicables para esta pregunta en este corte.
         </p>
       ) : (
-        <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className={grande ? 'grid items-center gap-6 md:grid-cols-2' : 'space-y-4'}>
           <ChartFrame
             tipo="torta"
             cruce={cruce}
