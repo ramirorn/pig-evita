@@ -28,6 +28,13 @@ export const VALORES = {
   ESTUDIAR_Y_TRABAJAR: 'estudiar_y_trabajar',
   SOLO_TRABAJAR: 'solo_trabajar',
   NO_SE_ESTUDIOS: 'no_se_estudios',
+  NEC_TRANSPORTE: 'nec_transporte',
+  NEC_INDUMENTARIA: 'nec_indumentaria',
+  NEC_ENTRENADOR: 'nec_entrenador',
+  NEC_LUGAR_ENTRENAR: 'nec_lugar_entrenar',
+  NEC_ATENCION_MEDICA: 'nec_atencion_medica',
+  NEC_BECA_ESTUDIO: 'nec_beca_estudio',
+  NEC_ALIMENTACION: 'nec_alimentacion',
 } as const;
 
 export interface PreguntaSemilla {
@@ -38,7 +45,11 @@ export interface PreguntaSemilla {
   opciones: { texto: string; valor: string }[];
 }
 
-/** Ordinales 9 a 11: van después del bloque psicológico del borrador. */
+/**
+ * Ordinales 9 a 12: van después del bloque psicológico del borrador. La 12
+ * (necesidades) sostiene el destacado "Lo que más necesitan los deportistas
+ * es:"; sin una pregunta así el panel no tiene de dónde afirmarlo.
+ */
 export const PREGUNTAS_SALUD_Y_EDUCACION: PreguntaSemilla[] = [
   {
     orden: 9,
@@ -79,6 +90,30 @@ export const PREGUNTAS_SALUD_Y_EDUCACION: PreguntaSemilla[] = [
       { texto: 'Estudiar y trabajar', valor: VALORES.ESTUDIAR_Y_TRABAJAR },
       { texto: 'Sólo trabajar', valor: VALORES.SOLO_TRABAJAR },
       { texto: 'Todavía no lo sé', valor: VALORES.NO_SE_ESTUDIOS },
+    ],
+  },
+  {
+    orden: 12,
+    audiencia: SurveyAudience.TODOS,
+    kind: SurveyQuestionKind.MULTIPLE,
+    texto: '¿Qué es lo que más necesitás para seguir haciendo deporte?',
+    opciones: [
+      { texto: 'Transporte para ir a entrenar', valor: VALORES.NEC_TRANSPORTE },
+      { texto: 'Ropa o calzado deportivo', valor: VALORES.NEC_INDUMENTARIA },
+      { texto: 'Un entrenador o profe', valor: VALORES.NEC_ENTRENADOR },
+      {
+        texto: 'Un lugar donde entrenar cerca',
+        valor: VALORES.NEC_LUGAR_ENTRENAR,
+      },
+      { texto: 'Atención médica', valor: VALORES.NEC_ATENCION_MEDICA },
+      {
+        texto: 'Una beca para estudiar',
+        valor: VALORES.NEC_BECA_ESTUDIO,
+      },
+      {
+        texto: 'Comida durante los entrenamientos',
+        valor: VALORES.NEC_ALIMENTACION,
+      },
     ],
   },
 ];
@@ -140,6 +175,31 @@ export const KPIS_SEMILLA = [
       ],
       denominador: 'contestaron',
       formato: 'porcentaje',
+    },
+  },
+] as const;
+
+/**
+ * Destacados reutilizables del panel. Se identifican por `titulo` para que el
+ * seed sea idempotente y no pise lo que se edite desde el panel.
+ */
+export const DESTACADOS_SEMILLA = [
+  {
+    titulo: 'Lo que más necesitan los deportistas es:',
+    descripcion:
+      'Las necesidades que más eligieron quienes respondieron la encuesta.',
+    orden: 0,
+    definicion: {
+      opciones: [
+        VALORES.NEC_TRANSPORTE,
+        VALORES.NEC_INDUMENTARIA,
+        VALORES.NEC_ENTRENADOR,
+        VALORES.NEC_LUGAR_ENTRENAR,
+        VALORES.NEC_ATENCION_MEDICA,
+        VALORES.NEC_BECA_ESTUDIO,
+        VALORES.NEC_ALIMENTACION,
+      ],
+      top: 3,
     },
   },
 ] as const;
