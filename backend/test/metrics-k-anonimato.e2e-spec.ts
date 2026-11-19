@@ -161,10 +161,12 @@ describe('/metrics (e2e) — k-anonimato', () => {
   let app: INestApplication;
   let respuestas: Respuesta[];
   let kpis: Array<Record<string, any>>;
+  let destacados: Array<Record<string, any>>;
 
   beforeEach(async () => {
     respuestas = [];
     kpis = [];
+    destacados = [];
 
     const prisma = {
       surveyCampaign: {
@@ -201,6 +203,14 @@ describe('/metrics (e2e) — k-anonimato', () => {
           const i = kpis.findIndex((k) => k.id === where.id);
           const [borrado] = kpis.splice(i, 1);
           return Promise.resolve(borrado);
+        }),
+      },
+      surveyHighlight: {
+        findMany: jest.fn(() => Promise.resolve(destacados)),
+        create: jest.fn(({ data }: { data: Record<string, any> }) => {
+          const creado = { id: KPI_ID, ...data };
+          destacados.push(creado);
+          return Promise.resolve(creado);
         }),
       },
       locality: {
@@ -293,10 +303,14 @@ describe('/metrics (e2e) — k-anonimato', () => {
     const pirane = res.body.filas.find((f: any) => f.etiqueta === 'Pirané');
     const formosa = res.body.filas.find((f: any) => f.etiqueta === 'Formosa');
 
-    // Pirané: 7 visibles + 2 suprimidas ⇒ el total (9) también se oculta.
+    // Pirané: 7 + 2 suprimidas ⇒ el total (9) también se oculta. Y como la
+    // pregunta es de opción única y el total de la localidad se conoce por
+    // otro lado (filtrando el resumen), 9 − 7 despejaría el 2: la menor celda
+    // visible (el 7) se oculta también (supresión secundaria).
     expect(pirane.totalFila).toMatchObject({ suprimido: true, conteo: null });
     expect(pirane.celdas.find((c: any) => c.valor === 'no')).toMatchObject({
-      conteo: 7,
+      suprimido: true,
+      conteo: null,
     });
     expect(
       pirane.celdas.find((c: any) => c.valor === 'si_no_atendido'),
@@ -304,6 +318,7 @@ describe('/metrics (e2e) — k-anonimato', () => {
       suprimido: true,
       conteo: null,
     });
+    expect(JSON.stringify(pirane)).not.toMatch(/"conteo":(2|7)[,}]/);
     // Formosa: todas sus celdas visibles o en cero publicable ⇒ total visible.
     expect(formosa.totalFila).toEqual({ suprimido: false, conteo: 6 });
     expect(res.body.etiquetaDimension).toBe('Localidad');
@@ -360,18 +375,28 @@ describe('/metrics (e2e) — k-anonimato', () => {
       createdAt: new Date(),
     });
 
-    // 6 atendidos de 10 lesionados: ambos lados visibles.
+    // 6 atendidos de 10 lesionados: 10 − 6 = 4 sin atención quedaría a la
+    // vista por resta ⇒ el numerador y el valor no se publican.
     respuestas.push(
       ...repetir(6, () => respuesta(LOC_PIRANE, OPC.atendido, null)),
       ...repetir(4, () => respuesta(LOC_PIRANE, OPC.sinAtencion, null)),
     );
+    const complemento = await get(`/metrics/survey/${CAMPAIGN_ID}/kpis`);
+    expect(complemento.status).toBe(200);
+    expect(complemento.body.kpis[0]).toMatchObject({
+      numerador: { suprimido: true, conteo: null },
+      denominador: { suprimido: false, conteo: 10 },
+      valor: null,
+    });
+
+    // Un sin atención más (6 de 11, resto 5): todo visible.
+    respuestas.push(respuesta(LOC_PIRANE, OPC.sinAtencion, null));
     const visible = await get(`/metrics/survey/${CAMPAIGN_ID}/kpis`);
-    expect(visible.status).toBe(200);
     expect(visible.body.kpis[0]).toMatchObject({
       nombre: 'Lesionados atendidos',
       numerador: { suprimido: false, conteo: 6 },
-      denominador: { suprimido: false, conteo: 10 },
-      valor: 60,
+      denominador: { suprimido: false, conteo: 11 },
+      valor: 54.5,
     });
 
     // Filtrando a la capital no hay lesionados: numerador suprimido ⇒ sin valor.
@@ -412,6 +437,70 @@ describe('/metrics (e2e) — k-anonimato', () => {
     );
     expect(borrado.status).toBe(200);
     expect(kpis).toHaveLength(0);
+  });
+
+  const LESIONES = {
+    id: KPI_ID,
+    campaignId: null,
+    titulo: 'Lo que más les pasa',
+    descripcion: null,
+    orden: 0,
+    activo: true,
+    definicion: {
+      opciones: ['no', 'si_atendido', 'si_no_atendido', 'de_otra_edicion'],
+      top: 3,
+    },
+    createdAt: new Date(),
+  };
+
+  it('highlights: ranking sin celdas chicas ni resta posible en opción única', async () => {
+    destacados.push(LESIONES);
+    // 20 + 9 + 4 = 33. El 4 se oculta; como la pregunta es de opción única y
+    // la base es visible, 33 − 20 − 9 lo despejaría: se oculta también el 9.
+    respuestas.push(
+      ...repetir(20, () => respuesta(LOC_PIRANE, OPC.no, null)),
+      ...repetir(9, () => respuesta(LOC_PIRANE, OPC.atendido, null)),
+      ...repetir(4, () => respuesta(LOC_PIRANE, OPC.sinAtencion, null)),
+    );
+    const res = await get(`/metrics/survey/${CAMPAIGN_ID}/highlights`);
+    expect(res.status).toBe(200);
+    expect(res.body.minimoFrases).toBe(30);
+    const [d] = res.body.destacados;
+    expect(d.titulo).toBe('Lo que más les pasa');
+    expect(d.base).toEqual({ suprimido: false, conteo: 33 });
+    expect(d.opciones).toEqual([
+      { valor: 'no', texto: 'No', conteo: 20, porcentaje: 60.6 },
+    ]);
+    expect(d.ocultas).toBe(2);
+    expect(d.puedeAfirmar).toBe(true);
+    expect(JSON.stringify(d)).not.toMatch(/"conteo":(4|9)[,}]/);
+  });
+
+  it('highlights: con pocas respuestas no hay ranking ni frases', async () => {
+    destacados.push(LESIONES);
+    respuestas.push(...repetir(4, () => respuesta(LOC_PIRANE, OPC.no, null)));
+    const res = await get(`/metrics/survey/${CAMPAIGN_ID}/highlights`);
+    const [d] = res.body.destacados;
+    expect(d.base).toMatchObject({ suprimido: true, conteo: null });
+    expect(d.opciones).toEqual([]);
+    expect(d.puedeAfirmar).toBe(false);
+  });
+
+  it('highlights: crear valida la definición', async () => {
+    const malo = await request(app.getHttpServer())
+      .post('/metrics/highlights')
+      .send({ titulo: 'X', definicion: { opciones: [], top: 3 } });
+    expect(malo.status).toBe(400);
+    expect(malo.body.message).toMatch(/opciones/);
+
+    const bueno = await request(app.getHttpServer())
+      .post('/metrics/highlights')
+      .send({
+        titulo: 'Lo que más necesitan los deportistas es:',
+        definicion: { opciones: ['no', 'si_atendido'], top: 3 },
+      });
+    expect(bueno.status).toBe(201);
+    expect(destacados).toHaveLength(1);
   });
 
   it('catalog: devuelve preguntas, dimensiones y localidades con zona, sin datos personales', async () => {
