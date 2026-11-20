@@ -10,18 +10,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  CompetitionStage,
   DisciplineType,
   Prisma,
   SurveyAudience,
   SurveyCampaignStatus,
   SurveyQuestionKind,
-  SurveyWindow,
 } from '@prisma/client';
+import { enTandas } from '../metrics/metrics-aggregation';
 import { PrismaService } from '../../database/prisma.service';
 import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
-import { finDelRango, inicioDelRango } from '../../common/dto/date-range';
-import { CAPITAL } from '../../common/constants';
 import {
   ActiveSurveyQueryDto,
   CAMPOS_ORDEN_SURVEY_CAMPAIGNS,
@@ -30,27 +27,13 @@ import {
   CreateSurveyQuestionDto,
   SubmitSurveyResponseDto,
   SurveyCampaignFilterDto,
-  SurveyMetricsQueryDto,
   UpdateSurveyCampaignDto,
   UpdateSurveyOptionDto,
   UpdateSurveyQuestionDto,
 } from './dto';
-import {
-  claveVersionCampania,
-  MOTIVO_SUPRESION,
-  UMBRAL_K_ANONIMATO,
-} from './survey.constants';
+import { claveVersionCampania } from './survey.constants';
 import { RedisCacheService } from '../../common/cache';
-import type {
-  Corte,
-  SurveyFlowDisciplina,
-  SurveyFlowDisciplinaLocalidad,
-  SurveyFlowEtapaVentana,
-  SurveyFlowResult,
-  SurveyMetricsResult,
-  SurveyQuestionMetric,
-  SurveySubmitResult,
-} from './survey.types';
+import type { SurveySubmitResult } from './survey.types';
 
 /** Campaña con sus preguntas y opciones ya ordenadas, como la ve el formulario. */
 const INCLUDE_CUESTIONARIO = {
@@ -383,7 +366,7 @@ export class SurveyService {
       where.titulo = { contains: filterDto.search, mode: 'insensitive' };
     }
 
-    const [campaigns, total] = await Promise.all([
+    const [filas, total] = await Promise.all([
       this.prisma.surveyCampaign.findMany({
         where,
         skip: filterDto.skip,
@@ -401,7 +384,43 @@ export class SurveyService {
       this.prisma.surveyCampaign.count({ where }),
     ]);
 
+    // El listado no publica cuántas respuestas hay: sólo si hay, y el conteo de
+    // a k como en Métricas (ver `publicarConteo`).
+    const campaigns = filas.map(({ _count, ...campania }) => ({
+      ...campania,
+      ...this.publicarConteo(_count.responses),
+      _count: {
+        questions: _count.questions,
+        responses: enTandas(_count.responses),
+      },
+    }));
+
     return buildPaginatedResponse(campaigns, total, filterDto);
+  }
+
+  /**
+   * Detalle para el panel. Los números de la encuesta viven sólo en Métricas:
+   * acá va si la campaña tiene respuestas (lo que deciden las reglas de
+   * edición), el conteo de a k y qué opciones ya fueron elegidas (para no
+   * ofrecer borrar una opción con respuestas), nunca cuántas veces.
+   */
+  async findCampaignDetail(id: string) {
+    const { _count, ...campania } = await this.findCampaign(id);
+    const elegidas = await this.prisma.surveyAnswer.groupBy({
+      by: ['optionId'],
+      where: { response: { campaignId: id } },
+    });
+    return {
+      ...campania,
+      ...this.publicarConteo(_count.responses),
+      _count: { responses: enTandas(_count.responses) },
+      opcionesElegidas: [...new Set(elegidas.map((e) => e.optionId))],
+    };
+  }
+
+  /** Lo que se publica del conteo de respuestas fuera de Métricas: sí o no. */
+  private publicarConteo(respuestas: number): { tieneRespuestas: boolean } {
+    return { tieneRespuestas: respuestas > 0 };
   }
 
   async findCampaign(id: string) {
@@ -462,7 +481,7 @@ export class SurveyService {
 
     if (campaign._count.responses > 0) {
       throw new ConflictException(
-        `Esta campaña ya tiene ${campaign._count.responses} respuestas y borrarla las borraría también. Cerrala en vez de eliminarla.`,
+        'Esta campaña ya tiene respuestas y borrarla las borraría también. Cerrala en vez de eliminarla.',
       );
     }
 
@@ -729,266 +748,6 @@ export class SurveyService {
     });
     this.subirVersion(campaignId);
     return borrada;
-  }
-
-  // ===========================================
-  // Métricas
-  // ===========================================
-
-  /**
-   * Agregados por pregunta y opción, con cortes opcionales.
-   *
-   * Regla de k-anonimato: si el corte pedido tiene menos de
-   * `UMBRAL_K_ANONIMATO` respuestas, **no se devuelve ningún desglose**. Se
-   * suprime el corte entero y no cada opción por separado, porque publicar el
-   * total y esconder sólo las celdas chicas permite despejarlas por resta.
-   */
-  async getMetrics(
-    id: string,
-    query: SurveyMetricsQueryDto,
-  ): Promise<SurveyMetricsResult> {
-    const campaign = await this.findCampaign(id);
-    const where = this.buildResponseWhere(id, query);
-    const totalRespuestas = await this.prisma.surveyResponse.count({ where });
-
-    const base = {
-      campaignId: campaign.id,
-      titulo: campaign.titulo,
-      filtros: {
-        etapa: query.etapa,
-        ventana: query.ventana,
-        disciplineId: query.disciplineId,
-        disciplineType: query.disciplineType,
-        localityId: query.localityId,
-      },
-      umbral: UMBRAL_K_ANONIMATO,
-      totalRespuestas,
-    };
-
-    if (totalRespuestas < UMBRAL_K_ANONIMATO) {
-      return {
-        ...base,
-        suprimido: true,
-        motivo: MOTIVO_SUPRESION,
-        preguntas: [],
-      };
-    }
-
-    const conteos = await this.prisma.surveyAnswer.groupBy({
-      by: ['questionId', 'optionId'],
-      where: { response: where },
-      _count: { _all: true },
-    });
-
-    const porOpcion = new Map(
-      conteos.map((c) => [`${c.questionId}:${c.optionId}`, c._count._all]),
-    );
-
-    // Cuántas personas contestaron cada pregunta. No alcanza con sumar las
-    // opciones: en una pregunta MULTIPLE una misma persona suma varias veces y
-    // los porcentajes pasarían del 100%.
-    const totalesPorPregunta = await Promise.all(
-      campaign.questions.map((pregunta) =>
-        this.prisma.surveyResponse.count({
-          where: { ...where, answers: { some: { questionId: pregunta.id } } },
-        }),
-      ),
-    );
-
-    const preguntas: SurveyQuestionMetric[] = campaign.questions.map(
-      (pregunta, indice) => {
-        const totalPregunta = totalesPorPregunta[indice];
-
-        return {
-          questionId: pregunta.id,
-          orden: pregunta.orden,
-          texto: pregunta.texto,
-          kind: pregunta.kind,
-          audiencia: pregunta.audiencia,
-          activa: pregunta.activa,
-          totalRespuestas: totalPregunta,
-          opciones: pregunta.options.map((opcion) => {
-            const conteo = porOpcion.get(`${pregunta.id}:${opcion.id}`) ?? 0;
-            return {
-              optionId: opcion.id,
-              valor: opcion.valor,
-              texto: opcion.texto,
-              orden: opcion.orden,
-              conteo,
-              porcentaje:
-                totalPregunta > 0
-                  ? Math.round((conteo / totalPregunta) * 1000) / 10
-                  : 0,
-            };
-          }),
-        };
-      },
-    );
-
-    return { ...base, suprimido: false, motivo: null, preguntas };
-  }
-
-  /**
-   * Conteos para el análisis de flujo: cuántos contestaron en cada etapa y
-   * ventana, en qué disciplinas, y qué disciplinas aparecen por localidad.
-   *
-   * Cada celda pasa por el mismo umbral que las métricas. Acá importa más que
-   * en ningún lado: "Ramón Lista, handball, etapa zonal: 2 respuestas" ya es
-   * casi un nombre propio, aunque no se muestre ninguna respuesta.
-   */
-  async getFlow(id: string): Promise<SurveyFlowResult> {
-    const campaign = await this.findCampaign(id);
-    const where: Prisma.SurveyResponseWhereInput = { campaignId: id };
-
-    const [totalRespuestas, porEtapa, porDisciplina, porDisciplinaLocalidad] =
-      await Promise.all([
-        this.prisma.surveyResponse.count({ where }),
-        this.prisma.surveyResponse.groupBy({
-          by: ['etapa', 'ventana'],
-          where,
-          _count: { _all: true },
-        }),
-        this.prisma.surveyResponse.groupBy({
-          by: ['disciplineId', 'disciplineType'],
-          where,
-          _count: { _all: true },
-        }),
-        this.prisma.surveyResponse.groupBy({
-          by: ['localityId', 'disciplineId'],
-          where,
-          _count: { _all: true },
-        }),
-      ]);
-
-    const nombres = await this.resolverNombres(
-      porDisciplina
-        .map((d) => d.disciplineId)
-        .concat(porDisciplinaLocalidad.map((d) => d.disciplineId)),
-      porDisciplinaLocalidad.map((d) => d.localityId),
-    );
-
-    const porEtapaVentana: SurveyFlowEtapaVentana[] = porEtapa.map((fila) => ({
-      etapa: fila.etapa as CompetitionStage,
-      ventana: fila.ventana as SurveyWindow,
-      ...this.aplicarUmbral(fila._count._all),
-    }));
-
-    const disciplinas: SurveyFlowDisciplina[] = porDisciplina.map((fila) => ({
-      disciplineId: fila.disciplineId,
-      disciplina: fila.disciplineId
-        ? (nombres.disciplinas.get(fila.disciplineId) ?? null)
-        : null,
-      disciplineType: fila.disciplineType as DisciplineType,
-      ...this.aplicarUmbral(fila._count._all),
-    }));
-
-    const porDisciplinaYLocalidad: SurveyFlowDisciplinaLocalidad[] =
-      porDisciplinaLocalidad.map((fila) => ({
-        localityId: fila.localityId,
-        localidad: fila.localityId
-          ? (nombres.localidades.get(fila.localityId) ?? null)
-          : null,
-        disciplineId: fila.disciplineId,
-        disciplina: fila.disciplineId
-          ? (nombres.disciplinas.get(fila.disciplineId) ?? null)
-          : null,
-        ...this.aplicarUmbral(fila._count._all),
-      }));
-
-    return {
-      campaignId: campaign.id,
-      titulo: campaign.titulo,
-      umbral: UMBRAL_K_ANONIMATO,
-      totalRespuestas,
-      porEtapaVentana,
-      porDisciplina: disciplinas,
-      porDisciplinaYLocalidad,
-    };
-  }
-
-  /** Un conteo sale publicado o sale suprimido; nunca a medias. */
-  private aplicarUmbral(conteo: number): Corte {
-    return conteo < UMBRAL_K_ANONIMATO
-      ? { suprimido: true, motivo: MOTIVO_SUPRESION, conteo: null }
-      : { suprimido: false, conteo };
-  }
-
-  private async resolverNombres(
-    disciplineIds: (string | null)[],
-    localityIds: (string | null)[],
-  ) {
-    const disciplinas = [...new Set(disciplineIds.filter(Boolean))] as string[];
-    const localidades = [...new Set(localityIds.filter(Boolean))] as string[];
-
-    const [filasDisciplinas, filasLocalidades] = await Promise.all([
-      disciplinas.length
-        ? this.prisma.discipline.findMany({
-            where: { id: { in: disciplinas } },
-            select: { id: true, name: true },
-          })
-        : Promise.resolve([]),
-      localidades.length
-        ? this.prisma.locality.findMany({
-            where: { id: { in: localidades } },
-            select: { id: true, name: true },
-          })
-        : Promise.resolve([]),
-    ]);
-
-    return {
-      disciplinas: new Map(filasDisciplinas.map((d) => [d.id, d.name])),
-      localidades: new Map(filasLocalidades.map((l) => [l.id, l.name])),
-    };
-  }
-
-  private buildResponseWhere(
-    campaignId: string,
-    query: SurveyMetricsQueryDto,
-  ): Prisma.SurveyResponseWhereInput {
-    const where: Prisma.SurveyResponseWhereInput = { campaignId };
-
-    if (query.etapa) where.etapa = query.etapa;
-    if (query.ventana) where.ventana = query.ventana;
-    if (query.disciplineId) where.disciplineId = query.disciplineId;
-    if (query.disciplineType) where.disciplineType = query.disciplineType;
-    if (query.localityId) where.localityId = query.localityId;
-    if (query.categoryId) where.categoryId = query.categoryId;
-    if (query.sexo) where.sexo = query.sexo;
-
-    // Departamento y zona se resuelven por la relación con la localidad. Una
-    // respuesta sin localidad cargada no es de ningún departamento y, para la
-    // zona, cuenta como INTERIOR (mismo criterio que `zonaDeLocalidad`).
-    if (query.departmentId) {
-      where.locality = { departmentId: query.departmentId };
-    }
-    if (query.zona === 'CAPITAL') {
-      where.locality = {
-        ...(where.locality as Prisma.LocalityWhereInput | undefined),
-        name: { equals: CAPITAL.localidad, mode: 'insensitive' },
-        department: {
-          name: { equals: CAPITAL.departamento, mode: 'insensitive' },
-        },
-      };
-    } else if (query.zona === 'INTERIOR') {
-      where.NOT = {
-        locality: {
-          name: { equals: CAPITAL.localidad, mode: 'insensitive' },
-          department: {
-            name: { equals: CAPITAL.departamento, mode: 'insensitive' },
-          },
-        },
-      };
-    }
-
-    // `desde`/`hasta` con sólo la fecha abarcan el día entero, igual que los
-    // filtros del calendario y la auditoría.
-    if (query.desde || query.hasta) {
-      where.enviadaEn = {};
-      if (query.desde) where.enviadaEn.gte = inicioDelRango(query.desde);
-      if (query.hasta) where.enviadaEn.lte = finDelRango(query.hasta);
-    }
-
-    return where;
   }
 
   // ===========================================

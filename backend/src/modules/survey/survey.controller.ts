@@ -27,7 +27,6 @@ import {
   CreateSurveyQuestionDto,
   SubmitSurveyResponseDto,
   SurveyCampaignFilterDto,
-  SurveyMetricsQueryDto,
   UpdateSurveyCampaignDto,
   UpdateSurveyOptionDto,
   UpdateSurveyQuestionDto,
@@ -122,7 +121,7 @@ export class SurveyController {
   @Roles(...ACCIONES.SURVEY_MANAGE)
   @ApiOperation({ summary: 'Obtener campaña con su cuestionario' })
   async findCampaign(@Param('id', ParseUUIDPipe) id: string) {
-    return this.surveyService.findCampaign(id);
+    return this.surveyService.findCampaignDetail(id);
   }
 
   @Patch('campaigns/:id')
@@ -223,35 +222,5 @@ export class SurveyController {
     @Param('optionId', ParseUUIDPipe) optionId: string,
   ) {
     return this.surveyService.removeOption(id, questionId, optionId);
-  }
-
-  // ===========================================
-  // Métricas (admin)
-  // ===========================================
-
-  /**
-   * Agregados por pregunta y opción.
-   *
-   * Los cortes con menos de `UMBRAL_K_ANONIMATO` respuestas vuelven suprimidos:
-   * responden menores de edad sobre su salud mental y un filtro fino sobre una
-   * muestra chica alcanza para reidentificar a uno.
-   */
-  @Get('campaigns/:id/metrics')
-  @Roles(...ACCIONES.SURVEY_MANAGE)
-  @ApiOperation({ summary: 'Métricas agregadas por pregunta y opción' })
-  async getMetrics(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Query() query: SurveyMetricsQueryDto,
-  ) {
-    return this.surveyService.getMetrics(id, query);
-  }
-
-  @Get('campaigns/:id/flow')
-  @Roles(...ACCIONES.SURVEY_MANAGE)
-  @ApiOperation({
-    summary: 'Conteos por etapa/ventana, disciplina y localidad',
-  })
-  async getFlow(@Param('id', ParseUUIDPipe) id: string) {
-    return this.surveyService.getFlow(id);
   }
 }

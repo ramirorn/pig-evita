@@ -16,7 +16,6 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
-  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -363,71 +362,4 @@ export class SubmitSurveyResponseDto {
   @ValidateNested({ each: true })
   @Type(() => SurveyAnswerInputDto)
   respuestas: SurveyAnswerInputDto[];
-}
-
-// ===========================================
-// Métricas
-// ===========================================
-
-export class SurveyMetricsQueryDto {
-  @ApiPropertyOptional({ enum: CompetitionStage })
-  @IsOptional()
-  @IsEnum(CompetitionStage)
-  etapa?: CompetitionStage;
-
-  @ApiPropertyOptional({ enum: SurveyWindow })
-  @IsOptional()
-  @IsEnum(SurveyWindow)
-  ventana?: SurveyWindow;
-
-  @ApiPropertyOptional({ description: 'Disciplina' })
-  @IsOptional()
-  @IsUUID()
-  disciplineId?: string;
-
-  @ApiPropertyOptional({ enum: DisciplineType })
-  @IsOptional()
-  @IsEnum(DisciplineType)
-  disciplineType?: DisciplineType;
-
-  @ApiPropertyOptional({ description: 'Localidad' })
-  @IsOptional()
-  @IsUUID()
-  localityId?: string;
-
-  // Los cortes de abajo ya se guardaban en cada respuesta pero no se podían
-  // filtrar: son los que la Secretaría cruza para armar sus indicadores.
-
-  @ApiPropertyOptional({ description: 'Departamento de la localidad' })
-  @IsOptional()
-  @IsUUID()
-  departmentId?: string;
-
-  @ApiPropertyOptional({
-    description: 'CAPITAL = localidad Formosa; INTERIOR = el resto',
-    enum: ['CAPITAL', 'INTERIOR'],
-  })
-  @IsOptional()
-  @IsIn(['CAPITAL', 'INTERIOR'])
-  zona?: 'CAPITAL' | 'INTERIOR';
-
-  @ApiPropertyOptional({ description: 'Categoría' })
-  @IsOptional()
-  @IsUUID()
-  categoryId?: string;
-
-  @ApiPropertyOptional({ enum: Sex })
-  @IsOptional()
-  @IsEnum(Sex)
-  sexo?: Sex;
-
-  @ApiPropertyOptional({ description: 'Respuestas enviadas desde (ISO 8601)' })
-  @IsOptional()
-  @IsDateString()
-  desde?: string;
-
-  @ApiPropertyOptional({ description: 'Respuestas enviadas hasta (ISO 8601)' })
-  @IsOptional()
-  @IsDateString()
-  hasta?: string;
 }

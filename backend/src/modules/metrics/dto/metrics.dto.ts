@@ -26,8 +26,7 @@ import {
 import { ToBoolean } from '../../../common/transformers';
 
 /**
- * Filtros comunes a todos los endpoints de métricas. Mismo contrato que
- * `SurveyMetricsQueryDto` (el panel viejo y el nuevo cortan igual).
+ * Filtros comunes a todos los endpoints de métricas.
  */
 export class MetricsQueryDto {
   @ApiPropertyOptional({ enum: CompetitionStage })
