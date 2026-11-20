@@ -124,6 +124,20 @@ test.describe('panel de Métricas', () => {
     await s.post(`/survey/campaigns/${c.id}/close`);
   });
 
+  test('tope de filtros: con 2 en uso, el resto queda deshabilitado y se explica por qué', async ({ page, loginAs }) => {
+    const { c, s } = await campaniaConRespuestas(5);
+    await loginAs('ADMIN_PROVINCIAL');
+    await page.goto(`/admin/metricas?campania=${c.id}&zona=INTERIOR&sexo=FEMENINO`);
+    await expect(page.locator('#metricas-zona')).toBeEnabled();
+    await expect(page.locator('#metricas-sexo')).toBeEnabled();
+    await expect(page.locator('#metricas-etapa')).toBeDisabled();
+    await expect(page.locator('#metricas-departamento')).toBeDisabled();
+    await expect(page.getByRole('note').filter({ hasText: 'hasta 2 filtros a la vez' })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Hoy' })).toBeDisabled();
+    await expect(page.getByRole('radio', { name: 'Todo' })).toBeEnabled();
+    await s.post(`/survey/campaigns/${c.id}/close`);
+  });
+
   test('por departamento: barras horizontales con los nombres sin encimarse', async ({ page, loginAs }) => {
     test.setTimeout(120_000);
     const catalogo = await data(await (await anon()).get('/localities'));

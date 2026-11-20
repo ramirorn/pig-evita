@@ -2,7 +2,7 @@
 // localidad en la respuesta, versión en vivo, k-anonimato en el cruce, KPIs y
 // permisos por rol.
 import { expect, test } from '@playwright/test';
-import { Api, anon, as, data, freshIp, newCtx, uniq } from '../../lib/api';
+import { Api, anon, as, body, data, freshIp, newCtx, uniq } from '../../lib/api';
 
 const prov = async () => (await as('ADMIN_PROVINCIAL')).api;
 
@@ -106,9 +106,22 @@ test.describe('métricas en vivo', () => {
     expect(filaCapital.totalFila, 'dos respuestas de la capital no se publican').toMatchObject({ suprimido: true, conteo: null });
     expect(JSON.stringify(filaCapital)).not.toContain('"conteo":2');
 
-    // Filtrado, el interior también se publica de a 5: de sus 8 salen 5.
+    // Filtrar por interior tampoco se publica: en el cruce por zona su fila
+    // está oculta (10 − 8 despejaría la capital), y el filtro sigue esa regla.
     const soloInterior = await data(await s.get(`/metrics/survey/${c.id}/overview?zona=INTERIOR`));
-    expect(soloInterior.totalRespuestas).toEqual({ suprimido: false, conteo: 5 });
+    expect(soloInterior.totalRespuestas).toMatchObject({ suprimido: true, conteo: null });
+
+    // Más de 2 filtros a la vez: 400.
+    const tres = await s.get(`/metrics/survey/${c.id}/overview?zona=INTERIOR&sexo=FEMENINO&etapa=ZONAL`);
+    expect(tres.status()).toBe(400);
+    expect(await tres.text()).toContain('hasta 2 filtros');
+
+    // Cada consulta a las métricas queda registrada: quién y con qué filtros.
+    const auditoria = await body(await (await prov()).get(`/audit?action=READ_METRICS&entityId=${c.id}&limit=50`));
+    expect(
+      auditoria.data.some((fila: any) => fila.changes?.zona === 'INTERIOR'),
+      'la consulta filtrada por interior quedó en la auditoría',
+    ).toBe(true);
 
     // La capital tiene 2: su total no se publica y su cruce no deja ceros
     // que permitan despejar por resta qué contestaron.
