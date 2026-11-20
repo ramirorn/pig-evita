@@ -504,12 +504,18 @@ Contra la resta **en el tiempo** y entre ventanas de fecha:
 - **publicación en tandas de 5:** cada corte (la combinación de filtros pedida) publica sólo sus respuestas más viejas en múltiplos de 5 (`publicarEnTandas`: por fecha de envío y, a igual fecha, por id). Con 7 respuestas se publican las 5 primeras; la 6.ª a la 9.ª no cambian nada y la 10.ª suma las cinco juntas. Entre dos lecturas, un corte cambia por 0 o por al menos 5 respuestas: quien ve a alguien contestar en la sede y recarga el panel no aísla su respuesta. El conteo de respuestas por campaña del catálogo también va de a 5. El costo: el panel "en vivo" se mueve de a 5 y hasta 4 respuestas por corte esperan a la tanda siguiente;
 - **fechas en días completos:** `desde`/`hasta` se redondean al día (UTC) y la hora que mande el cliente se descarta (`diaDelFiltro`); los filtros que se devuelven ya vienen como `YYYY-MM-DD`. Así, dos ventanas que difieren en minutos no aíslan las respuestas de esos minutos.
 
-Fuera de esta protección (fases siguientes, decisión pendiente):
+Contra la resta **entre consultas con filtros distintos**:
 
-- la resta entre consultas con filtros distintos (por ejemplo, el total sin filtro menos el total filtrado por interior), el tope de filtros simultáneos y el registro de quién consulta qué;
+- **regla de coherencia:** un corte filtrado sólo se publica si, para cada filtro, su fila se publicaría en el cruce del corte sin ese filtro por esa dimensión (con el umbral y la supresión por masa de siempre), y ese corte sin el filtro también es coherente. Lo segundo evita que un filtro redundante destrabe un corte bloqueado (zona interior + una localidad del interior). Las fechas cuentan como dos filas, "dentro" y "fuera" del rango. Así, con 47 respuestas del interior y 3 de la capital, filtrar por interior no se publica (50 − 47 despejaría la capital); y si las localidades suman 10, 12 y 3 sin dato, la de 10 tampoco se publica filtrando (25 − 10 − 12 despejaría las 3). Si un corte no pasa la regla, se responde como un corte vacío: todo sale suprimido;
+- **tope de 2 filtros a la vez** (`desde` y `hasta` juntos cuentan como uno): con más, la API responde 400 "Se pueden combinar hasta 2 filtros a la vez, para cuidar el anonimato". La barra de filtros deshabilita el tercero y lo explica, y un enlace viejo con más filtros se abre con los dos primeros;
+- **registro de consultas:** cada lectura de `overview`, `cross`, `kpis` y `highlights` queda en la auditoría (`AuditLog`) con la acción `READ_METRICS`, el id de la campaña, el usuario, la IP y los filtros consultados en `changes`. La misma consulta del mismo usuario se registra una sola vez cada 10 minutos, para que el panel que refresca no inunde la tabla. Se habilita por endpoint con `@Audit({ action, lectura: true })`.
+
+Fuera de esta protección (riesgo residual):
+
+- con 2 filtros todavía se pueden combinar restas entre cortes cuyas filas pasan la regla por separado (inclusión-exclusión con dos dimensiones); el registro de consultas lo deja a la vista, no lo impide;
 - como cada corte corta sus tandas en un lugar distinto, combinar tres cortes de fecha ("todo", "hasta ayer" y "desde hoy") puede volver a aislar una respuesta cuando lo de los días anteriores no es múltiplo de 5; es de la misma familia que la resta entre filtros;
 - la versión de la campaña (`/version`, y el campo `version` de los resultados) sube con cada respuesta: revela cuándo alguien contestó y, sin Redis, es el conteo exacto de respuestas;
-- el panel anterior de la encuesta (`/survey/campaigns/:id/metrics`) y el listado de campañas publican conteos sin tandas ni redondeo de fechas (sólo para quien gestiona la encuesta).
+- el panel anterior de la encuesta (`/survey/campaigns/:id/metrics`) y el listado de campañas publican conteos exactos: sin tandas, redondeo de fechas, regla de coherencia, tope de filtros ni registro de consultas (sólo para quien gestiona la encuesta).
 
 Se acepta publicar un corte de 5 o más respuestas donde todos eligieron la misma opción.
 
