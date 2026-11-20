@@ -16,6 +16,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   Body,
   Controller,
+  Get,
   INestApplication,
   Patch,
   Post,
@@ -96,6 +97,19 @@ class SondaController {
   @Patch('accion-de-negocio')
   @Audit({ entity: 'otra_entidad', action: 'ACCION_DE_NEGOCIO' })
   accionDeNegocio() {
+    return { ok: true };
+  }
+
+  /** Lectura auditada a pedido (`lectura: true`), como las de métricas. */
+  @Get('lectura/:id')
+  @Audit({ action: 'LECTURA_DE_PRUEBA', lectura: true })
+  lectura() {
+    return { ok: true };
+  }
+
+  /** Lectura sin decorar: las lecturas no se auditan por defecto. */
+  @Get('lectura-comun')
+  lecturaComun() {
     return { ok: true };
   }
 
@@ -245,6 +259,57 @@ describe('Contrato de auditoría (e2e)', () => {
       .patch(`/${API_PREFIX}${path}`)
       .set('User-Agent', USER_AGENT)
       .set('X-Forwarded-For', IP_CLIENTE);
+
+  // -------------------------------------------------
+  // 0. Lecturas auditadas a pedido
+  // -------------------------------------------------
+  describe('Lecturas con `lectura: true`', () => {
+    const get = (path: string) =>
+      request(app.getHttpServer())
+        .get(`/${API_PREFIX}${path}`)
+        .set('User-Agent', USER_AGENT)
+        .set('X-Forwarded-For', IP_CLIENTE);
+
+    it('registran quién consultó qué filtros, una fila por consulta distinta', async () => {
+      await get(`/sondas/lectura/${INSCRIPTION_ID}?zona=INTERIOR`).expect(200);
+      // La misma consulta repetida (el panel refresca) no suma filas.
+      await get(`/sondas/lectura/${INSCRIPTION_ID}?zona=INTERIOR`).expect(200);
+      await flush();
+      expect(filas()).toHaveLength(1);
+      expect(filas()[0]).toMatchObject({
+        action: 'LECTURA_DE_PRUEBA',
+        entity: 'sondas',
+        entityId: INSCRIPTION_ID,
+        changes: { zona: 'INTERIOR' },
+        ipAddress: IP_CLIENTE,
+      });
+
+      // Otro filtro es otra consulta: otra fila.
+      await get(`/sondas/lectura/${INSCRIPTION_ID}?zona=CAPITAL`).expect(200);
+      await flush();
+      expect(filas()).toHaveLength(2);
+    });
+
+    it('la memoria de lecturas tiene tope: pasado el límite olvida la más vieja', async () => {
+      // 1001 consultas distintas: la memoria guarda 1000, así que la primera
+      // se olvida y, repetida, vuelve a registrarse. Sin tope seguiría
+      // recordada y el mapa crecería con cada consulta distinta.
+      for (let i = 0; i <= 1000; i += 1) {
+        await get(`/sondas/lectura/${INSCRIPTION_ID}?n=${i}`).expect(200);
+      }
+      await flush();
+      expect(filas()).toHaveLength(1001);
+      await get(`/sondas/lectura/${INSCRIPTION_ID}?n=0`).expect(200);
+      await flush();
+      expect(filas()).toHaveLength(1002);
+    }, 60_000);
+
+    it('una lectura sin decorar no se audita', async () => {
+      await get('/sondas/lectura-comun?zona=INTERIOR').expect(200);
+      await flush();
+      expect(filas()).toHaveLength(0);
+    });
+  });
 
   // -------------------------------------------------
   // 1. El DoD literal de T25: una operación, una fila

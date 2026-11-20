@@ -28,6 +28,13 @@ export interface AuditOptions {
    * Excluye el endpoint de la auditoría automática. Ver `@NoAudit()`.
    */
   skip?: boolean;
+
+  /**
+   * Audita también este endpoint de **lectura** (GET). Las lecturas no se
+   * auditan por defecto; esto es para las pocas cuyo registro importa (quién
+   * consultó qué cortes de las métricas de la encuesta). Ver la Vía 1.
+   */
+  lectura?: boolean;
 }
 
 /**
@@ -43,6 +50,10 @@ export interface AuditOptions {
  *
  * Cubre automáticamente **toda** request POST / PATCH / PUT / DELETE que
  * termine bien, y la registra como CREATE / UPDATE / UPDATE / DELETE.
+ * Las lecturas (GET) no se auditan, salvo las decoradas con
+ * `@Audit({ action, lectura: true })`: esas guardan la query string como
+ * `changes`, y la misma consulta del mismo usuario se registra una sola vez
+ * cada 10 minutos (un panel que refresca no inunda la tabla).
  * La entidad sale del primer segmento de la URL (`/api/v1/teams/:id` →
  * `teams`) y el `entityId` del primer UUID que aparezca en la ruta o, si es
  * una creación, del `id` que devuelve el controller.

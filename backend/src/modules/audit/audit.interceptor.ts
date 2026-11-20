@@ -19,6 +19,12 @@ import {
 
 const WRITE_METHODS = ['POST', 'PATCH', 'PUT', 'DELETE'];
 
+/** Una misma lectura auditada del mismo usuario se registra una vez por ventana. */
+const VENTANA_LECTURA_MS = 10 * 60 * 1000;
+
+/** Lecturas recordadas a lo sumo; pasado el límite se olvidan las más viejas. */
+const MAXIMO_LECTURAS_RECORDADAS = 1000;
+
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,6 +39,9 @@ const UUID_REGEX =
  */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
+  /** Última vez que se registró cada lectura (usuario + ruta + query). */
+  private readonly lecturasRegistradas = new Map<string, number>();
+
   constructor(
     private readonly auditService: AuditService,
     private readonly reflector: Reflector,
@@ -41,6 +50,10 @@ export class AuditInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest<Request>();
     const { method, url, body, ip } = request;
+
+    if (method === 'GET') {
+      return this.interceptarLectura(context, next, request);
+    }
 
     if (!WRITE_METHODS.includes(method)) {
       return next.handle();
@@ -105,6 +118,78 @@ export class AuditInterceptor implements NestInterceptor {
         },
       }),
     );
+  }
+
+  /**
+   * Lecturas decoradas con `lectura: true`: se registra la query string (los
+   * filtros consultados), una vez por usuario, ruta y query cada
+   * `VENTANA_LECTURA_MS`. Las demás lecturas pasan sin auditar.
+   */
+  private interceptarLectura(
+    context: ExecutionContext,
+    next: CallHandler,
+    request: Request,
+  ): Observable<any> {
+    const options =
+      this.reflector.getAllAndOverride<AuditOptions>(AUDIT_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? {};
+    if (!options.lectura || options.skip) return next.handle();
+
+    const userId = (request as any).user?.sub ?? null;
+    const ruta = request.url.split('?')[0].split('#')[0];
+    const query = (request.query ?? {}) as Record<string, unknown>;
+    const ordenada = Object.fromEntries(
+      Object.keys(query)
+        .sort()
+        .map((clave) => [clave, query[clave]]),
+    );
+    const clave = `${userId ?? '-'}|${ruta}|${JSON.stringify(ordenada)}`;
+    const { entity, entityId } = this.parseUrl(ruta);
+
+    return next.handle().pipe(
+      tap({
+        next: () => {
+          const ahora = Date.now();
+          const anterior = this.lecturasRegistradas.get(clave);
+          if (anterior !== undefined && ahora - anterior < VENTANA_LECTURA_MS) {
+            return;
+          }
+          this.recordarLectura(clave, ahora);
+          this.auditService.log({
+            userId,
+            action: options.action ?? 'READ',
+            entity: options.entity ?? entity,
+            entityId,
+            changes: ordenada,
+            ipAddress: request.ip,
+            userAgent: request.get('User-Agent'),
+          });
+        },
+      }),
+    );
+  }
+
+  /**
+   * Recuerda una lectura sin dejar crecer el mapa: descarta las vencidas y,
+   * si aun así está lleno, las más viejas (el `Map` itera por orden de alta).
+   * Olvidar una lectura sólo hace que la próxima igual se registre de nuevo.
+   */
+  private recordarLectura(clave: string, ahora: number): void {
+    this.lecturasRegistradas.delete(clave);
+    if (this.lecturasRegistradas.size >= MAXIMO_LECTURAS_RECORDADAS) {
+      for (const [k, cuando] of this.lecturasRegistradas) {
+        if (ahora - cuando >= VENTANA_LECTURA_MS) {
+          this.lecturasRegistradas.delete(k);
+        }
+      }
+    }
+    for (const k of this.lecturasRegistradas.keys()) {
+      if (this.lecturasRegistradas.size < MAXIMO_LECTURAS_RECORDADAS) break;
+      this.lecturasRegistradas.delete(k);
+    }
+    this.lecturasRegistradas.set(clave, ahora);
   }
 
   private methodToAction(method: string): string {
