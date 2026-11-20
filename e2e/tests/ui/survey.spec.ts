@@ -16,7 +16,9 @@ async function campaniaActiva(s: Api) {
   await data(await s.post(`/survey/campaigns/${c.id}/publish`));
   return c;
 }
-const total = async (s: Api, id: string) => (await data(await s.get(`/survey/campaigns/${id}/metrics`))).totalRespuestas as number;
+// Cuántos envíos entraron: la versión de la campaña sube 1 con cada respuesta.
+// (Los conteos publicados van de a 5 y no sirven para ver un envío suelto.)
+const total = async (s: Api, id: string) => (await data(await s.get(`/metrics/survey/${id}/version`))).version as number;
 
 test.describe.configure({ mode: 'serial' });
 

@@ -87,7 +87,7 @@ test.describe('respuesta pública', () => {
     await s.post(`/survey/campaigns/${c.id}/close`);
   });
 
-  test('envío válido → 201 anónimo; la respuesta no guarda IP/usuario; las métricas cuentan', async () => {
+  test('envío válido → 201 anónimo; la respuesta no guarda IP/usuario; Métricas las cuenta', async () => {
     const { c, q1, q2, s } = await campania();
     await data(await s.post(`/survey/campaigns/${c.id}/publish`));
     const payload = {
@@ -99,10 +99,11 @@ test.describe('respuesta pública', () => {
       expect(r.status(), await r.text()).toBe(201);
       expect(JSON.stringify(await body(r))).not.toMatch(/ip|userAgent|email|dni/i);
     }
-    const m = await data(await s.get(`/survey/campaigns/${c.id}/metrics`));
-    expect(JSON.stringify(m)).toContain('Bien');
-    const flow = await data(await s.get(`/survey/campaigns/${c.id}/flow`));
-    expect(JSON.stringify(flow)).toBeTruthy();
+    // Los números viven sólo en Métricas: el panel viejo de la encuesta ya no existe.
+    const overview = await data(await s.get(`/metrics/survey/${c.id}/overview`));
+    expect(overview.totalRespuestas).toEqual({ suprimido: false, conteo: 5 });
+    expect((await s.get(`/survey/campaigns/${c.id}/metrics`)).status()).toBe(404);
+    expect((await s.get(`/survey/campaigns/${c.id}/flow`)).status()).toBe(404);
     await s.post(`/survey/campaigns/${c.id}/close`);
   });
 
@@ -147,17 +148,32 @@ test.describe('respuesta pública', () => {
     await data(await s.post(`/survey/campaigns/${c.id}/publish`));
     const a = new Api(await newCtx(), undefined, freshIp());
     await a.post('/survey/responses', { campaignId: c.id, etapa: 'ZONAL', disciplineType: 'INDIVIDUAL', respuestas: [{ questionId: q1.id, optionIds: [opc(q1)[0].id] }] });
-    expect((await s.del(`/survey/campaigns/${c.id}`)).status()).toBe(409);
+    const borrar = await s.del(`/survey/campaigns/${c.id}`);
+    expect(borrar.status()).toBe(409);
+    // El aviso no dice cuántas respuestas hay.
+    expect(await borrar.text()).not.toMatch(/\d+ respuesta/);
+    await s.post(`/survey/campaigns/${c.id}/close`);
   });
 
-  test('k-anonimato: con menos respuestas que el umbral no se devuelve ningún desglose', async () => {
+  test('fuera de Métricas no hay conteos: el detalle dice si hay respuestas y qué opciones se eligieron', async () => {
     const { c, q1, s } = await campania();
     await data(await s.post(`/survey/campaigns/${c.id}/publish`));
     const a = new Api(await newCtx(), undefined, freshIp());
     await a.post('/survey/responses', { campaignId: c.id, etapa: 'ZONAL', disciplineType: 'INDIVIDUAL', sexo: 'FEMENINO', respuestas: [{ questionId: q1.id, optionIds: [opc(q1)[0].id] }] });
-    const m = await data(await s.get(`/survey/campaigns/${c.id}/metrics?disciplineType=INDIVIDUAL`));
-    expect(m.umbral).toBeGreaterThan(1);
-    expect(JSON.stringify(m)).not.toMatch(/"count":1/);
+
+    const detalle = await data(await s.get(`/survey/campaigns/${c.id}`));
+    expect(detalle.tieneRespuestas).toBe(true);
+    expect(detalle._count.responses, 'de a 5: con 1 respuesta se publica 0').toBe(0);
+    expect(detalle.opcionesElegidas).toEqual([opc(q1)[0].id]);
+
+    const lista = await body(await s.get(`/survey/campaigns?search=${encodeURIComponent(c.titulo)}`));
+    const fila = lista.data.find((x: any) => x.id === c.id);
+    expect(fila.tieneRespuestas).toBe(true);
+    expect(fila._count.responses).toBe(0);
+
+    // Y Métricas tampoco lo publica: es una sola respuesta.
+    const overview = await data(await s.get(`/metrics/survey/${c.id}/overview`));
+    expect(overview.totalRespuestas).toMatchObject({ suprimido: true, conteo: null });
     await s.post(`/survey/campaigns/${c.id}/close`);
   });
 });
