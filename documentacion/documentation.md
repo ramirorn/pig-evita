@@ -490,7 +490,9 @@ Todos los endpoints de reportes soportan formato CSV (por defecto) y Excel (vía
 
 ### 4.19 Metrics (métricas de la encuesta)
 
-Lectura analítica sobre las respuestas de la encuesta. Todo corte con menos de `UMBRAL_K_ANONIMATO` (5) respuestas se devuelve suprimido (`conteo: null`). Además, ningún número se publica si permite despejar por resta un grupo chico:
+Lectura analítica sobre las respuestas de la encuesta. **Es el único lugar del sistema que publica números de la encuesta:** la pantalla de cada campaña (Encuestas) ya no tiene las pestañas "Qué contestaron" y "Quiénes contestaron" (se quitaron también `GET /survey/campaigns/:id/metrics` y `/flow`) y enlaza a Métricas con la campaña elegida. Fuera de Métricas, el listado y el detalle de campañas informan `tieneRespuestas` (sí/no) y `_count.responses` de a 5; el detalle agrega `opcionesElegidas` (qué opciones eligió alguien, sin cuántas veces) para que el editor no ofrezca borrar una opción con respuestas, y el aviso al borrar una campaña con respuestas no dice cuántas son.
+
+Todo corte con menos de `UMBRAL_K_ANONIMATO` (5) respuestas se devuelve suprimido (`conteo: null`). Además, ningún número se publica si permite despejar por resta un grupo chico:
 
 - los **totales** (`totalRespuestas` del resumen y del cruce) pasan por el mismo umbral: con menos de 5 se devuelven suprimidos;
 - en una tabla cruzada, una fila con menos de 5 respuestas oculta **todas** sus celdas, ceros incluidos (con el total de esa fila a mano, "No=0 | Atendido=0" despejaba la celda oculta); en una fila más grande, una celda no se publica si el resto de la fila queda entre 1 y 4;
@@ -515,7 +517,6 @@ Fuera de esta protección (riesgo residual):
 - con 2 filtros todavía se pueden combinar restas entre cortes cuyas filas pasan la regla por separado (inclusión-exclusión con dos dimensiones); el registro de consultas lo deja a la vista, no lo impide;
 - como cada corte corta sus tandas en un lugar distinto, combinar tres cortes de fecha ("todo", "hasta ayer" y "desde hoy") puede volver a aislar una respuesta cuando lo de los días anteriores no es múltiplo de 5; es de la misma familia que la resta entre filtros;
 - la versión de la campaña (`/version`, y el campo `version` de los resultados) sube con cada respuesta: revela cuándo alguien contestó y, sin Redis, es el conteo exacto de respuestas;
-- el panel anterior de la encuesta (`/survey/campaigns/:id/metrics`) y el listado de campañas publican conteos exactos: sin tandas, redondeo de fechas, regla de coherencia, tope de filtros ni registro de consultas (sólo para quien gestiona la encuesta).
 
 Se acepta publicar un corte de 5 o más respuestas donde todos eligieron la misma opción.
 
