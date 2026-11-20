@@ -106,6 +106,79 @@ export function diaDelFiltro(valor: string): string {
 }
 
 // ===========================================
+// Filtros: tope y coherencia
+// ===========================================
+//
+// El total sin filtro menos el total filtrado por "interior" despeja la
+// capital. Dos reglas lo cierran: un corte filtrado sólo se publica si su fila
+// se publicaría en el cruce del corte sin ese filtro (que ya protege las filas
+// chicas y lo que se despeja restando), y no se combinan más de 2 filtros, para
+// acotar las combinaciones con las que armar restas.
+
+/** Filtros que se pueden combinar a la vez en un corte de métricas. */
+export const MAXIMO_FILTROS = 2;
+
+/** Un filtro del corte; `desde` y `hasta` juntos son uno solo: `fecha`. */
+export type FiltroCorte =
+  | 'etapa'
+  | 'ventana'
+  | 'disciplineId'
+  | 'disciplineType'
+  | 'localityId'
+  | 'departmentId'
+  | 'zona'
+  | 'categoryId'
+  | 'sexo'
+  | 'fecha';
+
+const ORDEN_FILTROS: readonly FiltroCorte[] = [
+  'etapa',
+  'ventana',
+  'disciplineId',
+  'disciplineType',
+  'localityId',
+  'departmentId',
+  'zona',
+  'categoryId',
+  'sexo',
+  'fecha',
+];
+
+type ClaveDeFiltro = Exclude<FiltroCorte, 'fecha'> | 'desde' | 'hasta';
+
+/** Los filtros en uso, en un orden fijo; el rango de fechas cuenta una vez. */
+export function filtrosActivos(
+  filtros: Partial<Record<ClaveDeFiltro, unknown>>,
+): FiltroCorte[] {
+  return ORDEN_FILTROS.filter((filtro) =>
+    filtro === 'fecha'
+      ? Boolean(filtros.desde || filtros.hasta)
+      : Boolean(filtros[filtro]),
+  );
+}
+
+/**
+ * ¿Se publica el corte filtrado por `propia`? `entradas` son las filas del
+ * corte sin ese filtro, agrupadas por la dimensión del filtro, y `total` el
+ * total de ese corte. Mismo criterio que las filas de un cruce: umbral y
+ * supresión secundaria por masa (`protegerGrupo`). Un valor que no aparece en
+ * el corte sin filtro tampoco se publica.
+ */
+export function filaPublicable(
+  entradas: readonly (readonly [string | null, number])[],
+  total: number,
+  propia: string | null,
+): boolean {
+  const indice = entradas.findIndex(([clave]) => clave === propia);
+  if (indice === -1) return false;
+  const cortes = protegerGrupo(
+    entradas.map(([, conteo]) => conteo),
+    total,
+  );
+  return !cortes[indice]!.suprimido;
+}
+
+// ===========================================
 // Dimensiones
 // ===========================================
 

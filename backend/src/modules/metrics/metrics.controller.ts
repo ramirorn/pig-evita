@@ -18,7 +18,7 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Roles } from '../../common/decorators';
+import { Audit, Roles } from '../../common/decorators';
 import { ACCIONES } from '../../common/constants';
 import { MetricsService } from './metrics.service';
 import {
@@ -63,6 +63,7 @@ export class MetricsController {
   }
 
   @Get('survey/:id/overview')
+  @Audit({ action: 'READ_METRICS', lectura: true })
   @Roles(...ACCIONES.METRICS_READ)
   @ApiOperation({
     summary:
@@ -78,6 +79,7 @@ export class MetricsController {
   }
 
   @Get('survey/:id/cross')
+  @Audit({ action: 'READ_METRICS', lectura: true })
   @Roles(...ACCIONES.METRICS_READ)
   @ApiOperation({
     summary: 'Tabla cruzada: una pregunta desglosada por una dimensión',
@@ -93,6 +95,7 @@ export class MetricsController {
   }
 
   @Get('survey/:id/kpis')
+  @Audit({ action: 'READ_METRICS', lectura: true })
   @Roles(...ACCIONES.METRICS_READ)
   @ApiOperation({
     summary: 'Indicadores (KPIs) evaluados sobre el corte',
@@ -107,6 +110,7 @@ export class MetricsController {
   }
 
   @Get('survey/:id/highlights')
+  @Audit({ action: 'READ_METRICS', lectura: true })
   @Roles(...ACCIONES.METRICS_READ)
   @ApiOperation({
     summary: 'Destacados (rankings de opciones) evaluados sobre el corte',

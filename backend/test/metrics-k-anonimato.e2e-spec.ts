@@ -6,8 +6,10 @@
 // ningún corte con menos de 5 respuestas sale con un conteo; una celda
 // suprimida arrastra el total de su fila; un KPI no publica cociente si
 // alguno de sus lados está suprimido; la versión de la campaña, sin Redis,
-// es el conteo de respuestas; cada corte se publica en tandas de 5; y los
-// filtros de fecha se redondean al día. El doble de Prisma es en memoria, como en
+// es el conteo de respuestas; cada corte se publica en tandas de 5; los
+// filtros de fecha se redondean al día; un corte filtrado sólo se publica si
+// su fila se publicaría en el cruce del corte sin ese filtro; y no se aceptan
+// más de 2 filtros a la vez. El doble de Prisma es en memoria, como en
 // `survey-anonimato.e2e-spec.ts`.
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -626,6 +628,112 @@ describe('/metrics (e2e) — k-anonimato', () => {
       `/metrics/survey/${CAMPAIGN_ID}/overview?desde=2026-11-11T00:00:00Z`,
     );
     expect(otroDia.body.totalRespuestas).toMatchObject({ suprimido: true });
+  });
+
+  it('coherencia: total 50 con 3 en la capital: filtrar por interior no despeja la capital', async () => {
+    respuestas.push(
+      ...repetir(47, () => respuesta(LOC_PIRANE, OPC.no, null)),
+      ...repetir(3, () => respuesta(LOC_FORMOSA, OPC.no, null)),
+    );
+    const total = await get(`/metrics/survey/${CAMPAIGN_ID}/overview`);
+    expect(total.body.totalRespuestas).toEqual({
+      suprimido: false,
+      conteo: 50,
+    });
+
+    for (const zona of ['INTERIOR', 'CAPITAL']) {
+      const filtrado = await get(
+        `/metrics/survey/${CAMPAIGN_ID}/overview?zona=${zona}`,
+      );
+      expect(filtrado.status).toBe(200);
+      expect(filtrado.body.totalRespuestas).toMatchObject({
+        suprimido: true,
+        conteo: null,
+      });
+      const cruce = await get(
+        `/metrics/survey/${CAMPAIGN_ID}/cross?pregunta=${Q_LESION}&por=ventana&zona=${zona}`,
+      );
+      expect(cruce.body.filas).toEqual([]);
+      const kpis = await get(
+        `/metrics/survey/${CAMPAIGN_ID}/kpis?zona=${zona}`,
+      );
+      expect(JSON.stringify(kpis.body)).not.toMatch(/"conteo":(3|45|47)[,}]/);
+    }
+  });
+
+  it('coherencia: un segundo filtro redundante no destraba un corte bloqueado', async () => {
+    // Interior y Pirané son lo mismo acá: cada filtro solo está bloqueado
+    // (50 − 47 despejaría la capital); juntos tampoco se publican.
+    respuestas.push(
+      ...repetir(47, () => respuesta(LOC_PIRANE, OPC.no, null)),
+      ...repetir(3, () => respuesta(LOC_FORMOSA, OPC.no, null)),
+    );
+    const res = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?zona=INTERIOR&localityId=${LOC_PIRANE}`,
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.totalRespuestas).toMatchObject({
+      suprimido: true,
+      conteo: null,
+    });
+    const cruce = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/cross?pregunta=${Q_LESION}&por=ventana&zona=INTERIOR&localityId=${LOC_PIRANE}`,
+    );
+    expect(cruce.body.filas).toEqual([]);
+  });
+
+  it('coherencia: sumar localidades no despeja la que falta', async () => {
+    // Formosa 10, Pirané 12 y 3 sin localidad (total 25). Sin la regla,
+    // 25 − 10 − 12 daría los 3 sin localidad: Formosa (la visible más chica)
+    // tampoco se publica filtrando.
+    respuestas.push(
+      ...repetir(10, () => respuesta(LOC_FORMOSA, OPC.no, null)),
+      ...repetir(12, () => respuesta(LOC_PIRANE, OPC.no, null)),
+      ...repetir(3, () => respuesta(null, OPC.no, null)),
+    );
+    const formosa = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?localityId=${LOC_FORMOSA}`,
+    );
+    expect(formosa.body.totalRespuestas).toMatchObject({ suprimido: true });
+    const pirane = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?localityId=${LOC_PIRANE}`,
+    );
+    expect(pirane.body.totalRespuestas).toEqual({
+      suprimido: false,
+      conteo: 10,
+    });
+  });
+
+  it('coherencia: un rango de fechas que deja afuera a pocos no se publica', async () => {
+    respuestas.push(
+      ...repetir(12, () => respuesta(LOC_PIRANE, OPC.no, null)),
+      ...repetir(3, () => ({
+        ...respuesta(LOC_PIRANE, OPC.no, null),
+        enviadaEn: new Date('2026-11-11T12:00:00Z'),
+      })),
+    );
+    const dia = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?desde=2026-11-10&hasta=2026-11-10`,
+    );
+    expect(dia.status).toBe(200);
+    expect(dia.body.totalRespuestas).toMatchObject({ suprimido: true });
+  });
+
+  it('tope: más de 2 filtros a la vez se rechaza con 400', async () => {
+    respuestas.push(...repetir(10, () => respuesta(LOC_PIRANE, OPC.no, null)));
+    const res = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?zona=INTERIOR&localityId=${LOC_PIRANE}&desde=2026-11-10`,
+    );
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toContain('hasta 2 filtros');
+    const cruce = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/cross?pregunta=${Q_LESION}&por=zona&zona=INTERIOR&localityId=${LOC_PIRANE}&sexo=MASCULINO`,
+    );
+    expect(cruce.status).toBe(400);
+    const dos = await get(
+      `/metrics/survey/${CAMPAIGN_ID}/overview?localityId=${LOC_PIRANE}&desde=2026-11-10&hasta=2026-11-10`,
+    );
+    expect(dos.status).toBe(200);
   });
 
   it('catalog: devuelve preguntas, dimensiones y localidades con zona, sin datos personales', async () => {

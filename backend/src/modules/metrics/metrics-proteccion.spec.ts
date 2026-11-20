@@ -16,6 +16,9 @@ import {
   complementoRevela,
   diaDelFiltro,
   enTandas,
+  filaPublicable,
+  filtrosActivos,
+  MAXIMO_FILTROS,
   publicarEnTandas,
   cruzarRespuestas,
   protegerGrupo,
@@ -586,5 +589,92 @@ describe('diaDelFiltro', () => {
     expect(diaDelFiltro('2026-11-10T10:05:00Z')).toBe('2026-11-10');
     expect(diaDelFiltro('2026-11-10T10:05:00.123Z')).toBe('2026-11-10');
     expect(diaDelFiltro('2026-11-10T23:30:00-03:00')).toBe('2026-11-11');
+  });
+});
+
+describe('filtrosActivos', () => {
+  it('cuenta cada filtro una vez y el rango de fechas como uno solo', () => {
+    expect(filtrosActivos({})).toEqual([]);
+    expect(
+      filtrosActivos({
+        zona: 'INTERIOR',
+        desde: '2026-11-01',
+        hasta: '2026-11-10',
+      }),
+    ).toEqual(['zona', 'fecha']);
+    expect(filtrosActivos({ hasta: '2026-11-10' })).toEqual(['fecha']);
+    expect(
+      filtrosActivos({ departmentId: 'd', localityId: 'l', sexo: 'FEMENINO' }),
+    ).toEqual(['localityId', 'departmentId', 'sexo']);
+  });
+
+  it('el tope es de 2 filtros a la vez', () => {
+    expect(MAXIMO_FILTROS).toBe(2);
+  });
+});
+
+describe('filaPublicable', () => {
+  it('una fila chica no se publica filtrando por ella', () => {
+    expect(
+      filaPublicable(
+        [
+          ['CAPITAL', 3],
+          ['INTERIOR', 47],
+        ],
+        50,
+        'CAPITAL',
+      ),
+    ).toBe(false);
+  });
+
+  it('tampoco la grande, si al lado hay una chica que se despejaría restando', () => {
+    expect(
+      filaPublicable(
+        [
+          ['CAPITAL', 3],
+          ['INTERIOR', 47],
+        ],
+        50,
+        'INTERIOR',
+      ),
+    ).toBe(false);
+  });
+
+  it('con todas las filas grandes, cada una se publica', () => {
+    expect(
+      filaPublicable(
+        [
+          ['CAPITAL', 12],
+          ['INTERIOR', 47],
+        ],
+        59,
+        'INTERIOR',
+      ),
+    ).toBe(true);
+    expect(
+      filaPublicable(
+        [
+          ['CAPITAL', 12],
+          ['INTERIOR', 47],
+        ],
+        59,
+        'CAPITAL',
+      ),
+    ).toBe(true);
+  });
+
+  it('con varias filas, se oculta la visible más chica y las demás siguen publicables', () => {
+    // 10, 12 y 3 (sin dato): el 3 y el 10 se ocultan; el 12 queda.
+    const filas: [string | null, number][] = [
+      ['a', 10],
+      ['b', 12],
+      [null, 3],
+    ];
+    expect(filaPublicable(filas, 25, 'a')).toBe(false);
+    expect(filaPublicable(filas, 25, 'b')).toBe(true);
+  });
+
+  it('un valor que no aparece en el corte padre no se publica', () => {
+    expect(filaPublicable([['a', 10]], 10, 'z')).toBe(false);
   });
 });

@@ -36,6 +36,9 @@ import {
   diaDelFiltro,
   enTandas,
   esDimensionValida,
+  filaPublicable,
+  filtrosActivos,
+  MAXIMO_FILTROS,
   ETIQUETAS_DIMENSION,
   evaluarDestacado,
   evaluarKpi,
@@ -233,19 +236,22 @@ export class MetricsService {
     if (cacheado) return cacheado;
 
     const where = this.construirWhere(campaignId, query);
-    const respuestas = publicarEnTandas(
-      await this.prisma.surveyResponse.findMany({
-        where,
-        select: {
-          id: true,
-          etapa: true,
-          ventana: true,
-          localityId: true,
-          enviadaEn: true,
-        },
-      }),
-      (r) => r.id,
-    );
+    const coherente = await this.corteCoherente(campaignId, query);
+    const respuestas = !coherente
+      ? []
+      : publicarEnTandas(
+          await this.prisma.surveyResponse.findMany({
+            where,
+            select: {
+              id: true,
+              etapa: true,
+              ventana: true,
+              localityId: true,
+              enviadaEn: true,
+            },
+          }),
+          (r) => r.id,
+        );
     const mapas = await this.resolverNombres(
       respuestas.map((r) => r.localityId),
       [],
@@ -346,8 +352,7 @@ export class MetricsService {
     const cacheado = await this.cache?.get<MetricsCross>(clave);
     if (cacheado) return cacheado;
 
-    const where = this.construirWhere(campaignId, query);
-    const respuestas = await this.proyectarRespuestas(where);
+    const respuestas = await this.proyectarCorte(campaignId, query);
     const mapas = await this.resolverNombres(
       respuestas.map((r) => r.localityId),
       respuestas.map((r) => r.disciplineId),
@@ -417,8 +422,7 @@ export class MetricsService {
       orderBy: [{ orden: 'asc' }, { createdAt: 'asc' }],
     });
 
-    const where = this.construirWhere(campaignId, query);
-    const respuestas = await this.proyectarRespuestas(where);
+    const respuestas = await this.proyectarCorte(campaignId, query);
 
     const valorDeOpcion = new Map<string, string>();
     const preguntaDeValor = new Map<string, string>();
@@ -481,8 +485,7 @@ export class MetricsService {
       orderBy: [{ orden: 'asc' }, { createdAt: 'asc' }],
     });
 
-    const where = this.construirWhere(campaignId, query);
-    const respuestas = await this.proyectarRespuestas(where);
+    const respuestas = await this.proyectarCorte(campaignId, query);
 
     const valorDeOpcion = new Map<string, string>();
     const opcionDeValor = new Map<
@@ -767,11 +770,127 @@ export class MetricsService {
     };
   }
 
+  /**
+   * Las respuestas publicables de un corte: vacío si el corte no es coherente
+   * (ver `corteCoherente`), y si no, sus tandas completas.
+   */
+  private async proyectarCorte(
+    campaignId: string,
+    query: MetricsQueryDto,
+  ): Promise<RespuestaProyectada[]> {
+    const where = this.construirWhere(campaignId, query);
+    if (!(await this.corteCoherente(campaignId, query))) return [];
+    return this.proyectarRespuestas(where);
+  }
+
+  /**
+   * Un corte filtrado sólo se publica si, para cada filtro, su fila se
+   * publicaría en el cruce del corte sin ese filtro por esa dimensión (las
+   * fechas, como "dentro" y "fuera" del rango). Así, el total sin filtro menos
+   * el total filtrado no despeja una fila chica: si la hubiera, el filtro
+   * tampoco se publica. Sin filtros no hay nada que comparar.
+   *
+   * El corte sin el filtro también tiene que ser coherente: si no, se publica
+   * vacío y su fila no "se publicaría" de verdad. Sin esto, un segundo filtro
+   * redundante (zona interior + una localidad del interior) destrababa un
+   * corte que cada filtro por separado tenía bloqueado. Con el tope de 2
+   * filtros, la recursión baja a lo sumo dos niveles.
+   */
+  private async corteCoherente(
+    campaignId: string,
+    query: MetricsQueryDto,
+  ): Promise<boolean> {
+    for (const filtro of filtrosActivos(query)) {
+      const padre: MetricsQueryDto = { ...query };
+      if (filtro === 'fecha') {
+        delete padre.desde;
+        delete padre.hasta;
+      } else {
+        delete padre[filtro];
+      }
+      if (!(await this.corteCoherente(campaignId, padre))) return false;
+
+      const filas = publicarEnTandas(
+        await this.prisma.surveyResponse.findMany({
+          where: this.construirWhere(campaignId, padre),
+          select: {
+            id: true,
+            enviadaEn: true,
+            etapa: true,
+            ventana: true,
+            sexo: true,
+            disciplineType: true,
+            disciplineId: true,
+            categoryId: true,
+            localityId: true,
+          },
+        }),
+        (r) => r.id,
+      );
+
+      const territorial = filtro === 'zona' || filtro === 'departmentId';
+      const localidades = territorial
+        ? (
+            await this.resolverNombres(
+              filas.map((r) => r.localityId),
+              [],
+              [],
+              [],
+            )
+          ).localidades
+        : new Map<
+            string,
+            { departmentId: string; zona: 'CAPITAL' | 'INTERIOR' }
+          >();
+
+      const desde = query.desde
+        ? inicioDelRango(diaDelFiltro(query.desde))
+        : null;
+      const hasta = query.hasta ? finDelRango(diaDelFiltro(query.hasta)) : null;
+      const claveDe = (r: (typeof filas)[number]): string | null => {
+        switch (filtro) {
+          case 'fecha':
+            return (!desde || r.enviadaEn >= desde) &&
+              (!hasta || r.enviadaEn <= hasta)
+              ? 'dentro'
+              : 'fuera';
+          case 'zona':
+            // Sin localidad cuenta como interior, igual que el resumen.
+            return r.localityId
+              ? (localidades.get(r.localityId)?.zona ?? 'INTERIOR')
+              : 'INTERIOR';
+          case 'departmentId':
+            return r.localityId
+              ? (localidades.get(r.localityId)?.departmentId ?? null)
+              : null;
+          default:
+            return r[filtro];
+        }
+      };
+      const propia = filtro === 'fecha' ? 'dentro' : String(query[filtro]);
+
+      const conteos = new Map<string | null, number>();
+      for (const r of filas) {
+        const clave = claveDe(r);
+        conteos.set(clave, (conteos.get(clave) ?? 0) + 1);
+      }
+      if (!filaPublicable([...conteos.entries()], filas.length, propia)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /** Mismo recorte que `SurveyService.buildResponseWhere`. */
   private construirWhere(
     campaignId: string,
     query: MetricsQueryDto,
   ): Prisma.SurveyResponseWhereInput {
+    if (filtrosActivos(query).length > MAXIMO_FILTROS) {
+      throw new BadRequestException(
+        `Se pueden combinar hasta ${MAXIMO_FILTROS} filtros a la vez, para cuidar el anonimato`,
+      );
+    }
     const where: Prisma.SurveyResponseWhereInput = { campaignId };
 
     if (query.etapa) where.etapa = query.etapa;
@@ -940,6 +1059,6 @@ export class MetricsService {
       .slice(0, 16);
     // `p2`: formato de respuesta con totales como Corte y supresión por masa;
     // las claves viejas (formato anterior) quedan huérfanas al desplegar.
-    return `metrics:p3:survey:${campaignId}:v${version}:${endpoint}:${huella}`;
+    return `metrics:p4:survey:${campaignId}:v${version}:${endpoint}:${huella}`;
   }
 }
