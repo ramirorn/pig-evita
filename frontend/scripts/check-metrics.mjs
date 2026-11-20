@@ -61,6 +61,9 @@ const {
   filtrosABusqueda,
   hayFiltrosActivos,
   aplicarCambioDeFiltro,
+  MAXIMO_FILTROS,
+  filtrosEnUso,
+  puedeSumarFiltro,
   orientacionBarras,
   anchoEjeEtiquetas,
   recortarEtiqueta,
@@ -246,6 +249,31 @@ comprobar('nombre de archivo sin tildes ni espacios', nombreArchivo('¿Te lesion
   comprobar(
     'filtros: el mismo departamento conserva la localidad',
     aplicarCambioDeFiltro({ localityId: 'l1' }, { departmentId: 'd1' }, catalogo).localityId === 'l1',
+  );
+}
+{
+  // Tope de filtros: el backend rechaza más de 2 a la vez (anonimato).
+  comprobar('tope: son 2 filtros a la vez', MAXIMO_FILTROS === 2);
+  comprobar(
+    'tope: el rango de fechas cuenta como un solo filtro',
+    JSON.stringify(filtrosEnUso({ zona: 'INTERIOR', desde: '2026-11-01', hasta: '2026-11-10' })) === '["zona","fecha"]',
+  );
+  comprobar('tope: con 1 filtro se puede sumar otro', puedeSumarFiltro({ zona: 'INTERIOR' }, 'etapa'));
+  comprobar('tope: con 2 filtros no se suma un tercero', !puedeSumarFiltro({ zona: 'INTERIOR', sexo: 'FEMENINO' }, 'etapa'));
+  comprobar('tope: con 2 filtros se puede cambiar uno de los dos', puedeSumarFiltro({ zona: 'INTERIOR', sexo: 'FEMENINO' }, 'zona'));
+  comprobar(
+    'tope: una URL con 3 filtros se lee con los 2 primeros',
+    JSON.stringify(filtrosDesdeBusqueda(new URLSearchParams('zona=INTERIOR&sexo=FEMENINO&desde=2026-11-01'))) ===
+      '{"zona":"INTERIOR","sexo":"FEMENINO"}',
+  );
+  const catalogoVacio = { departamentos: [], categorias: [] };
+  comprobar(
+    'tope: un tercer filtro no se aplica',
+    aplicarCambioDeFiltro({ zona: 'INTERIOR', sexo: 'FEMENINO' }, { etapa: 'ZONAL' }, catalogoVacio).etapa === undefined,
+  );
+  comprobar(
+    'tope: cambiar el valor de un filtro en uso sí se aplica',
+    aplicarCambioDeFiltro({ zona: 'INTERIOR', sexo: 'FEMENINO' }, { zona: 'CAPITAL' }, catalogoVacio).zona === 'CAPITAL',
   );
 }
 comprobar('paleta: usa variables del tema y cicla', colorDeSerie(0).startsWith('var(--color-') && colorDeSerie(0) === colorDeSerie(10));

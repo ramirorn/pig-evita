@@ -16,7 +16,15 @@ import {
   STAGE_LABELS,
   SURVEY_WINDOW_LABELS,
 } from '@/lib/constants';
-import { aplicarCambioDeFiltro, hayFiltrosActivos } from '@/lib/metrics/metricsRules';
+import {
+  aplicarCambioDeFiltro,
+  filtrosEnUso,
+  hayFiltrosActivos,
+  MAXIMO_FILTROS,
+  puedeSumarFiltro,
+  TEXTO_TOPE_FILTROS,
+  type GrupoFiltro,
+} from '@/lib/metrics/metricsRules';
 import { SelectField } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Button } from '@/components/ui/button';
@@ -52,6 +60,9 @@ export function MetricsFilterBar({
       categorias: catalogo.categorias,
     }));
   const texto = (valor: string) => valor || undefined;
+  // Con el tope alcanzado, sólo se pueden cambiar o quitar los filtros en uso.
+  const bloqueado = (grupo: GrupoFiltro) => !puedeSumarFiltro(filtros, grupo);
+  const enTope = filtrosEnUso(filtros).length >= MAXIMO_FILTROS;
 
   const localidades = filtros.departmentId
     ? (catalogo.departamentos.find((d) => d.id === filtros.departmentId)?.localidades ?? [])
@@ -78,6 +89,7 @@ export function MetricsFilterBar({
         'Zona',
         <SelectField
           id={`${idPrefijo}-zona`}
+          disabled={bloqueado('zona')}
           value={filtros.zona ?? ''}
           onValueChange={(v) => cambiar({ zona: (texto(v) as MetricsFiltros['zona']) })}
           emptyOptionLabel="Capital e interior"
@@ -89,6 +101,7 @@ export function MetricsFilterBar({
         'Departamento',
         <SelectField
           id={`${idPrefijo}-departamento`}
+          disabled={bloqueado('departmentId')}
           value={filtros.departmentId ?? ''}
           onValueChange={(v) => cambiar({ departmentId: texto(v) })}
           emptyOptionLabel="Todos"
@@ -100,6 +113,7 @@ export function MetricsFilterBar({
         'Localidad',
         <SelectField
           id={`${idPrefijo}-localidad`}
+          disabled={bloqueado('localityId')}
           value={filtros.localityId ?? ''}
           onValueChange={(v) => cambiar({ localityId: texto(v) })}
           emptyOptionLabel="Todas"
@@ -111,6 +125,7 @@ export function MetricsFilterBar({
         'Disciplina',
         <SelectField
           id={`${idPrefijo}-disciplina`}
+          disabled={bloqueado('disciplineId')}
           value={filtros.disciplineId ?? ''}
           onValueChange={(v) => cambiar({ disciplineId: texto(v) })}
           emptyOptionLabel="Todas"
@@ -122,6 +137,7 @@ export function MetricsFilterBar({
         'Categoría',
         <SelectField
           id={`${idPrefijo}-categoria`}
+          disabled={bloqueado('categoryId')}
           value={filtros.categoryId ?? ''}
           onValueChange={(v) => cambiar({ categoryId: texto(v) })}
           emptyOptionLabel="Todas"
@@ -133,6 +149,7 @@ export function MetricsFilterBar({
         'Rama',
         <SelectField
           id={`${idPrefijo}-sexo`}
+          disabled={bloqueado('sexo')}
           value={filtros.sexo ?? ''}
           onValueChange={(v) => cambiar({ sexo: texto(v) as Sex | undefined })}
           emptyOptionLabel="Todas"
@@ -146,6 +163,7 @@ export function MetricsFilterBar({
             'Tipo de disciplina',
             <SelectField
               id={`${idPrefijo}-tipo`}
+              disabled={bloqueado('disciplineType')}
               value={filtros.disciplineType ?? ''}
               onValueChange={(v) => cambiar({ disciplineType: texto(v) as DisciplineType | undefined })}
               emptyOptionLabel="Individual y equipo"
@@ -157,6 +175,7 @@ export function MetricsFilterBar({
             'Etapa',
             <SelectField
               id={`${idPrefijo}-etapa`}
+              disabled={bloqueado('etapa')}
               value={filtros.etapa ?? ''}
               onValueChange={(v) => cambiar({ etapa: texto(v) as CompetitionStage | undefined })}
               emptyOptionLabel="Todas"
@@ -168,6 +187,7 @@ export function MetricsFilterBar({
             'Momento',
             <SelectField
               id={`${idPrefijo}-ventana`}
+              disabled={bloqueado('ventana')}
               value={filtros.ventana ?? ''}
               onValueChange={(v) => cambiar({ ventana: texto(v) as SurveyWindow | undefined })}
               emptyOptionLabel="Todos"
@@ -179,6 +199,7 @@ export function MetricsFilterBar({
             'Desde',
             <DatePicker
               id={`${idPrefijo}-desde`}
+              disabled={bloqueado('fecha')}
               value={filtros.desde ?? ''}
               max={filtros.hasta}
               onChange={(v) => cambiar({ desde: texto(v) })}
@@ -189,12 +210,18 @@ export function MetricsFilterBar({
             'Hasta',
             <DatePicker
               id={`${idPrefijo}-hasta`}
+              disabled={bloqueado('fecha')}
               value={filtros.hasta ?? ''}
               min={filtros.desde}
               onChange={(v) => cambiar({ hasta: texto(v) })}
             />,
           )}
         </>
+      )}
+      {enTope && (
+        <p className="col-span-full text-xs text-primary-700" role="note">
+          {TEXTO_TOPE_FILTROS}
+        </p>
       )}
       {hayFiltrosActivos(filtros) && (
         <div className="flex items-end">

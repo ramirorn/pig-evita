@@ -11,7 +11,9 @@ import {
   ETIQUETAS_PERIODO,
   hoyEnFormosa,
   periodoActivo,
+  puedeSumarFiltro,
   rangoDePeriodo,
+  TEXTO_TOPE_FILTROS,
   type Periodo,
 } from '@/lib/metrics/metricsRules';
 
@@ -25,6 +27,9 @@ interface PeriodSwitchProps {
 export function PeriodSwitch({ filtros, onChange }: PeriodSwitchProps) {
   const hoy = hoyEnFormosa();
   const activo = periodoActivo(filtros, hoy);
+  // "Hoy" y "7 días" suman un filtro de fecha: con el tope alcanzado no se
+  // pueden elegir. "Todo" quita el filtro, así que siempre se puede.
+  const sinLugar = !puedeSumarFiltro(filtros, 'fecha');
 
   return (
     <div
@@ -34,16 +39,20 @@ export function PeriodSwitch({ filtros, onChange }: PeriodSwitchProps) {
     >
       {PERIODOS.map((periodo) => {
         const elegido = activo === periodo;
+        const deshabilitado = sinLugar && periodo !== 'todo';
         return (
           <button
             key={periodo}
             type="button"
             role="radio"
             aria-checked={elegido}
+            disabled={deshabilitado}
+            title={deshabilitado ? TEXTO_TOPE_FILTROS : undefined}
             onClick={() => onChange({ ...filtros, ...rangoDePeriodo(periodo, hoy) })}
             className={cn(
               'min-h-9 rounded-full px-4 text-sm font-semibold transition-colors duration-120',
               elegido ? 'bg-primary-700 text-white shadow-sm' : 'text-primary-700 hover:bg-primary-50',
+              'disabled:cursor-not-allowed disabled:opacity-50',
             )}
           >
             {ETIQUETAS_PERIODO[periodo]}
