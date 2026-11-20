@@ -695,12 +695,20 @@ export interface SurveyCampaign {
   questions?: SurveyQuestion[];
   /**
    * Sólo en el **listado** (`questions` + `responses`) y en el detalle
-   * (`responses`). Mismo patrón que `Discipline._count`.
+   * (`responses`). Mismo patrón que `Discipline._count`. `responses` viene de
+   * a 5 (como en Métricas): los números exactos viven sólo en Métricas.
    */
   _count?: {
     questions?: number;
     responses?: number;
   };
+  /** Listado y detalle: si la campaña ya recibió alguna respuesta. */
+  tieneRespuestas?: boolean;
+  /**
+   * Sólo en el detalle: ids de las opciones que alguien ya eligió, sin cuántas
+   * veces. Lo usa el editor para no ofrecer borrar una opción con respuestas.
+   */
+  opcionesElegidas?: string[];
 }
 
 /** Campaña con su cuestionario completo (detalle admin y `GET /survey/active`). */
@@ -745,77 +753,6 @@ export interface CorteVisible {
 }
 
 export type CorteEncuesta = CorteVisible | CorteSuprimido;
-
-export interface SurveyOptionMetric {
-  optionId: string;
-  valor: string;
-  texto: string;
-  orden: number;
-  conteo: number;
-  /** Sobre el total de respuestas de **esa pregunta**, con 1 decimal. */
-  porcentaje: number;
-}
-
-export interface SurveyQuestionMetric {
-  questionId: string;
-  orden: number;
-  texto: string;
-  kind: SurveyQuestionKind;
-  audiencia: SurveyAudience;
-  activa: boolean;
-  /** Respuestas que contestaron esta pregunta, no el total de la campaña. */
-  totalRespuestas: number;
-  opciones: SurveyOptionMetric[];
-}
-
-export interface SurveyMetricsFiltros {
-  etapa?: CompetitionStage;
-  ventana?: SurveyWindow;
-  disciplineId?: string;
-  disciplineType?: DisciplineType;
-  localityId?: string;
-}
-
-export interface SurveyMetricsResult {
-  campaignId: string;
-  titulo: string;
-  filtros: SurveyMetricsFiltros;
-  /** Umbral vigente de k-anonimato, para que la pantalla pueda explicarlo. */
-  umbral: number;
-  totalRespuestas: number;
-  suprimido: boolean;
-  motivo: MotivoSupresionEncuesta | null;
-  /** Vacío cuando el corte entero está suprimido. */
-  preguntas: SurveyQuestionMetric[];
-}
-
-export type SurveyFlowEtapaVentana = {
-  etapa: CompetitionStage;
-  ventana: SurveyWindow;
-} & CorteEncuesta;
-
-export type SurveyFlowDisciplina = {
-  disciplineId: string | null;
-  disciplina: string | null;
-  disciplineType: DisciplineType;
-} & CorteEncuesta;
-
-export type SurveyFlowDisciplinaLocalidad = {
-  localityId: string | null;
-  localidad: string | null;
-  disciplineId: string | null;
-  disciplina: string | null;
-} & CorteEncuesta;
-
-export interface SurveyFlowResult {
-  campaignId: string;
-  titulo: string;
-  umbral: number;
-  totalRespuestas: number;
-  porEtapaVentana: SurveyFlowEtapaVentana[];
-  porDisciplina: SurveyFlowDisciplina[];
-  porDisciplinaYLocalidad: SurveyFlowDisciplinaLocalidad[];
-}
 
 // ==========================================
 // Métricas de la encuesta

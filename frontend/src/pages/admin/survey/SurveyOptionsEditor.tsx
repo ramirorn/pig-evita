@@ -31,22 +31,19 @@ import {
   puedeEliminarOpcion,
   valorUnico,
   valoresDe,
-  type ConteosPorOpcion,
 } from './surveyRules';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 interface SurveyOptionsEditorProps {
-  campaign: Pick<SurveyCampaign, 'id' | 'status' | '_count'>;
+  campaign: Pick<SurveyCampaign, 'id' | 'status' | '_count' | 'tieneRespuestas' | 'opcionesElegidas'>;
   pregunta: SurveyQuestionWithOptions;
-  conteos: ConteosPorOpcion;
 }
 
 export function SurveyOptionsEditor({
   campaign,
   pregunta,
-  conteos,
 }: SurveyOptionsEditorProps) {
   const [editando, setEditando] = useState<string | null>(null);
   const [textoEditado, setTextoEditado] = useState('');
@@ -150,7 +147,7 @@ export function SurveyOptionsEditor({
 
       <ul className="space-y-1.5">
         {opciones.map((opcion, indice) => {
-          const borrado = puedeEliminarOpcion(campaign, opcion.id, conteos);
+          const borrado = puedeEliminarOpcion(campaign, opcion.id);
           const enEdicion = editando === opcion.id;
 
           return (

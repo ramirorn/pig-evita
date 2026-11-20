@@ -29,7 +29,6 @@ import {
 import {
   puedeEditarCuestionario,
   puedeEliminarPregunta,
-  type ConteosPorOpcion,
 } from './surveyRules';
 import { SurveyAudienceBalance } from './SurveyAudienceBalance';
 import { SurveyOptionsEditor } from './SurveyOptionsEditor';
@@ -55,10 +54,9 @@ const ETIQUETA_AUDIENCIA: Record<SurveyAudience, string> = {
 
 interface SurveyQuestionsEditorProps {
   campaign: SurveyCampaignWithQuestions;
-  conteos: ConteosPorOpcion;
 }
 
-export function SurveyQuestionsEditor({ campaign, conteos }: SurveyQuestionsEditorProps) {
+export function SurveyQuestionsEditor({ campaign }: SurveyQuestionsEditorProps) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [editando, setEditando] = useState<SurveyQuestionWithOptions | undefined>();
   const [eliminando, setEliminando] = useState<SurveyQuestionWithOptions | null>(null);
@@ -311,7 +309,6 @@ export function SurveyQuestionsEditor({ campaign, conteos }: SurveyQuestionsEdit
                 <SurveyOptionsEditor
                   campaign={campaign}
                   pregunta={pregunta}
-                  conteos={conteos}
                 />
               </div>
             </li>

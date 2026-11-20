@@ -1,8 +1,8 @@
 // ===========================================
 // Survey Campaign Page — editor y tablero de una campaña (S20)
 // ===========================================
-import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useState, type ReactNode } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 import {
   BarChart3,
   CalendarRange,
@@ -15,15 +15,12 @@ import {
   Pencil,
   Send,
   Users,
-  Waypoints,
 } from 'lucide-react';
 
 import {
   useCloseSurveyCampaign,
   usePublishSurveyCampaign,
   useSurveyCampaign,
-  useSurveyFlow,
-  useSurveyMetrics,
 } from '@/hooks/useSurvey';
 import { usePermisos } from '@/hooks/usePermisos';
 import {
@@ -40,13 +37,11 @@ import {
   puedeCerrarCampania,
   puedePublicarCampania,
   requisitosPublicacion,
-  respuestasDe,
+  textoRespuestas,
 } from './survey/surveyRules';
 import { SurveyCampaignStatusBadge } from './survey/SurveyCampaignStatusBadge';
 import { SurveyCampaignForm } from './survey/SurveyCampaignForm';
 import { SurveyQuestionsEditor } from './survey/SurveyQuestionsEditor';
-import { SurveyMetricsPanel } from './survey/SurveyMetricsPanel';
-import { SurveyFlowPanel } from './survey/SurveyFlowPanel';
 
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
 import { Button } from '@/components/ui/button';
@@ -58,7 +53,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 /** Fecha del backend (dd/mm/aaaa); sin fecha o inválida, `null` para omitir el dato. */
 function fechaCorta(iso?: string | null): string | null {
@@ -75,34 +69,6 @@ export function SurveyCampaignPage() {
   const [confirmando, setConfirmando] = useState<'publicar' | 'cerrar' | null>(null);
 
   const { data: campaign, isLoading, isError } = useSurveyCampaign(id);
-
-  const flowQuery = useSurveyFlow(id);
-
-  /**
-   * Métricas **sin filtrar**, que la pantalla usa para dos cosas distintas:
-   * el tablero de la pestaña de resultados arma las suyas con sus filtros, y
-   * el editor necesita saber qué opciones ya fueron elegidas para decidir si
-   * el botón de borrar una opción va habilitado (el backend responde 409).
-   */
-  const metricsQuery = useSurveyMetrics(id);
-
-  /**
-   * `undefined` a propósito cuando el corte viene suprimido: ahí no se sabe
-   * si una opción fue elegida, y suponer que no lo fue ofrecería un botón de
-   * borrar que el backend rechaza. Ver `puedeEliminarOpcion`.
-   */
-  const conteos = useMemo(() => {
-    const metrics = metricsQuery.data;
-    if (!metrics || metrics.suprimido) return undefined;
-
-    const mapa = new Map<string, number>();
-    for (const pregunta of metrics.preguntas) {
-      for (const opcion of pregunta.opciones) {
-        mapa.set(opcion.optionId, opcion.conteo);
-      }
-    }
-    return mapa;
-  }, [metricsQuery.data]);
 
   const publishMutation = usePublishSurveyCampaign();
   const closeMutation = useCloseSurveyCampaign();
@@ -123,7 +89,7 @@ export function SurveyCampaignPage() {
   const publicar = puedePublicarCampania(campaign);
   const cerrar = puedeCerrarCampania(campaign);
   const requisitos = requisitosPublicacion(campaign);
-  const respuestas = respuestasDe(campaign);
+  const respuestas = textoRespuestas(campaign);
   const gestiona = puede('SURVEY_MANAGE');
 
   const abre = fechaCorta(campaign.abreEn);
@@ -213,7 +179,7 @@ export function SurveyCampaignPage() {
           />
           <Dato
             etiqueta="Respuestas"
-            valor={respuestas.toLocaleString('es-AR')}
+            valor={respuestas}
             icono={<Users className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />}
           />
           {/* El dato ausente se omite: sin fechas cargadas no se pinta una
@@ -265,40 +231,39 @@ export function SurveyCampaignPage() {
         </p>
       )}
 
-      {/* ---------- Cuestionario y tableros ---------- */}
-      <Tabs defaultValue="preguntas">
-        <TabsList>
-          <TabsTrigger value="preguntas" className="gap-1.5">
-            <MessageSquareText className="h-4 w-4" aria-hidden="true" />
-            Preguntas
-          </TabsTrigger>
-          <TabsTrigger value="resultados" className="gap-1.5">
-            <BarChart3 className="h-4 w-4" aria-hidden="true" />
-            Qué contestaron
-          </TabsTrigger>
-          <TabsTrigger value="participacion" className="gap-1.5">
-            <Waypoints className="h-4 w-4" aria-hidden="true" />
-            Quiénes contestaron
-          </TabsTrigger>
-        </TabsList>
+      {/* ---------- Resultados: viven sólo en Métricas ---------- */}
+      {puede('METRICS_READ') && (
+        <section
+          aria-label="Resultados"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary-100 bg-primary-50/60 p-4"
+        >
+          <div className="min-w-0 flex-1 basis-72">
+            <h2 className="type-h3 flex items-center gap-2 text-primary-800">
+              <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              Qué contestaron y quiénes
+            </h2>
+            <p className="mt-1 text-sm text-primary-700">
+              Los resultados de la encuesta se ven en Métricas, con las protecciones que cuidan
+              el anonimato de los chicos.
+            </p>
+          </div>
+          <Button asChild variant="outline" className="shrink-0 gap-2">
+            <Link to={`${ROUTES.METRICS}?campania=${campaign.id}`}>
+              <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              Ver en Métricas
+            </Link>
+          </Button>
+        </section>
+      )}
 
-        <TabsContent value="preguntas" className="pt-4">
-          <SurveyQuestionsEditor campaign={campaign} conteos={conteos} />
-        </TabsContent>
-
-        <TabsContent value="resultados" className="pt-4">
-          <SurveyMetricsPanel campaignId={campaign.id} flow={flowQuery.data} />
-        </TabsContent>
-
-        <TabsContent value="participacion" className="pt-4">
-          <SurveyFlowPanel
-            flow={flowQuery.data}
-            isLoading={flowQuery.isLoading}
-            isError={flowQuery.isError}
-            onRetry={() => void flowQuery.refetch()}
-          />
-        </TabsContent>
-      </Tabs>
+      {/* ---------- Cuestionario ---------- */}
+      <section aria-label="Preguntas" className="space-y-3">
+        <h2 className="type-h3 flex items-center gap-2 text-primary-800">
+          <MessageSquareText className="h-4 w-4" aria-hidden="true" />
+          Preguntas
+        </h2>
+        <SurveyQuestionsEditor campaign={campaign} />
+      </section>
 
       {/* ---------- Editar los datos generales ---------- */}
       <Dialog open={editandoDatos} onOpenChange={setEditandoDatos}>

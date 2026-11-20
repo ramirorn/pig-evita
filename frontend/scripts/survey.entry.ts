@@ -22,6 +22,12 @@ export {
   localidadTrasCambiarDepartamento,
 } from '@/pages/public/survey/form/surveyLocality';
 export {
+  tieneRespuestas,
+  textoRespuestas,
+  puedeEliminarCampania,
+  puedeEliminarOpcion,
+} from '@/pages/admin/survey/surveyRules';
+export {
   DisciplineType,
   SurveyAudience,
   SurveyQuestionKind,

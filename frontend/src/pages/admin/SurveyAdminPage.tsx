@@ -39,7 +39,7 @@ import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { SurveyCampaignForm } from './survey/SurveyCampaignForm';
 import { SurveyCampaignStatusBadge } from './survey/SurveyCampaignStatusBadge';
-import { puedeEliminarCampania, respuestasDe } from './survey/surveyRules';
+import { puedeEliminarCampania, textoRespuestas } from './survey/surveyRules';
 
 import { Button } from '@/components/ui/button';
 import { FilterPanel } from '@/components/shared/FilterPanel';
@@ -200,7 +200,7 @@ export function SurveyAdminPage() {
       cell: (item) => (
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-800 tabular-nums">
           <Users className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
-          {respuestasDe(item).toLocaleString('es-AR')}
+          {textoRespuestas(item)}
         </span>
       ),
     },

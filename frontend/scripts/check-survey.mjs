@@ -96,6 +96,10 @@ const {
   localidadesDeDepartamento,
   departamentoDeLocalidad,
   localidadTrasCambiarDepartamento,
+  tieneRespuestas,
+  textoRespuestas,
+  puedeEliminarCampania,
+  puedeEliminarOpcion,
   DisciplineType,
   SurveyAudience,
   SurveyQuestionKind,
@@ -486,6 +490,33 @@ const CUESTIONARIO = [P_INACTIVA, ...P_EQUIPO, ...P_TODOS, ...P_INDIVIDUAL];
   comprobar(
     'volver a elegir el mismo departamento conserva la localidad',
     localidadTrasCambiarDepartamento(CATALOGO, UUID(900), UUID(902)) === UUID(902),
+  );
+}
+
+// -------------------------------------------------
+// Editor de campañas: sin conteos exactos (viven sólo en Métricas)
+// -------------------------------------------------
+{
+  const activa = { status: 'ACTIVA' };
+  const sinRespuestas = { ...activa, tieneRespuestas: false, _count: { responses: 0 }, opcionesElegidas: [] };
+  const pocas = { ...activa, tieneRespuestas: true, _count: { responses: 0 }, opcionesElegidas: ['o1'] };
+  const muchas = { ...activa, tieneRespuestas: true, _count: { responses: 35 }, opcionesElegidas: ['o1'] };
+
+  comprobar('respuestas: "tiene respuestas" sale del sí/no del backend', tieneRespuestas(pocas) && !tieneRespuestas(sinRespuestas));
+  comprobar('respuestas: sin respuestas se muestra 0', textoRespuestas(sinRespuestas) === '0');
+  comprobar('respuestas: de 1 a 4 se muestra "Menos de 5", nunca el número', textoRespuestas(pocas) === 'Menos de 5');
+  comprobar('respuestas: con más, el conteo de a 5', textoRespuestas(muchas) === '35');
+
+  const borrar = puedeEliminarCampania(pocas);
+  comprobar('campaña: con respuestas no se borra', !borrar.permitido);
+  comprobar('campaña: el motivo no dice cuántas respuestas hay', !/\d/.test(borrar.motivo ?? ''), borrar.motivo);
+
+  comprobar('opción: sin respuestas se puede borrar', puedeEliminarOpcion(sinRespuestas, 'o1').permitido);
+  comprobar('opción: elegida por alguien no se borra', !puedeEliminarOpcion(pocas, 'o1').permitido);
+  comprobar('opción: nunca elegida se borra aunque haya pocas respuestas', puedeEliminarOpcion(pocas, 'o2').permitido);
+  comprobar(
+    'opción: sin la lista de elegidas no se adivina',
+    !puedeEliminarOpcion({ ...activa, tieneRespuestas: true }, 'o2').permitido,
   );
 }
 

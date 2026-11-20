@@ -11,8 +11,6 @@ import type {
   SurveyCampaign,
   SurveyCampaignStatus,
   SurveyCampaignWithQuestions,
-  SurveyFlowResult,
-  SurveyMetricsResult,
   SurveyOption,
   SurveyQuestion,
   SurveyQuestionKind,
@@ -124,14 +122,6 @@ export interface CreateSurveyQuestionPayload {
 export type UpdateSurveyQuestionPayload = Partial<
   Omit<CreateSurveyQuestionPayload, 'opciones'>
 >;
-
-export interface SurveyMetricsFilters {
-  etapa?: CompetitionStage;
-  ventana?: SurveyWindow;
-  disciplineId?: string;
-  disciplineType?: DisciplineType;
-  localityId?: string;
-}
 
 export const surveyApi = {
   // ---------- Público ----------
@@ -291,32 +281,5 @@ export const surveyApi = {
     await apiClient.delete(
       `/survey/campaigns/${campaignId}/questions/${questionId}/options/${optionId}`,
     );
-  },
-
-  // ---------- Métricas (admin) ----------
-
-  /**
-   * Agregados por pregunta y opción.
-   *
-   * Puede volver con `suprimido: true` y `preguntas: []` cuando el corte tiene
-   * menos respuestas que `umbral`. No es un error ni un vacío: es una decisión
-   * de privacidad que la pantalla tiene que explicar.
-   */
-  async getMetrics(
-    id: string,
-    filters?: SurveyMetricsFilters,
-  ): Promise<SurveyMetricsResult> {
-    const { data } = await apiClient.get<SurveyMetricsResult>(
-      `/survey/campaigns/${id}/metrics`,
-      { params: filters },
-    );
-    return data;
-  },
-
-  async getFlow(id: string): Promise<SurveyFlowResult> {
-    const { data } = await apiClient.get<SurveyFlowResult>(
-      `/survey/campaigns/${id}/flow`,
-    );
-    return data;
   },
 };

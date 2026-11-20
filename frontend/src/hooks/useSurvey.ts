@@ -10,7 +10,6 @@ import {
   type CreateSurveyQuestionPayload,
   type SubmitSurveyResponsePayload,
   type SurveyCampaignFilters,
-  type SurveyMetricsFilters,
   type UpdateSurveyCampaignPayload,
   type UpdateSurveyOptionPayload,
   type UpdateSurveyQuestionPayload,
@@ -36,9 +35,6 @@ export const SURVEY_KEYS = {
   // Métricas y flujo cuelgan del detalle a propósito: publicar una campaña o
   // tocarle una pregunta cambia los dos, y así una sola invalidación del
   // detalle los arrastra sin tener que acordarse de cada clave.
-  metrics: (id: string, filters?: SurveyMetricsFilters) =>
-    [...SURVEY_KEYS.campaignDetail(id), 'metrics', { filters }] as const,
-  flow: (id: string) => [...SURVEY_KEYS.campaignDetail(id), 'flow'] as const,
 };
 
 // ===========================================
@@ -375,42 +371,5 @@ export function useDeleteSurveyOption() {
     onError: (error: unknown) => {
       toast.error(getFriendlyError(error, 'No se pudo eliminar la opción'));
     },
-  });
-}
-
-// ===========================================
-// Métricas (admin)
-// ===========================================
-
-/**
- * Agregados de una campaña, con el corte que pidan los filtros.
- *
- * ⚠️ La respuesta puede venir con `suprimido: true`, `motivo:
- * 'MUESTRA_INSUFICIENTE'` y `preguntas: []`. **Eso no es un vacío ni un error**:
- * el corte tiene menos respuestas que `umbral` y no se publica para que un
- * filtro fino sobre una muestra chica no reidentifique a un chico. La pantalla
- * tiene que decir que está suprimido y por qué, nunca pintarlo como cero.
- */
-export function useSurveyMetrics(id: string, filters?: SurveyMetricsFilters) {
-  return useQuery({
-    queryKey: SURVEY_KEYS.metrics(id, filters),
-    queryFn: () => surveyApi.getMetrics(id, filters),
-    enabled: !!id,
-    staleTime: STALE_TIME.OPERATIONAL,
-  });
-}
-
-/**
- * Conteos por etapa/ventana, disciplina y disciplina × localidad.
- *
- * Cada fila es un `CorteEncuesta`: las suprimidas traen `conteo: null`. Hay que
- * mostrarlas igual —la fila existe— marcadas como suprimidas.
- */
-export function useSurveyFlow(id: string) {
-  return useQuery({
-    queryKey: SURVEY_KEYS.flow(id),
-    queryFn: () => surveyApi.getFlow(id),
-    enabled: !!id,
-    staleTime: STALE_TIME.OPERATIONAL,
   });
 }
