@@ -97,13 +97,34 @@ export function HomeHero() {
               decoding="async"
               className="relative z-10 h-72 w-72 object-contain drop-shadow-[0_20px_35px_rgba(0,0,0,0.35)] transition-transform duration-320 ease-out-soft group-hover:scale-105 md:h-[420px] md:w-[420px]"
             />
-            <div className="relative z-10 mt-6 text-center">
-              <span className="block text-xs font-bold tracking-widest text-accent-400 uppercase">
-                Secretaría de Deportes
-              </span>
-              <span className="mt-0.5 block text-xs text-celeste-200">
-                Gobierno de la Provincia de Formosa
-              </span>
+            {/* Logo de la Secretaría al costado del escudo: sólo en pantallas
+                anchas (2xl), donde sobra margen a la derecha del contenido.
+                Más angosto, va chico junto a la leyenda de abajo. */}
+            <img
+              src="/logo-secretaria.webp"
+              alt="Secretaría de Deportes y Recreación Comunitaria de Formosa"
+              width={192}
+              height={192}
+              decoding="async"
+              className="absolute top-1/2 left-full z-10 ml-6 hidden h-40 w-40 -translate-y-1/2 object-contain drop-shadow-[0_14px_28px_rgba(0,0,0,0.35)] 2xl:block min-[1700px]:h-48 min-[1700px]:w-48"
+            />
+            <div className="relative z-10 mt-6 flex items-center gap-3 text-left 2xl:text-center">
+              <img
+                src="/logo-secretaria-sm.webp"
+                alt="Secretaría de Deportes y Recreación Comunitaria de Formosa"
+                width={48}
+                height={48}
+                decoding="async"
+                className="h-12 w-12 shrink-0 object-contain drop-shadow-md 2xl:hidden"
+              />
+              <div>
+                <span className="block text-xs font-bold tracking-widest text-accent-400 uppercase">
+                  Secretaría de Deportes
+                </span>
+                <span className="mt-0.5 block text-xs text-celeste-200">
+                  Gobierno de la Provincia de Formosa
+                </span>
+              </div>
             </div>
           </div>
         </div>

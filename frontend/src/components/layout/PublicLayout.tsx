@@ -69,6 +69,14 @@ export function PublicLayout() {
               className="group flex items-center gap-2.5 rounded-lg pointer-coarse:min-h-11"
             >
               <img
+                src="/logo-secretaria-sm.webp"
+                alt="Secretaría de Deportes y Recreación Comunitaria"
+                width={40}
+                height={40}
+                decoding="async"
+                className="h-10 w-10 object-contain"
+              />
+              <img
                 src="/logo-sinfondo.png"
                 alt="Juegos Evita Formoseños"
                 width={34}

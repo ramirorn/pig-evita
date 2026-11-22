@@ -79,6 +79,16 @@ export function Footer() {
           <div className="space-y-3 lg:col-span-4">
             <div className="flex items-center gap-3">
               <img
+                src="/logo-secretaria-sm.webp"
+                alt=""
+                aria-hidden="true"
+                width={48}
+                height={48}
+                loading="lazy"
+                decoding="async"
+                className="h-12 w-12 object-contain drop-shadow-sm"
+              />
+              <img
                 src="/logo-sinfondo.png"
                 alt=""
                 aria-hidden="true"
