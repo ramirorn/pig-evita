@@ -370,7 +370,7 @@ test.describe('usuarios (admin)', () => {
     const dlg = page.getByRole('dialog');
     await dlg.getByLabel('Contraseña', { exact: true }).fill('123');
     await dlg.getByRole('button', { name: 'Crear Usuario' }).click();
-    await expect(dlg.getByText(/8 caracteres/).first()).toBeVisible();
+    await expect(dlg.getByText(/12 caracteres/).first()).toBeVisible();
   });
 });
 

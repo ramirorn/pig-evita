@@ -229,11 +229,15 @@ export const loginSchema = z.object({
 // User Schemas
 // ==========================================
 
+// Contraseñas NUEVAS: mismo mínimo que el backend (`password-policy.ts`, VULN-23).
+// El login sigue en 8 para que las cuentas existentes puedan entrar.
+const MINIMO_CONTRASENA_NUEVA = 12;
+
 export const createUserSchema = z.object({
   email: emailObligatorio(),
   password: z
     .string()
-    .min(8, 'La contraseña debe tener al menos 8 caracteres')
+    .min(MINIMO_CONTRASENA_NUEVA, `La contraseña debe tener al menos ${MINIMO_CONTRASENA_NUEVA} caracteres`)
     .max(MAX_PASSWORD, `La contraseña no puede superar los ${MAX_PASSWORD} caracteres`),
   firstName: textoObligatorio(2, MAX_NOMBRE_PERSONA, 'El nombre es obligatorio', 'El nombre'),
   lastName: textoObligatorio(2, MAX_NOMBRE_PERSONA, 'El apellido es obligatorio', 'El apellido'),
@@ -250,8 +254,8 @@ export const updateUserSchema = z.object({
   password: z
     .string()
     .refine(
-      (val) => !val || (val.length >= 8 && val.length <= MAX_PASSWORD),
-      { message: `La nueva contraseña debe tener entre 8 y ${MAX_PASSWORD} caracteres` },
+      (val) => !val || (val.length >= MINIMO_CONTRASENA_NUEVA && val.length <= MAX_PASSWORD),
+      { message: `La nueva contraseña debe tener entre ${MINIMO_CONTRASENA_NUEVA} y ${MAX_PASSWORD} caracteres` },
     )
     .optional(),
   firstName: textoObligatorio(2, MAX_NOMBRE_PERSONA, 'El nombre es obligatorio', 'El nombre'),

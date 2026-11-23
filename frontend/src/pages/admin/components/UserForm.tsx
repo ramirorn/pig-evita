@@ -106,7 +106,7 @@ export function UserForm({ initialData, onSuccess, onCancel }: UserFormProps) {
                     placeholder={
                       isEditing
                         ? 'Dejar en blanco para mantener la actual'
-                        : 'Mínimo 8 caracteres'
+                        : 'Mínimo 12 caracteres, que no sea fácil de adivinar'
                     }
                     {...field}
                   />
