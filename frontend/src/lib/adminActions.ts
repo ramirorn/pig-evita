@@ -160,8 +160,6 @@ export const ACTION_ROLES = {
   COMPETITION_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
-    UserRole.ADMIN_DEPARTAMENTAL,
-    UserRole.ADMIN_ZONAL,
   ],
   RESULT_LOAD: [
     UserRole.SUPER_ADMIN,
@@ -179,8 +177,6 @@ export const ACTION_ROLES = {
   NEWS_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
-    UserRole.ADMIN_DEPARTAMENTAL,
-    UserRole.ADMIN_ZONAL,
   ],
   /**
    * S19 — forzar la sincronización con el portal oficial.
@@ -203,14 +199,10 @@ export const ACTION_ROLES = {
   SURVEY_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
-    UserRole.ADMIN_DEPARTAMENTAL,
-    UserRole.ADMIN_ZONAL,
   ],
   CALENDAR_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
-    UserRole.ADMIN_DEPARTAMENTAL,
-    UserRole.ADMIN_ZONAL,
   ],
   VENUE_MANAGE: [
     UserRole.SUPER_ADMIN,

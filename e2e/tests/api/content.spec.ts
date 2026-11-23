@@ -86,8 +86,9 @@ test.describe('noticias', () => {
     await s.del(`/news/${n.id}`);
   });
 
-  test('permisos: DELEGADO/ARBITRO no gestionan noticias; el sync sólo SUPER_ADMIN/PROVINCIAL (sin llegar al portal)', async () => {
-    for (const rol of ['DELEGADO', 'ARBITRO', 'COORDINADOR'] as const) {
+  test('permisos: sólo la línea provincial gestiona noticias; el sync sólo SUPER_ADMIN/PROVINCIAL (sin llegar al portal)', async () => {
+    // Los admins territoriales tampoco: las noticias son de la línea provincial (VULN-08).
+    for (const rol of ['DELEGADO', 'ARBITRO', 'COORDINADOR', 'ADMIN_DEPARTAMENTAL', 'ADMIN_ZONAL'] as const) {
       expect((await (await as(rol)).api.post('/news', { title: 'x', content: 'y' })).status(), rol).toBe(403);
     }
     for (const rol of ['ADMIN_DEPARTAMENTAL', 'ADMIN_ZONAL', 'DELEGADO'] as const) {

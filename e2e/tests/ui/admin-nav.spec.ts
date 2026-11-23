@@ -10,6 +10,9 @@ const INSC: RoleName[] = [...ADMIN, 'DELEGADO'];
 const PART: RoleName[] = [...ADMIN, 'DELEGADO', 'COORDINADOR'];
 
 /** ruta → etiqueta del menú → roles que deben verla (espejo de lib/adminRoutes.ts + lib/roles.ts). */
+// Competencias, noticias, calendario y encuesta son de la línea provincial
+// (VULN-08, decisión del 23/11/2026); sedes y resultados siguen abiertos a los
+// admins territoriales, limitados a su territorio en el backend.
 const MAPA: Array<{ ruta: string; menu: string; roles: RoleName[] }> = [
   { ruta: '/admin/dashboard', menu: 'Dashboard', roles: [...ADMIN, 'COORDINADOR'] },
   { ruta: '/admin/metricas', menu: 'Métricas', roles: [...ADMIN, 'COORDINADOR'] },
@@ -21,12 +24,12 @@ const MAPA: Array<{ ruta: string; menu: string; roles: RoleName[] }> = [
   { ruta: '/admin/documentos', menu: 'Documentos', roles: PART },
   { ruta: '/admin/disciplinas', menu: 'Disciplinas', roles: SOLO_PROV },
   { ruta: '/admin/categorias', menu: 'Categorías', roles: SOLO_PROV },
-  { ruta: '/admin/competencias', menu: 'Competencias', roles: ADMIN },
+  { ruta: '/admin/competencias', menu: 'Competencias', roles: SOLO_PROV },
   { ruta: '/admin/resultados', menu: 'Resultados', roles: [...ADMIN, 'ARBITRO'] },
-  { ruta: '/admin/noticias', menu: 'Noticias', roles: ADMIN },
-  { ruta: '/admin/calendario', menu: 'Calendario', roles: ADMIN },
+  { ruta: '/admin/noticias', menu: 'Noticias', roles: SOLO_PROV },
+  { ruta: '/admin/calendario', menu: 'Calendario', roles: SOLO_PROV },
   { ruta: '/admin/sedes', menu: 'Sedes', roles: ADMIN },
-  { ruta: '/admin/encuesta', menu: 'Encuesta', roles: ADMIN },
+  { ruta: '/admin/encuesta', menu: 'Encuesta', roles: SOLO_PROV },
   { ruta: '/admin/usuarios', menu: 'Usuarios', roles: SOLO_PROV },
   { ruta: '/admin/reportes', menu: 'Reportes', roles: INSC },
   { ruta: '/admin/auditoria', menu: 'Auditoría', roles: SOLO_PROV },
