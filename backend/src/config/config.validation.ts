@@ -130,6 +130,18 @@ export const envSchema = z
   .superRefine((env, ctx) => {
     const isProduction = env.NODE_ENV === 'production';
 
+    // VULN-11: en producción Redis guarda las revocaciones de sesión, los
+    // bloqueos de login y la versión de las métricas; sin contraseña, cualquiera
+    // que alcance el puerto los lee o los borra. Vacía no vale.
+    if (isProduction && !env.REDIS_PASSWORD?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['REDIS_PASSWORD'],
+        message:
+          'REDIS_PASSWORD es obligatoria en producción (configurá requirepass en Redis con el mismo valor).',
+      });
+    }
+
     const toCheck = isProduction
       ? [...ALWAYS_VALIDATED_SECRETS, ...PRODUCTION_ONLY_SECRETS]
       : ALWAYS_VALIDATED_SECRETS;

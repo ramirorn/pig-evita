@@ -1066,6 +1066,20 @@ async function sembrarDatosDelMapa(venueIds: {
 }
 
 async function main() {
+  // VULN-14: esta seed es destructiva (resetea el SUPER_ADMIN, borra el
+  // calendario y los partidos de demo). En producción no corre salvo que se
+  // pida explícitamente, por ejemplo para cargar el primer administrador en
+  // una base vacía: SEED_ALLOW_PRODUCTION=true, una sola vez.
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.SEED_ALLOW_PRODUCTION !== 'true'
+  ) {
+    throw new Error(
+      '❌ La seed no corre con NODE_ENV=production: borra y reemplaza datos. ' +
+        'Si de verdad hace falta (base vacía), definí SEED_ALLOW_PRODUCTION=true.',
+    );
+  }
+
   console.log('🌱 Seeding database with comprehensive mock data...');
 
   // --- 1. Crear Super Admin ---

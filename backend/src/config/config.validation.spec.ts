@@ -94,12 +94,25 @@ describe('validateEnv — guardrails de secretos (C-05)', () => {
       ...VALID_ENV,
       NODE_ENV: 'production',
       CORS_ORIGINS: 'https://juegosevita.formosa.gob.ar',
+      REDIS_PASSWORD: 'rD9vNfR2tLmYw3bZc8GhdV7p',
       DATABASE_URL:
         'postgresql://evita_user:Zc8GhdV7pQx2vNf@db:5432/juegos_evita',
     };
 
     it('acepta un entorno de producción bien configurado', () => {
       expect(() => validateEnv(PROD_ENV)).not.toThrow();
+    });
+
+    it('VULN-11: en producción REDIS_PASSWORD es obligatoria (Redis sin contraseña guarda sesiones revocadas y versiones)', () => {
+      const { REDIS_PASSWORD: _sinRedis, ...sinPassword } = PROD_ENV;
+      expect(() => validateEnv(sinPassword)).toThrow('REDIS_PASSWORD');
+      expect(() => validateEnv({ ...PROD_ENV, REDIS_PASSWORD: '  ' })).toThrow(
+        'REDIS_PASSWORD',
+      );
+    });
+
+    it('comportamiento previo: en desarrollo REDIS_PASSWORD sigue siendo opcional', () => {
+      expect(() => validateEnv(VALID_ENV)).not.toThrow();
     });
 
     it('rechaza la contraseña de base de datos por defecto', () => {

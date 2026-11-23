@@ -224,6 +224,20 @@ export class MinioService implements OnModuleInit {
           region: 'us-east-1',
         })
       : this.minioClient;
+
+    // VULN-17: las URLs firmadas de documentos de identidad llevan el esquema
+    // del cliente de firma. En producción sin TLS hacia MinIO viajan por HTTP:
+    // se avisa al arrancar (no se corta, porque detrás de un proxy que termina
+    // TLS puede ser correcto). Ver relevamiento-owasp-2025.md.
+    if (
+      this.configService.get<string>('app.nodeEnv') === 'production' &&
+      !(this.configService.get<boolean>('minio.useSSL') ?? false)
+    ) {
+      this.logger.warn(
+        'MINIO_USE_SSL=false en producción: las URLs firmadas de documentos se emiten por HTTP. ' +
+          'Usalo sólo si un proxy delante termina TLS y reescribe el esquema.',
+      );
+    }
   }
 
   async onModuleInit() {

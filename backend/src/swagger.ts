@@ -16,7 +16,10 @@ export const SWAGGER_PATH = 'api/docs';
  * queden desincronizadas.
  */
 export function swaggerHabilitado(nodeEnv: string | undefined): boolean {
-  return nodeEnv !== 'production';
+  // VULN-13: sólo con NODE_ENV explícito de desarrollo o test. Antes bastaba
+  // con que no fuera 'production', así que un despliegue sin NODE_ENV (o con
+  // un valor mal escrito) publicaba la documentación completa de la API.
+  return nodeEnv === 'development' || nodeEnv === 'test';
 }
 
 /**
