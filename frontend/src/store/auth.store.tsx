@@ -13,6 +13,10 @@ import { authApi, type LoginPayload } from '@/api/auth.api';
 import { clearAccessToken, onSessionExpired } from '@/api/client';
 import { resetQueryCache } from '@/lib/queryClient';
 import { convieneRestaurarSesion, marcarSesion, olvidarSesion } from '@/lib/sessionHint';
+import {
+  cerrarSesionBorradorPlantel,
+  fijarDuenioBorradorPlantel,
+} from '@/pages/admin/inscription/rosterDraft';
 import { type AuthUserProfile, type UserRole } from '@/types';
 
 // ============ TYPES ============
@@ -66,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await authApi.refresh();
         const profile = await authApi.me();
         marcarSesion();
+        // Antes de `setUser`: el wizard de planteles lee su borrador al montar.
+        fijarDuenioBorradorPlantel(profile.id);
         if (!cancelled) setUser(profile);
       } catch {
         // Sin cookie válida: sesión anónima.
@@ -119,6 +125,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // anterior y este login los heredaría.
     await resetQueryCache();
 
+    // VULN-18: el borrador de plantel es de quien lo cargó. Si entra otro
+    // usuario en este navegador, el del anterior se borra acá, antes de que
+    // el wizard pueda leerlo.
+    fijarDuenioBorradorPlantel(response.user.id);
     marcarSesion();
     setUser(response.user);
 
@@ -135,6 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await resetQueryCache();
       clearAccessToken();
       olvidarSesion();
+      // VULN-18: cerrar sesión borra el plantel a medio cargar (DNI, fecha de
+      // nacimiento y domicilio de menores) en una PC que puede ser compartida.
+      cerrarSesionBorradorPlantel();
       setUser(null);
     }
   }, []);

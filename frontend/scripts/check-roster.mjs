@@ -93,6 +93,8 @@ const {
   leerBorradorPlantel,
   guardarBorradorPlantel,
   borrarBorradorPlantel,
+  fijarDuenioBorradorPlantel,
+  cerrarSesionBorradorPlantel,
   disciplineSchema,
   teamInscriptionSchema,
   DisciplineType,
@@ -584,8 +586,10 @@ function armarPlantel(cantidad, suplentes = 0) {
 // -------------------------------------------------
 // 7. El borrador: se guarda, vuelve entero, y se borra recién al confirmar
 // -------------------------------------------------
+const CLAVE_BORRADOR = 'evita_plantel_borrador_v2';
 {
   instalarStorage();
+  fijarDuenioBorradorPlantel('usuario-a');
 
   const datosEquipo = {
     disciplineId: UUID(1),
@@ -646,26 +650,92 @@ function armarPlantel(cantidad, suplentes = 0) {
     leerBorradorPlantel(new Date('2026-09-15T00:00:00.000Z')) === null,
   );
   comprobar(
-    'un borrador de ayer sí se restaura',
+    'un borrador de hace unas horas sí se restaura',
+    (() => {
+      instalarStorage();
+      guardarBorradorPlantel(datosEquipo, plantel, new Date('2026-09-14T20:00:00.000Z'));
+      return leerBorradorPlantel(new Date('2026-09-15T00:00:00.000Z')) !== null;
+    })(),
+  );
+  // VULN-18: con DNI y domicilio de menores, la vida es de horas, no de días.
+  comprobar(
+    'un borrador de ayer (más de 12 h) ya no se restaura',
     (() => {
       instalarStorage();
       guardarBorradorPlantel(datosEquipo, plantel, new Date('2026-09-14T00:00:00.000Z'));
-      return leerBorradorPlantel(new Date('2026-09-15T00:00:00.000Z')) !== null;
+      return leerBorradorPlantel(new Date('2026-09-15T00:00:00.000Z')) === null;
     })(),
   );
 
   // Texto corrupto o de otra versión del formulario: se descarta, no rompe.
   const datos = instalarStorage();
-  datos.set('evita_plantel_borrador_v1', '{ esto no es JSON');
+  datos.set(CLAVE_BORRADOR, '{ esto no es JSON');
   comprobar('un borrador corrupto no rompe la lectura', leerBorradorPlantel() === null);
 
   datos.set(
-    'evita_plantel_borrador_v1',
+    CLAVE_BORRADOR,
     JSON.stringify({ disciplineId: UUID(1), members: 'ayer' }),
   );
   comprobar(
     'un borrador con otra forma se descarta en vez de restaurarse a medias',
     leerBorradorPlantel() === null,
+  );
+}
+
+// -------------------------------------------------
+// 7 bis. El borrador es de quien lo cargó (VULN-18)
+// -------------------------------------------------
+// En una PC compartida de sede, el siguiente usuario que entra no puede
+// recuperar las fichas (DNI, fecha de nacimiento, domicilio) del anterior.
+{
+  const datosEquipo = {
+    disciplineId: UUID(1),
+    categoryId: UUID(2),
+    teamName: 'Escuela N° 12',
+    locality: 'Clorinda',
+    department: 'Pilcomayo',
+  };
+  const plantel = armarPlantel(3, 0);
+
+  let datos = instalarStorage();
+  fijarDuenioBorradorPlantel('usuario-a');
+  guardarBorradorPlantel(datosEquipo, plantel);
+  fijarDuenioBorradorPlantel('usuario-b');
+  comprobar('otro usuario no ve el borrador del anterior', leerBorradorPlantel() === null);
+  comprobar(
+    'al entrar otro usuario, el borrador del anterior se borra del navegador',
+    !datos.has(CLAVE_BORRADOR),
+  );
+
+  datos = instalarStorage();
+  fijarDuenioBorradorPlantel('usuario-a');
+  guardarBorradorPlantel(datosEquipo, plantel);
+  // Sesión vencida y vuelve a entrar la misma persona: su plantel sigue ahí.
+  fijarDuenioBorradorPlantel('usuario-a');
+  comprobar(
+    'si vuelve a entrar el mismo usuario, recupera su borrador',
+    leerBorradorPlantel()?.members?.length === 3,
+  );
+
+  cerrarSesionBorradorPlantel();
+  comprobar('al cerrar sesión el borrador se borra', !datos.has(CLAVE_BORRADOR));
+  comprobar('sin sesión no hay borrador que leer', leerBorradorPlantel() === null);
+  comprobar(
+    'sin sesión no se guarda nada (y se avisa)',
+    guardarBorradorPlantel(datosEquipo, plantel) === false && datos.size === 0,
+  );
+
+  // El borrador de antes de este cambio no tiene dueño: no se le puede
+  // atribuir a nadie, así que se descarta.
+  datos = instalarStorage();
+  datos.set(
+    'evita_plantel_borrador_v1',
+    JSON.stringify({ ...datosEquipo, members: plantel, guardadoEn: new Date().toISOString() }),
+  );
+  fijarDuenioBorradorPlantel('usuario-a');
+  comprobar(
+    'el borrador viejo sin dueño se borra y no se restaura',
+    !datos.has('evita_plantel_borrador_v1') && leerBorradorPlantel() === null,
   );
 }
 
@@ -676,6 +746,11 @@ function armarPlantel(cantidad, suplentes = 0) {
   instalarStorage({ rompe: true });
 
   let exploto = false;
+  try {
+    fijarDuenioBorradorPlantel('usuario-a');
+  } catch {
+    exploto = true;
+  }
   let avisoDeQueNoGuarda = true;
   try {
     avisoDeQueNoGuarda =

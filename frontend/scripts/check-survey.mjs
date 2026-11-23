@@ -451,6 +451,62 @@ const CUESTIONARIO = [P_INACTIVA, ...P_EQUIPO, ...P_TODOS, ...P_INDIVIDUAL];
 }
 
 // -------------------------------------------------
+// 6 bis. Lo que queda en el teléfono, y cuánto (VULN-33)
+// -------------------------------------------------
+// En un teléfono compartido (familiar, del entrenador, la tablet de la sede)
+// otra persona puede leer el `localStorage`. Lo que se guarda es lo mínimo
+// para no perder la respuesta, y vence.
+{
+  const CLAVE_BORRADOR = 'evita_encuesta_borrador_v1';
+  const CLAVE_PENDIENTES = 'evita_encuesta_pendientes_v1';
+  const campania = UUID(1);
+  const respuestas = { [P_TODOS[0].id]: [P_TODOS[0].options[0].id] };
+  const payload = {
+    campaignId: campania,
+    etapa: CompetitionStage.ZONAL,
+    disciplineType: DisciplineType.EQUIPO,
+    disciplineId: UUID(7),
+    respuestas: [
+      { questionId: P_TODOS[0].id, optionIds: [P_TODOS[0].options[0].id] },
+    ],
+  };
+  const hora = (h) => new Date(Date.UTC(2026, 8, 15, 0, 0, 0) + h * 3_600_000);
+
+  let datos = instalarStorage();
+  guardarBorrador(campania, { disciplineId: UUID(7) }, respuestas, hora(0));
+  comprobar(
+    'un borrador de hace menos de un día se restaura',
+    leerBorrador(campania, hora(23)) !== null,
+  );
+  comprobar(
+    'un borrador de más de un día no se restaura',
+    leerBorrador(campania, hora(25)) === null,
+  );
+  comprobar('y se borra del teléfono al encontrarlo vencido', !datos.has(CLAVE_BORRADOR));
+
+  datos = instalarStorage();
+  encolarEnvio(payload, hora(0));
+  comprobar(
+    'un envío en cola de hace menos de dos días se sigue reintentando',
+    leerPendientes(hora(47)).length === 1,
+  );
+  comprobar(
+    'un envío en cola de más de dos días se descarta',
+    leerPendientes(hora(49)).length === 0,
+  );
+  comprobar('y sale del teléfono al encontrarlo vencido', !datos.has(CLAVE_PENDIENTES));
+
+  // Encolado el envío, el borrador ya no hace falta: la cola tiene todo. Si
+  // quedara, las respuestas estarían dos veces en el teléfono y, al reabrir,
+  // el formulario restaurado invitaría a mandarlas de nuevo (duplicado).
+  datos = instalarStorage();
+  guardarBorrador(campania, { disciplineId: UUID(7) }, respuestas);
+  encolarEnvio(payload);
+  comprobar('al encolar un envío, el borrador se borra', !datos.has(CLAVE_BORRADOR));
+  comprobar('el envío encolado sigue en la cola', leerPendientes().length === 1);
+}
+
+// -------------------------------------------------
 // Selector territorial: departamento → localidad
 // -------------------------------------------------
 {

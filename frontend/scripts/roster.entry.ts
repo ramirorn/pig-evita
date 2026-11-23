@@ -18,6 +18,8 @@ export {
   leerBorradorPlantel,
   guardarBorradorPlantel,
   borrarBorradorPlantel,
+  fijarDuenioBorradorPlantel,
+  cerrarSesionBorradorPlantel,
 } from '@/pages/admin/inscription/rosterDraft';
 export { disciplineSchema, teamInscriptionSchema } from '@/schemas';
 export { DisciplineType, ResultType, Sex } from '@/types';
