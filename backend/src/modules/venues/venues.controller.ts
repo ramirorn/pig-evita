@@ -26,21 +26,33 @@ import {
   CacheControl,
   CACHE_TTL,
   PublicReadThrottle,
+  CurrentUser,
 } from '../../common/decorators';
 import { ACCIONES } from '../../common/constants';
+import { ScopeService } from '../../common/scope';
+import type { JwtPayload } from '../auth/interfaces';
 
 @ApiTags('Venues')
 @Controller('venues')
 @ApiBearerAuth('access-token')
 export class VenuesController {
-  constructor(private readonly venuesService: VenuesService) {}
+  constructor(
+    private readonly venuesService: VenuesService,
+    private readonly scope: ScopeService,
+  ) {}
 
   @Post()
   @Roles(...ACCIONES.VENUE_MANAGE)
   @ApiOperation({ summary: 'Crear sede' })
   @ApiResponse({ status: 201, description: 'Sede creada' })
-  async create(@Body() createDto: CreateVenueDto) {
-    return this.venuesService.create(createDto);
+  async create(
+    @Body() createDto: CreateVenueDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.venuesService.create(
+      createDto,
+      await this.scope.alcanceDe(actor),
+    );
   }
 
   @Get()
@@ -67,14 +79,22 @@ export class VenuesController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateDto: UpdateVenueDto,
+    @CurrentUser() actor: JwtPayload,
   ) {
-    return this.venuesService.update(id, updateDto);
+    return this.venuesService.update(
+      id,
+      updateDto,
+      await this.scope.alcanceDe(actor),
+    );
   }
 
   @Delete(':id')
   @Roles(...ACCIONES.VENUE_MANAGE)
   @ApiOperation({ summary: 'Eliminar sede' })
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.venuesService.remove(id);
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.venuesService.remove(id, await this.scope.alcanceDe(actor));
   }
 }

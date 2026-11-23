@@ -30,6 +30,7 @@ import {
   Public,
   PublicAssetThrottle,
   Roles,
+  CurrentUser,
 } from '../../common/decorators';
 import { ACCIONES, AuditAction } from '../../common/constants';
 import { ImageSignaturePipe } from '../images/image-signature.pipe';
@@ -37,12 +38,24 @@ import { ImageUploadInterceptor } from '../images/image-upload.interceptor';
 import { enviarImagen } from '../images/image.util';
 import { UploadVenueImageDto } from './dto';
 import { VenueImagesService } from './venue-images.service';
+import { VenuesService } from './venues.service';
+import { ScopeService } from '../../common/scope';
+import type { JwtPayload } from '../auth/interfaces';
 
 @ApiTags('Venues')
 @Controller('venues')
 @ApiBearerAuth('access-token')
 export class VenueImagesController {
-  constructor(private readonly venueImages: VenueImagesService) {}
+  constructor(
+    private readonly venueImages: VenueImagesService,
+    private readonly venues: VenuesService,
+    private readonly scope: ScopeService,
+  ) {}
+
+  /** VULN-08: la foto de una sede la cambia quien puede gestionar esa sede. */
+  private async asegurarAlcance(id: string, actor: JwtPayload) {
+    await this.venues.asegurarAlcance(await this.scope.alcanceDe(actor), id);
+  }
 
   @Post(':id/image')
   @Roles(...ACCIONES.VENUE_MANAGE)
@@ -75,7 +88,9 @@ export class VenueImagesController {
   async upload(
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile(ImageSignaturePipe) file: Express.Multer.File,
+    @CurrentUser() actor: JwtPayload,
   ) {
+    await this.asegurarAlcance(id, actor);
     return this.venueImages.upload(id, file);
   }
 
@@ -96,7 +111,11 @@ export class VenueImagesController {
   @ApiResponse({ status: 401, description: 'Sin sesión' })
   @ApiResponse({ status: 403, description: 'Rol sin permiso VENUE_MANAGE' })
   @ApiResponse({ status: 404, description: 'Sede no encontrada' })
-  async remove(@Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    await this.asegurarAlcance(id, actor);
     return this.venueImages.remove(id);
   }
 

@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ResultsService } from './results.service';
 import { PrismaService } from '../../database/prisma.service';
+import { ScopeService } from '../../common/scope';
 
 interface Fila {
   id: string;
@@ -142,7 +143,11 @@ function armar() {
     (fn: (tx: unknown) => Promise<unknown>): Promise<unknown> => fn(prisma),
   );
 
-  const service = new ResultsService(prisma as unknown as PrismaService);
+  const prismaService = prisma as unknown as PrismaService;
+  const service = new ResultsService(
+    prismaService,
+    new ScopeService(prismaService),
+  );
   return { service, partidos, filas, agregar, prisma };
 }
 

@@ -13,6 +13,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { DISCIPLINE_IN_COMPETITION } from '../../common/prisma-selects';
 import { Role } from '../../common/constants';
+import { ScopeService } from '../../common/scope';
+import type { JwtPayload } from '../auth/interfaces';
 import { avanzarLlave } from '../competitions/bracket';
 import { MatchResultDto } from './dto';
 import {
@@ -51,17 +53,36 @@ function ganadorUnico(rs: ReadonlyArray<ResultadoConGanador>): string | null {
     : null;
 }
 
-/** Quién está cargando: sólo hace falta el rol (y el id para el log). */
+/**
+ * Quién está cargando: el rol, el id para el log y, para los admins
+ * territoriales, su departamento o zona (VULN-07).
+ */
 export interface CargadorDeResultados {
   sub?: string;
   role: string;
+  department?: string | null;
+  zone?: string | null;
 }
+
+/**
+ * Roles con alcance territorial que cargan resultados (VULN-07): sólo de
+ * partidos jugados en sedes de su departamento o zona. El ARBITRO no tiene
+ * alcance territorial en el modelo y sigue cargando cualquier partido (riesgo
+ * aceptado, ver documentacion/seguridad/relevamiento-owasp-2025.md).
+ */
+const CARGADORES_TERRITORIALES: string[] = [
+  Role.ADMIN_DEPARTAMENTAL,
+  Role.ADMIN_ZONAL,
+];
 
 @Injectable()
 export class ResultsService {
   private readonly logger = new Logger(ResultsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scope: ScopeService,
+  ) {}
 
   /**
    * Carga o corrige los resultados de un partido y lo deja `FINALIZADO`.
@@ -87,11 +108,24 @@ export class ResultsService {
       include: {
         results: true,
         competition: { select: { id: true, format: true } },
+        venue: { select: { department: true } },
       },
     });
 
     if (!match) {
       throw new NotFoundException('Partido no encontrado');
+    }
+
+    if (CARGADORES_TERRITORIALES.includes(usuario.role)) {
+      const alcance = await this.scope.alcanceDe(usuario as JwtPayload);
+      if (
+        !match.venue ||
+        !this.scope.permiteDepartamento(alcance, match.venue.department)
+      ) {
+        throw new ForbiddenException(
+          'Sólo podés cargar resultados de partidos jugados en sedes de tu territorio',
+        );
+      }
     }
 
     this.validarCarga(match.results, resultsToUpdate);

@@ -318,7 +318,9 @@ describe('Seguridad del alta individual de inscripciones (e2e)', () => {
       const b = await alta(cuerpo({ dni: '30111223' })).expect(201);
 
       expect(a.body.qrCode).not.toBe(b.body.qrCode);
-    });
+      // Dos altas seguidas: con la suite completa en paralelo pueden pasar los
+      // 5 s por defecto de Jest.
+    }, 20_000);
   });
 
   // -------------------------------------------------

@@ -30,6 +30,7 @@ import {
   CacheControlInterceptor,
 } from '../src/common/interceptors';
 import { Role } from '../src/common/constants';
+import { ScopeService } from '../src/common/scope';
 
 const ACCESS_SECRET = 'test-access-secret-de-mas-de-32-caracteres';
 const CONFIG: Record<string, unknown> = {
@@ -67,11 +68,12 @@ describe('Resultados y rankings (e2e)', () => {
   let partidos: Map<string, Mat>;
   let resultados: Map<string, Res>;
 
-  const token = (role: Role) =>
+  const token = (role: Role, department?: string) =>
     jwt.sign({
       sub: `user-${role}`,
       email: `${role}@t.test`,
       role,
+      ...(department && { department }),
       type: 'access',
     });
 
@@ -114,6 +116,8 @@ describe('Resultados y rankings (e2e)', () => {
       if (!m) return null;
       return {
         ...m,
+        // M1 se juega en una sede de Formosa; M2 todavía no tiene sede.
+        venue: id === M1 ? { department: 'Formosa' } : null,
         results: [...resultados.values()].filter((r) => r.matchId === id),
       };
     };
@@ -177,6 +181,7 @@ describe('Resultados y rankings (e2e)', () => {
       controllers: [ResultsController],
       providers: [
         ResultsService,
+        ScopeService,
         JwtStrategy,
         { provide: PrismaService, useValue: prisma },
         {
@@ -207,10 +212,15 @@ describe('Resultados y rankings (e2e)', () => {
     await app.close();
   });
 
-  const cargar = (matchId: string, rol: Role, payload: unknown) =>
+  const cargar = (
+    matchId: string,
+    rol: Role,
+    payload: unknown,
+    department?: string,
+  ) =>
     request(app.getHttpServer())
       .patch(`/results/match/${matchId}`)
-      .set('Authorization', `Bearer ${token(rol)}`)
+      .set('Authorization', `Bearer ${token(rol, department)}`)
       .send(payload as object);
 
   describe('PATCH /results/match/:matchId', () => {
@@ -230,7 +240,7 @@ describe('Resultados y rankings (e2e)', () => {
       await cargar(M1, rol, []).expect(403);
     });
 
-    it.each([Role.ARBITRO, Role.ADMIN_ZONAL, Role.SUPER_ADMIN])(
+    it.each([Role.ARBITRO, Role.SUPER_ADMIN])(
       '%s carga el resultado y el partido queda FINALIZADO',
       async (rol) => {
         const res = await cargar(M1, rol, [
@@ -297,6 +307,42 @@ describe('Resultados y rankings (e2e)', () => {
         expect(partidos.get(M1)!.finishedAt).toBe(finalizado);
       },
     );
+  });
+
+  describe('VULN-07 — los admins territoriales cargan sólo partidos de su territorio', () => {
+    const ganaA = [
+      { resultId: R(1), data: { isWinner: true } },
+      { resultId: R(2), data: { isWinner: false } },
+    ];
+
+    it('ADMIN_DEPARTAMENTAL de Formosa carga un partido en una sede de Formosa', async () => {
+      await cargar(M1, Role.ADMIN_DEPARTAMENTAL, ganaA, 'Formosa').expect(200);
+      expect(partidos.get(M1)!.status).toBe('FINALIZADO');
+    });
+
+    it('ADMIN_DEPARTAMENTAL de otro departamento → 403 y el partido no se finaliza', async () => {
+      await cargar(M1, Role.ADMIN_DEPARTAMENTAL, ganaA, 'Pirané').expect(403);
+      expect(partidos.get(M1)!.status).toBe('PROGRAMADO');
+    });
+
+    it('un partido sin sede no lo carga un admin territorial (no se puede ubicar)', async () => {
+      await cargar(
+        M2,
+        Role.ADMIN_DEPARTAMENTAL,
+        [
+          { resultId: R(3), data: { isWinner: true } },
+          { resultId: R(4), data: { isWinner: false } },
+        ],
+        'Formosa',
+      ).expect(403);
+    });
+
+    it('comportamiento previo: el árbitro carga un partido sin sede (no tiene alcance territorial)', async () => {
+      await cargar(M2, Role.ARBITRO, [
+        { resultId: R(3), data: { isWinner: true } },
+        { resultId: R(4), data: { isWinner: false } },
+      ]).expect(200);
+    });
   });
 
   describe('VULN-24 — cada resultado del array se valida', () => {

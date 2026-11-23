@@ -249,12 +249,12 @@ export const ACCIONES = {
   ],
 
   // --- Competencias y resultados ---
-  COMPETITION_MANAGE: [
-    Role.SUPER_ADMIN,
-    Role.ADMIN_PROVINCIAL,
-    Role.ADMIN_DEPARTAMENTAL,
-    Role.ADMIN_ZONAL,
-  ],
+  // VULN-08 (decisión del 23/11/2026): competencias, noticias, encuesta y
+  // calendario son de alcance provincial —una competencia no tiene
+  // departamento en el modelo—, así que los gestiona sólo la línea provincial.
+  // Las sedes y los resultados siguen abiertos a los admins territoriales,
+  // pero limitados a su territorio en el service.
+  COMPETITION_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
   RESULT_LOAD: [
     Role.SUPER_ADMIN,
     Role.ADMIN_PROVINCIAL,
@@ -268,12 +268,7 @@ export const ACCIONES = {
   CATEGORY_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
 
   // --- Contenido y sedes ---
-  NEWS_MANAGE: [
-    Role.SUPER_ADMIN,
-    Role.ADMIN_PROVINCIAL,
-    Role.ADMIN_DEPARTAMENTAL,
-    Role.ADMIN_ZONAL,
-  ],
+  NEWS_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
   /**
    * Forzar la sincronización de noticias con el portal oficial (S19).
    *
@@ -288,9 +283,9 @@ export const ACCIONES = {
    * Administrar la encuesta psicológica (S20): campañas, preguntas, opciones y
    * lectura de los agregados.
    *
-   * Mismo criterio que `NEWS_MANAGE` —la línea administrativa completa, sin
-   * roles operativos— porque es contenido que se publica en el sitio público y
-   * lo carga el mismo equipo. La psicóloga que redacta el cuestionario usa una
+   * Mismo criterio que `NEWS_MANAGE`: sólo la línea provincial (VULN-08,
+   * decisión del 23/11/2026; antes incluía a los admins territoriales), porque
+   * es contenido que se publica en el sitio público para toda la provincia. La psicóloga que redacta el cuestionario usa una
    * cuenta de esa línea; no hay un rol propio para ella y crear uno para una
    * sola persona agregaría una matriz de permisos nueva sin nadie que la
    * mantenga.
@@ -302,18 +297,8 @@ export const ACCIONES = {
    * Responder la encuesta no requiere ningún rol: el endpoint público es
    * `@Public()`.
    */
-  SURVEY_MANAGE: [
-    Role.SUPER_ADMIN,
-    Role.ADMIN_PROVINCIAL,
-    Role.ADMIN_DEPARTAMENTAL,
-    Role.ADMIN_ZONAL,
-  ],
-  CALENDAR_MANAGE: [
-    Role.SUPER_ADMIN,
-    Role.ADMIN_PROVINCIAL,
-    Role.ADMIN_DEPARTAMENTAL,
-    Role.ADMIN_ZONAL,
-  ],
+  SURVEY_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
+  CALENDAR_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
   VENUE_MANAGE: [
     Role.SUPER_ADMIN,
     Role.ADMIN_PROVINCIAL,

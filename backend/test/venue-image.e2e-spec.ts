@@ -29,6 +29,7 @@ import { App } from 'supertest/types';
 import { buildHelmetMiddleware } from '../src/security';
 import { VenuesController } from '../src/modules/venues/venues.controller';
 import { VenuesService } from '../src/modules/venues/venues.service';
+import { ScopeService } from '../src/common/scope';
 import { VenueImagesController } from '../src/modules/venues/venue-images.controller';
 import { VenueImagesService } from '../src/modules/venues/venue-images.service';
 import { ImageUploadInterceptor } from '../src/modules/images/image-upload.interceptor';
@@ -197,6 +198,8 @@ describe('Foto de sede (e2e)', () => {
       controllers: [VenuesController, VenueImagesController],
       providers: [
         VenuesService,
+        // VULN-08: los controllers de sedes calculan el alcance del usuario.
+        ScopeService,
         VenueImagesService,
         ImageUploadInterceptor,
         ImageSignaturePipe,
