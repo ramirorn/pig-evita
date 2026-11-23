@@ -7,6 +7,7 @@ import {
   Patch,
   Body,
   Param,
+  ParseArrayPipe,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import {
@@ -50,7 +51,16 @@ export class ResultsController {
   })
   async updateMatchResults(
     @Param('matchId', ParseUUIDPipe) matchId: string,
-    @Body() results: MatchResultDto[],
+    // VULN-24: el ValidationPipe global no valida un body tipado como array;
+    // ParseArrayPipe valida cada elemento con las mismas reglas.
+    @Body(
+      new ParseArrayPipe({
+        items: MatchResultDto,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    )
+    results: MatchResultDto[],
     @CurrentUser() usuario: CargadorDeResultados,
   ) {
     return this.resultsService.updateMatchResults(matchId, results, usuario);

@@ -299,6 +299,54 @@ describe('Resultados y rankings (e2e)', () => {
     );
   });
 
+  describe('VULN-24 — cada resultado del array se valida', () => {
+    it.each([
+      [
+        'ranking que no es entero',
+        [{ resultId: R(1), data: { ranking: 'uno' } }],
+      ],
+      [
+        'campo desconocido en data',
+        [{ resultId: R(1), data: { isWinner: true, extra: 1 } }],
+      ],
+      [
+        'scoreData anidado',
+        [{ resultId: R(1), data: { scoreData: { a: { b: 1 } } } }],
+      ],
+      [
+        'scoreData con demasiadas claves',
+        [
+          {
+            resultId: R(1),
+            data: {
+              scoreData: Object.fromEntries(
+                Array.from({ length: 21 }, (_, i) => [`k${i}`, i]),
+              ),
+            },
+          },
+        ],
+      ],
+      ['resultId que no es UUID', [{ resultId: 'no-uuid', data: {} }]],
+      ['elemento que no es un objeto', ['texto']],
+    ])('%s → 400 y el partido no se finaliza', async (_caso, payload) => {
+      await cargar(M1, Role.ARBITRO, payload).expect(400);
+      expect(partidos.get(M1)!.status).toBe('PROGRAMADO');
+    });
+
+    it('comportamiento previo: un scoreData plano con números, textos y booleanos se acepta', async () => {
+      await cargar(M1, Role.ARBITRO, [
+        {
+          resultId: R(1),
+          data: {
+            isWinner: true,
+            scoreData: { tiempo: '1:02.35', puntos: 3, invicto: true },
+          },
+        },
+        { resultId: R(2), data: { isWinner: false, scoreData: { puntos: 1 } } },
+      ]).expect(200);
+    });
+  });
+
   describe('GET /results/rankings/competition/:id (público)', () => {
     const ranking = () =>
       request(app.getHttpServer()).get(`/results/rankings/competition/${COMP}`);
