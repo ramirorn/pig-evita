@@ -1,6 +1,13 @@
 # ===========================================
 # Juegos Evita - Production Docker Compose
 # ===========================================
+# VULN-42: rotación de logs de todos los servicios (antes crecían sin límite).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   # NestJS Application
   app:
@@ -9,13 +16,20 @@ services:
       dockerfile: docker/Dockerfile
     container_name: evita-app
     restart: unless-stopped
+    # VULN-02: la API no se publica a la red. Con `trust proxy` en 1, un cliente
+    # que llegaba directo al 3000 elegía su propia IP con X-Forwarded-For y
+    # esquivaba el límite de intentos del login y de la encuesta. Se entra por
+    # nginx; el 3000 queda sólo en la máquina (healthchecks, diagnóstico).
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
+    logging: *logging
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://evita_user:${DB_PASSWORD}@postgres:5432/juegos_evita?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # VULN-11: la misma contraseña que `requirepass` del servicio redis.
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Definí REDIS_PASSWORD}
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
     env_file:
@@ -32,6 +46,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: evita-postgres
+    logging: *logging
     restart: unless-stopped
     environment:
       POSTGRES_USER: evita_user
@@ -49,19 +64,27 @@ services:
   redis:
     image: redis:7-alpine
     container_name: evita-redis
+    logging: *logging
     restart: unless-stopped
+    # VULN-11: Redis con contraseña. Guarda las revocaciones de sesión, los
+    # bloqueos de login y la versión de las métricas.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Definí REDIS_PASSWORD}"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Definí REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   # MinIO
   minio:
-    image: minio/minio:latest
+    # VULN-16: versión fija (la misma que el stack de la raíz y el e2e), no `latest`.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: evita-minio
+    logging: *logging
     restart: unless-stopped
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
@@ -77,8 +100,10 @@ services:
 
   # Nginx Reverse Proxy
   nginx:
-    image: nginx:alpine
+    # VULN-16: versión fija (la misma que el frontend y el e2e).
+    image: nginx:1.27-alpine
     container_name: evita-nginx
+    logging: *logging
     restart: unless-stopped
     ports:
       - "80:80"
