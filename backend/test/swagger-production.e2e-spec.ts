@@ -97,11 +97,12 @@ describe('Swagger — visibilidad por entorno (e2e)', () => {
     expect(Object.keys(body.paths)).toContain('/ping');
   });
 
-  it('un NODE_ENV ausente se trata como desarrollo', async () => {
-    // Documenta el comportamiento: el fail-safe lo da el default de config.
+  it('VULN-13: un NODE_ENV ausente NO publica la documentación (falla cerrado)', async () => {
+    // Antes un despliegue sin NODE_ENV publicaba Swagger completo. Ahora hace
+    // falta NODE_ENV=development (o test) explícito.
     const creada = await crearApp(undefined as unknown as string);
     app = creada.app;
 
-    expect(creada.montado).toBe(true);
+    expect(creada.montado).toBe(false);
   });
 });
