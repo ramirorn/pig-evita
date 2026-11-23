@@ -16,9 +16,11 @@ async function campaniaActiva(s: Api) {
   await data(await s.post(`/survey/campaigns/${c.id}/publish`));
   return c;
 }
-// Cuántos envíos entraron: la versión de la campaña sube 1 con cada respuesta.
-// (Los conteos publicados van de a 5 y no sirven para ver un envío suelto.)
-const total = async (s: Api, id: string) => (await data(await s.get(`/metrics/survey/${id}/version`))).version as number;
+// ¿Entró algún envío? Cada test usa una campaña nueva, así que 0 → 1 alcanza.
+// Ni los conteos publicados ni la versión sirven para ver un envío suelto: los
+// dos van de a 5, justamente para no revelar cuándo contestó alguien.
+const total = async (s: Api, id: string) =>
+  (await data(await s.get(`/survey/campaigns/${id}`))).tieneRespuestas ? 1 : 0;
 
 test.describe.configure({ mode: 'serial' });
 

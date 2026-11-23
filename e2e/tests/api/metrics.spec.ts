@@ -89,7 +89,7 @@ test.describe('métricas en vivo', () => {
     }
 
     const v1 = (await data(await s.get(`/metrics/survey/${c.id}/version`))).version;
-    expect(v1, 'cada respuesta sube la versión').toBeGreaterThan(v0);
+    expect(v1, 'cada tanda de 5 respuestas sube la versión').toBeGreaterThan(v0);
 
     const overview = await data(await s.get(`/metrics/survey/${c.id}/overview`));
     expect(overview.totalRespuestas).toEqual({ suprimido: false, conteo: 10 });
