@@ -132,7 +132,8 @@ test.describe('matriz de roles (backend)', () => {
     ['inscriptions', '/inscriptions', ['SUPER_ADMIN', 'ADMIN_PROVINCIAL', 'ADMIN_DEPARTAMENTAL', 'ADMIN_ZONAL', 'DELEGADO']],
     ['reports', '/reports/participants', ['SUPER_ADMIN', 'ADMIN_PROVINCIAL', 'ADMIN_DEPARTAMENTAL', 'ADMIN_ZONAL', 'DELEGADO']],
     ['zones', '/zones', ['SUPER_ADMIN', 'ADMIN_PROVINCIAL', 'ADMIN_DEPARTAMENTAL', 'ADMIN_ZONAL']],
-    ['survey campaigns', '/survey/campaigns', ['SUPER_ADMIN', 'ADMIN_PROVINCIAL', 'ADMIN_DEPARTAMENTAL', 'ADMIN_ZONAL']],
+    // La encuesta es de la línea provincial (VULN-08, decisión del 23/11/2026).
+    ['survey campaigns', '/survey/campaigns', ['SUPER_ADMIN', 'ADMIN_PROVINCIAL']],
   ];
   for (const [nombre, ruta, permitidos] of matriz) {
     test(`GET ${ruta} (${nombre}): sólo ${permitidos.length} roles entran`, async () => {

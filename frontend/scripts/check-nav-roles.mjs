@@ -416,6 +416,30 @@ for (const role of ROLES) {
 // La dirección que se olvida, igual que en el menú: un rol puede tener el
 // permiso y no tener ninguna pantalla donde ejercerlo. El permiso queda
 // decorativo y nadie se entera, porque no falla nada.
+// Al revés (VULN-08): una pantalla que sólo sirve para gestionar no se le
+// muestra a un rol que no puede ninguna de sus acciones. Así se detectó que el
+// menú seguía ofreciendo Competencias, Noticias, Calendario y Encuesta a los
+// admins territoriales después de pasar esas acciones a la línea provincial.
+const PANTALLAS_SOLO_GESTION = [
+  ROUTES.COMPETITIONS,
+  ROUTES.NEWS_ADMIN,
+  ROUTES.CALENDAR_ADMIN,
+  ROUTES.VENUES_ADMIN,
+  ROUTES.SURVEY_ADMIN,
+];
+for (const pantalla of PANTALLAS_SOLO_GESTION) {
+  const acciones = ACCIONES_POR_PANTALLA[pantalla] ?? [];
+  for (const role of ROLES) {
+    if (!puedeVerRuta(role, pantalla)) continue;
+    verificaciones.push(`[${role}] ve ${pantalla} y puede alguna de sus acciones`);
+    if (!acciones.some((accion) => puedeAccion(role, accion))) {
+      problemas.push(
+        `[${role}] ve ${pantalla} pero no puede ninguna de sus acciones (${acciones.join(', ')})`,
+      );
+    }
+  }
+}
+
 for (const [pantalla, acciones] of Object.entries(ACCIONES_POR_PANTALLA)) {
   for (const accion of acciones) {
     for (const role of ROLES) {

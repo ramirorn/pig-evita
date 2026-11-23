@@ -38,6 +38,17 @@ export const CATALOG_MANAGERS: UserRole[] = [
 ];
 
 /** `INSCRIPTION_REVIEWERS` / `INSCRIPTION_CREATORS` del backend. */
+/**
+ * Contenido provincial: competencias, noticias, calendario y encuesta (VULN-08,
+ * decisión del 23/11/2026). Una competencia no tiene territorio en el modelo,
+ * así que estas pantallas son de la línea provincial. Espejo de
+ * `COMPETITION_MANAGE`/`NEWS_MANAGE`/`CALENDAR_MANAGE`/`SURVEY_MANAGE`.
+ */
+export const PROVINCIAL_CONTENT_MANAGERS: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN_PROVINCIAL,
+];
+
 export const INSCRIPTION_MANAGERS: UserRole[] = [
   ...ADMIN_ROLES,
   UserRole.DELEGADO,
