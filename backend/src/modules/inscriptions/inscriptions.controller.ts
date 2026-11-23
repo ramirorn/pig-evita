@@ -147,9 +147,9 @@ export class InscriptionsController {
   @ApiOperation({
     summary: 'Consultar inscripción por QR (público)',
     description:
-      'Devuelve únicamente nombre y apellido del participante, disciplina, ' +
-      'categoría y estado. No expone datos personales (DNI, email, teléfono, ' +
-      'fecha de nacimiento, dirección).',
+      'Devuelve únicamente el nombre y la inicial del apellido del ' +
+      'participante, disciplina, categoría y estado. No expone datos ' +
+      'personales (DNI, email, teléfono, fecha de nacimiento, dirección).',
   })
   @ApiResponse({
     status: 200,

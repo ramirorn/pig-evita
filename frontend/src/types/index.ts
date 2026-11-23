@@ -297,7 +297,8 @@ export interface PublicInscription {
   createdAt: string;
   participant: {
     firstName: string;
-    lastName: string;
+    /** Sólo la inicial del apellido, por ejemplo "P." (VULN-32). */
+    lastInitial: string;
   };
   category: {
     name: string;

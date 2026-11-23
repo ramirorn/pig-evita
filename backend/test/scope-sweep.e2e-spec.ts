@@ -682,6 +682,18 @@ const RECETAS: Record<string, Receta> = {
         etiqueta: 'alta declarando el departamento ajeno',
         body: cuerpoInscripcion('30777888', ctx.ajeno),
       },
+      {
+        // VULN-06 — el `teamId` del body es una clave que manda el cliente. Va
+        // con la categoría del equipo ajeno a propósito: con otra categoría el
+        // alta se cortaría por la incoherencia y el barrido daría verde sin
+        // haber mirado el alcance.
+        etiqueta: 'alta colgada del equipo ajeno',
+        body: {
+          ...cuerpoInscripcion('30999111', ctx.propio),
+          categoryId: CATEGORIA.id,
+          teamId: ctx.uAjeno.team.id,
+        },
+      },
     ],
   },
   'InscriptionsController.createTeam': {

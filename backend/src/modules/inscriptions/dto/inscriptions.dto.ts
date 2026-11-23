@@ -405,14 +405,19 @@ export class InscriptionFilterDto extends PaginationQueryDto {
 
 /**
  * Datos mínimos del participante expuestos públicamente.
- * NUNCA debe incluir dni, email, phone, birthDate ni address.
+ * NUNCA debe incluir dni, email, phone, birthDate, address ni el apellido
+ * completo.
  */
 export class PublicInscriptionParticipantDto {
   @ApiProperty({ description: 'Nombre', example: 'Juan' })
   firstName: string;
 
-  @ApiProperty({ description: 'Apellido', example: 'Pérez' })
-  lastName: string;
+  /**
+   * Sólo la inicial del primer apellido (VULN-32): el endpoint es público y el
+   * código QR figura impreso en papel.
+   */
+  @ApiProperty({ description: 'Inicial del apellido', example: 'P.' })
+  lastInitial: string;
 }
 
 export class PublicInscriptionDisciplineDto {
@@ -430,7 +435,8 @@ export class PublicInscriptionCategoryDto {
 
 /**
  * Contrato de la respuesta del endpoint público `GET /inscriptions/qr/:qrCode`.
- * Superficie mínima: identificación del trámite + nombre + disciplina/categoría + estado.
+ * Superficie mínima: identificación del trámite + nombre e inicial del apellido +
+ * disciplina/categoría + estado.
  * Cualquier campo agregado acá queda expuesto a cualquier persona que conozca el código QR.
  */
 export class PublicInscriptionDto {

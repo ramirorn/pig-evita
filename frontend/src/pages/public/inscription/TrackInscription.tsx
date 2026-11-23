@@ -44,7 +44,7 @@ export function TrackInscription({
           Consultar Estado de Inscripción
         </Heading>
         <p className="text-primary-600 text-xs">
-          Ingresá tu código QR oficial (ej. <span className="font-mono font-semibold">EVITA-A1B2C3D4</span>) para verificar el estado de tu trámite.
+          Ingresá el código que figura en tu credencial (empieza con <span className="font-mono font-semibold">EVITA-</span>) para verificar el estado de tu trámite.
         </p>
       </div>
 
@@ -62,7 +62,7 @@ export function TrackInscription({
           <input
             id="codigo-qr-inscripcion"
             type="text"
-            placeholder="Código QR (ej. EVITA-12345678)"
+            placeholder="Código QR (ej. EVITA-…)"
             value={searchQr}
             onChange={(e) => setSearchQr(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-primary-200 text-primary-900 placeholder:text-primary-300 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase"
@@ -129,7 +129,7 @@ export function TrackInscription({
             <div className="flex justify-between py-1 border-b border-primary-50">
               <span className="text-primary-500">Participante:</span>
               <span className="font-bold text-primary-900">
-                {trackedInscription.participant.lastName}, {trackedInscription.participant.firstName}
+                {trackedInscription.participant.firstName} {trackedInscription.participant.lastInitial}
               </span>
             </div>
 

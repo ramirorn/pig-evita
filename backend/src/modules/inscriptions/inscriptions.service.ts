@@ -10,7 +10,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Prisma, InscriptionStatus, DisciplineType, Sex } from '@prisma/client';
-import { v4 as uuidv4 } from 'uuid';
+import { randomInt } from 'node:crypto';
 import * as QRCode from 'qrcode';
 import { PrismaService } from '../../database/prisma.service';
 import {
@@ -142,6 +142,32 @@ export class InscriptionsService {
     // render de la imagen— queda afuera para no tener la transacción abierta
     // más tiempo del necesario.
     const inscription = await this.prisma.$transaction(async (tx) => {
+      // 3.b VULN-06 — el `teamId` es una clave que manda el cliente, y la FK
+      // sólo garantiza que el equipo exista. Sin este corte un delegado podía
+      // colgar inscripciones de un equipo de otro departamento (los UUID de
+      // equipos salen en el fixture público) o de otra categoría.
+      //
+      // El equipo se busca con el filtro territorial **adentro del `where`**,
+      // igual que `TeamsService.findOne`: uno ajeno responde lo mismo que uno
+      // inexistente (404, no 403, por la misma razón que R06). La categoría va
+      // en el mismo `where`: un equipo es de una sola categoría (y por ella, de
+      // una sola disciplina). Va primero para que el corte no deje un
+      // participante recién creado.
+      if (teamId) {
+        const team = await tx.team.findFirst({
+          where: ScopeService.conAlcance<Prisma.TeamWhereInput>(
+            { id: teamId, categoryId },
+            this.scope.whereTeam(alcance),
+          ),
+          select: { id: true },
+        });
+        if (!team) {
+          throw new NotFoundException(
+            'Equipo no encontrado en la categoría seleccionada',
+          );
+        }
+      }
+
       // 4. Crear o encontrar participante por DNI
       //
       // S04 — la búsqueda va **con el alcance adentro del `where`**.
@@ -183,7 +209,9 @@ export class InscriptionsService {
               address,
             },
           });
-          this.logger.log(`New participant created: ${dni}`);
+          // VULN-25 — el id interno y no el DNI: el log de aplicación no
+          // tiene control de acceso por rol y el DNI es de un menor.
+          this.logger.log(`New participant created: ${participant.id}`);
         } catch (error) {
           // S04 — el DNI existe, pero fuera del alcance de quien pregunta.
           //
@@ -201,6 +229,15 @@ export class InscriptionsService {
             error instanceof Prisma.PrismaClientKnownRequestError &&
             error.code === 'P2002'
           ) {
+            // VULN-44 — la unique global de `dni` hace que este 409 confirme
+            // que el DNI existe en otro territorio. No se puede evitar sin
+            // perder la detección de duplicados, así que queda registrado
+            // quién lo provoca (sin el DNI) para poder alertar sobre un
+            // usuario que lo usa como oráculo.
+            this.logger.warn(
+              `Alta rechazada por DNI existente fuera del alcance ` +
+                `(usuario ${createdById})`,
+            );
             throw new ConflictException(
               'Ya existe un participante con ese DNI. Si es de tu departamento, ' +
                 'buscalo en el padrón; si no, pedí el alta a un administrador.',
@@ -255,7 +292,11 @@ export class InscriptionsService {
     });
 
     this.logger.log(
-      `Inscription created: ${qrCode} for ${dni} in ${category.name}`,
+      // VULN-25/VULN-32 — ids internos: ni el DNI del menor ni el código QR,
+      // que es la llave del endpoint público y no tiene por qué quedar en un
+      // log sin control de acceso.
+      `Inscription created: ${inscription.id} for participant ` +
+        `${inscription.participantId} in ${category.name}`,
     );
 
     return {
@@ -384,8 +425,9 @@ export class InscriptionsService {
    * Buscar inscripción por código QR (endpoint PÚBLICO, sin autenticación).
    *
    * Superficie de datos mínima a propósito: cualquier persona que conozca el
-   * código QR puede llamar a este endpoint. Se exponen únicamente nombre y
-   * apellido del participante, disciplina, categoría y estado del trámite.
+   * código QR puede llamar a este endpoint. Se exponen únicamente el nombre y
+   * la inicial del apellido del participante (VULN-32), disciplina, categoría
+   * y estado del trámite.
    * NO agregar dni, email, phone, birthDate, address, department ni notas
    * internas (`notes` / `rejectionNote`) al `select` ni al objeto devuelto.
    */
@@ -420,7 +462,7 @@ export class InscriptionsService {
       createdAt: inscription.createdAt,
       participant: {
         firstName: inscription.participant.firstName,
-        lastName: inscription.participant.lastName,
+        lastInitial: inicialDelApellido(inscription.participant.lastName),
       },
       category: {
         name: inscription.category.name,
@@ -463,9 +505,7 @@ export class InscriptionsService {
       },
     });
 
-    this.logger.log(
-      `Inscription reviewed: ${updated.qrCode} by user ${userId}`,
-    );
+    this.logger.log(`Inscription reviewed: ${updated.id} by user ${userId}`);
     return updated;
   }
 
@@ -495,9 +535,7 @@ export class InscriptionsService {
       },
     });
 
-    this.logger.log(
-      `Inscription approved: ${updated.qrCode} by user ${userId}`,
-    );
+    this.logger.log(`Inscription approved: ${updated.id} by user ${userId}`);
     return updated;
   }
 
@@ -537,9 +575,7 @@ export class InscriptionsService {
       },
     });
 
-    this.logger.log(
-      `Inscription rejected: ${updated.qrCode} by user ${userId}`,
-    );
+    this.logger.log(`Inscription rejected: ${updated.id} by user ${userId}`);
     return updated;
   }
 
@@ -1098,9 +1134,40 @@ export class InscriptionsService {
    * leen el endpoint público de consulta y la credencial impresa. Una segunda
    * implementación que se desincronice rompería los dos sin tocarlos.
    */
+  /**
+   * VULN-32 — código de las inscripciones **nuevas**: `EVITA-` y 26
+   * caracteres Crockford base32 elegidos con el CSPRNG, 130 bits.
+   *
+   * Antes eran 8 hexadecimales de un UUID (32 bits): con miles de inscripciones
+   * un barrido distribuido sobre el endpoint público acertaba códigos.
+   *
+   * - Crockford (dígitos y mayúsculas sin I, L, O, U) y no base64url: la
+   *   consulta pública pasa a mayúsculas lo que se tipea, y estos caracteres
+   *   entran en el modo alfanumérico del QR, que lo mantiene poco denso.
+   * - Los códigos ya impresos (8 hexadecimales) siguen valiendo: `findByQr`
+   *   busca el código exacto, sin asumir un formato.
+   */
   private generarQrCode(): string {
-    return `EVITA-${uuidv4().slice(0, 8).toUpperCase()}`;
+    let codigo = '';
+    for (let i = 0; i < LARGO_QR; i++) {
+      codigo += ALFABETO_QR[randomInt(ALFABETO_QR.length)];
+    }
+    return `EVITA-${codigo}`;
   }
+}
+
+/** Crockford base32: 32 símbolos, sin los que se confunden al tipear. */
+const ALFABETO_QR = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+/** 26 símbolos × 5 bits = 130 bits de entropía. */
+const LARGO_QR = 26;
+
+/**
+ * Inicial del primer apellido para la consulta pública (VULN-32): alcanza para
+ * que la familia reconozca el trámite sin publicar el apellido de un menor.
+ */
+function inicialDelApellido(apellido: string): string {
+  const inicial = apellido.trim().charAt(0).toLocaleUpperCase('es');
+  return inicial ? `${inicial}.` : '';
 }
 
 /** Valores que aparecen más de una vez, sin repetirse ellos mismos. */
