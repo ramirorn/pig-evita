@@ -7,8 +7,8 @@
 | **Equipo de desarrollo** | 4 estudiantes de la Tecnicatura Superior en Desarrollo de Software Multiplataforma (Seminario de Actualización III – Ciberseguridad) |
 | **Fecha** | 22/11/2026 |
 | **Versión analizada** | rama `dev-santi`, commit `c3c3383` |
-| **Versión del documento** | 1.0 |
-| **Estado** | Hallazgos — mitigación en curso |
+| **Versión del documento** | 1.1 (23/11/2026: estado de la mitigación) |
+| **Estado** | Mitigación aplicada — ver el estado de cada hallazgo y la sección 10 |
 
 ## Contenido
 
@@ -32,6 +32,7 @@
 7. [Limitaciones y aspectos no verificados](#limitaciones)
 8. [Plan de mitigación priorizado](#plan-de-mitigacion)
 9. [Referencias](#referencias)
+10. [Estado de la mitigación y decisiones](#estado-y-decisiones)
 
 ---
 
@@ -262,7 +263,7 @@ El usuario ve o hace algo que no le corresponde: es como si la tarjeta del hotel
 - **Mitigación propuesta:** en `InscriptionsService.create`, si viene `teamId`, buscar el equipo con `ScopeService.conAlcance({ id: teamId, categoryId }, this.scope.whereTeam(alcance))` dentro de la transacción y responder 404 si no aparece. Agregar el caso a `scope-sweep.e2e-spec.ts`.
 - **Riesgo de mitigar:** bajo. Si el frontend envía el `teamId` de un equipo de otra categoría, empezará a recibir 404. Probar el wizard de inscripción individual con y sin equipo, como DELEGADO y como ADMIN_PROVINCIAL.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 4e66dff). El `teamId` se valida contra el alcance territorial y la categoría.
 
 <a id="vuln-07"></a>
 #### VULN-07 — Carga de resultados sin vínculo árbitro-partido ni alcance
@@ -286,7 +287,7 @@ El usuario ve o hace algo que no le corresponde: es como si la tarjeta del hotel
 - **Mitigación propuesta:** modelar la asignación (`Match.refereeId` o una tabla `match_officials`) y exigir en `updateMatchResults` que un ARBITRO esté asignado al partido; para ADMIN_DEPARTAMENTAL y ADMIN_ZONAL, limitar a partidos cuya sede (`Venue.department`) esté en su alcance. Como paliativo, dejar la primera carga en un estado `PENDIENTE_CONFIRMACION`.
 - **Riesgo de mitigar:** cambia el flujo operativo del día de competencia: si no se cargan las asignaciones, ningún árbitro podrá cargar nada. Requiere migración y probar `results-rankings.e2e-spec.ts` y `competitions-fixture.e2e-spec.ts`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit e920d37). Los admins territoriales sólo cargan partidos en sedes de su territorio. Los árbitros no tienen alcance territorial en el modelo: riesgo aceptado temporalmente (ver sección 10).
 
 <a id="vuln-08"></a>
 #### VULN-08 — Roles territoriales con escritura provincial sobre sedes, competencias, contenido y encuesta
@@ -313,7 +314,7 @@ El usuario ve o hace algo que no le corresponde: es como si la tarjeta del hotel
 - **Mitigación propuesta:** definir en `ACCIONES` qué es contenido provincial (NEWS, SURVEY, CALENDAR, COMPETITION: sólo SA y AP, o un flujo de aprobación) y, para sedes, filtrar con `permiteDepartamento(alcance, venue.department)` en `VenuesService.update/remove` y en `VenueImagesService`. Documentar la decisión en `documentation.md`.
 - **Riesgo de mitigar:** quita capacidades a ADMIN_DEPARTAMENTAL y ADMIN_ZONAL que hoy pueden usarse en la operación. Hay que actualizar el espejo `frontend/src/lib/adminActions.ts` (lo verifica `npm run check:nav`) y `action-permissions.e2e-spec.ts`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit e920d37, f4a650a). Competencias, noticias, calendario y encuesta pasan a la línea provincial; sedes limitadas al territorio.
 
 <a id="vuln-28"></a>
 #### VULN-28 — Superficie pública con nombres de menores e identificadores internos
@@ -332,7 +333,7 @@ El usuario ve o hace algo que no le corresponde: es como si la tarjeta del hotel
 - **Mitigación propuesta:** quitar `participantId` de las proyecciones públicas o reemplazarlo por un id opaco; documentar la base legal (consentimiento del tutor en la inscripción) para publicar nombres; evaluar iniciales para categorías infantiles. **Requiere decisión** sobre qué se publica de los menores.
 - **Riesgo de mitigar:** el frontend público puede usar `participantId` como `key` o para agrupar; revisar las páginas de rankings y `public-pii.e2e-spec.ts`.
 
-**Estado:** Pendiente
+**Estado:** Pendiente. No se cambió: reducir nombres e identificadores de las vistas públicas requiere revisar qué muestra cada página pública con el cliente.
 
 <a id="vuln-44"></a>
 #### VULN-44 — Oráculo de existencia de DNI por la unicidad global
@@ -351,7 +352,7 @@ El usuario ve o hace algo que no le corresponde: es como si la tarjeta del hotel
 - **Mitigación propuesta:** aceptar y documentar el riesgo (lo impone la unicidad del DNI), o alertar en auditoría cuando un mismo usuario acumula 409 de DNI.
 - **Riesgo de mitigar:** ninguno si sólo se documenta.
 
-**Estado:** Pendiente
+**Estado:** Aceptado (commit 4e66dff). La unicidad global del DNI no se puede ocultar sin perder la detección de duplicados; se registra quién provoca el rechazo para detectar un uso como oráculo.
 
 <a id="vuln-45"></a>
 #### VULN-45 — Deny-by-default no estructural en `RolesGuard`
@@ -370,7 +371,7 @@ El usuario ve o hace algo que no le corresponde: es como si la tarjeta del hotel
 - **Mitigación propuesta:** invertir el valor por defecto: rechazar si no hay `@Roles` ni `@Public`, y agregar un decorador explícito `@AnyAuthenticated()` para `/auth/me`, `/auth/permissions` y `/auth/logout`.
 - **Riesgo de mitigar:** una ruta que hoy dependa del valor por defecto devolvería 403; correr todo el e2e.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 78f8ada). `RolesGuard` niega por defecto; `/auth/*` declara `@AnyAuthenticated`.
 
 ---
 
@@ -414,7 +415,7 @@ Valores por defecto inseguros, servicios publicados de más, mensajes demasiado 
 - **Mitigación propuesta:** quitar `ports: "3000:3000"` del servicio `app` en `backend/docker-compose.yml` (dejar sólo `expose: ["3000"]` en la red interna) para que la única entrada sea nginx. Como defensa en profundidad, reemplazar `trust proxy = 1` por la subred de la red de Docker del proxy (por ejemplo `app.set('trust proxy', 'loopback, 172.16.0.0/12')` o la IP fija del contenedor nginx), de modo que un `X-Forwarded-For` que no venga del proxy se ignore. Si delante de nginx se agrega otro proxy o terminador TLS, ajustar los saltos o, mejor, la lista de subredes confiables. Actualizar antes `proxy-addr` ([VULN-29](#vuln-29)), porque la confianza por subred es el caso al que ese aviso aplica.
 - **Riesgo de mitigar:** cualquier herramienta o monitoreo que hoy consulte `:3000` directo deja de funcionar (usar `/health` vía nginx). Con subredes confiables mal elegidas todos los clientes pueden quedar con la IP del proxy y compartir el contador del login (5 por 15 minutos), bloqueando a todos: probar con dos clientes distintos detrás de nginx y verificar en `AuditLog` que se registran IPs distintas.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit fd0b2ee). El compose de producción publica la API sólo en `127.0.0.1:3000`; se entra por nginx.
 
 <a id="vuln-03"></a>
 #### VULN-03 — Reverse proxy de producción sin TLS y con cabeceras que contradicen a helmet
@@ -447,7 +448,7 @@ Valores por defecto inseguros, servicios publicados de más, mensajes demasiado 
 - **Mitigación propuesta:** agregar un `server { listen 443 ssl http2; ssl_certificate ...; ssl_protocols TLSv1.2 TLSv1.3; }`, activar `return 301 https://$host$request_uri;` en el `server` del puerto 80 (dejando `/.well-known/acme-challenge/` si se usa Let's Encrypt), agregar `server_tokens off;` y quitar del bloque `http` los headers que ya emite helmet para `/api/` (`X-Frame-Options`, HSTS, CSP, `X-XSS-Protection`) o usar `proxy_hide_header` para que haya una sola fuente. Documentar en `documentacion/` cuál es la topología de producción (qué sirve la SPA y dónde termina TLS).
 - **Riesgo de mitigar:** requiere certificado y DNS reales; un HSTS con `includeSubDomains` sobre el dominio provincial afecta a subdominios que sigan en HTTP (coordinar con quien administra el dominio). Probar con `curl -I https://<host>/api/v1/health` que haya un único valor por header y que el login y el refresh funcionen con la cookie `Secure`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit fd0b2ee). Cabeceras coherentes con helmet (`X-Frame-Options: DENY`) y bloque TLS listo para habilitar; falta configurar certificados (decisión de infraestructura).
 
 <a id="vuln-09"></a>
 #### VULN-09 — La SPA se sirve sin cabeceras de seguridad (CSP, frame-ancestors, HSTS, Referrer-Policy)
@@ -473,7 +474,7 @@ Valores por defecto inseguros, servicios publicados de más, mensajes demasiado 
 - **Mitigación propuesta:** en `frontend/docker/nginx.conf`, a nivel `server` y repetido en cada `location` que use `add_header` (nginx no hereda `add_header` si el bloque define uno propio): `Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: <host de MinIO>; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"`, `X-Content-Type-Options nosniff`, `Referrer-Policy strict-origin-when-cross-origin`, `Permissions-Policy "camera=(), microphone=(), geolocation=()"`, `X-Frame-Options DENY` y HSTS cuando haya TLS; `server_tokens off;`. Empezar con `Content-Security-Policy-Report-Only` para detectar recursos bloqueados.
 - **Riesgo de mitigar:** una CSP estricta rompe Google Fonts (ver [VULN-41](#vuln-41)), las imágenes servidas desde MinIO por enlaces firmados (otro origen) y cualquier estilo en línea que inyecten Radix o Recharts. Probar con la suite Playwright `test:ui` (desktop y mobile) mirando errores de CSP en consola.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit fd0b2ee, a29f378). CSP, `frame-ancestors`, HSTS, nosniff, Referrer-Policy y Permissions-Policy en todas las respuestas de la SPA.
 
 <a id="vuln-10"></a>
 #### VULN-10 — Subida de documentos sin límites en multer: el archivo se acumula en memoria antes de validar el tamaño, y `fileKey` expuesto
@@ -505,7 +506,7 @@ Valores por defecto inseguros, servicios publicados de más, mensajes demasiado 
 - **Mitigación propuesta:** `FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 + 1, files: 1, fields: 5, fieldSize: 1024, parts: 7 } })`, replicando el envoltorio de imágenes para mantener el 422; omitir `fileKey` en ambas respuestas con un `select`. Bajar `client_max_body_size` de nginx a unos 6 MB para `/api/v1/documents/upload`.
 - **Riesgo de mitigar:** el exceso de tamaño pasa a cortarse en multer (413 si no se envuelve): los clientes que esperan 422 deben seguir recibiéndolo. Si `fields` o `parts` quedan cortos, el formulario de subida (que envía `participantId` y `type`) responde 400. Probar con el e2e de documentos y con archivos de 5 MB exactos y de 5 MB más 1 byte.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit e981f4b). Límites de multer (6 MB), sin `fileKey` en las respuestas.
 
 <a id="vuln-11"></a>
 #### VULN-11 — Redis sin autenticación ni TLS, y `REDIS_PASSWORD` no es obligatoria en producción
@@ -540,7 +541,7 @@ Valores por defecto inseguros, servicios publicados de más, mensajes demasiado 
 - **Mitigación propuesta:** agregar `command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?definir REDIS_PASSWORD}"]` (y el healthcheck con `redis-cli -a`) en los compose; en `config.validation.ts`, convertir el `continue` en error para `PRODUCTION_ONLY_SECRETS` (hacer `REDIS_PASSWORD` obligatoria cuando `NODE_ENV === 'production'`) y validar la contraseña de `DATABASE_URL` por separado (`new URL(env.DATABASE_URL).password` con longitud mínima y patrones prohibidos). En `backend/docker-compose.dev.yml` publicar `127.0.0.1:6379:6379`. Si Redis o Postgres salen del host, usar TLS (`rediss://`, `sslmode=require`).
 - **Riesgo de mitigar:** los entornos existentes sin `REDIS_PASSWORD` dejan de arrancar en producción y los scripts que se conectan a Redis (`prisma/seed-survey-responses.ts:178-180`) necesitan la variable. Actualizar `.env.example`, `backend/scripts/docker-dev.mjs` y `e2e/scripts/gen-env.mjs` para generarla, y correr `config.validation.spec.ts`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit fd0b2ee, f11df18). Redis con `requirepass` y `REDIS_PASSWORD` obligatoria en producción; sin TLS (red interna de Docker).
 
 <a id="vuln-12"></a>
 #### VULN-12 — Compose de desarrollo y local publican servicios en todas las interfaces, uno con contraseña fija
@@ -573,7 +574,7 @@ Valores por defecto inseguros, servicios publicados de más, mensajes demasiado 
 - **Mitigación propuesta:** prefijar `127.0.0.1:` en todos los `ports` de `backend/docker-compose.dev.yml` y en MinIO y web de `docker-compose.yml` (salvo que se necesite probar desde un celular, caso en el que conviene un perfil explícito). Reemplazar `POSTGRES_PASSWORD: evita_password` por `${DB_PASSWORD:?definir DB_PASSWORD en backend/.env}` y quitar la contraseña del `DATABASE_URL` de `backend/.env.example`.
 - **Riesgo de mitigar:** cambiar la contraseña de Postgres exige recrear el volumen de desarrollo (pérdida de datos locales, ya mencionado en `config.validation.ts:25-28`). Quien pruebe la web desde otro dispositivo de la red dejará de poder hacerlo sin el perfil alternativo.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit fd0b2ee). Puertos de desarrollo en `127.0.0.1`; el stack de la raíz usa `BIND_HOST` (por defecto local).
 
 <a id="vuln-13"></a>
 #### VULN-13 — `NODE_ENV` falla en abierto y el stack completo de la raíz corre en modo desarrollo con Swagger expuesto
@@ -607,7 +608,7 @@ Valores por defecto inseguros, servicios publicados de más, mensajes demasiado 
 - **Mitigación propuesta:** hacer `NODE_ENV` obligatorio (sin `.default`) o que el valor por defecto sea `production` (fallar cerrado), y en `config/index.ts` leer el valor validado. Separar "permitir CORS a localhost" de `NODE_ENV` (por ejemplo `ALLOW_LOCALHOST_CORS=true` sólo en el compose local) para que el stack de la raíz pueda correr con `NODE_ENV=production`, o al menos publicar `127.0.0.1:8080:80`. Opcionalmente controlar Swagger con una variable explícita `SWAGGER_ENABLED`.
 - **Riesgo de mitigar:** con `production` la cookie pasa a `Secure` y sobre `http://localhost` funciona en Chrome y Firefox, pero no sobre `http://<IP de la LAN>`; el e2e (`e2e/docker-compose.e2e.yml:60`) también usa `development`. Correr `config.validation.spec.ts`, `security-headers.e2e-spec.ts` y la suite Playwright.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit f11df18). Swagger sólo con `NODE_ENV=development|test` explícito y aviso al arrancar sin NODE_ENV; la configuración sigue cayendo en desarrollo para no romper el entorno local.
 
 <a id="vuln-14"></a>
 #### VULN-14 — La seed no tiene guarda de producción y es destructiva
@@ -640,7 +641,7 @@ Valores por defecto inseguros, servicios publicados de más, mensajes demasiado 
 - **Mitigación propuesta:** al inicio de `main()` en `seed.ts`, abortar si `NODE_ENV === 'production'` salvo una variable explícita (`ALLOW_PROD_SEED=yes`), y separar la creación del primer administrador (sólo `create` si no existe, nunca `update` de rol, estado o contraseña) del resto de los datos de demostración.
 - **Riesgo de mitigar:** el entrypoint local corre la imagen con el `NODE_ENV` del compose (`development`), así que no se ve afectado; si algún flujo de despliegue usa la seed para crear el primer admin, necesitará el script separado. Probar `npm run db:demo` y `npm run db:demo:reset`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit f11df18). La seed no corre en producción salvo `SEED_ALLOW_PRODUCTION=true`.
 
 ---
 
@@ -682,7 +683,7 @@ Los resultados crudos están en la carpeta de trabajo de la auditoría y no se r
 - **Mitigación propuesta:** en `backend/`, actualizar `@nestjs/platform-express` (y `@nestjs/common` y `@nestjs/core` en el mismo minor) a la última 11.x, `compression` a `^1.8.2`, `zod` a `^4.6.6`, y regenerar el lockfile con `npm audit fix` (sin `--force`) para que suban `express`, `body-parser`, `qs`, `multer` y `proxy-addr`. Verificar después con `npm ls body-parser multer qs compression proxy-addr`.
 - **Riesgo de mitigar:** los cambios de minor de Nest y Express pueden alterar el parsing de multipart o los mensajes de error (413/422). Correr `npm test` y `npm run test:e2e` del backend (incluye `security-headers.e2e-spec.ts` y las pruebas de subida de imágenes y documentos) y la suite Playwright `test:api`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit a68415b). `npm audit fix --omit=dev`: body-parser, compression, multer, qs y proxy-addr actualizados.
 
 <a id="vuln-15"></a>
 #### VULN-15 — No hay análisis de dependencias automatizado y el pipeline de CI tiene una higiene débil
@@ -710,7 +711,7 @@ Los resultados crudos están en la carpeta de trabajo de la auditoría y no se r
 - **Mitigación propuesta:** agregar `.github/dependabot.yml` para `npm` en `/backend`, `/frontend`, `/e2e`, `docker` y `github-actions`; sumar al workflow un paso `npm audit --omit=dev --audit-level=high` por paquete (fallando el build) y jobs de build y prueba para el frontend; declarar `permissions: { contents: read }` a nivel workflow; fijar las acciones por SHA con comentario de versión; subir a Node 22 (alineado con los Dockerfile); mover o borrar `backend/.github/workflows/ci.yml` integrando sus pasos útiles (migraciones, tests e2e) en el workflow raíz.
 - **Riesgo de mitigar:** `npm audit` como puerta puede bloquear PRs por avisos sin parche (por ejemplo los de `minio`, [VULN-29](#vuln-29)): usar `--audit-level=high` y una lista de excepciones revisada. Fijar por SHA requiere que Dependabot actualice las acciones.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit 01f6ed4). Permisos mínimos, `npm audit` en CI y Dependabot; las acciones siguen fijadas por tag, no por SHA.
 
 <a id="vuln-16"></a>
 #### VULN-16 — Imágenes base sin digest, con tags móviles y una versión de nginx sin mantenimiento
@@ -738,7 +739,7 @@ Los resultados crudos están en la carpeta de trabajo de la auditoría y no se r
 - **Mitigación propuesta:** usar `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` (como el compose de la raíz) y una versión explícita de nginx soportada (`nginx:1.28-alpine` o la mainline vigente) en `backend/docker-compose.yml` y `frontend/docker/Dockerfile`; fijar todas las imágenes por digest (`image: nginx:1.28-alpine@sha256:...`) y dejar que Dependabot (ecosistema `docker`) las actualice; alinear el CI con `postgres:16-alpine` y `redis:7-alpine`. Evaluar `nginxinc/nginx-unprivileged` para el frontend.
 - **Riesgo de mitigar:** cambiar de nginx 1.27 a 1.28 o posterior puede requerir revisar directivas (bajo riesgo para esta configuración). Con digest fijo, los parches de seguridad sólo llegan cuando alguien acepta el PR de actualización. Probar `docker compose build` y la suite e2e.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit fd0b2ee). MinIO y nginx con versión fija (sin `latest`); sin fijar por digest.
 
 <a id="vuln-29"></a>
 #### VULN-29 — Dependencias de runtime del backend con avisos de baja alcanzabilidad (incluye la "crítica" de `proxy-addr`)
@@ -757,7 +758,7 @@ Los resultados crudos están en la carpeta de trabajo de la auditoría y no se r
 - **Mitigación propuesta:** `npm audit fix` (sin `--force`) en `backend/`; subir `prisma` y `@prisma/client` a 7.10.1 a la vez; para `minio` y `exceljs` usar `overrides` en `package.json` sobre las transitivas con parche (`fast-xml-parser`, `decode-uri-component`, `stream-json`, `uuid`, `brace-expansion`) verificando compatibilidad, o esperar versiones nuevas de esas librerías.
 - **Riesgo de mitigar:** un `override` de transitivas puede romper la firma de URLs de MinIO o la exportación a Excel; probar subida y descarga de documentos y la exportación de reportes. El salto de Prisma requiere `prisma generate` y correr migraciones en una base de prueba.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit a68415b). Quedan avisos que piden versión mayor (componentes internos de Prisma, MinIO, exceljs, uuid).
 
 <a id="vuln-30"></a>
 #### VULN-30 — Dependencias del frontend que llegan al navegador con avisos publicados
@@ -776,7 +777,7 @@ Los resultados crudos están en la carpeta de trabajo de la auditoría y no se r
 - **Mitigación propuesta:** en `frontend/`: `npm install axios@^1.20.0 react-router@^8.3.0 zod@^4.6.6` y `npm audit fix` para el resto.
 - **Riesgo de mitigar:** bajo (sin cambio de versión mayor). Probar `npm run build`, los `check:*` y la suite Playwright `test:ui`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit a29f378). axios, react-router y zod actualizados.
 
 <a id="vuln-31"></a>
 #### VULN-31 — Herramientas de desarrollo, build y prueba con avisos (incluye Handlebars crítica y el servidor de Vite en Windows)
@@ -795,7 +796,7 @@ Los resultados crudos están en la carpeta de trabajo de la auditoría y no se r
 - **Mitigación propuesta:** `npm audit fix` en ambos paquetes; `vite` a la última 8.x (posterior a 8.1.5). Para las cadenas que npm resuelve sólo con cambio mayor (`@nestjs/cli@12`, `jest@29`), preferir esperar la versión con parche o un `override` de `glob`/`minimatch` en lugar de bajar `jest`.
 - **Riesgo de mitigar:** las actualizaciones de herramientas pueden cambiar reglas de lint o la configuración de Jest; correr `npm run lint`, `npm test` y `npm run build` en cada paquete.
 
-**Estado:** Pendiente
+**Estado:** Aceptado. Herramientas de build y prueba (vite, postcss, Jest): no llegan al navegador; actualizar Jest a 30.5 rompía un test con pglite. Las sigue Dependabot.
 
 <a id="vuln-46"></a>
 #### VULN-46 — Scripts de instalación de dependencias y telemetría en `npm ci`
@@ -814,7 +815,7 @@ Los resultados crudos están en la carpeta de trabajo de la auditoría y no se r
 - **Mitigación propuesta:** agregar `ENV SCARF_ANALYTICS=false` en los Dockerfile y en el CI (o `"scarfSettings": { "enabled": false }` en `backend/package.json`). Evaluar `npm ci --ignore-scripts` seguido de `npx prisma generate` y `npm rebuild argon2` explícitos.
 - **Riesgo de mitigar:** con `--ignore-scripts` hay que reproducir a mano cada paso necesario (generación del cliente Prisma, binarios de argon2); probar `docker build` de ambas imágenes y el arranque del backend.
 
-**Estado:** Pendiente
+**Estado:** Aceptado. `postinstall` de Prisma y el binario nativo de argon2 son necesarios para instalar.
 
 ---
 
@@ -846,7 +847,7 @@ Datos sensibles sin proteger o protegidos con mecanismos débiles: una caja fuer
 - **Mitigación propuesta:** separar `MINIO_PUBLIC_USE_SSL` del flag interno y exigirlo `true` en producción desde `config.validation.ts`; alternativamente, servir los documentos por un endpoint del backend detrás de nginx con TLS (como ya se hace con las imágenes) en lugar de URLs firmadas directas a MinIO.
 - **Riesgo de mitigar:** un despliegue sin TLS en MinIO dejaría de arrancar; requiere coordinar certificados. Probar con `minio.service.spec.ts` y abriendo un documento en el entorno de staging.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit f11df18). Aviso al arrancar en producción sin TLS hacia MinIO; la configuración TLS depende del despliegue.
 
 <a id="vuln-32"></a>
 #### VULN-32 — Código QR público con 32 bits de entropía que devuelve nombre y apellido del menor
@@ -865,7 +866,7 @@ Datos sensibles sin proteger o protegidos con mecanismos débiles: una caja fuer
 - **Mitigación propuesta:** generar el código con `crypto.randomBytes(16).toString('base64url')` (128 bits o más; UUID completo como alternativa) para las inscripciones nuevas, manteniendo la validez de los códigos ya impresos; evaluar devolver sólo iniciales (por ejemplo, la inicial del apellido) en la vista pública.
 - **Riesgo de mitigar:** códigos más largos producen QR más densos (verificar la lectura en credenciales impresas); los códigos existentes siguen siendo cortos hasta que se regeneren, y siguen funcionando si se conserva la búsqueda exacta.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit 4e66dff). Códigos nuevos de 130 bits y el endpoint público devuelve sólo la inicial del apellido; los códigos ya impresos siguen valiendo.
 
 <a id="vuln-33"></a>
 #### VULN-33 — Las respuestas de la encuesta quedan en `localStorage` en claro hasta que el servidor confirma
@@ -884,7 +885,7 @@ Datos sensibles sin proteger o protegidos con mecanismos débiles: una caja fuer
 - **Mitigación propuesta:** caducar borradores y pendientes (por ejemplo, a las 24-48 h) y ofrecer un botón "borrar mis respuestas de este dispositivo"; documentarlo como riesgo residual en §4.19 y en la sección de Encuestas.
 - **Riesgo de mitigar:** una caducidad corta descarta envíos de quien estuvo sin señal varios días.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 324a95b). El borrador vence en 24 h, la cola en 48 h y el borrador se borra al encolar.
 
 ---
 
@@ -910,7 +911,7 @@ Datos del usuario que el sistema interpreta como órdenes, por ejemplo inyecció
 - **Mitigación propuesta:** abortar si `content-length` supera 2 MB y leer el stream con tope; `redirect: 'manual'` o validar que el destino siga en `formosa.gob.ar`; recortar el HTML a la sección `<head>` antes de buscar `og:` o usar un parser HTML.
 - **Riesgo de mitigar:** notas legítimas muy pesadas podrían descartarse; el canario del sync lo detectaría. Probar con `formosa-news.parser.spec.ts` y sus fixtures.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit a79de02). Tope de 2 MB, redirecciones sólo del mismo sitio y expresiones regulares sin backtracking.
 
 ---
 
@@ -942,7 +943,7 @@ La falla está en el plan, no en el código: es como un banco diseñado sin bóv
 - **Mitigación propuesta:** llamar a `borrarBorradorPlantel()` en `logout()` y en `login()` cuando cambia el usuario; incluir el `user.id` en la clave y descartar el borrador si no coincide; considerar `sessionStorage` (sobrevive a F5, no al cierre de pestaña) o cifrar con una clave derivada de la sesión; bajar la vida a horas.
 - **Riesgo de mitigar:** con `sessionStorage` o con borrado al cerrar sesión, el encargado pierde el borrador si cierra la pestaña o se le vence la sesión, que es lo que el borrador busca evitar. Probar F5, cambio de usuario y logout con el plantel a medio cargar.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 324a95b). El borrador de plantel es por usuario, vence y se borra al cerrar sesión.
 
 <a id="vuln-19"></a>
 #### VULN-19 — Métricas de la encuesta: `/version` y modelo de reidentificación por usuarios internos (riesgo residual documentado)
@@ -966,7 +967,7 @@ La falla está en el plan, no en el código: es como un banco diseñado sin bóv
 - **Mitigación propuesta:** que `/version` devuelva un hash opaco del estado publicado (cambia sólo cuando cambia una tanda de 5, o cuando cambia algún corte publicado) en vez del contador crudo; evaluar quitar COORDINADOR de `METRICS_READ` o recortar sus cortes a su departamento. **Requiere decisión** sobre el alcance del rol COORDINADOR.
 - **Riesgo de mitigar:** el panel en vivo se refrescaría de a tandas (con menos frecuencia); revisar `metrics-k-anonimato.e2e-spec.ts`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit 5c7b88f). La versión de Métricas sube de a 5 respuestas. Que COORDINADOR lea toda la provincia queda para la revisión de roles (sección 10).
 
 <a id="vuln-20"></a>
 #### VULN-20 — Encuesta pública sin control de integridad de la muestra
@@ -985,7 +986,7 @@ La falla está en el plan, no en el código: es como un banco diseñado sin bóv
 - **Mitigación propuesta:** token de un solo uso por participante o por sede (QR de la campaña con nonce firmado y canjeable una vez, sin guardar identidad), Turnstile o un desafío equivalente, y tope diario por IP en Redis. Documentarlo como riesgo residual si se acepta. **Requiere decisión** entre integridad de la muestra y fricción para quien responde.
 - **Riesgo de mitigar:** fricción para chicos que contestan desde el teléfono con mala conexión; el token no puede vincularse a la identidad sin romper el anonimato.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit 5c7b88f). Alerta de volumen en el log (200 respuestas por hora y campaña); sin bloqueo, porque sin identidad no se distingue una respuesta fabricada de una real.
 
 <a id="vuln-21"></a>
 #### VULN-21 — Resta entre cortes con dos filtros (inclusión-exclusión) en Métricas
@@ -1004,7 +1005,7 @@ La falla está en el plan, no en el código: es como un banco diseñado sin bóv
 - **Mitigación propuesta:** detección activa sobre `READ_METRICS` (alerta ante muchas combinaciones distintas sobre la misma campaña en poco tiempo) o un presupuesto de consultas por usuario y campaña.
 - **Riesgo de mitigar:** restringe la exploración legítima del panel.
 
-**Estado:** Pendiente
+**Estado:** Aceptado. Riesgo residual documentado en `documentation.md` §4.19; el registro de consultas deja rastro.
 
 <a id="vuln-35"></a>
 #### VULN-35 — Marca de tiempo exacta de cada respuesta correlacionable con logs de acceso
@@ -1023,7 +1024,7 @@ La falla está en el plan, no en el código: es como un banco diseñado sin bóv
 - **Mitigación propuesta:** truncar `enviadaEn` a la hora o al día al persistir (la publicación en tandas sólo necesita orden, que puede resolverse con un secuencial no temporal) y desactivar o anonimizar el access log de nginx para `location /api/v1/survey/responses`.
 - **Riesgo de mitigar:** la serie temporal del panel pierde resolución; revisar `publicarEnTandas` y la serie diaria.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit fd0b2ee). El envío de la encuesta no queda en el access log de nginx; la precisión de `enviadaEn` no se redujo (degradaría la serie por hora).
 
 <a id="vuln-36"></a>
 #### VULN-36 — Combinación de tres cortes de fecha que vuelve a aislar una respuesta
@@ -1042,7 +1043,7 @@ La falla está en el plan, no en el código: es como un banco diseñado sin bóv
 - **Mitigación propuesta:** anclar las tandas a un corte global de la campaña (no por filtro) o exigir que cada ventana de fecha cierre en un día completo anterior a "hoy".
 - **Riesgo de mitigar:** el panel en vivo pierde frescura.
 
-**Estado:** Pendiente
+**Estado:** Aceptado. Riesgo residual documentado en `documentation.md` §4.19.
 
 ---
 
@@ -1073,7 +1074,7 @@ Contraseñas débiles, intentos ilimitados o sesiones mal gestionadas: un porter
 - **Mitigación propuesta:** en `UsersService.update`, poner `refreshToken: null` cuando cambie `password`, `role`, `department`, `zone` o `isActive`. Para cortar también el access token, agregar un `tokenVersion` (o `passwordChangedAt`) al usuario y al JWT, y validarlo en `JwtStrategy` con caché Redis de pocos segundos; o bajar `JWT_ACCESS_EXPIRATION` a 5 min.
 - **Riesgo de mitigar:** el usuario editado pierde la sesión, que es lo esperado. La validación por petición suma una lectura (Redis) a cada llamada. Probar con `refresh-rotation.e2e-spec.ts` y con un caso nuevo de "PATCH password ⇒ refresh 403".
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 78f8ada). Cambiar contraseña, rol, alcance o estado borra el refresh token y revoca los access tokens ya emitidos.
 
 <a id="vuln-22"></a>
 #### VULN-22 — Sin bloqueo por cuenta; el límite de intentos es por IP y vive en la memoria del proceso
@@ -1100,7 +1101,7 @@ Contraseñas débiles, intentos ilimitados o sesiones mal gestionadas: un porter
 - **Mitigación propuesta:** contador de fallos por email en Redis (por ejemplo, demora exponencial o bloqueo temporal de 15 min tras 10 fallos); un `ThrottlerStorage` respaldado por Redis (por ejemplo `@nest-lab/throttler-storage-redis`, con la misma conexión autenticada de [VULN-11](#vuln-11)) para que el límite sobreviva a reinicios; alerta sobre picos de `LOGIN_FAILED` y MFA (TOTP) al menos para SUPER_ADMIN y ADMIN_PROVINCIAL. **Requiere decisión** sobre MFA y sobre la política de bloqueo.
 - **Riesgo de mitigar:** el bloqueo por cuenta permite que un tercero bloquee a un usuario legítimo; conviene demora progresiva antes que bloqueo duro. Si Redis cae, hay que decidir si el throttler falla abierto o cerrado. Probar `public-throttle.e2e-spec.ts` con Redis y los e2e de límite de login y de encuesta (el stack e2e usa `x-test-ip` para eso).
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit 78f8ada). Bloqueo temporal por cuenta tras 10 fallos (también para emails inexistentes). El límite por IP sigue en memoria del proceso.
 
 <a id="vuln-23"></a>
 #### VULN-23 — Política de contraseñas débil y sin ciclo de vida de la credencial
@@ -1119,7 +1120,7 @@ Contraseñas débiles, intentos ilimitados o sesiones mal gestionadas: un porter
 - **Mitigación propuesta:** mínimo 12 caracteres para roles administrativos, rechazo de las contraseñas más comunes (lista local), `POST /auth/change-password` con la contraseña actual (que también revoque sesiones, ver [VULN-05](#vuln-05)) y un flag `mustChangePassword` que obligue al cambio en el primer ingreso.
 - **Riesgo de mitigar:** las cuentas existentes con contraseñas cortas siguen funcionando hasta el próximo cambio; el flag requiere una pantalla nueva en el frontend.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit 78f8ada, 4e3d928). Contraseñas nuevas de 12 o más caracteres y no comunes; las cuentas existentes no se fuerzan a cambiar.
 
 <a id="vuln-37"></a>
 #### VULN-37 — Enumeración de cuentas en el login (mensaje y tiempo)
@@ -1143,7 +1144,7 @@ Contraseñas débiles, intentos ilimitados o sesiones mal gestionadas: un porter
 - **Mitigación propuesta:** verificar la contraseña siempre, primero (contra un hash ficticio precalculado si el usuario no existe), y revelar el estado "inactivo" sólo después de una contraseña correcta, o responder el mismo 401 genérico en todos los casos.
 - **Riesgo de mitigar:** el frontend que muestra "Usuario desactivado" sólo lo mostraría con la contraseña correcta. Revisar `auth-cookies.e2e-spec.ts` y los tests unitarios de `AuthService`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 78f8ada). Mismo mensaje y mismo costo para email inexistente, cuenta inactiva o contraseña incorrecta.
 
 <a id="vuln-38"></a>
 #### VULN-38 — El flag `Secure` de la cookie de refresh depende de `NODE_ENV`
@@ -1162,7 +1163,7 @@ Contraseñas débiles, intentos ilimitados o sesiones mal gestionadas: un porter
 - **Mitigación propuesta:** derivar `secure` de una variable explícita (`COOKIE_SECURE`, por defecto `true` salvo `localhost`) o de `req.secure` con `trust proxy`. Usar el prefijo `__Host-` cuando el path lo permita, o al menos `__Secure-`.
 - **Riesgo de mitigar:** en desarrollo por HTTP plano la cookie dejaría de guardarse si `secure` queda en `true`; hace falta el valor por defecto por host.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 78f8ada). `Secure` también con `COOKIE_SECURE=true` o con HTTPS detrás de un proxy de confianza; nunca se quita en producción.
 
 <a id="vuln-39"></a>
 #### VULN-39 — Sesión deslizante sin vida absoluta y un único refresh por usuario
@@ -1181,7 +1182,7 @@ Contraseñas débiles, intentos ilimitados o sesiones mal gestionadas: un porter
 - **Mitigación propuesta:** guardar `sessionStartedAt` (o un `auth_time` en el refresh) y rechazar refresh pasadas N horas (por ejemplo 12 h para administración); modelar sesiones en una tabla (`user_sessions`, una fila por dispositivo y familia de tokens) para que la detección de reuso revoque la familia afectada y no a todas.
 - **Riesgo de mitigar:** obliga a reingresar a diario; la tabla de sesiones requiere migración.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 78f8ada). Vida absoluta de la sesión en la rotación del refresh.
 
 <a id="vuln-47"></a>
 #### VULN-47 — JWT sin algoritmo fijado ni `iss`/`aud`
@@ -1200,7 +1201,7 @@ Contraseñas débiles, intentos ilimitados o sesiones mal gestionadas: un porter
 - **Mitigación propuesta:** `algorithms: ['HS256']`, `issuer: 'evita-api'` y `audience: 'evita-web'` en la firma y la verificación.
 - **Riesgo de mitigar:** invalida los tokens vigentes al desplegar (los usuarios reingresan).
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit 78f8ada). HS256 fijo e `iss`/`aud` propios; los access tokens viejos sin `iss`/`aud` se aceptan durante la transición.
 
 ---
 
@@ -1237,7 +1238,7 @@ Confiar en actualizaciones o datos sin verificar su origen: es como aceptar un p
 - **Mitigación propuesta:** recibir `@Body(new ParseArrayPipe({ items: MatchResultDto, whitelist: true, forbidNonWhitelisted: true }))` o envolver en un DTO `{ results: MatchResultDto[] }` con `@ValidateNested({ each: true }) @Type(() => MatchResultDto)`; en `MatchResultDto.data`, agregar `@ValidateNested() @Type(() => UpdateResultDto)`; validar la forma de `scoreData` por tipo de resultado (las claves ya están en `standings.ts:15`), con `@IsInt() @Min(0)` en `ranking`.
 - **Riesgo de mitigar:** si el frontend manda campos extra en `data`, empezará a recibir 400. Cambiar la forma del cuerpo (envoltorio) rompe el contrato con el frontend. Probar con `results.service.spec.ts` y el e2e de resultados.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 9b518ba). `ParseArrayPipe` valida cada elemento; `scoreData` plano y acotado.
 
 <a id="vuln-40"></a>
 #### VULN-40 — Las definiciones JSON de KPI y destacados se persisten crudas
@@ -1256,7 +1257,7 @@ Confiar en actualizaciones o datos sin verificar su origen: es como aceptar un p
 - **Mitigación propuesta:** que los validadores devuelvan un objeto reconstruido con sólo las claves permitidas (`{ numerador, denominador, formato }`, `{ opciones, top }`), con topes (`valores` de hasta 50 elementos, largo de string de hasta 100), y persistir ese objeto.
 - **Riesgo de mitigar:** las definiciones existentes con claves extra se seguirían leyendo; probar con `metrics-aggregation.spec.ts`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 5c7b88f). Las definiciones de KPI y destacados se guardan normalizadas y acotadas.
 
 <a id="vuln-41"></a>
 #### VULN-41 — Hoja de estilos de Google Fonts sin SRI, que además envía a un tercero la IP de quienes visitan la SPA y contestan la encuesta
@@ -1275,7 +1276,7 @@ Confiar en actualizaciones o datos sin verificar su origen: es como aceptar un p
 - **Mitigación propuesta:** autoalojar las fuentes (paquetes `@fontsource/inter` y `@fontsource/montserrat`, o archivos `.woff2` en `frontend/public/`) y eliminar el `<link>` y los `preconnect` de `index.html`; con eso la CSP puede quedar en `font-src 'self'`.
 - **Riesgo de mitigar:** aumenta levemente el tamaño del build; verificar visualmente tipografía y pesos (400-900) en las pantallas públicas y en la suite Playwright de UI.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit a29f378). Fuentes servidas desde el sitio (@fontsource); la CSP ya no permite terceros.
 
 ---
 
@@ -1320,7 +1321,7 @@ Los ataques ocurren y nadie se entera, ni puede investigarlos después: son cám
 - **Mitigación propuesta:** agregar `@NoAudit()` a `submitResponse` (y, por defensa en profundidad, excluir en `AuditInterceptor` toda ruta `@Public()` de la encuesta). Extender `survey-anonimato.e2e-spec.ts` con un caso que monte `AuditInterceptor` global y afirme que `auditService.log` no se invoca (o que no se crea `AuditLog`) para `POST /survey/responses`. Purgar las filas ya grabadas (`entity = 'survey' AND action = 'CREATE' AND user_id IS NULL`) y revisar respaldos. Documentarlo en §4.19. **La purga requiere decisión explícita** (ver riesgo de mitigar).
 - **Riesgo de mitigar:** bajo en el código (un decorador). La purga es una eliminación irreversible de datos de auditoría: requiere decisión explícita, respaldo previo y un `SELECT` de control para no borrar altas legítimas de otras entidades `survey` (las campañas se crean autenticadas, con `user_id` no nulo). Probar con el e2e nuevo y con `npm run test:e2e -- survey`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 5c7b88f). `POST /survey/responses` con `@NoAudit()`; test que prueba que no se crea fila de auditoría.
 
 <a id="vuln-25"></a>
 #### VULN-25 — DNI de menores, emails y payloads de Prisma escritos en el log de aplicación
@@ -1347,7 +1348,7 @@ Los ataques ocurren y nadie se entera, ni puede investigarlos después: son cám
 - **Mitigación propuesta:** loguear ids internos (`participant.id`, `inscription.id`) en lugar de DNI o email; en el filtro global, loguear `exception.name`, el código de Prisma (`P2xxx`) y el stack, no el `message` completo de errores de Prisma; en pino, usar `redact` (`req.query.search`, etc.) o serializar `req.url` sin query string.
 - **Riesgo de mitigar:** se pierde comodidad de diagnóstico (buscar por DNI en el log). Afecta al equipo de soporte. Probar con los unit tests existentes de los services y revisando la salida de `npm run start:dev` en un alta.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 78f8ada, 4e66dff, e981f4b, dcea974). Sin DNI ni emails en el log de aplicación; URL del log de acceso sin valores de la query; excepciones sin el mensaje de Prisma.
 
 <a id="vuln-26"></a>
 #### VULN-26 — Las exportaciones masivas del padrón y la lectura de documentos no quedan auditadas
@@ -1366,7 +1367,7 @@ Los ataques ocurren y nadie se entera, ni puede investigarlos después: son cám
 - **Mitigación propuesta:** agregar `@Audit({ action: 'EXPORT_REPORT', lectura: true })` a los cuatro endpoints de reportes y `@Audit({ action: 'READ_DOCUMENTS', lectura: true })` a la lectura de documentos (el mecanismo ya registra la query, que contiene los filtros). Para exportaciones, evaluar desactivar la ventana de deduplicación de 10 minutos.
 - **Riesgo de mitigar:** crecimiento moderado de `audit_logs`; ninguna respuesta cambia. Probar con un e2e que exporte y consulte `GET /audit?action=EXPORT_REPORT`.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit 5c7b88f, e981f4b). Exportaciones y lecturas de documentos auditadas (`READ`/`EXPORT_REPORT`).
 
 <a id="vuln-27"></a>
 #### VULN-27 — Sin alertas, accesos denegados no registrados y retención de logs no definida
@@ -1385,7 +1386,7 @@ Los ataques ocurren y nadie se entera, ni puede investigarlos después: son cám
 - **Mitigación propuesta:** loguear con nivel `warn` los 401/403 (usuario, ruta normalizada, IP) en el filtro global; auditar `ACCESS_DENIED` para rutas sensibles; definir un umbral de alerta (por ejemplo, un job que cuente `LOGIN_FAILED` y `REFRESH_TOKEN_REUSE` por ventana y notifique); enviar logs a un destino con retención definida; fijar una política de retención de `AuditLog` acorde a la Ley 25.326 (plazo y purga programada). **Requiere decisión** del responsable del dato sobre el plazo de retención.
 - **Riesgo de mitigar:** más volumen de log; una alerta mal calibrada genera ruido. La purga de auditoría es destructiva y requiere decisión formal del responsable del dato.
 
-**Estado:** Pendiente
+**Estado:** Mitigado parcialmente (commit dcea974). Los 401/403 quedan en el log sin datos sensibles; alertas y retención dependen de la infraestructura de logs.
 
 <a id="vuln-42"></a>
 #### VULN-42 — Logs del compose de producción sin rotación ni envío a un destino central
@@ -1404,7 +1405,7 @@ Los ataques ocurren y nadie se entera, ni puede investigarlos después: son cám
 - **Mitigación propuesta:** copiar el ancla `x-logging` del compose de la raíz a todos los servicios de `backend/docker-compose.yml`, y definir un destino central (syslog, Loki o un servicio provincial) con retención acorde a la política de datos personales.
 - **Riesgo de mitigar:** con rotación se pierde historia más antigua que unos 30 MB por servicio; acordar el volumen de retención antes de aplicarlo.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit fd0b2ee). Rotación `json-file` (10 MB × 5) en todos los servicios del compose de producción.
 
 ---
 
@@ -1435,7 +1436,7 @@ Categoría nueva en 2025: errores mal manejados que filtran información o dejan
 - **Mitigación propuesta:** agregar una rama final que loguee `String(exception)`; aplicar el mensaje fijo para todo 5xx en cualquier entorno (el detalle va al log); llamar `app.enableShutdownHooks()` en `main.ts`.
 - **Riesgo de mitigar:** en desarrollo se pierde el mensaje del 5xx en la respuesta (sigue en el log). Probar con los e2e `sort-whitelist` y `global-exception.filter` existentes.
 
-**Estado:** Pendiente
+**Estado:** Mitigado (commit dcea974). El filtro global registra nombre y código del error, nunca el mensaje con valores de la consulta, y también lo que no es un `Error`.
 
 ---
 
@@ -1642,3 +1643,51 @@ El plan agrupa los 47 hallazgos en tres olas. El esfuerzo es una **estimación**
 - Argentina. *Ley 25.326 de Protección de los Datos Personales* (2000). InfoLEG.
 - Seminario de Actualización III – Ciberseguridad, Tecnicatura Superior en Desarrollo de Software Multiplataforma (2026). *Unidad 4: S-SDLC y OWASP Top 10* (apunte de la materia).
 - Documentación del proyecto: `documentacion/documentation.md` (en particular §4.19, anonimato de la encuesta y riesgo residual).
+
+
+---
+
+<a id="estado-y-decisiones"></a>
+## 10. Estado de la mitigación y decisiones
+
+Mitigación aplicada entre el 22 y el 23/11/2026 en la rama `dev-santi` (commits `5c7b88f` a `a29f378`), con pruebas
+nuevas para cada cambio de comportamiento y la batería completa del proyecto (backend, frontend y e2e aislado).
+
+| Estado | Hallazgos |
+|---|---:|
+| Mitigado | 25 |
+| Mitigado parcialmente | 16 |
+| Aceptado | 5 |
+| Pendiente | 1 |
+
+### Decisiones de negocio tomadas durante la mitigación
+
+- **Alcance territorial de escritura (VULN-07, VULN-08).** Decisión: "Limitar a su territorio". Como el modelo de datos no
+  tiene territorio en las competencias (hay una por disciplina, categoría y etapa para toda la provincia) ni en los
+  árbitros, se aplicó así: competencias, noticias, calendario y encuesta pasan a ser de la línea provincial
+  (ADMIN_PROVINCIAL y SUPER_ADMIN); los admins territoriales gestionan sedes de su departamento o zona y cargan
+  resultados sólo de partidos jugados en sedes de su territorio; los árbitros siguen cargando cualquier partido.
+- **Pruebas dinámicas.** El análisis dinámico automatizado no pudo ejecutarse; se decidió seguir con SAST y SCA y
+  dejarlo documentado (sección 2).
+- **Severidad de VULN-01.** Se elevó de Alto a Crítico en la consolidación.
+
+### Mitigaciones parciales o temporales que conviene revisar
+
+- Contraseñas: la política nueva aplica sólo a contraseñas nuevas; falta forzar el cambio de las existentes (VULN-23).
+- Códigos QR: los ya impresos (32 bits) siguen siendo válidos hasta que se reemplacen (VULN-32).
+- JWT: los access tokens emitidos antes del despliegue se aceptan sin `iss`/`aud` hasta que vencen (VULN-47); los
+  refresh tokens viejos se rechazan, así que todos vuelven a iniciar sesión una vez.
+- TLS (VULN-03, VULN-11, VULN-17) y fijación por digest o SHA (VULN-15, VULN-16) dependen de cómo se despliegue.
+- Dependencias con avisos que sólo se corrigen con una versión mayor (VULN-29, VULN-31).
+
+### Incongruencias de roles para discutir con el equipo y el cliente
+
+1. **Árbitros y operadores de mesa sin alcance territorial.** Pueden cargar o ver datos de toda la provincia porque el
+   modelo no les asigna departamento ni zona. Tampoco existe un vínculo árbitro ↔ partido.
+2. **Competencias sin territorio.** Una competencia zonal o departamental es única para toda la provincia; si cada
+   departamento organiza la suya, el modelo necesita un campo de territorio.
+3. **COORDINADOR lee Métricas de toda la provincia** sin recorte territorial (VULN-19).
+4. **Encuesta y noticias ahora sólo provinciales.** La persona que redacta el cuestionario (psicóloga) debe tener una
+   cuenta de la línea provincial; conviene evaluar un rol específico con permisos acotados.
+5. **Vistas públicas con nombres de menores** (VULN-28): definir con el cliente qué datos de los participantes
+   corresponde publicar en fixtures y rankings.

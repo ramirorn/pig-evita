@@ -616,9 +616,9 @@ El sistema implementa un esquema de **RBAC (Role-Based Access Control)** con 9 r
 | Rol | Descripción | Permisos clave |
 |---|---|---|
 | **SUPER_ADMIN** | Administrador general de la plataforma | Acceso total: CRUD de usuarios, aprobación de inscripciones, configuración global |
-| **ADMIN_PROVINCIAL** | Administrador a nivel provincial | Gestión de disciplinas, categorías, competencias, aprobación de inscripciones, auditoría |
-| **ADMIN_DEPARTAMENTAL** | Administrador de un departamento | Gestión local: participantes, inscripciones, equipos, aprobación de inscripciones |
-| **ADMIN_ZONAL** | Administrador de una zona | Similar a departamental, alcance limitado a su zona |
+| **ADMIN_PROVINCIAL** | Administrador a nivel provincial | Gestión de disciplinas, categorías, competencias, noticias, calendario y encuesta; aprobación de inscripciones, auditoría |
+| **ADMIN_DEPARTAMENTAL** | Administrador de un departamento | Gestión local: participantes, inscripciones, equipos, sedes de su departamento y resultados de partidos jugados en ellas |
+| **ADMIN_ZONAL** | Administrador de una zona | Similar a departamental, alcance limitado a los departamentos de su zona |
 | **COORDINADOR** | Coordinador deportivo | Consulta de participantes, equipos, documentos; acceso al dashboard |
 | **DELEGADO** | Delegado (responsable de una delegación) | Crear inscripciones, gestionar participantes y equipos, subir documentos, ver reportes |
 | **ENTRENADOR** | Entrenador/Director técnico | Acceso limitado (consulta) |
@@ -637,12 +637,25 @@ El sistema implementa un esquema de **RBAC (Role-Based Access Control)** con 9 r
 
 ---
 
+### Alcance territorial de escritura (relevamiento OWASP 2025, VULN-07/08)
+
+- Competencias, noticias, calendario y encuesta son de la **línea provincial** (SUPER_ADMIN y ADMIN_PROVINCIAL): una
+  competencia no tiene departamento en el modelo, así que no se puede repartir por territorio.
+- Los admins territoriales gestionan **sedes de su departamento o zona** y cargan **resultados de partidos jugados en
+  sedes de su territorio** (un partido sin sede lo carga la línea provincial o un árbitro).
+- Los **árbitros** cargan cualquier partido: no tienen alcance territorial asignado (riesgo aceptado; ver
+  `documentacion/seguridad/relevamiento-owasp-2025.md`, sección 10).
+
+---
+
 ## 7. Configuración de Guards Globales
 
 El `AppModule` registra tres guards globales que se ejecutan en cadena para cada request:
 
 1. **JwtAuthGuard** — Verifica el token JWT. Si la ruta está decorada con `@Public()`, se omite.
-2. **RolesGuard** — Verifica que el usuario tenga uno de los roles especificados con `@Roles(...)`.
+2. **RolesGuard** — Verifica que el usuario tenga uno de los roles especificados con `@Roles(...)`. **Niega por
+   defecto**: una ruta autenticada sin `@Roles` responde 403; las que valen para cualquier usuario logueado
+   (`/auth/me`, `/auth/permissions`, `/auth/logout`) declaran `@AnyAuthenticated()`.
 3. **ThrottlerGuard** — Rate limiting global (configurable vía `THROTTLE_TTL` y `THROTTLE_LIMIT` en `.env`).
 
 Además, se aplican dos interceptors globales:
@@ -652,4 +665,24 @@ Además, se aplican dos interceptors globales:
 
 Y un filter global:
 
-- **GlobalExceptionFilter** — Captura y formatea todas las excepciones en un formato consistente.
+- **GlobalExceptionFilter** — Captura y formatea todas las excepciones en un formato consistente. Registra los
+  accesos denegados (401/403) sin token ni datos de la query, y de las excepciones no controladas sólo el nombre y el
+  código (el mensaje de Prisma trae los valores de la consulta).
+
+### Endurecimiento de seguridad (relevamiento OWASP Top 10:2025)
+
+Detalle, riesgos y decisiones en `documentacion/seguridad/relevamiento-owasp-2025.md`. Lo que cambia al operar:
+
+| Tema | Comportamiento |
+|---|---|
+| Sesiones | Cambiar contraseña, rol, departamento, zona o estado de un usuario cierra todas sus sesiones. Los JWT llevan `iss`/`aud` y algoritmo fijo: después del despliegue todos vuelven a iniciar sesión una vez. |
+| Login | Mismo mensaje y mismo costo ante cualquier error; bloqueo temporal de la cuenta tras 10 intentos fallidos. |
+| Contraseñas nuevas | Al menos 12 caracteres y que no sean comunes (sin "contraseña", "evita", secuencias de teclado ni números solos). Las existentes siguen valiendo. |
+| Logs | Sin DNI ni emails en el log de aplicación; el log de acceso reemplaza los valores de la query por `[REDACTADO]` y no registra el envío de la encuesta. |
+| Auditoría | Lecturas de Métricas, exportaciones de reportes y lecturas de documentos de identidad quedan auditadas; el envío de la encuesta no se audita (`@NoAudit`). |
+| `REDIS_PASSWORD` | Obligatoria con `NODE_ENV=production` (Redis con `requirepass`). |
+| `NODE_ENV` | Swagger sólo se publica con `development` o `test` explícitos. |
+| `SEED_ALLOW_PRODUCTION` | La seed no corre en producción salvo `true` (por ejemplo, para cargar el primer administrador). |
+| `COOKIE_SECURE` | `true` fuerza el flag `Secure` de la cookie de refresh fuera de producción. |
+| `BIND_HOST` | Stack de la raíz: interfaz en la que se publican la web y MinIO; por defecto `127.0.0.1` (usar `0.0.0.0` para una demo en la red local). |
+| Frontend | CSP y cabeceras de seguridad en nginx; fuentes servidas desde el propio sitio. |
