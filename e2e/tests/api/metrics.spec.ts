@@ -117,11 +117,16 @@ test.describe('métricas en vivo', () => {
     expect(await tres.text()).toContain('hasta 2 filtros');
 
     // Cada consulta a las métricas queda registrada: quién y con qué filtros.
-    const auditoria = await body(await (await prov()).get(`/audit?action=READ_METRICS&entityId=${c.id}&limit=50`));
-    expect(
-      auditoria.data.some((fila: any) => fila.changes?.zona === 'INTERIOR'),
-      'la consulta filtrada por interior quedó en la auditoría',
-    ).toBe(true);
+    // La fila se escribe en segundo plano (no demora la respuesta): se espera.
+    await expect
+      .poll(
+        async () => {
+          const auditoria = await body(await (await prov()).get(`/audit?action=READ_METRICS&entityId=${c.id}&limit=50`));
+          return auditoria.data.some((fila: any) => fila.changes?.zona === 'INTERIOR');
+        },
+        { message: 'la consulta filtrada por interior quedó en la auditoría', timeout: 10_000 },
+      )
+      .toBe(true);
 
     // La capital tiene 2: su total no se publica y su cruce no deja ceros
     // que permitan despejar por resta qué contestaron.
