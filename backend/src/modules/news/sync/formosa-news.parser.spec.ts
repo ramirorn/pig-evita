@@ -19,7 +19,10 @@ import {
   esDeJuegosEvita,
   esPlantillaSinNota,
   idMasRecienteDePortada,
+  leerFecha,
+  leerFuente,
   leerOpenGraph,
+  leerSeccion,
   parsearNota,
   preferirImagenGrande,
   resolverImagen,
@@ -317,6 +320,61 @@ describe('formosa-news.parser (contra HTML real del portal)', () => {
       ['data:image/png;base64,AAAA'],
     ])('descarta %s', (entrada) => {
       expect(resolverImagen(entrada)).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------
+  // VULN-34 — HTML hostil (sintético a propósito)
+  // -------------------------------------------------
+  //
+  // A diferencia del resto del archivo, estas entradas son inventadas: modelan
+  // lo que podría devolver el portal (o un tercero por redirección o DNS) si
+  // alguien quisiera colgar el sync. Con las expresiones anteriores
+  // (`<meta[^>]+property=…[^>]*content=…`), 600 `<meta` sin cerrar tardaban
+  // segundos en un solo `exec` y el costo crecía más que cuadrático.
+  describe('VULN-34: entradas hostiles no bloquean el event loop', () => {
+    const medir = (fn: () => unknown): number => {
+      const inicio = Date.now();
+      fn();
+      return Date.now() - inicio;
+    };
+
+    it('muchos `<meta` sin cerrar: el Open Graph se lee en tiempo lineal', () => {
+      const hostil = '<meta property="og:title" '.repeat(600);
+      expect(medir(() => leerOpenGraph(hostil, 'title'))).toBeLessThan(300);
+      expect(leerOpenGraph(hostil, 'title')).toBeNull();
+    });
+
+    it('muchos `<span class="time"` sin cerrar: la fecha se lee en tiempo lineal', () => {
+      const hostil = '<span class="time" '.repeat(5000) + ' '.repeat(20000);
+      expect(medir(() => leerFecha(hostil))).toBeLessThan(300);
+      expect(leerFecha(hostil)).toBeNull();
+    });
+
+    it('muchos "Cargada en <a" y "- Fuente:" sin cerrar: tiempo lineal', () => {
+      const seccion =
+        'Cargada en <a class="x" href="/noticias/categoria'.repeat(3000);
+      const fuente = '- Fuente: ' + ' '.repeat(20000);
+      expect(medir(() => leerSeccion(seccion))).toBeLessThan(300);
+      expect(medir(() => leerFuente(fuente.repeat(50)))).toBeLessThan(300);
+      expect(leerSeccion(seccion)).toBeNull();
+    });
+
+    it('parsearNota completa sobre 2 MB hostiles en menos de un segundo', () => {
+      const hostil = (
+        '<meta content="x" property="og:title" ' +
+        '<span class="time" ' +
+        'Cargada en <a href="'
+      ).repeat(20000);
+      expect(medir(() => parsearNota(hostil, 1))).toBeLessThan(1000);
+    });
+
+    it('el orden de atributos y las comillas simples se siguen tolerando', () => {
+      const html =
+        "<head><meta content='Título A' property='og:title'>" +
+        '<meta property="og:description" content="Bajada"></head>';
+      expect(leerOpenGraph(html, 'title')).toBe('Título A');
+      expect(leerOpenGraph(html, 'description')).toBe('Bajada');
     });
   });
 });
