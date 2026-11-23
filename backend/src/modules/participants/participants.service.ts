@@ -87,9 +87,9 @@ export class ParticipantsService {
       },
     });
 
-    this.logger.log(
-      `Participant created: ${participant.dni} - ${participant.lastName}, ${participant.firstName}`,
-    );
+    // Sin DNI ni nombre: el log de aplicación no es lugar para datos
+    // personales de menores (VULN-25). El id alcanza para rastrear.
+    this.logger.log(`Participant created: ${participant.id}`);
     return conEdad(participant);
   }
 
@@ -184,7 +184,9 @@ export class ParticipantsService {
         inscriptions: {
           include: { category: { include: { discipline: true } } },
         },
-        documents: true,
+        // VULN-10: sin `fileKey` (la clave interna del objeto en MinIO); el
+        // acceso al archivo es sólo por URL firmada (`GET /documents/...`).
+        documents: { omit: { fileKey: true } },
         teamMembers: {
           include: { team: true },
         },
@@ -350,7 +352,7 @@ export class ParticipantsService {
       );
     }
 
-    this.logger.log(`Participant updated: ${participant.dni}`);
+    this.logger.log(`Participant updated: ${participant.id}`);
     return conEdad(participant);
   }
 }

@@ -82,10 +82,13 @@ export class DocumentsService {
       },
     });
 
+    // VULN-25: el id del participante, no su DNI.
     this.logger.log(
-      `Document ${type} uploaded for participant ${participant.dni}`,
+      `Document ${type} uploaded for participant ${participant.id}`,
     );
-    return document;
+    // VULN-10 / O-7: la clave interna del objeto no sale en la respuesta.
+    const { fileKey: _clave, ...publico } = document;
+    return publico;
   }
 
   async findByParticipant(participantId: string, alcance: Alcance) {

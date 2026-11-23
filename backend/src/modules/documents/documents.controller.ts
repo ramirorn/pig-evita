@@ -26,10 +26,13 @@ import {
 import { DocumentsService } from './documents.service';
 import { UploadDocumentDto, ReviewDocumentDto } from './dto';
 import { FileSignaturePipe } from './file-signature.pipe';
-import { Roles, CurrentUser } from '../../common/decorators';
+import { Audit, Roles, CurrentUser } from '../../common/decorators';
 import { ACCIONES } from '../../common/constants';
 import { ScopeService } from '../../common/scope';
 import type { JwtPayload } from '../auth/interfaces';
+
+/** Tope de multer para documentos: 6 MB (el límite de negocio es 5 MB). */
+const LIMITE_MULTER_DOCUMENTO = 6 * 1024 * 1024;
 
 @ApiTags('Documents')
 @Controller('documents')
@@ -42,7 +45,20 @@ export class DocumentsController {
 
   @Post('upload')
   @Roles(...ACCIONES.DOCUMENT_UPLOAD)
-  @UseInterceptors(FileInterceptor('file'))
+  // VULN-10: sin `limits`, multer acumulaba en memoria el archivo entero (de
+  // cualquier tamaño) antes de que el pipe mirara los 5 MB. El tope de multer
+  // va un poco arriba (6 MB) para que lo de entre 5 y 6 MB siga respondiendo
+  // el 422 de siempre; más que eso se corta con 413 sin llegar a memoria.
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: LIMITE_MULTER_DOCUMENTO,
+        files: 1,
+        fields: 5,
+        fieldSize: 1024,
+      },
+    }),
+  )
   @ApiOperation({ summary: 'Subir documento' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: UploadDocumentDto })
@@ -81,6 +97,10 @@ export class DocumentsController {
 
   @Get('participant/:participantId')
   @Roles(...ACCIONES.DOCUMENT_READ)
+  // VULN-26: quién pidió las URLs firmadas de documentos de identidad de un
+  // menor queda en la auditoría (una fila por usuario y participante cada
+  // 10 minutos).
+  @Audit({ action: 'READ_DOCUMENTS', lectura: true })
   @ApiOperation({ summary: 'Listar documentos del participante' })
   @ApiResponse({
     status: 200,
