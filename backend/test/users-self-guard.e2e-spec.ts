@@ -18,6 +18,7 @@ import { UsersController } from '../src/modules/users/users.controller';
 import { UsersService } from '../src/modules/users/users.service';
 import { PrismaService } from '../src/database/prisma.service';
 import { JwtStrategy } from '../src/modules/auth/strategies';
+import { RevocacionSesionesService } from '../src/modules/auth/session-revocation.service';
 import { JwtAuthGuard } from '../src/modules/auth/guards';
 import { RolesGuard } from '../src/common/guards';
 import { Role } from '../src/common/constants';
@@ -90,6 +91,8 @@ describe('Usuarios — auto-baja y último SUPER_ADMIN (F-19)', () => {
       providers: [
         UsersService,
         JwtStrategy,
+        // VULN-05: UsersService revoca sesiones al cambiar datos sensibles.
+        RevocacionSesionesService,
         { provide: PrismaService, useValue: prisma },
         {
           provide: ConfigService,

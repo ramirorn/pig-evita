@@ -19,6 +19,11 @@ import {
 import { ToBoolean } from '../../../common/transformers';
 import { Role } from '../../../common/constants';
 import { PaginationQueryDto, SortableBy } from '../../../common/dto';
+import {
+  ContrasenaNoComun,
+  MENSAJE_LARGO_CONTRASENA,
+  MINIMO_CONTRASENA,
+} from '../password-policy';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -29,10 +34,11 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'El email es obligatorio' })
   email: string;
 
-  @ApiProperty({ description: 'Contraseña', minLength: 8 })
+  @ApiProperty({ description: 'Contraseña', minLength: MINIMO_CONTRASENA })
   @IsString()
   @IsNotEmpty({ message: 'La contraseña es obligatoria' })
-  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
+  @MinLength(MINIMO_CONTRASENA, { message: MENSAJE_LARGO_CONTRASENA })
+  @ContrasenaNoComun()
   password: string;
 
   @ApiProperty({ description: 'Nombre' })
@@ -63,10 +69,14 @@ export class CreateUserDto {
 export class UpdateUserDto extends PartialType(
   OmitType(CreateUserDto, ['password'] as const),
 ) {
-  @ApiPropertyOptional({ description: 'Nueva contraseña', minLength: 8 })
+  @ApiPropertyOptional({
+    description: 'Nueva contraseña',
+    minLength: MINIMO_CONTRASENA,
+  })
   @IsOptional()
   @IsString()
-  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
+  @MinLength(MINIMO_CONTRASENA, { message: MENSAJE_LARGO_CONTRASENA })
+  @ContrasenaNoComun()
   password?: string;
 
   @ApiPropertyOptional({ description: 'Estado activo/inactivo' })

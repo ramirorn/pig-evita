@@ -5,7 +5,10 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -14,8 +17,23 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../../common/constants';
+import { RedisCacheService } from '../../common/cache';
 import { JwtPayload } from './interfaces';
 import { LoginDto, AuthResponseDto } from './dto';
+import { parseDurationToMs } from './auth.cookies';
+import { BloqueoPorCuenta } from './login-lockout';
+import {
+  DEFAULT_LOGIN_LOCKOUT_MAX_ATTEMPTS,
+  DEFAULT_LOGIN_LOCKOUT_WINDOW,
+  DEFAULT_SESSION_MAX_AGE,
+  JWT_ALGORITHM,
+  JWT_AUDIENCE_ACCESS,
+  JWT_AUDIENCE_REFRESH,
+  JWT_ISSUER,
+} from './auth.constants';
+
+/** Mensaje único de login fallido (VULN-37): no distingue la causa. */
+const CREDENCIALES_INVALIDAS = 'Credenciales inválidas';
 
 /**
  * Origen de la request, para enriquecer los eventos de auditoría de auth
@@ -36,13 +54,44 @@ export interface AuthRequestContext {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly bloqueo: BloqueoPorCuenta;
+
+  /**
+   * Hash Argon2 de un valor aleatorio, contra el que se verifica la contraseña
+   * cuando el email no existe (VULN-37). Se calcula una sola vez, en segundo
+   * plano, con los mismos parámetros que los hashes reales: así "no existe"
+   * cuesta lo mismo que "contraseña incorrecta".
+   */
+  private readonly hashFicticio: Promise<string>;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
-  ) {}
+    @Optional() cache?: RedisCacheService,
+  ) {
+    const maxFallos = Number(
+      this.configService.get<string>('LOGIN_LOCKOUT_MAX_ATTEMPTS') ??
+        DEFAULT_LOGIN_LOCKOUT_MAX_ATTEMPTS,
+    );
+    this.bloqueo = new BloqueoPorCuenta(
+      {
+        maxFallos:
+          Number.isInteger(maxFallos) && maxFallos > 0
+            ? maxFallos
+            : DEFAULT_LOGIN_LOCKOUT_MAX_ATTEMPTS,
+        ventanaMs: parseDurationToMs(
+          this.configService.get<string>('LOGIN_LOCKOUT_WINDOW'),
+          parseDurationToMs(DEFAULT_LOGIN_LOCKOUT_WINDOW),
+        ),
+      },
+      cache,
+    );
+    this.hashFicticio = argon2.hash(randomUUID());
+    // Si fallara, se vuelve a intentar en el primer login que lo necesite.
+    this.hashFicticio.catch(() => undefined);
+  }
 
   /**
    * Login con email y contraseña.
@@ -53,49 +102,64 @@ export class AuthService {
     context: AuthRequestContext = {},
   ): Promise<AuthResponseDto & { refreshToken: string }> {
     const { email, password } = loginDto;
+    const emailNormalizado = email.toLowerCase().trim();
 
-    // Buscar usuario
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
-    });
-
-    if (!user) {
-      // Log de intento fallido
-      await this.audit(AuditAction.LOGIN_FAILED, null, { email }, context);
-      throw new UnauthorizedException('Credenciales inválidas');
-    }
-
-    // Verificar que esté activo
-    if (!user.isActive) {
+    // VULN-22 — bloqueo temporal por cuenta. Se resuelve antes de tocar la
+    // base o Argon2: un intento contra una cuenta bloqueada no cuesta nada y
+    // no da información (se bloquea igual un email que no existe).
+    if (await this.bloqueo.estaBloqueada(emailNormalizado)) {
       await this.audit(
         AuditAction.LOGIN_FAILED,
-        user.id,
-        { reason: 'inactive' },
+        null,
+        { email, reason: 'account_locked' },
         context,
       );
-      throw new ForbiddenException(
-        'Usuario desactivado. Contacte al administrador.',
+      throw new HttpException(
+        'Demasiados intentos fallidos para esta cuenta. Intente nuevamente en unos minutos.',
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
-    // Verificar contraseña con Argon2
-    const passwordValid = await argon2.verify(user.passwordHash, password);
+    const user = await this.prisma.user.findUnique({
+      where: { email: emailNormalizado },
+    });
 
-    if (!passwordValid) {
-      await this.audit(AuditAction.LOGIN_FAILED, user.id, { email }, context);
-      throw new UnauthorizedException('Credenciales inválidas');
+    // VULN-37 — la contraseña se verifica **siempre** y primero, también
+    // cuando el email no existe (contra un hash ficticio) o la cuenta está
+    // inactiva. El resultado es un único 401 genérico: ni el mensaje ni el
+    // tiempo de respuesta distinguen "no existe", "inactiva" o "contraseña
+    // incorrecta". La causa real queda en la auditoría.
+    const hash = user?.passwordHash ?? (await this.obtenerHashFicticio());
+    const passwordValid = await argon2
+      .verify(hash, password)
+      .catch(() => false);
+
+    if (!user || !passwordValid || !user.isActive) {
+      await this.bloqueo.registrarFallo(emailNormalizado);
+      await this.audit(
+        AuditAction.LOGIN_FAILED,
+        user?.id ?? null,
+        user && !user.isActive ? { reason: 'inactive' } : { email },
+        context,
+      );
+      throw new UnauthorizedException(CREDENCIALES_INVALIDAS);
     }
 
-    // Generar tokens
-    const tokens = await this.generateTokens({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      // R05 — el alcance territorial se deriva del token, así que estos dos
-      // campos tienen que viajar en él.
-      department: user.department,
-      zone: user.zone,
-    });
+    await this.bloqueo.limpiar(emailNormalizado);
+
+    // Generar tokens. `auth_time` marca el inicio de la sesión (VULN-39).
+    const tokens = await this.generateTokens(
+      {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        // R05 — el alcance territorial se deriva del token, así que estos dos
+        // campos tienen que viajar en él.
+        department: user.department,
+        zone: user.zone,
+      },
+      Math.floor(Date.now() / 1000),
+    );
 
     // Guardar refresh token hasheado
     const hashedRefreshToken = await argon2.hash(tokens.refreshToken);
@@ -110,7 +174,8 @@ export class AuthService {
     // Log de login exitoso
     await this.audit(AuditAction.LOGIN, user.id, null, context);
 
-    this.logger.log(`User logged in: ${user.email}`);
+    // VULN-25 — el id interno alcanza para correlacionar; el email no va al log.
+    this.logger.log(`User logged in: ${user.id}`);
 
     return {
       accessToken: tokens.accessToken,
@@ -140,6 +205,7 @@ export class AuthService {
     userId: string,
     refreshToken: string,
     context: AuthRequestContext = {},
+    inicioSesion?: number,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -196,16 +262,41 @@ export class AuthService {
       );
     }
 
+    // VULN-39 — vida absoluta. El refresh rota y cada uno vive 7 días desde
+    // su emisión: una sesión renovada al menos una vez por semana no vencía
+    // nunca. Ahora el inicio de la sesión (`auth_time`) viaja de refresh en
+    // refresh y, pasada la vida máxima, se cierra aunque el token esté vigente.
+    // Se controla después de verificar el hash: así sólo se cierra la sesión
+    // vigente y no la de alguien que ya volvió a entrar.
+    const ahoraSeg = Math.floor(Date.now() / 1000);
+    const inicio = inicioSesion ?? ahoraSeg;
+    if (ahoraSeg - inicio > this.vidaMaximaSesionSeg()) {
+      await this.prisma.user.updateMany({
+        where: { id: userId, refreshToken: user.refreshToken },
+        data: { refreshToken: null },
+      });
+      await this.audit(
+        AuditAction.REFRESH_TOKEN_DENIED,
+        userId,
+        { reason: 'session_expired' },
+        context,
+      );
+      throw new ForbiddenException('Sesión vencida. Inicie sesión nuevamente.');
+    }
+
     // Generar nuevos tokens (rotación de refresh token)
-    const tokens = await this.generateTokens({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      // R05 — el alcance territorial se deriva del token, así que estos dos
-      // campos tienen que viajar en él.
-      department: user.department,
-      zone: user.zone,
-    });
+    const tokens = await this.generateTokens(
+      {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        // R05 — el alcance territorial se deriva del token, así que estos dos
+        // campos tienen que viajar en él.
+        department: user.department,
+        zone: user.zone,
+      },
+      inicio,
+    );
 
     // Rotación **condicional sobre el estado leído** (R04).
     //
@@ -310,10 +401,15 @@ export class AuthService {
   /**
    * Genera access token y refresh token.
    */
-  private async generateTokens(payload: Omit<JwtPayload, 'type'>): Promise<{
+  private async generateTokens(
+    payload: Pick<JwtPayload, 'sub' | 'email' | 'role' | 'department' | 'zone'>,
+    authTime: number,
+  ): Promise<{
     accessToken: string;
     refreshToken: string;
   }> {
+    // VULN-47 — algoritmo fijo y `iss`/`aud` en ambos tokens. La verificación
+    // vive en las estrategias.
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(
         { ...payload, type: 'access' },
@@ -322,6 +418,9 @@ export class AuthService {
           expiresIn: this.configService.get<string>(
             'jwt.accessExpiration',
           ) as any,
+          algorithm: JWT_ALGORITHM,
+          issuer: JWT_ISSUER,
+          audience: JWT_AUDIENCE_ACCESS,
         },
       ),
       this.jwtService.signAsync(
@@ -335,17 +434,42 @@ export class AuthService {
         // vigente y el reuso no se detectaba. Es el mismo agujero que la
         // rotación condicional vino a cerrar, una capa más abajo — de nada
         // sirve que el UPDATE sea atómico si el valor nuevo es igual al viejo.
-        { ...payload, type: 'refresh', jti: randomUUID() },
+        //
+        // `auth_time` (VULN-39): inicio de la sesión, que se conserva en cada
+        // rotación para poder imponer una vida absoluta.
+        { ...payload, type: 'refresh', jti: randomUUID(), auth_time: authTime },
         {
           secret: this.configService.get<string>('jwt.refreshSecret'),
           expiresIn: this.configService.get<string>(
             'jwt.refreshExpiration',
           ) as any,
+          algorithm: JWT_ALGORITHM,
+          issuer: JWT_ISSUER,
+          audience: JWT_AUDIENCE_REFRESH,
         },
       ),
     ]);
 
     return { accessToken, refreshToken };
+  }
+
+  /** Vida absoluta de la sesión en segundos (`JWT_SESSION_MAX_AGE`, 12 h). */
+  private vidaMaximaSesionSeg(): number {
+    return Math.floor(
+      parseDurationToMs(
+        this.configService.get<string>('JWT_SESSION_MAX_AGE'),
+        parseDurationToMs(DEFAULT_SESSION_MAX_AGE),
+      ) / 1000,
+    );
+  }
+
+  /** El hash ficticio; si su cálculo inicial falló, se reintenta acá. */
+  private async obtenerHashFicticio(): Promise<string> {
+    try {
+      return await this.hashFicticio;
+    } catch {
+      return argon2.hash(randomUUID());
+    }
   }
 
   /**

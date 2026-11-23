@@ -19,6 +19,7 @@ import {
   CAMPOS_ORDEN_USER,
 } from './dto';
 import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
+import { RevocacionSesionesService } from '../auth/session-revocation.service';
 
 // Campos a excluir de las respuestas
 const userSelect = {
@@ -39,7 +40,10 @@ const userSelect = {
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly revocacion: RevocacionSesionesService,
+  ) {}
 
   /**
    * Crear un nuevo usuario administrativo.
@@ -68,7 +72,8 @@ export class UsersService {
       select: userSelect,
     });
 
-    this.logger.log(`User created: ${user.email} (${user.role})`);
+    // Sin el email: el log de aplicación no es lugar para datos personales (VULN-25).
+    this.logger.log(`User created: ${user.id} (${user.role})`);
     return user;
   }
 
@@ -211,13 +216,30 @@ export class UsersService {
       data.passwordHash = await argon2.hash(password);
     }
 
+    // VULN-05 — contraseña, rol, alcance o estado distintos de los actuales
+    // cierran todas las sesiones del usuario: se borra su refresh token y los
+    // access tokens ya emitidos dejan de valer. El formulario manda rol,
+    // departamento y estado siempre; si no cambian, no se revoca nada.
+    const cambia = (campo: 'role' | 'department' | 'zone' | 'isActive') =>
+      updateUserDto[campo] !== undefined &&
+      updateUserDto[campo] !== actual[campo];
+    const revocar =
+      Boolean(password) ||
+      cambia('role') ||
+      cambia('department') ||
+      cambia('zone') ||
+      cambia('isActive');
+    if (revocar) data.refreshToken = null;
+
     const user = await this.prisma.user.update({
       where: { id },
       data,
       select: userSelect,
     });
 
-    this.logger.log(`User updated: ${user.email}`);
+    if (revocar) await this.revocacion.revocar(id);
+
+    this.logger.log(`User updated: ${user.id}`);
     return user;
   }
 
@@ -239,6 +261,8 @@ export class UsersService {
       where: { id },
       data: { isActive: false, refreshToken: null },
     });
+    // VULN-05 — los access tokens que ya tenía tampoco valen más.
+    await this.revocacion.revocar(id);
 
     this.logger.log(`User deactivated: ${id}`);
     return { message: 'Usuario desactivado exitosamente' };

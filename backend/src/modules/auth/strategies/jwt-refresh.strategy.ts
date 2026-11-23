@@ -8,6 +8,11 @@ import { Strategy } from 'passport-jwt';
 import { Request } from 'express';
 import { JwtPayload } from '../interfaces';
 import { REFRESH_TOKEN_COOKIE } from '../auth.cookies';
+import {
+  JWT_ALGORITHM,
+  JWT_AUDIENCE_REFRESH,
+  JWT_ISSUER,
+} from '../auth.constants';
 
 /**
  * Extrae el refresh token EXCLUSIVAMENTE de la cookie httpOnly.
@@ -39,13 +44,20 @@ export class JwtRefreshStrategy extends PassportStrategy(
       ignoreExpiration: false,
       secretOrKey: secret,
       passReqToCallback: true,
+      // VULN-47 — algoritmo, emisor y audiencia obligatorios. Los refresh sólo
+      // los emite `AuthService`, así que acá no hay tokens legados que tolerar:
+      // los emitidos antes del despliegue se rechazan (401) y el usuario vuelve
+      // a iniciar sesión una vez.
+      algorithms: [JWT_ALGORITHM],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE_REFRESH,
     });
   }
 
   validate(
     req: Request,
     payload: JwtPayload,
-  ): JwtPayload & { refreshToken: string } {
+  ): JwtPayload & { refreshToken: string; authTime: number } {
     if (payload.type !== 'refresh') {
       throw new UnauthorizedException(
         'Token inválido: se esperaba un refresh token',
@@ -64,6 +76,10 @@ export class JwtRefreshStrategy extends PassportStrategy(
       role: payload.role,
       type: payload.type,
       refreshToken,
+      // VULN-39 — inicio de la sesión; un token sin `auth_time` cuenta desde
+      // su propia emisión.
+      authTime:
+        payload.auth_time ?? payload.iat ?? Math.floor(Date.now() / 1000),
     };
   }
 }
