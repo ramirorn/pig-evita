@@ -52,10 +52,11 @@ export class MetricsController {
   @Get('survey/:id/version')
   @Roles(...ACCIONES.METRICS_READ)
   @ApiOperation({
-    summary: 'Versión de la campaña (sube con cada respuesta nueva)',
+    summary: 'Versión de la campaña (sube de a tandas de 5 respuestas)',
     description:
       'Lectura liviana para que el panel consulte cada pocos segundos si tiene que refrescar: ' +
-      'cambia cuando entra una respuesta o se edita el cuestionario o un KPI.',
+      'cambia cuando se completa una tanda de 5 respuestas o se edita el cuestionario, un KPI o un destacado. ' +
+      'No cambia con cada envío, para no revelar cuándo contestó alguien.',
   })
   @ApiOkResponse({ schema: { example: { version: 128 } } })
   async version(@Param('id', ParseUUIDPipe) id: string) {

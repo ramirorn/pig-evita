@@ -5,8 +5,8 @@
 // Lectura analítica sobre `SurveyResponse`. No escribe respuestas ni toca el
 // cuestionario: eso es de `SurveyService`. Acá se proyectan las respuestas de
 // un corte, se cruzan con las funciones puras de `metrics-aggregation.ts` y
-// se cachean en Redis bajo la versión de la campaña, que sube con cada
-// respuesta nueva (ver `SurveyService.subirVersion`).
+// se cachean en Redis bajo la versión de la campaña, que sube con cada tanda
+// de 5 respuestas nuevas (ver `SurveyService.subirVersionPorTanda`).
 import {
   BadRequestException,
   Injectable,
@@ -40,6 +40,8 @@ import {
   filtrosActivos,
   MAXIMO_FILTROS,
   ETIQUETAS_DIMENSION,
+  normalizarDefinicionDestacado,
+  normalizarDefinicionKpi,
   evaluarDestacado,
   evaluarKpi,
   granularidadPara,
@@ -79,7 +81,7 @@ import type {
 } from './metrics.types';
 import { DIMENSIONES_FIJAS } from './metrics.types';
 
-/** Agregados cacheados dos minutos; la versión los invalida antes si entra algo. */
+/** Agregados cacheados dos minutos; la versión los invalida antes si entra una tanda. */
 const TTL_AGREGADOS_SEGUNDOS = 120;
 
 const SELECT_CUESTIONARIO = {
@@ -123,15 +125,23 @@ export class MetricsService {
   // ===========================================
 
   /**
-   * Versión de la campaña: el contador de Redis o, si no hay Redis, el conteo
-   * de respuestas (sube con cada envío, que es lo que importa para refrescar).
+   * Versión publicada de la campaña (VULN-19): el contador de Redis, que
+   * `SurveyService` sube cuando se completa una tanda de 5 respuestas o cuando
+   * cambia el cuestionario, un KPI o un destacado; sin Redis, el conteo de
+   * respuestas **redondeado a la tanda** (`enTandas`).
+   *
+   * Antes era el conteo exacto, o un contador que subía con cada envío: el
+   * panel lo consulta cada 10 s, así que revelaba el momento de cada respuesta
+   * y, sin Redis, cuántas había. Ahora no dice más que el total publicado.
    */
   async version(campaignId: string): Promise<number> {
     const enCache = await this.cache?.getNumero(
       claveVersionCampania(campaignId),
     );
     if (enCache !== null && enCache !== undefined) return enCache;
-    return this.prisma.surveyResponse.count({ where: { campaignId } });
+    return enTandas(
+      await this.prisma.surveyResponse.count({ where: { campaignId } }),
+    );
   }
 
   // ===========================================
@@ -575,7 +585,7 @@ export class MetricsService {
   }
 
   async createHighlight(dto: CreateSurveyHighlightDto) {
-    this.validarDestacado(dto.definicion);
+    const definicion = this.validarDestacado(dto.definicion);
     if (dto.campaignId) await this.findCampania(dto.campaignId);
 
     const creado = await this.prisma.surveyHighlight.create({
@@ -585,7 +595,7 @@ export class MetricsService {
         descripcion: dto.descripcion ?? null,
         orden: dto.orden ?? 0,
         activo: dto.activo ?? true,
-        definicion: dto.definicion as Prisma.InputJsonValue,
+        definicion: definicion as unknown as Prisma.InputJsonValue,
       },
     });
     this.invalidar(creado.campaignId);
@@ -597,7 +607,9 @@ export class MetricsService {
       where: { id },
     });
     if (!actual) throw new NotFoundException('Destacado no encontrado');
-    if (dto.definicion) this.validarDestacado(dto.definicion);
+    const definicion = dto.definicion
+      ? this.validarDestacado(dto.definicion)
+      : undefined;
     if (dto.campaignId) await this.findCampania(dto.campaignId);
 
     const actualizado = await this.prisma.surveyHighlight.update({
@@ -608,7 +620,7 @@ export class MetricsService {
         descripcion: dto.descripcion,
         orden: dto.orden,
         activo: dto.activo,
-        definicion: dto.definicion as Prisma.InputJsonValue | undefined,
+        definicion: definicion as unknown as Prisma.InputJsonValue | undefined,
       },
     });
     this.invalidar(actual.campaignId);
@@ -642,7 +654,7 @@ export class MetricsService {
   }
 
   async createKpi(dto: CreateSurveyKpiDto) {
-    this.validarDefinicion(dto.definicion);
+    const definicion = this.validarDefinicion(dto.definicion);
     if (dto.campaignId) await this.findCampania(dto.campaignId);
 
     const creado = await this.prisma.surveyKpi.create({
@@ -652,7 +664,7 @@ export class MetricsService {
         descripcion: dto.descripcion ?? null,
         orden: dto.orden ?? 0,
         activo: dto.activo ?? true,
-        definicion: dto.definicion as Prisma.InputJsonValue,
+        definicion: definicion as unknown as Prisma.InputJsonValue,
       },
     });
     this.invalidar(creado.campaignId);
@@ -662,7 +674,9 @@ export class MetricsService {
   async updateKpi(id: string, dto: UpdateSurveyKpiDto) {
     const actual = await this.prisma.surveyKpi.findUnique({ where: { id } });
     if (!actual) throw new NotFoundException('KPI no encontrado');
-    if (dto.definicion) this.validarDefinicion(dto.definicion);
+    const definicion = dto.definicion
+      ? this.validarDefinicion(dto.definicion)
+      : undefined;
     if (dto.campaignId) await this.findCampania(dto.campaignId);
 
     const actualizado = await this.prisma.surveyKpi.update({
@@ -673,7 +687,7 @@ export class MetricsService {
         descripcion: dto.descripcion,
         orden: dto.orden,
         activo: dto.activo,
-        definicion: dto.definicion as Prisma.InputJsonValue | undefined,
+        definicion: definicion as unknown as Prisma.InputJsonValue | undefined,
       },
     });
     this.invalidar(actual.campaignId);
@@ -693,14 +707,18 @@ export class MetricsService {
   // Helpers
   // ===========================================
 
-  private validarDefinicion(definicion: unknown): void {
+  /** Valida y devuelve la definición normalizada, que es la que se persiste. */
+  private validarDefinicion(definicion: unknown): DefinicionKpi {
     const error = validarDefinicionKpi(definicion);
     if (error) throw new BadRequestException(`Definición inválida: ${error}`);
+    return normalizarDefinicionKpi(definicion as DefinicionKpi);
   }
 
-  private validarDestacado(definicion: unknown): void {
+  /** Valida y devuelve la definición normalizada, que es la que se persiste. */
+  private validarDestacado(definicion: unknown): DefinicionDestacado {
     const error = validarDefinicionDestacado(definicion);
     if (error) throw new BadRequestException(`Definición inválida: ${error}`);
+    return normalizarDefinicionDestacado(definicion as DefinicionDestacado);
   }
 
   /**

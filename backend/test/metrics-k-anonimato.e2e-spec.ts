@@ -6,7 +6,7 @@
 // ningún corte con menos de 5 respuestas sale con un conteo; una celda
 // suprimida arrastra el total de su fila; un KPI no publica cociente si
 // alguno de sus lados está suprimido; la versión de la campaña, sin Redis,
-// es el conteo de respuestas; cada corte se publica en tandas de 5; los
+// se mueve de a tandas de 5; cada corte se publica en tandas de 5; los
 // filtros de fecha se redondean al día; un corte filtrado sólo se publica si
 // su fila se publicaría en el cruce del corte sin ese filtro; y no se aceptan
 // más de 2 filtros a la vez. El doble de Prisma es en memoria, como en
@@ -206,6 +206,15 @@ describe('/metrics (e2e) — k-anonimato', () => {
           kpis.push(creado);
           return Promise.resolve(creado);
         }),
+        update: jest.fn(
+          ({ where, data }: { where: { id: string }; data: any }) => {
+            const actual = kpis.find((k) => k.id === where.id)!;
+            for (const [clave, valor] of Object.entries(data)) {
+              if (valor !== undefined) actual[clave] = valor;
+            }
+            return Promise.resolve(actual);
+          },
+        ),
         delete: jest.fn(({ where }: { where: { id: string } }) => {
           const i = kpis.findIndex((k) => k.id === where.id);
           const [borrado] = kpis.splice(i, 1);
@@ -270,11 +279,21 @@ describe('/metrics (e2e) — k-anonimato', () => {
 
   const get = (url: string) => request(app.getHttpServer()).get(url);
 
-  it('la versión sin Redis es el conteo de respuestas', async () => {
+  it('la versión sin Redis se mueve de a tandas de 5, no con cada respuesta', async () => {
+    // Antes era el conteo exacto: consultada cada 10 s revelaba cada envío.
     respuestas.push(...repetir(3, () => respuesta(LOC_PIRANE, OPC.no, null)));
-    const res = await get(`/metrics/survey/${CAMPAIGN_ID}/version`);
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ version: 3 });
+    const conTres = await get(`/metrics/survey/${CAMPAIGN_ID}/version`);
+    expect(conTres.status).toBe(200);
+    expect(conTres.body).toEqual({ version: 0 });
+
+    respuestas.push(...repetir(4, () => respuesta(LOC_PIRANE, OPC.no, null)));
+    const conSiete = await get(`/metrics/survey/${CAMPAIGN_ID}/version`);
+    expect(conSiete.body).toEqual({ version: 5 });
+
+    // El campo `version` de los resultados es el mismo valor publicado.
+    const resumen = await get(`/metrics/survey/${CAMPAIGN_ID}/overview`);
+    expect(resumen.body.version).toBe(5);
+    expect(JSON.stringify(resumen.body)).not.toContain('"version":7');
   });
 
   it('overview: un corte con menos de 5 respuestas sale suprimido en todas sus partes', async () => {
@@ -489,6 +508,98 @@ describe('/metrics (e2e) — k-anonimato', () => {
     );
     expect(borrado.status).toBe(200);
     expect(kpis).toHaveLength(0);
+  });
+
+  it('kpis: se guarda la definición normalizada, sin claves de más (VULN-40)', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/metrics/kpis')
+      .send({
+        nombre: 'Con claves de más',
+        definicion: {
+          numerador: [{ valores: ['seguir_estudiando'], peso: 9 }],
+          denominador: [{ valores: ['seguir_estudiando', 'solo_trabajar'] }],
+          formato: 'porcentaje',
+          script: '<img src=x onerror=alert(1)>',
+        },
+      });
+    expect(res.status).toBe(201);
+    expect(kpis[0].definicion).toEqual({
+      numerador: [{ valores: ['seguir_estudiando'] }],
+      denominador: [{ valores: ['seguir_estudiando', 'solo_trabajar'] }],
+      formato: 'porcentaje',
+    });
+
+    // Editar la definición también guarda sólo lo que se valida.
+    const editado = await request(app.getHttpServer())
+      .patch(`/metrics/kpis/${KPI_ID}`)
+      .send({
+        definicion: {
+          numerador: [{ valores: ['solo_trabajar'] }],
+          denominador: 'todas',
+          formato: 'conteo',
+          extra: true,
+        },
+      });
+    expect(editado.status).toBe(200);
+    expect(kpis[0].definicion).toEqual({
+      numerador: [{ valores: ['solo_trabajar'] }],
+      denominador: 'todas',
+      formato: 'conteo',
+    });
+  });
+
+  it('kpis: más de 50 valores en una condición o un valor de más de 100 caracteres se rechaza', async () => {
+    const muchos = await request(app.getHttpServer())
+      .post('/metrics/kpis')
+      .send({
+        nombre: 'Demasiados valores',
+        definicion: {
+          numerador: [
+            { valores: Array.from({ length: 51 }, (_, i) => `v${i}`) },
+          ],
+          denominador: 'todas',
+          formato: 'conteo',
+        },
+      });
+    expect(muchos.status).toBe(400);
+    expect(muchos.body.message).toMatch(/50 valores/);
+
+    const largo = await request(app.getHttpServer())
+      .post('/metrics/kpis')
+      .send({
+        nombre: 'Valor larguísimo',
+        definicion: {
+          numerador: [{ valores: ['x'.repeat(101)] }],
+          denominador: 'todas',
+          formato: 'conteo',
+        },
+      });
+    expect(largo.status).toBe(400);
+    expect(largo.body.message).toMatch(/100 caracteres/);
+    expect(kpis).toHaveLength(0);
+  });
+
+  it('highlights: se guarda la definición normalizada y un valor de más de 100 caracteres se rechaza (VULN-40)', async () => {
+    const bueno = await request(app.getHttpServer())
+      .post('/metrics/highlights')
+      .send({
+        titulo: 'Lo que más necesitan los deportistas es:',
+        definicion: { opciones: ['no', 'si_atendido'], top: 3, color: 'red' },
+      });
+    expect(bueno.status).toBe(201);
+    expect(destacados[0].definicion).toEqual({
+      opciones: ['no', 'si_atendido'],
+      top: 3,
+    });
+
+    const largo = await request(app.getHttpServer())
+      .post('/metrics/highlights')
+      .send({
+        titulo: 'X',
+        definicion: { opciones: ['x'.repeat(101)], top: 1 },
+      });
+    expect(largo.status).toBe(400);
+    expect(largo.body.message).toMatch(/100 caracteres/);
   });
 
   const LESIONES = {

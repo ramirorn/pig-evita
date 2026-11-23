@@ -12,7 +12,7 @@ import {
 import { IsEnum, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 import { InscriptionStatus } from '@prisma/client';
 import { ReportsService, EspecificacionReporte } from './reports.service';
-import { Roles, CurrentUser } from '../../common/decorators';
+import { Audit, Roles, CurrentUser } from '../../common/decorators';
 import { ACCIONES } from '../../common/constants';
 import { ScopeService } from '../../common/scope';
 import type { JwtPayload } from '../auth/interfaces';
@@ -29,6 +29,24 @@ import type { JwtPayload } from '../auth/interfaces';
 // Viven en este archivo (y no en `dto/`) porque `backend/.gitignore` ignora
 // las carpetas `reports/` (pensado para los reportes generados en disco): un
 // archivo nuevo dentro de `src/modules/reports/` no entraría al repositorio.
+
+// -------------------------------------------------
+// Auditoría de exportaciones (VULN-26)
+// -------------------------------------------------
+//
+// Un reporte es una lectura masiva del padrón (DNI, fecha de nacimiento,
+// teléfono y domicilio de menores) que puede pedir un DELEGADO. Se registra en
+// `AuditLog` con el mecanismo de lecturas auditadas del `AuditInterceptor`:
+// usuario, IP, hora y los filtros pedidos (`changes`), con la entidad
+// exportada. Sólo queda la fila si el archivo terminó de escribirse. La misma
+// exportación del mismo usuario con los mismos filtros se registra una vez
+// cada 10 minutos (la ventana del interceptor).
+
+/** `@Audit` común a las cuatro exportaciones; cada una agrega su entidad. */
+const AUDITORIA_EXPORTACION = {
+  action: 'EXPORT_REPORT',
+  lectura: true,
+} as const;
 
 /** `excel` se sigue aceptando como sinónimo histórico de `xlsx`. */
 export const FORMATOS_REPORTE = ['csv', 'xlsx', 'excel'] as const;
@@ -152,6 +170,7 @@ export class ReportsController {
   }
 
   @Get('participants')
+  @Audit({ ...AUDITORIA_EXPORTACION, entity: 'participants' })
   @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar lista de participantes a CSV o Excel' })
   async exportParticipants(
@@ -180,6 +199,7 @@ export class ReportsController {
   }
 
   @Get('inscriptions')
+  @Audit({ ...AUDITORIA_EXPORTACION, entity: 'inscriptions' })
   @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar inscripciones a CSV o Excel' })
   async exportInscriptions(
@@ -198,6 +218,7 @@ export class ReportsController {
   }
 
   @Get('teams')
+  @Audit({ ...AUDITORIA_EXPORTACION, entity: 'teams' })
   @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar lista de equipos a CSV o Excel' })
   async exportTeams(
@@ -219,6 +240,7 @@ export class ReportsController {
   }
 
   @Get('results')
+  @Audit({ ...AUDITORIA_EXPORTACION, entity: 'results' })
   @Roles(...ACCIONES.REPORT_EXPORT)
   @ApiOperation({ summary: 'Exportar resultados y partidos a CSV o Excel' })
   async exportResults(

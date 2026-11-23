@@ -49,8 +49,24 @@ export const MINIMO_PARA_FRASES = 30;
 export const SURVEY_SUBMIT_RATE_LIMIT = { limit: 3, ttl: 60_000 } as const;
 
 /**
- * Clave en Redis del contador de versión de una campaña. Sube con cada
- * respuesta nueva y con cada cambio de preguntas u opciones; las métricas la
+ * Envíos por campaña y por hora a partir de los cuales el servicio deja una
+ * advertencia en el log (VULN-20).
+ *
+ * No bloquea nada: sin identidad no hay forma de distinguir una respuesta
+ * fabricada de una real, y un tope duro por campaña dejaría a la encuesta
+ * cerrada para todos con sólo llenarlo. Es una señal para que alguien mire el
+ * volumen (y, si hace falta, el rango horario) antes de leer las métricas como
+ * conclusión. El número es holgado a propósito: en una sede con muchos chicos
+ * contestando a la vez, 200 en una hora todavía es plausible, pero no es el
+ * ritmo normal de una campaña.
+ */
+export const ALERTA_RESPUESTAS_POR_HORA = 200;
+
+/**
+ * Clave en Redis del contador de versión de una campaña. Sube cada vez que se
+ * completa una tanda de `UMBRAL_K_ANONIMATO` respuestas (no con cada una: el
+ * panel la consulta cada 10 s y revelaría el momento de cada envío, VULN-19)
+ * y con cada cambio de preguntas, opciones, KPIs o destacados; las métricas la
  * usan para invalidar agregados cacheados y el panel la consulta para saber
  * si tiene que volver a pedir los datos. Compartida entre survey y metrics.
  */

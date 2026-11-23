@@ -35,6 +35,7 @@ import {
   CACHE_TTL,
   CacheControl,
   CurrentUser,
+  NoAudit,
   Public,
   PublicReadThrottle,
   Roles,
@@ -82,9 +83,18 @@ export class SurveyController {
    *
    * ⚠️ Este handler **no** recibe ni `@CurrentUser()` ni el request: no hay
    * nada de quien responde que deba llegar al service.
+   *
+   * `@NoAudit()` — motivo (VULN-01): el `AuditInterceptor` global grababa en
+   * `AuditLog` el cuerpo completo del envío (cortes y opciones elegidas) junto
+   * con la IP, el User-Agent y la hora. Esa fila es una respuesta individual
+   * de un menor atada a un dispositivo, consultable sin umbral ni tandas: lo
+   * que el modelo `SurveyResponse` se cuida de no guardar. No tiene valor
+   * forense (no hay usuario) y se excluye a propósito.
+   * `test/seguridad-privacidad-encuesta.e2e-spec.ts` lo fija.
    */
   @Post('responses')
   @Public()
+  @NoAudit()
   @Throttle({ default: { ...SURVEY_SUBMIT_RATE_LIMIT } })
   @ApiOperation({ summary: 'Enviar una respuesta anónima' })
   @ApiResponse({ status: 201, description: 'Respuesta registrada' })

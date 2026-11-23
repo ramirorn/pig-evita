@@ -693,6 +693,21 @@ export function publicarKpi(
  * primer problema encontrado o `null`. Los `valores` desconocidos no son un
  * error acá: un KPI puede referirse a opciones de otra edición.
  */
+/** Tope de `valores` por condición de un KPI (VULN-40). */
+export const MAXIMO_VALORES_POR_CONDICION = 50;
+
+/** Largo máximo de un `valor` en una definición de KPI o destacado (VULN-40). */
+export const MAXIMO_LARGO_VALOR = 100;
+
+/** Mensaje de error si algún valor supera `MAXIMO_LARGO_VALOR`; `null` si no. */
+function errorDeLargo(valores: readonly unknown[]): string | null {
+  return valores.some(
+    (v) => typeof v === 'string' && v.length > MAXIMO_LARGO_VALOR,
+  )
+    ? `Cada valor admite hasta ${MAXIMO_LARGO_VALOR} caracteres`
+    : null;
+}
+
 export function validarDefinicionKpi(def: unknown): string | null {
   if (!def || typeof def !== 'object')
     return 'La definición debe ser un objeto';
@@ -710,6 +725,11 @@ export function validarDefinicionKpi(def: unknown): string | null {
       ) {
         return `Cada condición de ${nombre} necesita una lista de valores`;
       }
+      if (valores.length > MAXIMO_VALORES_POR_CONDICION) {
+        return `Cada condición de ${nombre} admite hasta ${MAXIMO_VALORES_POR_CONDICION} valores`;
+      }
+      const largo = errorDeLargo(valores);
+      if (largo) return largo;
     }
     return null;
   };
@@ -726,6 +746,26 @@ export function validarDefinicionKpi(def: unknown): string | null {
     return 'formato debe ser porcentaje o conteo';
   }
   return null;
+}
+
+/**
+ * La definición de KPI que se persiste: reconstruida con sólo las claves que
+ * se validan (VULN-40). `forbidNonWhitelisted` no alcanza a los campos JSON,
+ * así que antes se guardaba lo que llegara del panel tal cual, y cualquier
+ * lectura futura tomaría las claves de más como datos confiables. Llamar
+ * después de `validarDefinicionKpi`.
+ */
+export function normalizarDefinicionKpi(def: DefinicionKpi): DefinicionKpi {
+  const condiciones = (lista: CondicionKpi[]): CondicionKpi[] =>
+    lista.map((c) => ({ valores: [...c.valores] }));
+  return {
+    numerador: condiciones(def.numerador),
+    denominador:
+      def.denominador === 'todas' || def.denominador === 'contestaron'
+        ? def.denominador
+        : condiciones(def.denominador),
+    formato: def.formato,
+  };
 }
 
 // ===========================================
@@ -845,6 +885,8 @@ export function validarDefinicionDestacado(def: unknown): string | null {
     return 'opciones debe ser una lista de valores';
   }
   if (d.opciones.length > 30) return 'Un destacado admite hasta 30 opciones';
+  const largo = errorDeLargo(d.opciones);
+  if (largo) return largo;
   if (
     typeof d.top !== 'number' ||
     !Number.isInteger(d.top) ||
@@ -854,6 +896,16 @@ export function validarDefinicionDestacado(def: unknown): string | null {
     return 'top debe ser un entero entre 1 y 10';
   }
   return null;
+}
+
+/**
+ * La definición de destacado que se persiste: sólo `opciones` y `top`
+ * (VULN-40). Llamar después de `validarDefinicionDestacado`.
+ */
+export function normalizarDefinicionDestacado(
+  def: DefinicionDestacado,
+): DefinicionDestacado {
+  return { opciones: [...def.opciones], top: def.top };
 }
 
 // ===========================================

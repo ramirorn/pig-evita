@@ -31,7 +31,11 @@ import {
   UpdateSurveyOptionDto,
   UpdateSurveyQuestionDto,
 } from './dto';
-import { claveVersionCampania } from './survey.constants';
+import {
+  ALERTA_RESPUESTAS_POR_HORA,
+  claveVersionCampania,
+  UMBRAL_K_ANONIMATO,
+} from './survey.constants';
 import { RedisCacheService } from '../../common/cache';
 import type { SurveySubmitResult } from './survey.types';
 
@@ -57,12 +61,73 @@ export class SurveyService {
     @Optional() private readonly cache?: RedisCacheService,
   ) {}
 
+  /** Envíos por campaña y hora, para la advertencia de volumen (VULN-20). */
+  private readonly enviosPorHora = new Map<string, number>();
+
   /**
    * Sube la versión de la campaña en Redis. Fire-and-forget: ni espera ni
    * falla; si Redis no está, las métricas caen al conteo de respuestas.
    */
   private subirVersion(campaignId: string): void {
     void this.cache?.incr(claveVersionCampania(campaignId));
+  }
+
+  /**
+   * Después de un envío, la versión sube **sólo cuando se completa una tanda**
+   * de `UMBRAL_K_ANONIMATO` respuestas en la campaña (VULN-19).
+   *
+   * Subirla con cada envío convertía a `/version`, que el panel consulta cada
+   * 10 s, en un reloj de cada respuesta: quien está en la sede ve contestar a
+   * alguien y sabe en qué momento entró. Así la versión se mueve de a 5, como
+   * el resto de lo que publica Métricas. Lo que cuesta: un corte que completa
+   * su tanda sin que la complete la campaña se ve recién en la próxima tanda
+   * de la campaña (o al vencer el cache de 2 minutos).
+   *
+   * Bajo una ráfaga, dos envíos simultáneos pueden contar el mismo total y
+   * saltear una tanda; la siguiente lo corrige. Nada de esto puede hacer
+   * fallar el envío.
+   */
+  private subirVersionPorTanda(campaignId: string): void {
+    if (!this.cache) return;
+    void this.prisma.surveyResponse
+      .count({ where: { campaignId } })
+      .then((total) => {
+        if (total > 0 && total % UMBRAL_K_ANONIMATO === 0) {
+          this.subirVersion(campaignId);
+        }
+      })
+      .catch(() => {
+        this.logger.warn(
+          `No se pudo actualizar la versión de la campaña ${campaignId}`,
+        );
+      });
+  }
+
+  /**
+   * Advertencia de volumen inusual (VULN-20): una sola vez por campaña y hora,
+   * al llegar a `ALERTA_RESPUESTAS_POR_HORA`. No bloquea ni guarda nada de
+   * quien envía; el mensaje lleva sólo la campaña y la hora, nunca un corte.
+   * Vive en la memoria del proceso: con varias instancias cada una cuenta lo
+   * suyo, que para una señal alcanza.
+   */
+  private registrarVolumen(campaignId: string, ahora: Date): void {
+    const hora = ahora.toISOString().slice(0, 13);
+    const clave = `${campaignId}|${hora}`;
+    const total = (this.enviosPorHora.get(clave) ?? 0) + 1;
+
+    // Sólo interesa la hora en curso: las demás se olvidan.
+    for (const k of this.enviosPorHora.keys()) {
+      if (k !== clave && !k.endsWith(`|${hora}`)) this.enviosPorHora.delete(k);
+    }
+    this.enviosPorHora.set(clave, total);
+
+    if (total === ALERTA_RESPUESTAS_POR_HORA) {
+      this.logger.warn(
+        `Encuesta: volumen inusual de respuestas en la campaña ${campaignId} ` +
+          `(${ALERTA_RESPUESTAS_POR_HORA} en la hora ${hora}:00 UTC). ` +
+          'Revisar antes de leer las métricas como conclusión.',
+      );
+    }
   }
 
   // ===========================================
@@ -266,7 +331,8 @@ export class SurveyService {
     this.logger.log(
       `Respuesta de encuesta registrada (campaña ${campaign.id})`,
     );
-    this.subirVersion(campaign.id);
+    this.subirVersionPorTanda(campaign.id);
+    this.registrarVolumen(campaign.id, ahora);
 
     return { registrada: true, enviadaEn: response.enviadaEn };
   }
