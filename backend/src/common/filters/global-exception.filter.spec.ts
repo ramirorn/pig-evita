@@ -79,4 +79,44 @@ describe('GlobalExceptionFilter — log', () => {
     filtro.catch('se rompió algo', host('/api/v1/news'));
     expect(error).toHaveBeenCalledTimes(1);
   });
+
+  describe('base de datos caída', () => {
+    const respuesta = (h: ArgumentsHost) =>
+      h.switchToHttp().getResponse<{ status: jest.Mock; json: jest.Mock }>();
+
+    it.each([
+      ['no se pudo conectar (P1001)', 'PrismaClientKnownRequestError', 'P1001'],
+      [
+        'se agotó el pool de conexiones (P2024)',
+        'PrismaClientKnownRequestError',
+        'P2024',
+      ],
+      [
+        'falló la inicialización del cliente',
+        'PrismaClientInitializationError',
+        undefined,
+      ],
+    ])('%s ⇒ 503 con un mensaje que dice qué pasa', (_caso, nombre, codigo) => {
+      const e = new Error("Can't reach database server at `localhost:5434`");
+      e.name = nombre;
+      if (codigo) (e as Error & { code?: string }).code = codigo;
+      const h = host('/api/v1/news');
+      filtro.catch(e, h);
+      expect(respuesta(h).status).toHaveBeenCalledWith(503);
+      const cuerpo = respuesta(h).json.mock.calls[0][0];
+      expect(cuerpo.message).toBe(
+        'La base de datos no está disponible en este momento',
+      );
+      expect(JSON.stringify(cuerpo)).not.toContain('localhost:5434');
+    });
+
+    it('comportamiento previo: otro error de Prisma sigue siendo 500', () => {
+      const e = new Error('Unique constraint failed');
+      e.name = 'PrismaClientKnownRequestError';
+      (e as Error & { code?: string }).code = 'P2002';
+      const h = host('/api/v1/news');
+      filtro.catch(e, h);
+      expect(respuesta(h).status).toHaveBeenCalledWith(500);
+    });
+  });
 });

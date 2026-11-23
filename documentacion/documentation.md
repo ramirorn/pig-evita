@@ -667,7 +667,8 @@ Y un filter global:
 
 - **GlobalExceptionFilter** — Captura y formatea todas las excepciones en un formato consistente. Registra los
   accesos denegados (401/403) sin token ni datos de la query, y de las excepciones no controladas sólo el nombre y el
-  código (el mensaje de Prisma trae los valores de la consulta).
+  código (el mensaje de Prisma trae los valores de la consulta). Si la base de datos no está disponible (no se puede conectar,
+  se agotó el pool), responde **503** "La base de datos no está disponible en este momento" en vez de un 500.
 
 ### Endurecimiento de seguridad (relevamiento OWASP Top 10:2025)
 

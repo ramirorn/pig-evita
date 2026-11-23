@@ -14,6 +14,30 @@ import { esAutenticado } from '../interceptors/cache-control.interceptor';
 import { urlParaLog } from '../logging/url-para-log';
 
 /**
+ * Errores de Prisma que significan "la base no está disponible", no un bug:
+ * no se pudo conectar (P1001), se agotó el tiempo de conexión (P1002), el
+ * servidor cerró la conexión (P1017), se agotó el pool (P2024), o el cliente
+ * no pudo inicializarse. Se responden con 503 para que quien opera vea que hay
+ * que mirar la base, en vez de un 500 que parece un error de programación.
+ */
+const CODIGOS_BASE_NO_DISPONIBLE = new Set([
+  'P1001',
+  'P1002',
+  'P1017',
+  'P2024',
+]);
+
+function esBaseNoDisponible(exception: Error): boolean {
+  if (exception.name === 'PrismaClientInitializationError') return true;
+  const codigo = (exception as Error & { code?: unknown }).code;
+  return (
+    exception.name === 'PrismaClientKnownRequestError' &&
+    typeof codigo === 'string' &&
+    CODIGOS_BASE_NO_DISPONIBLE.has(codigo)
+  );
+}
+
+/**
  * Qué se escribe en el log de una excepción no controlada (VULN-43): el
  * nombre, el código de Prisma si lo hay y el stack SIN la primera línea. El
  * mensaje no: el de Prisma trae la invocación con los valores de la consulta
@@ -107,6 +131,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           : exception.type === 'entity.parse.failed'
             ? 'El cuerpo de la petición no es un JSON válido'
             : 'El cuerpo de la petición no se pudo procesar';
+    } else if (exception instanceof Error && esBaseNoDisponible(exception)) {
+      const { linea } = resumenParaLog(exception);
+      this.logger.error(`${linea}: la base de datos no está disponible`);
+      statusCode = HttpStatus.SERVICE_UNAVAILABLE;
+      message = 'La base de datos no está disponible en este momento';
     } else if (exception instanceof Error) {
       const { linea, stack } = resumenParaLog(exception);
       this.logger.error(linea, stack);
@@ -154,6 +183,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     // que estar.
     if (
       statusCode >= HttpStatus.INTERNAL_SERVER_ERROR &&
+      // El 503 lleva siempre un mensaje fijo escrito para el usuario ("la base
+      // no está disponible", "el portal no responde"): no trae internos.
+      statusCode !== HttpStatus.SERVICE_UNAVAILABLE &&
       process.env.NODE_ENV === 'production'
     ) {
       message = 'Error interno del servidor';
