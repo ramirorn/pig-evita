@@ -5,7 +5,7 @@
 | **Rama** | `dev-lucas` (base: `develop` + `dev-santi`) |
 | **Autor** | Lucas Zigaran |
 | **Última actualización** | 24/11/2026 |
-| **Estado** | Fase 0 y Módulo 1 **terminados**. Módulos 2 a 8 **pendientes**. |
+| **Estado** | Fase 0 y Módulo 1 **terminados**. Módulo 2 **en curso** (falta VULN-23 y VULN-27). Módulos 3 a 8 **pendientes**. |
 | **Seguimiento detallado** | [`odd/tasks/refactor-solid.md`](../../odd/tasks/refactor-solid.md) |
 | **Análisis de origen** | [`analisis-buenas-practicas.pdf`](analisis-buenas-practicas.pdf) (en esta carpeta) |
 | **Relevamiento de seguridad** | [`../seguridad/relevamiento-owasp-2025.md`](../seguridad/relevamiento-owasp-2025.md) |
@@ -74,7 +74,23 @@ Las rutas, los mensajes de error y el orden de las validaciones no cambiaron. Ni
 - **VULN-28 (sacar los IDs internos de las vistas públicas):** el UUID del participante no sale solo en `participantId`, sino también en `participant.id` y como `id` de cada fila del ranking, y la suite de Playwright lo usa para cargar resultados. Hacerlo bien requiere separar la proyección pública de la de administración en `GET /competitions/:id` (con el patrón `OptionalJwtAuthGuard`, como en noticias y calendario), y depende de la decisión pendiente sobre qué se publica de los menores.
 - **Listado de participantes con `PARTICIPANT_SUMMARY`:** el formulario de edición se rellena con la fila del listado. Si el listado dejara de traer email, teléfono y domicilio, esos campos aparecerían vacíos al editar y se podrían borrar al guardar. Pasa al Módulo 7: el formulario tiene que cargar el detalle antes de editar.
 
-### 2.4 Problemas que encontró la red de seguridad (corregidos)
+### 2.4 Módulo 2 — Autenticación y usuarios (en curso)
+
+| Commit | Qué se hizo |
+|---|---|
+| `e4d4c37` | Tipo `RequestWithUser` y guard JWT sin `any`. |
+| `ed139e9` | **Cierra VULN-47:** los access tokens exigen `iss` y `aud`; los tests firman igual que la app. |
+| `6bce3ca` | **VULN-22:** el límite de pedidos se guarda en Redis (compartido entre instancias, sin dependencias nuevas); si Redis no está, sigue funcionando en memoria. |
+| `b138e1b` | `AuthTokensService` separado de `AuthService` (500 → 394 líneas); `expiresIn` tipado y alineado con la cookie. |
+
+Avisos de `any` en el backend: de 15 a 6. Unitarios 334/334, e2e 1.062/1.062.
+
+**Falta del Módulo 2:**
+- **VULN-23** (cambio de contraseña obligatorio y `POST /auth/change-password` con pantalla): es un cambio funcional; primero va un ítem en `spec.md`/`tasks.md` y la decisión de si se fuerza a las cuentas existentes.
+- **VULN-27** (auditar los 401/403 como `ACCESS_DENIED`): no requiere migración, pero sí un tope por IP y adaptar los specs que crean el filtro a mano. La purga espera la decisión de retención.
+- Verificar el throttler en Redis con Playwright en CI (el script Lua no se probó contra un Redis real).
+
+### 2.5 Problemas que encontró la red de seguridad (corregidos)
 
 Al correr todo con el CI nuevo aparecieron problemas que ya existían y que el CI anterior no detectaba. Ninguno era del código de la aplicación:
 
@@ -86,14 +102,14 @@ Al correr todo con el CI nuevo aparecieron problemas que ya existían y que el C
 | `4b6eda6` | La suite de planteles tardaba ~2 minutos renderizando imágenes QR reales y a veces pasaba su timeout. | Usa un QR simulado: ese spec prueba la atomicidad, no el render. La suite e2e completa bajó de ~176 s a ~78 s. |
 | `9bd3260` | Playwright en celular: el clic sobre "Encuesta" caía mientras el menú todavía se desplegaba. | El helper espera a que el menú se vea entero antes del clic. |
 
-### 2.5 Estado verificado
+### 2.6 Estado verificado
 
 Todo en verde en GitHub Actions (corrida `45433399536`) y en local:
 
 | Suite | Resultado |
 |---|---|
-| Backend: lint | 0 errores (15 avisos de `any`) |
-| Backend: tests unitarios | 330 / 330 |
+| Backend: lint | 0 errores (6 avisos de `any`) |
+| Backend: tests unitarios | 334 / 334 |
 | Backend: tests e2e | 1.062 / 1.062 |
 | Frontend: lint, build y checks | OK, 14 / 14 checks |
 | Playwright (API, escritorio y celular) | 409 OK, 1 omitido a propósito (`content.spec.ts:130`: el stack aislado no tiene noticias del portal) |
