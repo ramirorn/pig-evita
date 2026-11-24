@@ -18,7 +18,8 @@
 // probaría nada, porque un mock que acepta todo hace pasar por igual al código
 // con y sin transacción.
 import { Test, TestingModule } from '@nestjs/testing';
-import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
+import { TeamInscriptionsService } from '../src/modules/inscriptions/team-inscriptions.service';
+import { INSCRIPTION_PROVIDERS } from '../src/modules/inscriptions/inscriptions.providers';
 import { PrismaService } from '../src/database/prisma.service';
 import { ALCANCE_PROVINCIAL, ScopeService } from '../src/common/scope';
 import { CreateTeamInscriptionDto } from '../src/modules/inscriptions/dto';
@@ -267,6 +268,24 @@ function crearPrismaFalso(
         }
         return Promise.resolve({ count: data.length });
       }),
+      createManyAndReturn: jest.fn(
+        ({ data }: { data: Array<Record<string, any>> }) => {
+          const falla = data.map(() => intentarInscripcion()).some(Boolean);
+          if (falla) {
+            return Promise.reject(errorUnico(' on the fields: (`qr_code`)'));
+          }
+          const filas = data.map((d) => {
+            const fila = {
+              id: `i${t.inscriptions.length + 1}`,
+              status: 'PENDIENTE',
+              ...d,
+            };
+            t.inscriptions.push(fila);
+            return fila;
+          });
+          return Promise.resolve(filas);
+        },
+      ),
     },
   });
 
@@ -323,13 +342,13 @@ function crearPrismaFalso(
 async function construir(prisma: ReturnType<typeof crearPrismaFalso>) {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     providers: [
-      InscriptionsService,
+      ...INSCRIPTION_PROVIDERS,
       ScopeService,
       { provide: PrismaService, useValue: prisma },
     ],
   }).compile();
 
-  return moduleFixture.get(InscriptionsService);
+  return moduleFixture.get(TeamInscriptionsService);
 }
 
 describe('Inscripción de plantel completo (S21)', () => {
@@ -502,7 +521,12 @@ describe('Inscripción de plantel completo (S21)', () => {
       expect(
         t.participants.filter((p) => p.dni === YA_CARGADO.dni),
       ).toHaveLength(1);
-      expect(prisma.participant.create).toHaveBeenCalledTimes(13);
+      // Las 13 altas van en un solo lote, no una consulta por integrante.
+      expect(prisma.participant.create).not.toHaveBeenCalled();
+      expect(prisma.participant.createManyAndReturn).toHaveBeenCalledTimes(1);
+      expect(
+        prisma.participant.createManyAndReturn.mock.calls[0][0].data,
+      ).toHaveLength(13);
 
       // Y la inscripción del reutilizado apunta a la fila que ya existía.
       expect(
@@ -744,30 +768,79 @@ describe('Inscripción de plantel completo (S21)', () => {
 });
 
 // -------------------------------------------------
-// Presupuesto de consultas (refactor, Fase 0)
+// Presupuesto de consultas (refactor)
 // -------------------------------------------------
-const TECHO_CONSULTAS_PLANTEL = 68;
+// Antes del módulo 1 un plantel de 16 costaba 68 consultas (≈ 4 por integrante,
+// N+1 dentro de la transacción). Con la escritura en lote el costo es fijo: no
+// crece con el tamaño del plantel. Si alguien vuelve a meter un bucle de
+// consultas, este techo lo corta.
+const TECHO_CONSULTAS_PLANTEL = 8;
 
-// Línea base del alta de un plantel. Hoy cada integrante cuesta varias
-// consultas dentro de la transacción (N+1); el módulo 1 del refactor las pasa a
-// escrituras en lote y baja este techo. Si alguien vuelve a meter un bucle de
-// consultas, el techo lo corta.
 describe('Presupuesto de consultas — alta de plantel', () => {
-  it('plantel máximo (11 titulares + 5 suplentes) no supera el techo', async () => {
-    const prisma = crearPrismaFalso();
-    const service = await construir(prisma);
+  const plantelMaximo = () => {
     const plantel = plantelValido();
     plantel.members.push(
       integrante(15, { isSubstitute: true }),
       integrante(16, { isSubstitute: true }),
     );
+    return plantel;
+  };
+
+  it('plantel máximo (11 titulares + 5 suplentes) no supera el techo', async () => {
+    const prisma = crearPrismaFalso();
+    const service = await construir(prisma);
 
     const consultas = await medirConsultas(prisma, () =>
-      service.createTeam(plantel, USUARIO, ALCANCE_PROVINCIAL),
+      service.createTeam(plantelMaximo(), USUARIO, ALCANCE_PROVINCIAL),
     );
 
-    // Línea base medida antes del refactor: 68 (≈ 4 por integrante). Meta del
-    // módulo 1: ≤ 8, constante sin importar el tamaño del plantel.
+    expect(consultas).toBeLessThanOrEqual(TECHO_CONSULTAS_PLANTEL);
+  });
+
+  it('el costo no crece con el plantel: 11 y 16 integrantes cuestan lo mismo', async () => {
+    const chico = crearPrismaFalso();
+    const grande = crearPrismaFalso();
+    const sinSuplentes = plantelValido();
+    sinSuplentes.members = sinSuplentes.members.filter((m) => !m.isSubstitute);
+
+    const consultasChico = await medirConsultas(chico, () =>
+      construir(chico).then((s) =>
+        s.createTeam(sinSuplentes, USUARIO, ALCANCE_PROVINCIAL),
+      ),
+    );
+    const consultasGrande = await medirConsultas(grande, () =>
+      construir(grande).then((s) =>
+        s.createTeam(plantelMaximo(), USUARIO, ALCANCE_PROVINCIAL),
+      ),
+    );
+
+    expect(consultasGrande).toBe(consultasChico);
+  });
+
+  it('con integrantes que ya estaban en el padrón tampoco supera el techo', async () => {
+    const prisma = crearPrismaFalso({
+      participantesPrecargados: [
+        {
+          id: 'p-existente',
+          dni: integrante(1).dni,
+          firstName: 'Jugador1',
+          lastName: 'Pérez',
+          birthDate: new Date(integrante(1).birthDate),
+          sex: Sex.MASCULINO,
+          locality: 'Clorinda',
+          department: 'Pilcomayo',
+          phone: null,
+          email: null,
+          address: null,
+        },
+      ],
+    });
+    const service = await construir(prisma);
+
+    const consultas = await medirConsultas(prisma, () =>
+      service.createTeam(plantelMaximo(), USUARIO, ALCANCE_PROVINCIAL),
+    );
+
     expect(consultas).toBeLessThanOrEqual(TECHO_CONSULTAS_PLANTEL);
   });
 });

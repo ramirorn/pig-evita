@@ -41,7 +41,7 @@ import { CalendarService } from '../src/modules/calendar/calendar.service';
 import { ResultsController } from '../src/modules/results/results.controller';
 import { ResultsService } from '../src/modules/results/results.service';
 import { InscriptionsController } from '../src/modules/inscriptions/inscriptions.controller';
-import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
+import { INSCRIPTION_PROVIDERS } from '../src/modules/inscriptions/inscriptions.providers';
 
 const UUID = '11111111-1111-4111-8111-111111111111';
 
@@ -313,7 +313,7 @@ describe('Endpoints públicos — fuga de PII (e2e)', () => {
         NewsService,
         CalendarService,
         ResultsService,
-        InscriptionsService,
+        ...INSCRIPTION_PROVIDERS,
         { provide: EngineFactory, useValue: { getEngine: jest.fn() } },
         { provide: PrismaService, useValue: prisma },
       ],

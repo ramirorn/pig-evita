@@ -20,6 +20,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { InscriptionsService } from './inscriptions.service';
+import { InscriptionReviewService } from './inscription-review.service';
+import { InscriptionQrService } from './inscription-qr.service';
+import { TeamInscriptionsService } from './team-inscriptions.service';
 import {
   CreateInscriptionDto,
   CreateTeamInscriptionDto,
@@ -45,6 +48,9 @@ import type { JwtPayload } from '../auth/interfaces';
 export class InscriptionsController {
   constructor(
     private readonly inscriptionsService: InscriptionsService,
+    private readonly teamInscriptionsService: TeamInscriptionsService,
+    private readonly reviewService: InscriptionReviewService,
+    private readonly qrService: InscriptionQrService,
     private readonly scope: ScopeService,
   ) {}
 
@@ -133,7 +139,7 @@ export class InscriptionsController {
     @CurrentUser('sub') userId: string,
     @CurrentUser() actor: JwtPayload,
   ): Promise<TeamInscriptionResultDto> {
-    return this.inscriptionsService.createTeam(
+    return this.teamInscriptionsService.createTeam(
       createDto,
       userId,
       await this.scope.alcanceDe(actor),
@@ -160,7 +166,7 @@ export class InscriptionsController {
   async findByQr(
     @Param('qrCode') qrCode: string,
   ): Promise<PublicInscriptionDto> {
-    return this.inscriptionsService.findByQr(qrCode);
+    return this.qrService.findByQr(qrCode);
   }
 
   // --- Endpoints ADMINISTRATIVOS ---
@@ -227,7 +233,7 @@ export class InscriptionsController {
     @CurrentUser() actor: JwtPayload,
     @Body() reviewDto: ReviewInscriptionDto,
   ) {
-    return this.inscriptionsService.review(
+    return this.reviewService.review(
       id,
       userId,
       reviewDto,
@@ -256,7 +262,7 @@ export class InscriptionsController {
     @CurrentUser('sub') userId: string,
     @CurrentUser() actor: JwtPayload,
   ) {
-    return this.inscriptionsService.approve(
+    return this.reviewService.approve(
       id,
       userId,
       await this.scope.alcanceDe(actor),
@@ -285,7 +291,7 @@ export class InscriptionsController {
     @CurrentUser() actor: JwtPayload,
     @Body() rejectDto: RejectInscriptionDto,
   ) {
-    return this.inscriptionsService.reject(
+    return this.reviewService.reject(
       id,
       userId,
       rejectDto,

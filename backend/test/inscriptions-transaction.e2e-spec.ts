@@ -19,6 +19,7 @@
 // Postgres a los efectos de este test.
 import { Test, TestingModule } from '@nestjs/testing';
 import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
+import { INSCRIPTION_PROVIDERS } from '../src/modules/inscriptions/inscriptions.providers';
 import { PrismaService } from '../src/database/prisma.service';
 import { ALCANCE_PROVINCIAL, ScopeService } from '../src/common/scope';
 import { CreateInscriptionDto } from '../src/modules/inscriptions/dto';
@@ -167,7 +168,7 @@ describe('Alta de inscripción — atomicidad (R13)', () => {
   async function construir(prisma: ReturnType<typeof crearPrismaFalso>) {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       providers: [
-        InscriptionsService,
+        ...INSCRIPTION_PROVIDERS,
         ScopeService,
         { provide: PrismaService, useValue: prisma },
       ],

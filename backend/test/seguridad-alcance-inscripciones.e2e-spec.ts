@@ -24,7 +24,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 
 import { InscriptionsController } from '../src/modules/inscriptions/inscriptions.controller';
-import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
+import { INSCRIPTION_PROVIDERS } from '../src/modules/inscriptions/inscriptions.providers';
 import { JwtStrategy } from '../src/modules/auth/strategies';
 import { JwtAuthGuard } from '../src/modules/auth/guards';
 import { RolesGuard } from '../src/common/guards';
@@ -188,7 +188,7 @@ describe('Seguridad del alta individual de inscripciones (e2e)', () => {
       ],
       controllers: [InscriptionsController],
       providers: [
-        InscriptionsService,
+        ...INSCRIPTION_PROVIDERS,
         ScopeService,
         JwtStrategy,
         { provide: PrismaService, useValue: prisma },

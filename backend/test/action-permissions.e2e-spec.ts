@@ -35,6 +35,9 @@ import { TeamsController } from '../src/modules/teams/teams.controller';
 import { TeamsService } from '../src/modules/teams/teams.service';
 import { InscriptionsController } from '../src/modules/inscriptions/inscriptions.controller';
 import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
+import { InscriptionReviewService } from '../src/modules/inscriptions/inscription-review.service';
+import { InscriptionQrService } from '../src/modules/inscriptions/inscription-qr.service';
+import { TeamInscriptionsService } from '../src/modules/inscriptions/team-inscriptions.service';
 import { DocumentsController } from '../src/modules/documents/documents.controller';
 import { DocumentsService } from '../src/modules/documents/documents.service';
 import { ReportsController } from '../src/modules/reports/reports.controller';
@@ -294,6 +297,9 @@ describe('Permisos por acción (R22)', () => {
           { provide: ParticipantsService, useValue: servicioMudo },
           { provide: TeamsService, useValue: servicioMudo },
           { provide: InscriptionsService, useValue: servicioMudo },
+          { provide: InscriptionReviewService, useValue: servicioMudo },
+          { provide: InscriptionQrService, useValue: servicioMudo },
+          { provide: TeamInscriptionsService, useValue: servicioMudo },
           { provide: DocumentsService, useValue: servicioMudo },
           { provide: UsersService, useValue: servicioMudo },
           { provide: ZonesService, useValue: servicioMudo },

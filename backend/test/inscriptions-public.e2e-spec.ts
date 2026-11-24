@@ -7,7 +7,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { InscriptionsController } from '../src/modules/inscriptions/inscriptions.controller';
-import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
+import { INSCRIPTION_PROVIDERS } from '../src/modules/inscriptions/inscriptions.providers';
 import { PrismaService } from '../src/database/prisma.service';
 import { ScopeService } from '../src/common/scope';
 
@@ -64,7 +64,7 @@ describe('Inscriptions público — GET /inscriptions/qr/:qrCode (e2e)', () => {
       providers: [
         // R05 — los services acotados por territorio inyectan ScopeService.
         ScopeService,
-        InscriptionsService,
+        ...INSCRIPTION_PROVIDERS,
         {
           provide: PrismaService,
           useValue: { inscription: { findUnique } },

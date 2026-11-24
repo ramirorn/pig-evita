@@ -41,6 +41,9 @@ import {
 import { REFRESH_TOKEN_COOKIE } from '../src/modules/auth/auth.cookies';
 import { InscriptionsController } from '../src/modules/inscriptions/inscriptions.controller';
 import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
+import { InscriptionReviewService } from '../src/modules/inscriptions/inscription-review.service';
+import { InscriptionQrService } from '../src/modules/inscriptions/inscription-qr.service';
+import { TeamInscriptionsService } from '../src/modules/inscriptions/team-inscriptions.service';
 import { UsersController } from '../src/modules/users/users.controller';
 import { UsersService } from '../src/modules/users/users.service';
 import { PrismaService } from '../src/database/prisma.service';
@@ -220,10 +223,17 @@ describe('Contrato de auditoría (e2e)', () => {
           provide: InscriptionsService,
           useValue: {
             create: jest.fn().mockResolvedValue({ id: INSCRIPTION_ID }),
+          },
+        },
+        {
+          provide: InscriptionReviewService,
+          useValue: {
             approve: jest.fn().mockResolvedValue({ id: INSCRIPTION_ID }),
             reject: jest.fn().mockResolvedValue({ id: INSCRIPTION_ID }),
           },
         },
+        { provide: InscriptionQrService, useValue: {} },
+        { provide: TeamInscriptionsService, useValue: {} },
         {
           provide: UsersService,
           useValue: { create: jest.fn().mockResolvedValue({ id: USER.id }) },

@@ -68,7 +68,7 @@ import { ParticipantsService } from '../src/modules/participants/participants.se
 import { TeamsController } from '../src/modules/teams/teams.controller';
 import { TeamsService } from '../src/modules/teams/teams.service';
 import { InscriptionsController } from '../src/modules/inscriptions/inscriptions.controller';
-import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
+import { INSCRIPTION_PROVIDERS } from '../src/modules/inscriptions/inscriptions.providers';
 import { DocumentsController } from '../src/modules/documents/documents.controller';
 import { DocumentsService } from '../src/modules/documents/documents.service';
 import { MinioService } from '../src/modules/documents/minio.service';
@@ -1046,7 +1046,7 @@ export async function montarApp(): Promise<{
     providers: [
       ParticipantsService,
       TeamsService,
-      InscriptionsService,
+      ...INSCRIPTION_PROVIDERS,
       DocumentsService,
       DashboardService,
       ScopeService,

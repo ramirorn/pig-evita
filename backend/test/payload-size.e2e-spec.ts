@@ -7,7 +7,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { InscriptionsController } from '../src/modules/inscriptions/inscriptions.controller';
-import { InscriptionsService } from '../src/modules/inscriptions/inscriptions.service';
+import { INSCRIPTION_PROVIDERS } from '../src/modules/inscriptions/inscriptions.providers';
 import { PrismaService } from '../src/database/prisma.service';
 import { ScopeService } from '../src/common/scope';
 import { TransformInterceptor } from '../src/common/interceptors';
@@ -131,7 +131,7 @@ describe('Payload de GET /inscriptions (e2e)', () => {
       providers: [
         // R05 — los services acotados por territorio inyectan ScopeService.
         ScopeService,
-        InscriptionsService,
+        ...INSCRIPTION_PROVIDERS,
         {
           provide: PrismaService,
           useValue: {
