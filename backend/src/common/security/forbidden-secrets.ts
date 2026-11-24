@@ -70,7 +70,7 @@ export function buildForbiddenSecretMessage(
 ): string {
   return (
     `${envVar} contiene un valor por defecto ("${pattern}"). ` +
-    'Generá uno propio: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'base64url\'))"'
+    "Generá uno propio: node -e \"console.log(require('crypto').randomBytes(64).toString('base64url'))\""
   );
 }
 

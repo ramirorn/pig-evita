@@ -67,7 +67,9 @@ describe('@IsDni()', () => {
     it.each([...ACEPTADOS.map((v) => [v, v] as const), ...RECHAZADOS])(
       'produce los mismos mensajes que el inline para %s',
       (_caso, valor) => {
-        expect(mensajes(ConIsDni, valor)).toEqual(mensajes(LegacyInline, valor));
+        expect(mensajes(ConIsDni, valor)).toEqual(
+          mensajes(LegacyInline, valor),
+        );
       },
     );
   });

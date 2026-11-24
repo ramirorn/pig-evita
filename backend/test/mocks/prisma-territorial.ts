@@ -64,14 +64,22 @@ export function coincide(fila: any, where: Where): boolean {
   return Object.entries(where).every(([clave, valor]) => {
     if (valor === undefined) return true;
     if (clave === 'AND')
-      return ([] as Where[]).concat(valor as Where[]).every((w) => coincide(fila, w));
+      return ([] as Where[])
+        .concat(valor as Where[])
+        .every((w) => coincide(fila, w));
     if (clave === 'OR')
-      return ([] as Where[]).concat(valor as Where[]).some((w) => coincide(fila, w));
+      return ([] as Where[])
+        .concat(valor as Where[])
+        .some((w) => coincide(fila, w));
     if (clave === 'NOT') return !coincide(fila, valor as Where);
 
     const campo = fila?.[clave];
 
-    if (valor !== null && typeof valor === 'object' && !(valor instanceof Date)) {
+    if (
+      valor !== null &&
+      typeof valor === 'object' &&
+      !(valor instanceof Date)
+    ) {
       if ('equals' in valor) return igual(campo, valor.equals, valor.mode);
       if ('in' in valor)
         return (valor.in as unknown[]).some((v) => igual(campo, v, valor.mode));
@@ -127,7 +135,9 @@ export function tabla<T extends Record<string, any>>(
     findUnique: jest.fn((args: any = {}) =>
       Promise.resolve(proyectar(buscar(args.where)[0] ?? null, args, modelo)),
     ),
-    count: jest.fn((args: any = {}) => Promise.resolve(buscar(args.where).length)),
+    count: jest.fn((args: any = {}) =>
+      Promise.resolve(buscar(args.where).length),
+    ),
 
     /**
      * `groupBy` real: agrupa sobre las filas que pasan el `where`. Devolver una
@@ -162,7 +172,11 @@ export function tabla<T extends Record<string, any>>(
           return Promise.reject(
             new Prisma.PrismaClientKnownRequestError(
               `Unique constraint failed on the fields: (\`${campo}\`)`,
-              { code: 'P2002', clientVersion: 'test', meta: { target: [campo] } },
+              {
+                code: 'P2002',
+                clientVersion: 'test',
+                meta: { target: [campo] },
+              },
             ),
           );
         }

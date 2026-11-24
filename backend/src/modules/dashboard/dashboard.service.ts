@@ -100,7 +100,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       .map((d) => d.trim().toLowerCase())
       .sort()
       .join('|');
-    const huella = createHash('sha1').update(canonico).digest('hex').slice(0, 16);
+    const huella = createHash('sha1')
+      .update(canonico)
+      .digest('hex')
+      .slice(0, 16);
 
     return `${this.PREFIJO_CACHE}:deps:${alcance.departamentos.length}:${huella}`;
   }
