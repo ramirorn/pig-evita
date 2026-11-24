@@ -7,10 +7,19 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { AgeCriterion, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateCategoryDto, UpdateCategoryDto, CategoryFilterDto } from './dto';
 import { buildPaginatedResponse } from '../../common/dto';
+
+/** Los cuatro campos del rango, ya resueltos para el criterio elegido. */
+interface RangoNormalizado {
+  ageCriterion: AgeCriterion;
+  minAge: number | null;
+  maxAge: number | null;
+  minBirthYear: number | null;
+  maxBirthYear: number | null;
+}
 
 @Injectable()
 export class CategoriesService {
@@ -19,11 +28,7 @@ export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createDto: CreateCategoryDto) {
-    if (createDto.minAge > createDto.maxAge) {
-      throw new BadRequestException(
-        'La edad mínima no puede ser mayor a la edad máxima',
-      );
-    }
+    const rango = this.normalizarRango(createDto);
 
     // Verificar que la disciplina existe
     const discipline = await this.prisma.discipline.findUnique({
@@ -35,7 +40,7 @@ export class CategoriesService {
     }
 
     const category = await this.prisma.category.create({
-      data: createDto,
+      data: { ...createDto, ...rango },
     });
 
     this.logger.log(
@@ -96,14 +101,18 @@ export class CategoriesService {
   async update(id: string, updateDto: UpdateCategoryDto) {
     const category = await this.findOne(id);
 
-    const minAge = updateDto.minAge ?? category.minAge;
-    const maxAge = updateDto.maxAge ?? category.maxAge;
-
-    if (minAge > maxAge) {
-      throw new BadRequestException(
-        'La edad mínima no puede ser mayor a la edad máxima',
-      );
-    }
+    // Si el criterio cambia, el par del criterio anterior no sirve de base:
+    // la nueva elección tiene que traer su propio rango completo.
+    const ageCriterion = updateDto.ageCriterion ?? category.ageCriterion;
+    const base: Partial<RangoNormalizado> =
+      ageCriterion === category.ageCriterion ? category : {};
+    const rango = this.normalizarRango({
+      ageCriterion,
+      minAge: updateDto.minAge ?? base.minAge,
+      maxAge: updateDto.maxAge ?? base.maxAge,
+      minBirthYear: updateDto.minBirthYear ?? base.minBirthYear,
+      maxBirthYear: updateDto.maxBirthYear ?? base.maxBirthYear,
+    });
 
     if (updateDto.disciplineId) {
       const discipline = await this.prisma.discipline.findUnique({
@@ -116,7 +125,7 @@ export class CategoriesService {
 
     const updated = await this.prisma.category.update({
       where: { id },
-      data: updateDto,
+      data: { ...updateDto, ...rango },
       include: { discipline: true },
     });
 
@@ -161,5 +170,64 @@ export class CategoriesService {
 
     this.logger.log(`Category deleted: ${deleted.name}`);
     return deleted;
+  }
+
+  /**
+   * Resuelve el rango según el criterio: exige el par del criterio elegido,
+   * valida su orden y deja en NULL el del otro (el CHECK de la tabla lo exige).
+   */
+  private normalizarRango(input: {
+    ageCriterion?: AgeCriterion | null;
+    minAge?: number | null;
+    maxAge?: number | null;
+    minBirthYear?: number | null;
+    maxBirthYear?: number | null;
+  }): RangoNormalizado {
+    const ageCriterion = input.ageCriterion ?? AgeCriterion.AGE;
+
+    if (ageCriterion === AgeCriterion.BIRTH_YEAR) {
+      const { minBirthYear, maxBirthYear } = input;
+      if (minBirthYear == null || maxBirthYear == null) {
+        throw new BadRequestException(
+          'Indicá el año de nacimiento desde y hasta de la categoría',
+        );
+      }
+      if (minBirthYear > maxBirthYear) {
+        throw new BadRequestException(
+          'El año de nacimiento "desde" no puede ser posterior al "hasta"',
+        );
+      }
+      if (maxBirthYear > new Date().getFullYear()) {
+        throw new BadRequestException(
+          'El año de nacimiento no puede ser posterior al año actual',
+        );
+      }
+      return {
+        ageCriterion,
+        minAge: null,
+        maxAge: null,
+        minBirthYear,
+        maxBirthYear,
+      };
+    }
+
+    const { minAge, maxAge } = input;
+    if (minAge == null || maxAge == null) {
+      throw new BadRequestException(
+        'Indicá la edad mínima y máxima de la categoría',
+      );
+    }
+    if (minAge > maxAge) {
+      throw new BadRequestException(
+        'La edad mínima no puede ser mayor a la edad máxima',
+      );
+    }
+    return {
+      ageCriterion,
+      minAge,
+      maxAge,
+      minBirthYear: null,
+      maxBirthYear: null,
+    };
   }
 }

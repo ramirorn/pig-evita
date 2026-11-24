@@ -31,7 +31,7 @@ export function SurveyHero({ onAbrirEncuesta, encuestaHref }: SurveyCtaProps) {
           Juegos Evita Formoseños
         </span>
 
-        <h1 className="font-display mt-6 text-3xl leading-[1.15] font-extrabold tracking-tight text-white sm:text-4xl md:text-5xl">
+        <h1 className="type-display mt-6 text-white">
           Antes de competir,{' '}
           <span className="text-accent-500 italic">la cabeza</span> también
           entrena

@@ -82,10 +82,13 @@ export class DocumentsService {
       },
     });
 
+    // VULN-25: el id del participante, no su DNI.
     this.logger.log(
-      `Document ${type} uploaded for participant ${participant.dni}`,
+      `Document ${type} uploaded for participant ${participant.id}`,
     );
-    return document;
+    // VULN-10 / O-7: la clave interna del objeto no sale en la respuesta.
+    const { fileKey: _clave, ...publico } = document;
+    return publico;
   }
 
   async findByParticipant(participantId: string, alcance: Alcance) {
@@ -101,11 +104,12 @@ export class DocumentsService {
 
     // El bucket es privado: la única forma de acceder al archivo es una URL
     // pre-firmada de corta duración generada en cada consulta.
+    //
+    // O-7 — `fileKey` (la clave interna del objeto en MinIO) no sale en la
+    // respuesta: el cliente accede al archivo sólo por `presignedUrl`.
     return Promise.all(
-      documents.map(async (doc) => {
-        const presignedUrl = await this.minioService.getPresignedUrl(
-          doc.fileKey,
-        );
+      documents.map(async ({ fileKey, ...doc }) => {
+        const presignedUrl = await this.minioService.getPresignedUrl(fileKey);
         return { ...doc, presignedUrl };
       }),
     );
@@ -117,7 +121,10 @@ export class DocumentsService {
     reviewDto: ReviewDocumentDto,
     alcance: Alcance,
   ) {
-    if (reviewDto.status === DocumentStatus.RECHAZADO && !reviewDto.notes) {
+    // F-07 — el DTO ya recorta `notes`; el `trim()` acá cubre a quien llame al
+    // service sin pasar por el ValidationPipe.
+    const notes = reviewDto.notes?.trim() || undefined;
+    if (reviewDto.status === DocumentStatus.RECHAZADO && !notes) {
       throw new BadRequestException(
         'Debe incluir observaciones si rechaza el documento',
       );
@@ -136,7 +143,7 @@ export class DocumentsService {
       where: { id },
       data: {
         status: reviewDto.status,
-        rejectionNote: reviewDto.notes,
+        rejectionNote: notes,
         reviewedById: userId,
         reviewedAt: new Date(),
       },

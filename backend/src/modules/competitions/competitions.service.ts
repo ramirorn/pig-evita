@@ -8,7 +8,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { InscriptionStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
   CreateCompetitionDto,
@@ -18,7 +18,7 @@ import {
   CAMPOS_ORDEN_COMPETITION,
 } from './dto';
 import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
-import { EngineFactory } from './engine.factory';
+import { EngineFactory, TipoDeCompetidor } from './engine.factory';
 import {
   COMPETITION_PUBLIC_DETAIL,
   MATCH_PUBLIC,
@@ -185,29 +185,91 @@ export class CompetitionsService {
     // escribiendo un `teamId` que apuntaba a un participante y explotaba con un
     // 500. Verificado en vivo antes de arreglarlo.
     const esPorEquipos = Boolean(generateDto.teamIds?.length);
-    const ids = esPorEquipos
-      ? generateDto.teamIds
-      : generateDto.participantIds;
+    const ids = esPorEquipos ? generateDto.teamIds : generateDto.participantIds;
     if (!ids || ids.length < 2) {
       throw new BadRequestException(
         'Debe proveer al menos 2 IDs de equipos o participantes',
       );
     }
+    const tipo: TipoDeCompetidor = esPorEquipos ? 'team' : 'participant';
+
+    // F-13 — un id repetido armaba un partido de alguien contra sí mismo y
+    // terminaba en un 500 por la unique de `Result`.
+    const repetidos = ids.filter((valor, i) => ids.indexOf(valor) !== i);
+    if (repetidos.length > 0) {
+      throw new BadRequestException(
+        `Hay competidores repetidos en el fixture: ${[...new Set(repetidos)].join(', ')}`,
+      );
+    }
+
+    // F-09 / CA-C1.3 — sólo entra quien tiene la inscripción APROBADA en la
+    // categoría de la competencia. Cubre también el id inexistente (F-13), que
+    // antes llegaba hasta la foreign key y respondía 500.
+    await this.verificarAdmitidos(competition.categoryId, ids, tipo);
 
     const engine = this.engineFactory.getEngine(competition.format);
-    await engine.generateFixture(
-      competition,
-      ids,
-      esPorEquipos ? 'team' : 'participant',
-    );
 
-    // Cambiar estado a ACTIVA
-    await this.prisma.competition.update({
-      where: { id },
-      data: { status: 'ACTIVA' },
-    });
+    // F-13 — todo o nada: si un insert falla a mitad de camino, no queda un
+    // fixture a medias que después bloquee el reintento con un 409.
+    await this.prisma.$transaction(
+      async (tx) => {
+        await engine.generateFixture(competition, ids, tipo, tx);
+        await tx.competition.update({
+          where: { id },
+          data: { status: 'ACTIVA' },
+        });
+      },
+      // Un round robin grande son cientos de inserts secuenciales; el default
+      // de 5 s de Prisma cortaría la transacción en medio.
+      { timeout: 60_000 },
+    );
 
     this.logger.log(`Fixture generated for competition ${id}`);
     return this.findOne(id); // Devolver la competencia con sus partidos
+  }
+
+  /**
+   * Rechaza con 400 a todo competidor sin inscripción APROBADA en la categoría.
+   *
+   * Un equipo cuenta como admitido cuando está activo y tiene al menos una
+   * inscripción APROBADA en la categoría: las inscripciones de un plantel son
+   * por integrante, y quien no fue aprobado simplemente no juega.
+   */
+  private async verificarAdmitidos(
+    categoryId: string,
+    ids: string[],
+    tipo: TipoDeCompetidor,
+  ) {
+    const admitidos = new Set<string | null>(
+      tipo === 'team'
+        ? (
+            await this.prisma.inscription.findMany({
+              where: {
+                teamId: { in: ids },
+                categoryId,
+                status: InscriptionStatus.APROBADA,
+                team: { isActive: true },
+              },
+              select: { teamId: true },
+            })
+          ).map((a) => a.teamId)
+        : (
+            await this.prisma.inscription.findMany({
+              where: {
+                participantId: { in: ids },
+                categoryId,
+                status: InscriptionStatus.APROBADA,
+              },
+              select: { participantId: true },
+            })
+          ).map((a) => a.participantId),
+    );
+    const faltan = ids.filter((valor) => !admitidos.has(valor));
+    if (faltan.length > 0) {
+      const quien = tipo === 'team' ? 'equipos' : 'participantes';
+      throw new BadRequestException(
+        `Sólo pueden entrar al fixture ${quien} con inscripción APROBADA en la categoría de la competencia. Sin inscripción aprobada: ${faltan.join(', ')}`,
+      );
+    }
   }
 }

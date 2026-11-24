@@ -70,7 +70,7 @@ export function CalendarAgenda({
             {/* top-16: debajo de la barra del sitio (h-16, z-50). */}
             <h3
               id={id}
-              className="sticky top-16 z-10 mb-3 border-b-2 border-primary-200 bg-surface/95 py-2.5 font-display text-base font-bold text-primary-800 backdrop-blur"
+              className="sticky top-16 z-10 mb-3 border-b-2 border-primary-200 bg-surface/95 py-2.5 type-h3 text-primary-800 backdrop-blur"
             >
               {mes.titulo}
             </h3>
@@ -98,7 +98,8 @@ export function CalendarAgenda({
 }
 
 /** Base de los chips: clases completas, nunca armadas. */
-const CHIP = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5';
+const CHIP =
+  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5 tabular-nums';
 
 /**
  * Una tarjeta. **No es interactiva** (no hay página de detalle ni enlace a la
@@ -150,7 +151,7 @@ function TarjetaDeEvento({
           <span aria-hidden="true" className="text-xs font-semibold text-primary-200">
             {diaDeSemanaCorto(inicio)}
           </span>
-          <span aria-hidden="true" className="font-display text-3xl font-black leading-none">
+          <span aria-hidden="true" className="font-display text-3xl font-black leading-none tabular-nums">
             {inicio.getDate()}
           </span>
           <span aria-hidden="true" className="text-xs font-semibold text-primary-100">
@@ -185,14 +186,14 @@ function TarjetaDeEvento({
           </div>
         )}
 
-        <p className="break-words text-base font-bold leading-snug text-primary-900">{evento.title}</p>
+        <p className="type-h3 break-words text-primary-900">{evento.title}</p>
 
         {hayMeta && (
           <ul className="flex flex-col gap-1 text-sm text-primary-600">
             {fechaValida && (
               <li className="flex items-start gap-2">
                 <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary-500" aria-hidden="true" />
-                <span className="min-w-0 break-words">
+                <span className="min-w-0 break-words tabular-nums">
                   <time dateTime={evento.startDate}>{horaCorta(inicio)} hs</time>
                 </span>
               </li>

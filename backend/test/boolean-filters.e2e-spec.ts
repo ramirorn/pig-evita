@@ -34,6 +34,7 @@ import { DisciplinesController } from '../src/modules/disciplines/disciplines.co
 import { DisciplinesService } from '../src/modules/disciplines/disciplines.service';
 import { VenuesController } from '../src/modules/venues/venues.controller';
 import { VenuesService } from '../src/modules/venues/venues.service';
+import { ScopeService } from '../src/common/scope';
 import { PrismaService } from '../src/database/prisma.service';
 
 import { DisciplineFilterDto } from '../src/modules/disciplines/dto';
@@ -175,6 +176,8 @@ describe('Filtros booleanos sobre endpoints reales (R10)', () => {
       providers: [
         DisciplinesService,
         VenuesService,
+        // VULN-08: los controllers de sedes calculan el alcance del usuario.
+        ScopeService,
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();

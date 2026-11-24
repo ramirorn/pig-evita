@@ -29,9 +29,9 @@ export const REPORT_CARDS: ReportCardConfig[] = [
     description:
       'Listado completo de deportistas registrados con DNI, datos de contacto, localidad, departamento y categorías asociadas.',
     icon: Users,
-    accentColor: 'text-blue-600',
+    accentColor: 'text-primary-600',
     borderColor: 'border-t-blue-500',
-    badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+    badgeColor: 'bg-celeste-50 text-primary-700 border-celeste-200',
     baseFilename: 'padron_participantes',
   },
   {
@@ -40,9 +40,9 @@ export const REPORT_CARDS: ReportCardConfig[] = [
     description:
       'Reporte detallado de todas las inscripciones individuales y de equipos con estado (Aprobada/Pendiente), código QR y fechas.',
     icon: FileSpreadsheet,
-    accentColor: 'text-purple-600',
+    accentColor: 'text-celeste-700',
     borderColor: 'border-t-purple-500',
-    badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
+    badgeColor: 'bg-celeste-100 text-celeste-700 border-celeste-300',
     baseFilename: 'inscripciones',
   },
   {
@@ -51,9 +51,9 @@ export const REPORT_CARDS: ReportCardConfig[] = [
     description:
       'Listado de equipos registrados por disciplina y categoría, localidad, departamento y cantidad total de integrantes.',
     icon: FileSpreadsheet,
-    accentColor: 'text-emerald-600',
+    accentColor: 'text-success-600',
     borderColor: 'border-t-emerald-500',
-    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    badgeColor: 'bg-success-50 text-success-700 border-success-200',
     baseFilename: 'equipos',
   },
   {
@@ -62,9 +62,9 @@ export const REPORT_CARDS: ReportCardConfig[] = [
     description:
       'Historial de competencias, fixture por rondas, enfrentamientos, tanteadores y ganadores con sede asignada.',
     icon: Trophy,
-    accentColor: 'text-amber-600',
+    accentColor: 'text-warning-600',
     borderColor: 'border-t-amber-500',
-    badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
+    badgeColor: 'bg-warning-50 text-warning-700 border-warning-200',
     baseFilename: 'resultados_fixture',
   },
 ];

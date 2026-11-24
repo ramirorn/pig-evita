@@ -3,6 +3,7 @@
 // ===========================================
 import { HomeHero } from './home/HomeHero';
 import { LatestNewsSection } from './home/LatestNewsSection';
+import { HomeNowSection } from './home/HomeNowSection';
 import { QuickLinksSection } from './home/QuickLinksSection';
 import { HomeCtaSection } from './home/HomeCtaSection';
 
@@ -23,7 +24,10 @@ export function HomePage() {
           en el medio rompe el solapamiento. */}
       <LatestNewsSection />
 
-      {/* Quick Links Grid */}
+      {/* Lo que viene: próximos eventos y puerta al mapa. */}
+      <HomeNowSection />
+
+      {/* Explorar el resto del sitio. */}
       <QuickLinksSection />
 
       {/* CTA */}

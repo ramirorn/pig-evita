@@ -27,10 +27,6 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { SurveyController } from '../src/modules/survey/survey.controller';
 import { SurveyService } from '../src/modules/survey/survey.service';
-import {
-  MOTIVO_SUPRESION,
-  UMBRAL_K_ANONIMATO,
-} from '../src/modules/survey/survey.constants';
 import { PrismaService } from '../src/database/prisma.service';
 
 const CAMPAIGN_ID = '11111111-1111-4111-8111-111111111111';
@@ -167,6 +163,7 @@ describe('Encuesta psicológica (e2e)', () => {
           Promise.resolve(where.id === CAMPAIGN_ID ? CAMPAÑA : null),
         ),
         findMany: jest.fn(() => Promise.resolve([CAMPAÑA])),
+        count: jest.fn(() => Promise.resolve(1)),
       },
       surveyResponse: {
         create: jest.fn(({ data }: { data: Record<string, any> }) => {
@@ -393,57 +390,43 @@ describe('Encuesta psicológica (e2e)', () => {
   // -------------------------------------------------
   // 4. k-anonimato
   // -------------------------------------------------
-  describe('k-anonimato en las métricas', () => {
-    const metrics = (query = '') =>
-      request(app.getHttpServer()).get(
-        `/survey/campaigns/${CAMPAIGN_ID}/metrics${query}`,
-      );
+  // -------------------------------------------------
+  // Los números de la encuesta viven sólo en Métricas
+  // -------------------------------------------------
+  describe('sin conteos fuera de Métricas', () => {
+    const http = () => request(app.getHttpServer());
 
-    it('un corte con menos de UMBRAL_K_ANONIMATO respuestas no devuelve desglose', async () => {
-      // El zonal tiene 2 respuestas cargadas.
-      const res = await metrics('?etapa=ZONAL').expect(200);
-
-      expect(res.body.totalRespuestas).toBeLessThan(UMBRAL_K_ANONIMATO);
-      expect(res.body.suprimido).toBe(true);
-      expect(res.body.motivo).toBe(MOTIVO_SUPRESION);
-      expect(res.body.preguntas).toEqual([]);
-
-      // Y no se filtra ningún conteo por ningún otro camino.
-      expect(JSON.stringify(res.body)).not.toContain(OPT_TODOS_SI);
+    it('ya no existen el panel "Qué contestaron" ni "Quiénes contestaron"', async () => {
+      await http().get(`/survey/campaigns/${CAMPAIGN_ID}/metrics`).expect(404);
+      await http().get(`/survey/campaigns/${CAMPAIGN_ID}/flow`).expect(404);
     });
 
-    it('un corte con suficientes respuestas sí devuelve el desglose', async () => {
-      const res = await metrics('?etapa=PROVINCIAL').expect(200);
-
-      expect(res.body.totalRespuestas).toBe(6);
-      expect(res.body.suprimido).toBe(false);
-      expect(res.body.motivo).toBeNull();
-
-      const pregunta = res.body.preguntas.find(
-        (p: { questionId: string }) => p.questionId === Q_TODOS,
+    it('el detalle dice si hay respuestas y cuáles opciones se eligieron, sin el conteo exacto', async () => {
+      // 8 respuestas cargadas: se informan de a 5.
+      const res = await http()
+        .get(`/survey/campaigns/${CAMPAIGN_ID}`)
+        .expect(200);
+      expect(res.body.tieneRespuestas).toBe(true);
+      expect(res.body._count.responses).toBe(5);
+      expect(res.body.opcionesElegidas).toEqual(
+        expect.arrayContaining([OPT_TODOS_SI]),
       );
-      const si = pregunta.opciones.find(
-        (o: { valor: string }) => o.valor === 'si',
-      );
-
-      expect(si.conteo).toBe(4);
-      expect(si.porcentaje).toBeCloseTo(66.7, 1);
+      expect(JSON.stringify(res.body)).not.toMatch(/"responses":8/);
     });
 
-    it('el umbral viaja en la respuesta para que la UI pueda explicarlo', async () => {
-      const res = await metrics().expect(200);
-      expect(res.body.umbral).toBe(UMBRAL_K_ANONIMATO);
+    it('el listado tampoco publica el conteo exacto', async () => {
+      const res = await http().get('/survey/campaigns').expect(200);
+      const [fila] = res.body.items;
+      expect(fila.tieneRespuestas).toBe(true);
+      expect(fila._count.responses).toBe(5);
     });
 
-    it('el cruce disciplina + localidad + etapa tampoco esquiva el umbral', async () => {
-      // Es el cruce que reidentifica: pocos chicos de una disciplina en una
-      // localidad chica, en una etapa.
-      const res = await metrics(
-        `?etapa=ZONAL&disciplineId=${DISCIPLINA_INDIVIDUAL}&localityId=${LOCALIDAD}`,
-      ).expect(200);
-
-      expect(res.body.suprimido).toBe(true);
-      expect(res.body.preguntas).toEqual([]);
+    it('el aviso al borrar una campaña con respuestas no dice cuántas son', async () => {
+      const res = await http()
+        .delete(`/survey/campaigns/${CAMPAIGN_ID}`)
+        .expect(409);
+      expect(JSON.stringify(res.body)).not.toMatch(/\b8\b/);
+      expect(JSON.stringify(res.body)).toContain('ya tiene respuestas');
     });
   });
 });

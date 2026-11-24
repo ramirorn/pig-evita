@@ -3,12 +3,14 @@
 // ===========================================
 import {
   Injectable,
+  BadRequestException,
   ConflictException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { Prisma } from '@prisma/client';
+import { Role } from '../../common/constants';
 import { PrismaService } from '../../database/prisma.service';
 import {
   CreateUserDto,
@@ -17,6 +19,7 @@ import {
   CAMPOS_ORDEN_USER,
 } from './dto';
 import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
+import { RevocacionSesionesService } from '../auth/session-revocation.service';
 
 // Campos a excluir de las respuestas
 const userSelect = {
@@ -37,7 +40,10 @@ const userSelect = {
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly revocacion: RevocacionSesionesService,
+  ) {}
 
   /**
    * Crear un nuevo usuario administrativo.
@@ -66,7 +72,8 @@ export class UsersService {
       select: userSelect,
     });
 
-    this.logger.log(`User created: ${user.email} (${user.role})`);
+    // Sin el email: el log de aplicación no es lugar para datos personales (VULN-25).
+    this.logger.log(`User created: ${user.id} (${user.role})`);
     return user;
   }
 
@@ -139,11 +146,51 @@ export class UsersService {
   }
 
   /**
+   * F-19 — si el usuario es el último SUPER_ADMIN activo, no se lo puede dar
+   * de baja ni bajarle el rol: nadie más podría gestionar usuarios.
+   */
+  private async impedirQuedarSinSuperAdmin(usuario: {
+    id: string;
+    role: string;
+    isActive: boolean;
+  }) {
+    if (usuario.role !== String(Role.SUPER_ADMIN) || !usuario.isActive) return;
+
+    const otros = await this.prisma.user.count({
+      where: {
+        role: Role.SUPER_ADMIN,
+        isActive: true,
+        NOT: { id: usuario.id },
+      },
+    });
+    if (otros === 0) {
+      throw new BadRequestException(
+        'Es el último SUPER_ADMIN activo: no se lo puede desactivar ni quitarle el rol.',
+      );
+    }
+  }
+
+  /**
    * Actualizar un usuario.
    */
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto, actorId?: string) {
     // Verificar que existe
-    await this.findOne(id);
+    const actual = await this.findOne(id);
+
+    // F-19 — desactivarse o quitarse el rol uno mismo, o dejar al sistema sin
+    // ningún SUPER_ADMIN activo, deja la plataforma sin quien la administre.
+    const seDesactiva = updateUserDto.isActive === false;
+    const pierdeSuperAdmin =
+      updateUserDto.role !== undefined &&
+      updateUserDto.role !== Role.SUPER_ADMIN;
+    if (seDesactiva || pierdeSuperAdmin) {
+      if (actorId && actorId === id) {
+        throw new BadRequestException(
+          'No podés desactivar tu propia cuenta ni quitarte el rol: pedíselo a otro administrador.',
+        );
+      }
+      await this.impedirQuedarSinSuperAdmin(actual);
+    }
 
     const { password, email, ...rest } = updateUserDto;
     const data: Prisma.UserUpdateInput = { ...rest };
@@ -169,26 +216,53 @@ export class UsersService {
       data.passwordHash = await argon2.hash(password);
     }
 
+    // VULN-05 — contraseña, rol, alcance o estado distintos de los actuales
+    // cierran todas las sesiones del usuario: se borra su refresh token y los
+    // access tokens ya emitidos dejan de valer. El formulario manda rol,
+    // departamento y estado siempre; si no cambian, no se revoca nada.
+    const cambia = (campo: 'role' | 'department' | 'zone' | 'isActive') =>
+      updateUserDto[campo] !== undefined &&
+      updateUserDto[campo] !== actual[campo];
+    const revocar =
+      Boolean(password) ||
+      cambia('role') ||
+      cambia('department') ||
+      cambia('zone') ||
+      cambia('isActive');
+    if (revocar) data.refreshToken = null;
+
     const user = await this.prisma.user.update({
       where: { id },
       data,
       select: userSelect,
     });
 
-    this.logger.log(`User updated: ${user.email}`);
+    if (revocar) await this.revocacion.revocar(id);
+
+    this.logger.log(`User updated: ${user.id}`);
     return user;
   }
 
   /**
    * Eliminar un usuario (soft delete: desactivar).
    */
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, actorId?: string) {
+    const actual = await this.findOne(id);
+
+    // F-19 — mismas guardas que la desactivación por PATCH.
+    if (actorId && actorId === id) {
+      throw new BadRequestException(
+        'No podés eliminar tu propia cuenta: pedíselo a otro administrador.',
+      );
+    }
+    await this.impedirQuedarSinSuperAdmin(actual);
 
     await this.prisma.user.update({
       where: { id },
       data: { isActive: false, refreshToken: null },
     });
+    // VULN-05 — los access tokens que ya tenía tampoco valen más.
+    await this.revocacion.revocar(id);
 
     this.logger.log(`User deactivated: ${id}`);
     return { message: 'Usuario desactivado exitosamente' };

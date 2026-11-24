@@ -27,6 +27,7 @@ import { Readable } from 'node:stream';
 import request from 'supertest';
 import { App } from 'supertest/types';
 
+import { buildHelmetMiddleware } from '../src/security';
 import { NewsController } from '../src/modules/news/news.controller';
 import { NewsService } from '../src/modules/news/news.service';
 import { NewsImagesController } from '../src/modules/news/news-images.controller';
@@ -304,6 +305,9 @@ describe('Imagen de noticia (e2e)', () => {
         transformOptions: { enableImplicitConversion: true },
       }),
     );
+    // Helmet real, como en `bootstrap()`: la imagen publicada tiene que pisar
+    // su CORP `same-site` global con `cross-origin` (S9).
+    app.use(buildHelmetMiddleware('production'));
     jwt = moduleFixture.get(JwtService);
     await app.init();
   });
@@ -582,6 +586,23 @@ describe('Imagen de noticia (e2e)', () => {
     );
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(Buffer.compare(res.body as Buffer, WEBP)).toBe(0);
+  });
+
+  it('la imagen publicada se puede mostrar desde otro origen (CORP cross-origin)', async () => {
+    const subida = await subir(WEBP, 'f.webp', 'image/webp').expect(201);
+    const res = await pedirImagen(subida.body.data.imageUrl).expect(200);
+    expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
+  });
+
+  it('la imagen de un borrador conserva el CORP same-site global', async () => {
+    const subida = await subir(JPEG, 'f.jpg', 'image/jpeg', BORRADOR_ID).expect(
+      201,
+    );
+    const res = await pedirImagen(subida.body.data.imageUrl)
+      .set('Authorization', ADMIN())
+      .expect(200);
+    // Es contenido no publicado: no se habilita para que otro sitio lo incruste.
+    expect(res.headers['cross-origin-resource-policy']).toBe('same-site');
   });
 
   it('la imagen de un borrador no se ve sin sesión (404)', async () => {

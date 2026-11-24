@@ -1,8 +1,8 @@
 // ===========================================
 // Survey Campaign Page — editor y tablero de una campaña (S20)
 // ===========================================
-import { useMemo, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useState, type ReactNode } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 import {
   BarChart3,
   CalendarRange,
@@ -15,15 +15,12 @@ import {
   Pencil,
   Send,
   Users,
-  Waypoints,
 } from 'lucide-react';
 
 import {
   useCloseSurveyCampaign,
   usePublishSurveyCampaign,
   useSurveyCampaign,
-  useSurveyFlow,
-  useSurveyMetrics,
 } from '@/hooks/useSurvey';
 import { usePermisos } from '@/hooks/usePermisos';
 import {
@@ -32,19 +29,19 @@ import {
   SURVEY_WINDOW_LABELS,
 } from '@/lib/constants';
 import { logError } from '@/lib/logger';
+import { formatDate } from '@/lib/utils';
+import { DetailLoading, DetailNotFound } from './components/DetailState';
 import { SurveyCampaignStatus } from '@/types';
 import {
   SURVEY_STATUS_AYUDA,
   puedeCerrarCampania,
   puedePublicarCampania,
   requisitosPublicacion,
-  respuestasDe,
+  textoRespuestas,
 } from './survey/surveyRules';
 import { SurveyCampaignStatusBadge } from './survey/SurveyCampaignStatusBadge';
 import { SurveyCampaignForm } from './survey/SurveyCampaignForm';
 import { SurveyQuestionsEditor } from './survey/SurveyQuestionsEditor';
-import { SurveyMetricsPanel } from './survey/SurveyMetricsPanel';
-import { SurveyFlowPanel } from './survey/SurveyFlowPanel';
 
 import { Breadcrumbs } from '@/components/shared/Breadcrumbs';
 import { Button } from '@/components/ui/button';
@@ -56,13 +53,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-/** Fecha del backend en el formato que se lee en Formosa. */
+/** Fecha del backend (dd/mm/aaaa); sin fecha o inválida, `null` para omitir el dato. */
 function fechaCorta(iso?: string | null): string | null {
-  if (!iso) return null;
-  const fecha = new Date(iso);
-  return Number.isNaN(fecha.getTime()) ? null : fecha.toLocaleDateString('es-AR');
+  const texto = formatDate(iso);
+  return texto === '—' ? null : texto;
 }
 
 export function SurveyCampaignPage() {
@@ -75,60 +70,26 @@ export function SurveyCampaignPage() {
 
   const { data: campaign, isLoading, isError } = useSurveyCampaign(id);
 
-  const flowQuery = useSurveyFlow(id);
-
-  /**
-   * Métricas **sin filtrar**, que la pantalla usa para dos cosas distintas:
-   * el tablero de la pestaña de resultados arma las suyas con sus filtros, y
-   * el editor necesita saber qué opciones ya fueron elegidas para decidir si
-   * el botón de borrar una opción va habilitado (el backend responde 409).
-   */
-  const metricsQuery = useSurveyMetrics(id);
-
-  /**
-   * `undefined` a propósito cuando el corte viene suprimido: ahí no se sabe
-   * si una opción fue elegida, y suponer que no lo fue ofrecería un botón de
-   * borrar que el backend rechaza. Ver `puedeEliminarOpcion`.
-   */
-  const conteos = useMemo(() => {
-    const metrics = metricsQuery.data;
-    if (!metrics || metrics.suprimido) return undefined;
-
-    const mapa = new Map<string, number>();
-    for (const pregunta of metrics.preguntas) {
-      for (const opcion of pregunta.opciones) {
-        mapa.set(opcion.optionId, opcion.conteo);
-      }
-    }
-    return mapa;
-  }, [metricsQuery.data]);
-
   const publishMutation = usePublishSurveyCampaign();
   const closeMutation = useCloseSurveyCampaign();
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-500" aria-hidden="true" />
-      </div>
-    );
-  }
+  if (isLoading) return <DetailLoading label="Cargando la encuesta…" />;
 
   if (isError || !campaign) {
     return (
-      <div className="py-12 text-center">
-        <h2 className="text-xl font-semibold text-primary-800">No encontramos esta encuesta</h2>
-        <Button variant="link" onClick={() => navigate(ROUTES.SURVEY_ADMIN)}>
-          Volver al listado
-        </Button>
-      </div>
+      <DetailNotFound
+        title="No pudimos cargar la encuesta"
+        hint="Puede que se haya eliminado, o que haya fallado la conexión. Volvé al listado y probá de nuevo."
+        backLabel="Volver a encuestas"
+        onBack={() => navigate(ROUTES.SURVEY_ADMIN)}
+      />
     );
   }
 
   const publicar = puedePublicarCampania(campaign);
   const cerrar = puedeCerrarCampania(campaign);
   const requisitos = requisitosPublicacion(campaign);
-  const respuestas = respuestasDe(campaign);
+  const respuestas = textoRespuestas(campaign);
   const gestiona = puede('SURVEY_MANAGE');
 
   const abre = fechaCorta(campaign.abreEn);
@@ -145,20 +106,20 @@ export function SurveyCampaignPage() {
   };
 
   return (
-    <div className="animate-fade-in max-w-5xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <Breadcrumbs
         items={[{ label: 'Encuesta', path: ROUTES.SURVEY_ADMIN }, { label: campaign.titulo }]}
       />
 
       {/* ---------- Encabezado ---------- */}
-      <div className="rounded-xl border border-primary-100 bg-white p-5">
+      <header className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700">
                 <HeartPulse className="h-4 w-4 text-white" aria-hidden="true" />
               </span>
-              <h1 className="text-xl font-bold text-primary-900">{campaign.titulo}</h1>
+              <h1 className="type-h1 text-primary-900">{campaign.titulo}</h1>
               <SurveyCampaignStatusBadge status={campaign.status} />
             </div>
             <p className="mt-2 text-sm text-primary-600">
@@ -167,13 +128,13 @@ export function SurveyCampaignPage() {
           </div>
 
           {gestiona && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center [&>button]:w-full sm:[&>button]:w-auto">
               <Button
                 variant="outline"
                 className="gap-2"
                 onClick={() => setEditandoDatos(true)}
               >
-                <Pencil className="h-4 w-4" />
+                <Pencil className="h-4 w-4" aria-hidden="true" />
                 Editar datos
               </Button>
 
@@ -188,9 +149,9 @@ export function SurveyCampaignPage() {
                 onClick={() => setConfirmando('publicar')}
               >
                 {publishMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : (
-                  <Send className="h-4 w-4" />
+                  <Send className="h-4 w-4" aria-hidden="true" />
                 )}
                 Publicar
               </Button>
@@ -202,7 +163,7 @@ export function SurveyCampaignPage() {
                 title={cerrar.motivo}
                 onClick={() => setConfirmando('cerrar')}
               >
-                <Lock className="h-4 w-4" />
+                <Lock className="h-4 w-4" aria-hidden="true" />
                 Cerrar
               </Button>
             </div>
@@ -218,7 +179,7 @@ export function SurveyCampaignPage() {
           />
           <Dato
             etiqueta="Respuestas"
-            valor={respuestas.toLocaleString('es-AR')}
+            valor={respuestas}
             icono={<Users className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />}
           />
           {/* El dato ausente se omite: sin fechas cargadas no se pinta una
@@ -243,19 +204,19 @@ export function SurveyCampaignPage() {
             {campaign.descripcion}
           </p>
         )}
-      </div>
+      </header>
 
       {/* ---------- Qué falta para publicar ---------- */}
       {gestiona && campaign.status !== SurveyCampaignStatus.CERRADA && publicar.permitido === false && !requisitos.listo && (
         <div className="rounded-xl border border-accent-300 bg-accent-50/70 p-4">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-accent-800">
+          <h2 className="type-h3 flex items-center gap-2 text-accent-800">
             <CircleAlert className="h-4 w-4" aria-hidden="true" />
             Para poder publicarla falta esto
           </h2>
           <ul className="mt-2 space-y-1.5">
             {requisitos.faltantes.map((falta) => (
               <li key={falta} className="flex items-start gap-2 text-sm text-primary-800">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" />
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500" aria-hidden="true" />
                 {falta}
               </li>
             ))}
@@ -270,40 +231,39 @@ export function SurveyCampaignPage() {
         </p>
       )}
 
-      {/* ---------- Cuestionario y tableros ---------- */}
-      <Tabs defaultValue="preguntas">
-        <TabsList>
-          <TabsTrigger value="preguntas" className="gap-1.5">
-            <MessageSquareText className="h-4 w-4" />
-            Preguntas
-          </TabsTrigger>
-          <TabsTrigger value="resultados" className="gap-1.5">
-            <BarChart3 className="h-4 w-4" />
-            Qué contestaron
-          </TabsTrigger>
-          <TabsTrigger value="participacion" className="gap-1.5">
-            <Waypoints className="h-4 w-4" />
-            Quiénes contestaron
-          </TabsTrigger>
-        </TabsList>
+      {/* ---------- Resultados: viven sólo en Métricas ---------- */}
+      {puede('METRICS_READ') && (
+        <section
+          aria-label="Resultados"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary-100 bg-primary-50/60 p-4"
+        >
+          <div className="min-w-0 flex-1 basis-72">
+            <h2 className="type-h3 flex items-center gap-2 text-primary-800">
+              <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              Qué contestaron y quiénes
+            </h2>
+            <p className="mt-1 text-sm text-primary-700">
+              Los resultados de la encuesta se ven en Métricas, con las protecciones que cuidan
+              el anonimato de los chicos.
+            </p>
+          </div>
+          <Button asChild variant="outline" className="shrink-0 gap-2">
+            <Link to={`${ROUTES.METRICS}?campania=${campaign.id}`}>
+              <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              Ver en Métricas
+            </Link>
+          </Button>
+        </section>
+      )}
 
-        <TabsContent value="preguntas" className="pt-4">
-          <SurveyQuestionsEditor campaign={campaign} conteos={conteos} />
-        </TabsContent>
-
-        <TabsContent value="resultados" className="pt-4">
-          <SurveyMetricsPanel campaignId={campaign.id} flow={flowQuery.data} />
-        </TabsContent>
-
-        <TabsContent value="participacion" className="pt-4">
-          <SurveyFlowPanel
-            flow={flowQuery.data}
-            isLoading={flowQuery.isLoading}
-            isError={flowQuery.isError}
-            onRetry={() => void flowQuery.refetch()}
-          />
-        </TabsContent>
-      </Tabs>
+      {/* ---------- Cuestionario ---------- */}
+      <section aria-label="Preguntas" className="space-y-3">
+        <h2 className="type-h3 flex items-center gap-2 text-primary-800">
+          <MessageSquareText className="h-4 w-4" aria-hidden="true" />
+          Preguntas
+        </h2>
+        <SurveyQuestionsEditor campaign={campaign} />
+      </section>
 
       {/* ---------- Editar los datos generales ---------- */}
       <Dialog open={editandoDatos} onOpenChange={setEditandoDatos}>
@@ -359,7 +319,7 @@ export function SurveyCampaignPage() {
               onClick={() => void confirmar()}
             >
               {(publishMutation.isPending || closeMutation.isPending) && (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               )}
               {confirmando === 'publicar' ? 'Sí, publicar' : 'Sí, cerrar'}
             </Button>
@@ -381,8 +341,8 @@ function Dato({
 }) {
   return (
     <div>
-      <dt className="text-xs font-medium text-primary-500">{etiqueta}</dt>
-      <dd className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold text-primary-900">
+      <dt className="text-xs font-medium text-primary-600">{etiqueta}</dt>
+      <dd className="mt-0.5 flex items-center gap-1.5 text-sm font-semibold tabular-nums text-primary-900">
         {icono}
         {valor}
       </dd>

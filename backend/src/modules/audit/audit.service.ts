@@ -4,7 +4,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
-import { buildPaginatedResponse } from '../../common/dto';
+import {
+  buildPaginatedResponse,
+  finDelRango,
+  inicioDelRango,
+} from '../../common/dto';
 import { AuditFilterDto } from './dto';
 import { sanitizeAuditChanges } from './audit-sanitizer';
 
@@ -91,10 +95,11 @@ export class AuditService {
     if (query.fromDate || query.toDate) {
       where.createdAt = {};
       if (query.fromDate) {
-        where.createdAt.gte = new Date(query.fromDate);
+        where.createdAt.gte = inicioDelRango(query.fromDate);
       }
+      // F-18 — `toDate=YYYY-MM-DD` incluye el día completo.
       if (query.toDate) {
-        where.createdAt.lte = new Date(query.toDate);
+        where.createdAt.lte = finDelRango(query.toDate);
       }
     }
 

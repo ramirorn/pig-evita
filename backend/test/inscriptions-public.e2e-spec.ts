@@ -80,7 +80,7 @@ describe('Inscriptions público — GET /inscriptions/qr/:qrCode (e2e)', () => {
     await app.close();
   });
 
-  it('devuelve nombre, apellido, disciplina, categoría y estado', async () => {
+  it('devuelve nombre, inicial del apellido, disciplina, categoría y estado', async () => {
     findUnique.mockResolvedValue(FULL_DB_ROW);
 
     const res = await request(app.getHttpServer())
@@ -91,9 +91,57 @@ describe('Inscriptions público — GET /inscriptions/qr/:qrCode (e2e)', () => {
       qrCode: 'EVITA-A1B2C3D4',
       status: 'APROBADA',
       createdAt: '2026-03-01T12:00:00.000Z',
-      participant: { firstName: 'Juan', lastName: 'Pérez' },
+      participant: { firstName: 'Juan', lastInitial: 'P.' },
       category: { name: 'Sub-14', discipline: { name: 'Fútbol' } },
     });
+  });
+
+  // VULN-32 — el código es la única llave de un endpoint sin token: quien lo
+  // adivina (o lo lee en una credencial impresa) no se lleva el apellido
+  // completo de un menor. La inicial alcanza para que la familia reconozca el
+  // trámite.
+  it('no devuelve el apellido completo del participante', async () => {
+    findUnique.mockResolvedValue(FULL_DB_ROW);
+
+    const res = await request(app.getHttpServer())
+      .get('/inscriptions/qr/EVITA-A1B2C3D4')
+      .expect(200);
+
+    expect(JSON.stringify(res.body)).not.toContain('Pérez');
+    expect(res.body.participant).not.toHaveProperty('lastName');
+  });
+
+  it('la inicial sale del primer apellido, en mayúscula', async () => {
+    findUnique.mockResolvedValue({
+      ...FULL_DB_ROW,
+      participant: { ...FULL_DB_ROW.participant, lastName: '  de la Fuente' },
+    });
+
+    const res = await request(app.getHttpServer())
+      .get('/inscriptions/qr/EVITA-A1B2C3D4')
+      .expect(200);
+
+    expect(res.body.participant).toEqual({
+      firstName: 'Juan',
+      lastInitial: 'D.',
+    });
+  });
+
+  // VULN-32 — los códigos nuevos son largos, los impresos siguen siendo de 8
+  // caracteres: la búsqueda es exacta por el código, sin asumir un formato.
+  it.each([
+    ['impreso antes del cambio', 'EVITA-A1B2C3D4'],
+    ['generado con 130 bits', 'EVITA-0123456789ABCDEFGHJKMNPQ'],
+  ])('busca el código %s tal cual llega', async (_etiqueta, codigo) => {
+    findUnique.mockResolvedValue({ ...FULL_DB_ROW, qrCode: codigo });
+
+    const res = await request(app.getHttpServer())
+      .get(`/inscriptions/qr/${codigo}`)
+      .expect(200);
+
+    expect(res.body.qrCode).toBe(codigo);
+    const [args] = findUnique.mock.calls[0] as [Record<string, any>];
+    expect(args.where).toEqual({ qrCode: codigo });
   });
 
   it('no expone PII aunque la fila de la DB la contenga', async () => {

@@ -43,6 +43,8 @@ import {
   SurveyLandingPage,
   SurveyFormPage,
   DashboardPage,
+  MetricsPage,
+  MetricsPresentationPage,
   ImpactMapAdminPage,
   ParticipantsPage,
   ParticipantDetailPage,
@@ -190,6 +192,15 @@ export const router = createBrowserRouter([
   // ============ AUTH ============
   { path: ROUTES.LOGIN, element: sinLayout(<LoginPage />), errorElement: <RouteErrorBoundary /> },
 
+  // ============ MÉTRICAS: MODO PRESENTACIÓN (pantalla completa) ============
+  // Fuera del AdminLayout a propósito: sin menú lateral para proyectarla. El
+  // control de acceso es el mismo que el de la pantalla de Métricas.
+  {
+    path: ROUTES.METRICS_PRESENT,
+    element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.METRICS_PRESENT], sinLayout(<MetricsPresentationPage />)),
+    errorElement: <RouteErrorBoundary />,
+  },
+
   // ============ ADMIN ROUTES (Protected) ============
   {
     // Primer filtro: ¿puede entrar al área admin? El permiso fino lo pone cada
@@ -206,6 +217,7 @@ export const router = createBrowserRouter([
     children: [
       { path: ROUTES.ADMIN, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.ADMIN], <DashboardPage />) },
       { path: ROUTES.DASHBOARD, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.DASHBOARD], <DashboardPage />) },
+      { path: ROUTES.METRICS, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.METRICS], <MetricsPage />) },
       { path: ROUTES.IMPACT_MAP_ADMIN, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.IMPACT_MAP_ADMIN], <ImpactMapAdminPage />) },
       { path: ROUTES.PARTICIPANTS, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.PARTICIPANTS], <ParticipantsPage />) },
       { path: ROUTES.PARTICIPANT_DETAIL, element: conRoles(ADMIN_ROUTE_ROLES[ROUTES.PARTICIPANT_DETAIL], <ParticipantDetailPage />) },

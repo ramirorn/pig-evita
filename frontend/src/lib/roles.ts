@@ -38,6 +38,17 @@ export const CATALOG_MANAGERS: UserRole[] = [
 ];
 
 /** `INSCRIPTION_REVIEWERS` / `INSCRIPTION_CREATORS` del backend. */
+/**
+ * Contenido provincial: competencias, noticias, calendario y encuesta (VULN-08,
+ * decisión del 23/11/2026). Una competencia no tiene territorio en el modelo,
+ * así que estas pantallas son de la línea provincial. Espejo de
+ * `COMPETITION_MANAGE`/`NEWS_MANAGE`/`CALENDAR_MANAGE`/`SURVEY_MANAGE`.
+ */
+export const PROVINCIAL_CONTENT_MANAGERS: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN_PROVINCIAL,
+];
+
 export const INSCRIPTION_MANAGERS: UserRole[] = [
   ...ADMIN_ROLES,
   UserRole.DELEGADO,
@@ -52,6 +63,15 @@ export const PARTICIPANT_MANAGERS: UserRole[] = [
 
 /** Carga de resultados: `@Roles(...ADMIN_ROLES, Role.ARBITRO)`. */
 export const RESULT_LOADERS: UserRole[] = [...ADMIN_ROLES, UserRole.ARBITRO];
+
+/**
+ * Corrección de un resultado ya FINALIZADO (CA-C3.4, F-11): sólo la cúpula.
+ * El backend responde 403 al resto; la pantalla no les ofrece el botón.
+ */
+export const RESULT_CORRECTORS: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN_PROVINCIAL,
+];
 
 /** Reportes: `@Roles(...ADMIN_ROLES, Role.DELEGADO)`. */
 export const REPORT_VIEWERS: UserRole[] = [...ADMIN_ROLES, UserRole.DELEGADO];

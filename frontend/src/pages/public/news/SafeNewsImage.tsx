@@ -1,17 +1,16 @@
 // ===========================================
 // SafeNewsImage — imagen de noticia con fallback visual
 // ===========================================
-import { useState } from "react";
 import { Newspaper } from "lucide-react";
 import { newsImageSrc } from "@/lib/news/newsImageRules";
+import { useImageRetry } from "@/lib/images/useImageRetry";
+import { cn } from "@/lib/utils";
 
 // Fallback visual elegante cuando no hay imagen o falla la carga
 function NewsImagePlaceholder({
-  title,
   isLarge = false,
   compacta = false,
 }: {
-  title: string;
   isLarge?: boolean;
   compacta?: boolean;
 }) {
@@ -26,23 +25,26 @@ function NewsImagePlaceholder({
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary-900 via-primary-800 to-celeste-900 p-6 text-center relative overflow-hidden select-none">
+    // En la diapositiva grande el titular de la nota ocupa la mitad de abajo:
+    // el cartel va arriba a la derecha (la izquierda es del chip de origen)
+    // para no quedar tapado por el título.
+    <div
+      className={cn(
+        'relative flex h-full w-full flex-col overflow-hidden bg-gradient-to-br from-primary-900 via-primary-800 to-celeste-900 text-center select-none',
+        isLarge ? 'items-end justify-start p-5 md:p-8' : 'items-center justify-center p-6',
+      )}
+    >
       {/* Patrón decorativo de fondo */}
       <div className="absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-celeste-400/10 blur-2xl pointer-events-none" />
       <div className="absolute -left-10 -top-10 w-48 h-48 rounded-full bg-accent-400/10 blur-2xl pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col items-center">
+      <div className={cn('relative z-10 flex flex-col', isLarge ? 'items-end' : 'items-center')}>
         <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/20 flex items-center justify-center mb-3 shadow-inner">
           <Newspaper className="w-7 h-7 text-celeste-300" aria-hidden="true" />
         </div>
-        <span className="text-white/80 font-bold uppercase tracking-wider text-[11px]">
+        <span className="type-eyebrow text-white/80">
           Juegos Evita Formosa
         </span>
-        {isLarge && (
-          <span className="text-white/60 text-xs mt-1 max-w-xs line-clamp-1 font-medium">
-            {title}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -68,21 +70,18 @@ export function SafeNewsImage({
   /** Miniatura: placeholder reducido a un icono. */
   compacta?: boolean;
 }) {
-  // Se guarda **qué** src falló, no un booleano (hallazgo R30): con un
-  // `hasError` suelto, reutilizar el componente con otra imagen sin
-  // desmontarlo seguía mostrando el placeholder de la anterior. Hoy no se
-  // dispara porque los padres keyean por `news.id`, pero deja de depender de
-  // eso el día que alguien agregue paginación o keyee por índice.
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-
   // Subida: ruta de la API, resuelta contra su origen. Externa: URL entera que
   // viene del backend, así que pasa por `safeImageSrc` (sólo `https:`).
   const safeSrc = newsImageSrc(imageUrl);
 
-  const hasError = failedSrc !== null && failedSrc === safeSrc;
+  // El estado de fallos se guarda por url, no como un booleano (hallazgo R30):
+  // reutilizar el componente con otra imagen sin desmontarlo empieza de cero.
+  // Antes del placeholder se reintenta una vez (S9).
+  const { mostrar, onError } = useImageRetry(safeSrc);
+  const hasError = !mostrar;
 
   if (!safeSrc || hasError) {
-    return <NewsImagePlaceholder title={alt} isLarge={isLarge} compacta={compacta} />;
+    return <NewsImagePlaceholder isLarge={isLarge} compacta={compacta} />;
   }
 
   return (
@@ -92,8 +91,8 @@ export function SafeNewsImage({
       loading={prioritaria ? 'eager' : 'lazy'}
       fetchPriority={prioritaria ? 'high' : 'auto'}
       decoding="async"
-      onError={() => setFailedSrc(safeSrc)}
-      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+      onError={onError}
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-320 ease-out-soft"
     />
   );
 }

@@ -1,7 +1,7 @@
 // ===========================================
 // App Module - Root Module
 // ===========================================
-import { Module } from '@nestjs/common';
+import { Module, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -29,6 +29,7 @@ import {
 } from './common/interceptors';
 import { RolesGuard } from './common/guards';
 import { ScopeModule } from './common/scope';
+import { CacheModule } from './common/cache';
 
 // Feature Modules
 import { HealthModule } from './modules/health/health.module';
@@ -51,10 +52,17 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ZonesModule } from './modules/zones/zones.module';
 import { SurveyModule } from './modules/survey/survey.module';
 import { StatsModule } from './modules/stats/stats.module';
+import { LocalitiesModule } from './modules/localities/localities.module';
+import { MetricsModule } from './modules/metrics/metrics.module';
 
 // Auth Guards
 import { JwtAuthGuard } from './modules/auth/guards';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
+import { urlParaLog } from './common/logging/url-para-log';
+
+// La función vive en `common/logging` para que el filtro global la use sin
+// importar este módulo; se reexporta acá por compatibilidad.
+export { urlParaLog };
 
 @Module({
   imports: [
@@ -74,6 +82,9 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
     // Logging (Pino)
     LoggerModule.forRoot({
+      // Sintaxis de path-to-regexp v8: el `*` por defecto de nestjs-pino hace
+      // que Nest avise "Unsupported route path" al arrancar (O-5).
+      forRoutes: [{ path: '{*path}', method: RequestMethod.ALL }],
       pinoHttp: {
         transport:
           process.env.NODE_ENV !== 'production'
@@ -83,7 +94,7 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
         serializers: {
           req: (req) => ({
             method: req.method,
-            url: req.url,
+            url: urlParaLog(req.url),
           }),
           res: (res) => ({
             statusCode: res.statusCode,
@@ -105,6 +116,7 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
     // Alcance territorial (R05): global, igual que DatabaseModule.
     ScopeModule,
+    CacheModule,
 
     // Feature Modules
     HealthModule,
@@ -127,6 +139,8 @@ import { AuditInterceptor } from './modules/audit/audit.interceptor';
     ZonesModule,
     SurveyModule,
     StatsModule,
+    LocalitiesModule,
+    MetricsModule,
   ],
   providers: [
     // Global Exception Filter

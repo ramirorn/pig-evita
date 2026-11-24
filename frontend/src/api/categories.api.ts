@@ -2,7 +2,7 @@
 // Categories API
 // ===========================================
 import apiClient from './client';
-import type { Category, PaginatedResponse } from '@/types';
+import type { AgeCriterion, Category, PaginatedResponse } from '@/types';
 
 export interface CategoryFilters {
   page?: number;
@@ -20,8 +20,12 @@ export interface CategoryFilters {
 export interface CreateCategoryPayload {
   disciplineId: string;
   name: string;
-  minAge: number;
-  maxAge: number;
+  ageCriterion: AgeCriterion;
+  /** El par del otro criterio viaja en `null`: el backend lo descarta igual. */
+  minAge: number | null;
+  maxAge: number | null;
+  minBirthYear: number | null;
+  maxBirthYear: number | null;
   sex: string;
   isActive?: boolean;
 }

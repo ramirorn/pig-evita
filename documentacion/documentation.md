@@ -480,6 +480,83 @@ Todos los endpoints de reportes soportan formato CSV (por defecto) y Excel (vía
 
 ---
 
+### 4.18 Localities
+
+| Método | Ruta | Descripción | Acceso |
+|---|---|---|---|
+| `GET` | `/localities` | Departamentos con sus localidades y la zona de cada una (`CAPITAL` = localidad Formosa; el resto `INTERIOR`). Cacheable. | Público |
+
+---
+
+### 4.19 Metrics (métricas de la encuesta)
+
+Lectura analítica sobre las respuestas de la encuesta. **Es el único lugar del sistema que publica números de la encuesta:** la pantalla de cada campaña (Encuestas) ya no tiene las pestañas "Qué contestaron" y "Quiénes contestaron" (se quitaron también `GET /survey/campaigns/:id/metrics` y `/flow`) y enlaza a Métricas con la campaña elegida. Fuera de Métricas, el listado y el detalle de campañas informan `tieneRespuestas` (sí/no) y `_count.responses` de a 5; el detalle agrega `opcionesElegidas` (qué opciones eligió alguien, sin cuántas veces) para que el editor no ofrezca borrar una opción con respuestas, y el aviso al borrar una campaña con respuestas no dice cuántas son.
+
+Todo corte con menos de `UMBRAL_K_ANONIMATO` (5) respuestas se devuelve suprimido (`conteo: null`). Además, ningún número se publica si permite despejar por resta un grupo chico:
+
+- los **totales** (`totalRespuestas` del resumen y del cruce) pasan por el mismo umbral: con menos de 5 se devuelven suprimidos;
+- en una tabla cruzada, una fila con menos de 5 respuestas oculta **todas** sus celdas, ceros incluidos (con el total de esa fila a mano, "No=0 | Atendido=0" despejaba la celda oculta); en una fila más grande, una celda no se publica si el resto de la fila queda entre 1 y 4;
+- una celda suprimida también suprime el total de su fila;
+- **supresión secundaria por masa:** en todo grupo de partes que suman un total que se conoce (las celdas de una fila de opción única, las filas de una dimensión que reparte a quienes contestaron, las zonas y las etapas del resumen, los días de la serie), lo oculto tiene que sumar 0, o al menos 5 **y** más que la cantidad de partes ocultas. Si suma de 1 a 4 se despejaría restando; y como los ceros se publican (y una fila o un día sólo existen con respuestas), cinco ocultas que suman 5 valen 1 cada una. Mientras pase eso se ocultan además las partes visibles más chicas; si ya no queda nada visible, se oculta también el total del cruce o la base del destacado. Por eso, con 2 respuestas de la capital y 5 del interior, el resumen oculta las dos zonas;
+- en un KPI, si `denominador − numerador` queda entre 1 y 4 (p. ej. 9 atendidos de 11 lesionados ⇒ 2 sin atención), el numerador y el valor no se publican;
+- en un destacado, cada opción pasa por el umbral, por el complemento contra la base y, en opción única, por la supresión por masa; lo oculto no entra al ranking (nunca hay una fila "Otras") y, con la base oculta, tampoco se informa cuántas opciones se ocultaron.
+
+Contra la resta **en el tiempo** y entre ventanas de fecha:
+
+- **publicación en tandas de 5:** cada corte (la combinación de filtros pedida) publica sólo sus respuestas más viejas en múltiplos de 5 (`publicarEnTandas`: por fecha de envío y, a igual fecha, por id). Con 7 respuestas se publican las 5 primeras; la 6.ª a la 9.ª no cambian nada y la 10.ª suma las cinco juntas. Entre dos lecturas, un corte cambia por 0 o por al menos 5 respuestas: quien ve a alguien contestar en la sede y recarga el panel no aísla su respuesta. El conteo de respuestas por campaña del catálogo también va de a 5. El costo: el panel "en vivo" se mueve de a 5 y hasta 4 respuestas por corte esperan a la tanda siguiente;
+- **fechas en días completos:** `desde`/`hasta` se redondean al día (UTC) y la hora que mande el cliente se descarta (`diaDelFiltro`); los filtros que se devuelven ya vienen como `YYYY-MM-DD`. Así, dos ventanas que difieren en minutos no aíslan las respuestas de esos minutos.
+
+Contra la resta **entre consultas con filtros distintos**:
+
+- **regla de coherencia:** un corte filtrado sólo se publica si, para cada filtro, su fila se publicaría en el cruce del corte sin ese filtro por esa dimensión (con el umbral y la supresión por masa de siempre), y ese corte sin el filtro también es coherente. Lo segundo evita que un filtro redundante destrabe un corte bloqueado (zona interior + una localidad del interior). Las fechas cuentan como dos filas, "dentro" y "fuera" del rango. Así, con 47 respuestas del interior y 3 de la capital, filtrar por interior no se publica (50 − 47 despejaría la capital); y si las localidades suman 10, 12 y 3 sin dato, la de 10 tampoco se publica filtrando (25 − 10 − 12 despejaría las 3). Si un corte no pasa la regla, se responde como un corte vacío: todo sale suprimido;
+- **tope de 2 filtros a la vez** (`desde` y `hasta` juntos cuentan como uno): con más, la API responde 400 "Se pueden combinar hasta 2 filtros a la vez, para cuidar el anonimato". La barra de filtros deshabilita el tercero y lo explica, y un enlace viejo con más filtros se abre con los dos primeros;
+- **registro de consultas:** cada lectura de `overview`, `cross`, `kpis` y `highlights` queda en la auditoría (`AuditLog`) con la acción `READ_METRICS`, el id de la campaña, el usuario, la IP y los filtros consultados en `changes`. La misma consulta del mismo usuario se registra una sola vez cada 10 minutos, para que el panel que refresca no inunde la tabla. Se habilita por endpoint con `@Audit({ action, lectura: true })`.
+
+Fuera de esta protección (riesgo residual):
+
+- con 2 filtros todavía se pueden combinar restas entre cortes cuyas filas pasan la regla por separado (inclusión-exclusión con dos dimensiones); el registro de consultas lo deja a la vista, no lo impide;
+- como cada corte corta sus tandas en un lugar distinto, combinar tres cortes de fecha ("todo", "hasta ayer" y "desde hoy") puede volver a aislar una respuesta cuando lo de los días anteriores no es múltiplo de 5; es de la misma familia que la resta entre filtros;
+- la versión de la campaña (`/version`, y el campo `version` de los resultados) sube con cada respuesta: revela cuándo alguien contestó y, sin Redis, es el conteo exacto de respuestas;
+
+Se acepta publicar un corte de 5 o más respuestas donde todos eligieron la misma opción.
+
+Los agregados se cachean en Redis bajo la **versión** de la campaña, que sube con cada respuesta nueva o con cambios en el cuestionario, en un KPI o en un destacado.
+
+| Método | Ruta | Descripción | Acceso |
+|---|---|---|---|
+| `GET` | `/metrics/catalog` | Campañas, preguntas y opciones, dimensiones de cruce, departamentos/localidades, disciplinas y categorías (`?campaignId=`, por defecto la activa) | Admins, COORDINADOR |
+| `GET` | `/metrics/survey/:id/version` | Versión de la campaña; el panel la consulta cada 10 s para refrescarse | Admins, COORDINADOR |
+| `GET` | `/metrics/survey/:id/overview` | Total, por etapa/ventana, por zona y serie temporal | Admins, COORDINADOR |
+| `GET` | `/metrics/survey/:id/cross` | Tabla cruzada: `pregunta=<questionId>` por `por=etapa\|ventana\|sexo\|disciplineType\|disciplina\|categoria\|localidad\|departamento\|zona\|pregunta:<id>` | Admins, COORDINADOR |
+| `GET` | `/metrics/survey/:id/kpis` | Indicadores activos evaluados sobre el corte | Admins, COORDINADOR |
+| `GET` | `/metrics/kpis` | Definiciones de KPI (de la campaña y reutilizables) | Admins, COORDINADOR |
+| `POST` / `PATCH` / `DELETE` | `/metrics/kpis[/:id]` | Crear, editar o borrar un KPI | Admins (SURVEY_MANAGE) |
+| `GET` | `/metrics/survey/:id/highlights` | Destacados evaluados sobre el corte: ranking publicable, opciones ocultas y `puedeAfirmar` | Admins, COORDINADOR |
+| `GET` | `/metrics/highlights` | Definiciones de destacados (de la campaña y reutilizables) | Admins, COORDINADOR |
+| `POST` / `PATCH` / `DELETE` | `/metrics/highlights[/:id]` | Crear, editar o borrar un destacado | Admins (SURVEY_MANAGE) |
+
+**Filtros comunes:** `etapa`, `ventana`, `disciplineId`, `disciplineType`, `localityId`, `departmentId`, `zona` (`CAPITAL`/`INTERIOR`), `categoryId`, `sexo`, `desde`, `hasta` (días completos: una fecha con hora se redondea a su día UTC).
+
+**Definición de un KPI** (`SurveyKpi.definicion`, matchea opciones por su `valor`, así sobrevive a que las preguntas cambien cada edición):
+
+```json
+{
+  "numerador": [{ "valores": ["lesion_atendido_en_sede", "lesion_derivado"] }],
+  "denominador": [{ "valores": ["lesion_atendido_en_sede", "lesion_derivado", "lesion_sin_atencion"] }],
+  "formato": "porcentaje"
+}
+```
+
+`denominador` acepta también `"todas"` (todo el corte) o `"contestaron"` (quienes contestaron las preguntas del numerador). Un KPI con `campaignId: null` se evalúa en cualquier campaña.
+
+**Destacados** (`SurveyHighlight`): un ranking de opciones con un título en lenguaje simple, por ejemplo *"Lo que más necesitan los deportistas es:"*. La definición es `{ "opciones": ["nec_transporte", "nec_indumentaria", …], "top": 3 }`, también por `valor`. La base son quienes eligieron alguna de esas opciones. El panel escribe frases como *"4 de cada 10 eligieron «Transporte»"* sólo si la base alcanza `MINIMO_PARA_FRASES` (30) respuestas; con menos muestra los porcentajes y aclara que todavía hay pocas respuestas. Un destacado reutilizable cuyas opciones no existen en la campaña no aparece.
+
+**Panel (`/admin/metricas`)**, de lo simple a lo técnico: tarjetas de número grande (respuestas, capital, interior, indicadores), destacados y evolución en área, una pregunta en foco (dona, barras horizontales por departamento y mapa de calor departamento × opción), "Explorar en detalle" (constructor de gráficos) y "Detalle técnico". Las barras pasan a horizontales cuando hay más de 5 categorías o nombres largos, así las etiquetas nunca se enciman. **Modo presentación:** `/admin/metricas/presentar?campania=…` (mismos roles), pantalla completa sin menú ni filtros, con el corte con el que se abrió y actualización en vivo.
+
+**Datos de demo:** `npm run db:seed:encuesta -- --cantidad 300 [--publicar]` (backend) completa la campaña con las preguntas de salud, educación y necesidades, crea los KPIs y el destacado semilla y genera respuestas de prueba. Se niega a correr con `NODE_ENV=production`.
+
+---
+
 ## 5. Modelo de Datos
 
 El schema de Prisma define **16 modelos** y **10 enums**. A continuación se muestra el diagrama entidad-relación simplificado:
@@ -539,9 +616,9 @@ El sistema implementa un esquema de **RBAC (Role-Based Access Control)** con 9 r
 | Rol | Descripción | Permisos clave |
 |---|---|---|
 | **SUPER_ADMIN** | Administrador general de la plataforma | Acceso total: CRUD de usuarios, aprobación de inscripciones, configuración global |
-| **ADMIN_PROVINCIAL** | Administrador a nivel provincial | Gestión de disciplinas, categorías, competencias, aprobación de inscripciones, auditoría |
-| **ADMIN_DEPARTAMENTAL** | Administrador de un departamento | Gestión local: participantes, inscripciones, equipos, aprobación de inscripciones |
-| **ADMIN_ZONAL** | Administrador de una zona | Similar a departamental, alcance limitado a su zona |
+| **ADMIN_PROVINCIAL** | Administrador a nivel provincial | Gestión de disciplinas, categorías, competencias, noticias, calendario y encuesta; aprobación de inscripciones, auditoría |
+| **ADMIN_DEPARTAMENTAL** | Administrador de un departamento | Gestión local: participantes, inscripciones, equipos, sedes de su departamento y resultados de partidos jugados en ellas |
+| **ADMIN_ZONAL** | Administrador de una zona | Similar a departamental, alcance limitado a los departamentos de su zona |
 | **COORDINADOR** | Coordinador deportivo | Consulta de participantes, equipos, documentos; acceso al dashboard |
 | **DELEGADO** | Delegado (responsable de una delegación) | Crear inscripciones, gestionar participantes y equipos, subir documentos, ver reportes |
 | **ENTRENADOR** | Entrenador/Director técnico | Acceso limitado (consulta) |
@@ -560,12 +637,25 @@ El sistema implementa un esquema de **RBAC (Role-Based Access Control)** con 9 r
 
 ---
 
+### Alcance territorial de escritura (relevamiento OWASP 2025, VULN-07/08)
+
+- Competencias, noticias, calendario y encuesta son de la **línea provincial** (SUPER_ADMIN y ADMIN_PROVINCIAL): una
+  competencia no tiene departamento en el modelo, así que no se puede repartir por territorio.
+- Los admins territoriales gestionan **sedes de su departamento o zona** y cargan **resultados de partidos jugados en
+  sedes de su territorio** (un partido sin sede lo carga la línea provincial o un árbitro).
+- Los **árbitros** cargan cualquier partido: no tienen alcance territorial asignado (riesgo aceptado; ver
+  `documentacion/seguridad/relevamiento-owasp-2025.md`, sección 10).
+
+---
+
 ## 7. Configuración de Guards Globales
 
 El `AppModule` registra tres guards globales que se ejecutan en cadena para cada request:
 
 1. **JwtAuthGuard** — Verifica el token JWT. Si la ruta está decorada con `@Public()`, se omite.
-2. **RolesGuard** — Verifica que el usuario tenga uno de los roles especificados con `@Roles(...)`.
+2. **RolesGuard** — Verifica que el usuario tenga uno de los roles especificados con `@Roles(...)`. **Niega por
+   defecto**: una ruta autenticada sin `@Roles` responde 403; las que valen para cualquier usuario logueado
+   (`/auth/me`, `/auth/permissions`, `/auth/logout`) declaran `@AnyAuthenticated()`.
 3. **ThrottlerGuard** — Rate limiting global (configurable vía `THROTTLE_TTL` y `THROTTLE_LIMIT` en `.env`).
 
 Además, se aplican dos interceptors globales:
@@ -575,4 +665,25 @@ Además, se aplican dos interceptors globales:
 
 Y un filter global:
 
-- **GlobalExceptionFilter** — Captura y formatea todas las excepciones en un formato consistente.
+- **GlobalExceptionFilter** — Captura y formatea todas las excepciones en un formato consistente. Registra los
+  accesos denegados (401/403) sin token ni datos de la query, y de las excepciones no controladas sólo el nombre y el
+  código (el mensaje de Prisma trae los valores de la consulta). Si la base de datos no está disponible (no se puede conectar,
+  se agotó el pool), responde **503** "La base de datos no está disponible en este momento" en vez de un 500.
+
+### Endurecimiento de seguridad (relevamiento OWASP Top 10:2025)
+
+Detalle, riesgos y decisiones en `documentacion/seguridad/relevamiento-owasp-2025.md`. Lo que cambia al operar:
+
+| Tema | Comportamiento |
+|---|---|
+| Sesiones | Cambiar contraseña, rol, departamento, zona o estado de un usuario cierra todas sus sesiones. Los JWT llevan `iss`/`aud` y algoritmo fijo: después del despliegue todos vuelven a iniciar sesión una vez. |
+| Login | Mismo mensaje y mismo costo ante cualquier error; bloqueo temporal de la cuenta tras 10 intentos fallidos. |
+| Contraseñas nuevas | Al menos 12 caracteres y que no sean comunes (sin "contraseña", "evita", secuencias de teclado ni números solos). Las existentes siguen valiendo. |
+| Logs | Sin DNI ni emails en el log de aplicación; el log de acceso reemplaza los valores de la query por `[REDACTADO]` y no registra el envío de la encuesta. |
+| Auditoría | Lecturas de Métricas, exportaciones de reportes y lecturas de documentos de identidad quedan auditadas; el envío de la encuesta no se audita (`@NoAudit`). |
+| `REDIS_PASSWORD` | Obligatoria con `NODE_ENV=production` (Redis con `requirepass`). |
+| `NODE_ENV` | Swagger sólo se publica con `development` o `test` explícitos. |
+| `SEED_ALLOW_PRODUCTION` | La seed no corre en producción salvo `true` (por ejemplo, para cargar el primer administrador). |
+| `COOKIE_SECURE` | `true` fuerza el flag `Secure` de la cookie de refresh fuera de producción. |
+| `BIND_HOST` | Stack de la raíz: interfaz en la que se publican la web y MinIO; por defecto `127.0.0.1` (usar `0.0.0.0` para una demo en la red local). |
+| Frontend | CSP y cabeceras de seguridad en nginx; fuentes servidas desde el propio sitio. |

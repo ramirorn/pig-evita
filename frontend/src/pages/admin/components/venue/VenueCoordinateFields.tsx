@@ -4,7 +4,7 @@
 import type { VenueFormApi } from './useVenueForm';
 
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { NumberField } from '@/components/ui/number-field';
 import { Navigation } from 'lucide-react';
 
 /**
@@ -17,8 +17,8 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
   return (
     <div className="p-3 bg-primary-50/60 rounded-lg border border-primary-100 space-y-2.5">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-800">
-        <Navigation className="w-3.5 h-3.5 text-primary-600" />
-        <span>Coordenadas Geográficas (Opcional)</span>
+        <Navigation className="w-3.5 h-3.5 text-primary-600" aria-hidden="true" />
+        <span>Coordenadas geográficas (opcional)</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -27,18 +27,22 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
           name="latitude"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-[11px] text-primary-700">Latitud</FormLabel>
+              <FormLabel className="text-xs text-primary-700">Latitud</FormLabel>
               <FormControl>
-                <Input
-                  type="number"
-                  step="any"
+                <NumberField
+                  decimal
+                  stepper={false}
+                  min={-90}
+                  max={90}
+                  step={0.0001}
                   placeholder="-26.185"
-                  className="bg-white h-9 text-xs"
-                  value={field.value ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    field.onChange(val === '' ? undefined : parseFloat(val));
-                  }}
+                  wrapperClassName="bg-white"
+                  className="text-xs"
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={field.value}
+                  onValueChange={field.onChange}
                 />
               </FormControl>
               <FormMessage />
@@ -51,18 +55,22 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
           name="longitude"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-[11px] text-primary-700">Longitud</FormLabel>
+              <FormLabel className="text-xs text-primary-700">Longitud</FormLabel>
               <FormControl>
-                <Input
-                  type="number"
-                  step="any"
+                <NumberField
+                  decimal
+                  stepper={false}
+                  min={-180}
+                  max={180}
+                  step={0.0001}
                   placeholder="-58.175"
-                  className="bg-white h-9 text-xs"
-                  value={field.value ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    field.onChange(val === '' ? undefined : parseFloat(val));
-                  }}
+                  wrapperClassName="bg-white"
+                  className="text-xs"
+                  name={field.name}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={field.value}
+                  onValueChange={field.onChange}
                 />
               </FormControl>
               <FormMessage />
@@ -70,6 +78,9 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
           )}
         />
       </div>
+      <p className="mt-2 text-xs text-primary-600">
+        En grados decimales, con signo: en Formosa ambas son negativas (por ejemplo -26.1850 y -58.1750).
+      </p>
     </div>
   );
 }

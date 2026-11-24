@@ -5,6 +5,9 @@ import { useAllCategories } from '@/hooks/useCategories';
 import { Button } from '@/components/ui/button';
 import { PlainTextContent } from '@/components/shared/PlainTextContent';
 import { Link } from 'react-router';
+import { formatCategoryRange } from '@/lib/categoryRange';
+import { DISCIPLINE_TYPE_LABELS, RESULT_TYPE_LABELS, SEX_LABELS } from '@/lib/constants';
+import { etiquetaEnum, rangoJugadores, SIN_DATO } from '@/lib/format';
 
 export function DisciplineDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,15 +32,15 @@ export function DisciplineDetailPage() {
   if (!discipline) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
-        <h2 className="text-2xl font-bold text-primary-800 mb-4">Disciplina no encontrada</h2>
+        <h2 className="type-h2 text-primary-800 mb-4">Disciplina no encontrada</h2>
         <Button onClick={() => navigate('/disciplinas')}>Volver a Disciplinas</Button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fade-in">
-      <Button variant="ghost" className="mb-6 -ml-4" onClick={() => navigate('/disciplinas')}>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <Button variant="ghost" className="mb-6 -ml-4 pointer-coarse:min-h-11" onClick={() => navigate('/disciplinas')}>
         <ArrowLeft className="w-4 h-4 mr-2" />
         Volver a Disciplinas
       </Button>
@@ -49,18 +52,20 @@ export function DisciplineDetailPage() {
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-sm font-medium mb-4 backdrop-blur-sm">
             <Trophy className="w-4 h-4" />
-            {discipline.type}
+            {etiquetaEnum(DISCIPLINE_TYPE_LABELS, discipline.type)}
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{discipline.name}</h1>
+          <h1 className="type-h1 mb-4">{discipline.name}</h1>
           <p className="text-primary-100 text-lg max-w-2xl">
             Conocé el reglamento y las categorías disponibles para inscribirte y competir en esta disciplina.
           </p>
           <div className="mt-8 flex gap-4">
-            <Link to={`/inscripcion`}>
-              <Button size="lg" className="bg-white text-primary-900 hover:bg-primary-50">
-                Inscribirme Ahora
-              </Button>
-            </Link>
+            <Button
+              asChild
+              size="lg"
+              className="bg-white text-primary-900 transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100 pointer-coarse:min-h-11"
+            >
+              <Link to="/inscripcion">Inscribirme Ahora</Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -72,7 +77,7 @@ export function DisciplineDetailPage() {
               <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
                 <FileText className="w-5 h-5 text-primary-600" />
               </div>
-              <h2 className="text-2xl font-bold text-primary-900">Reglamento</h2>
+              <h2 className="type-h2 text-primary-900">Reglamento</h2>
             </div>
             <div className="prose prose-primary max-w-none text-primary-700">
               <PlainTextContent
@@ -87,7 +92,7 @@ export function DisciplineDetailPage() {
               <div className="w-10 h-10 rounded-lg bg-primary-50 flex items-center justify-center">
                 <Users className="w-5 h-5 text-primary-600" />
               </div>
-              <h2 className="text-2xl font-bold text-primary-900">Categorías Habilitadas</h2>
+              <h2 className="type-h2 text-primary-900">Categorías Habilitadas</h2>
             </div>
             
             {isLoadingCategories ? (
@@ -97,11 +102,11 @@ export function DisciplineDetailPage() {
             ) : (
               <div className="grid sm:grid-cols-2 gap-4">
                 {categoriesData?.map((category) => (
-                  <div key={category.id} className="p-4 border border-primary-200 rounded-xl bg-primary-50/50 hover:bg-primary-50 transition-colors">
-                    <h3 className="font-bold text-primary-800 text-lg">{category.name}</h3>
+                  <div key={category.id} className="p-4 border border-primary-200 rounded-xl bg-primary-50/50 hover:bg-primary-50 transition-colors duration-120">
+                    <h3 className="type-h3 text-primary-800">{category.name}</h3>
                     <div className="mt-2 space-y-1 text-sm text-primary-600">
-                      <p>Edades: {category.minAge} a {category.maxAge} años</p>
-                      <p>Modalidad: {category.sex}</p>
+                      <p>Rango: <span className="tabular-nums">{formatCategoryRange(category)}</span></p>
+                      <p>Modalidad: {etiquetaEnum(SEX_LABELS, category.sex)}</p>
                     </div>
                   </div>
                 ))}
@@ -112,22 +117,22 @@ export function DisciplineDetailPage() {
 
         <div className="space-y-6">
           <div className="card p-6 bg-primary-50 border-primary-200">
-            <h3 className="font-bold text-primary-900 mb-4">Información General</h3>
+            <h3 className="type-h3 text-primary-900 mb-4">Información General</h3>
             <div className="space-y-4 text-sm">
               <div>
                 <span className="block text-primary-500 mb-1">Tipo de Modalidad</span>
-                <span className="font-medium text-primary-800">{discipline.type}</span>
+                <span className="font-medium text-primary-800">{etiquetaEnum(DISCIPLINE_TYPE_LABELS, discipline.type)}</span>
               </div>
               <div>
                 <span className="block text-primary-500 mb-1">Tipo de Resultado</span>
-                <span className="font-medium text-primary-800">{discipline.resultType}</span>
+                <span className="font-medium text-primary-800">{etiquetaEnum(RESULT_TYPE_LABELS, discipline.resultType)}</span>
               </div>
               <div>
                 <span className="block text-primary-500 mb-1">Jugadores</span>
                 <span className="font-medium text-primary-800">
-                  {discipline.minPlayers === discipline.maxPlayers 
-                    ? `${discipline.minPlayers} por equipo`
-                    : `De ${discipline.minPlayers} a ${discipline.maxPlayers} por equipo`}
+                  {rangoJugadores(discipline.minPlayers, discipline.maxPlayers) === SIN_DATO
+                    ? SIN_DATO
+                    : `${rangoJugadores(discipline.minPlayers, discipline.maxPlayers)} por equipo`}
                 </span>
               </div>
             </div>

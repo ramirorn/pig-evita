@@ -48,3 +48,28 @@ export function ordenarLados(resultados: Result[] | undefined): LadosDelPartido 
 
   return { izquierda: filas[0], derecha: filas[1], hayLocalia: false };
 }
+
+/**
+ * Pase directo (bye) de la eliminación directa: el backend lo guarda como un
+ * partido FINALIZADO con un único resultado, el del competidor que avanza.
+ */
+export function esPaseDirecto(resultados: Result[] | undefined): boolean {
+  return (resultados?.length ?? 0) === 1;
+}
+
+/** Rótulo de un lado sin nombre: "Equipo Local" sólo si la localía es real. */
+export function rotuloPorDefecto(indice: number, hayLocalia: boolean): string {
+  if (hayLocalia) return indice === 0 ? 'Equipo Local' : 'Equipo Visitante';
+  return `Competidor ${String.fromCharCode(65 + indice)}`;
+}
+
+/**
+ * Nombre visible de un competidor: el equipo, o "Apellido, Nombre" del
+ * participante en las disciplinas individuales.
+ */
+export function nombreDelLado(resultado: Result | undefined, porDefecto: string): string {
+  if (resultado?.team?.name) return resultado.team.name;
+  const p = resultado?.participant;
+  if (p?.lastName) return p.firstName ? `${p.lastName}, ${p.firstName}` : p.lastName;
+  return porDefecto;
+}

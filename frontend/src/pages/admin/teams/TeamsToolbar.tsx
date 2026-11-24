@@ -3,6 +3,7 @@
 // ===========================================
 import type { Category, Discipline } from '@/types';
 import type { TeamListFilters } from './teamFilters';
+import { FilterPanel } from '@/components/shared/FilterPanel';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -36,8 +37,15 @@ export function TeamsToolbar({
   categories,
   mostrarFiltroDepartamento,
 }: TeamsToolbarProps) {
+  const activeCount = [
+    filters.disciplineId !== 'all',
+    filters.categoryId !== 'all',
+    mostrarFiltroDepartamento && filters.department.trim() !== '',
+    filters.locality.trim() !== '',
+  ].filter(Boolean).length;
+
   return (
-    <>
+    <FilterPanel activeCount={activeCount}>
       <Select
         value={filters.disciplineId}
         // Cambiar de disciplina invalida la categoría elegida: las categorías
@@ -92,6 +100,6 @@ export function TeamsToolbar({
         onChange={(e) => onChange({ locality: e.target.value })}
         className="w-full md:w-[200px]"
       />
-    </>
+    </FilterPanel>
   );
 }

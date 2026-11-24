@@ -5,15 +5,14 @@ import { Navigation, Users, CalendarDays } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Venue } from '@/types';
 import { safeExternalUrl } from '@/lib/utils';
-import { retrasoDeEntrada } from '@/lib/gridVolumen';
 import { VenuePhoto } from '@/components/venues/VenuePhoto';
+import { LocalityChip } from '@/components/localityMap/LocalityChip';
 
 /** Base fija de Google Maps: nunca se arma con datos del backend. */
 const MAPS_SEARCH_BASE = 'https://maps.google.com/';
 
 interface VenueCardProps {
   venue: Venue;
-  index: number;
   /**
    * Eventos publicados **futuros** que apuntan a esta sede.
    *
@@ -25,25 +24,20 @@ interface VenueCardProps {
   eventosProgramados: number | null;
 }
 
-export function VenueCard({ venue, index, eventosProgramados }: VenueCardProps) {
+export function VenueCard({ venue, eventosProgramados }: VenueCardProps) {
   // `address` y `locality` son texto libre del backend: si el helper no puede
   // armar una URL https limpia, no se muestra el link.
   const mapsUrl = safeExternalUrl(MAPS_SEARCH_BASE, {
     q: `${venue.address ?? ''} ${venue.locality ?? ''} Formosa`,
   });
 
-  // Localidad y departamento en una sola línea, sin repetirse cuando coinciden
-  // —que es el caso de las tres sedes reales, las tres en "Formosa/Formosa"—.
-  const ubicacion = [venue.locality, venue.department]
-    .filter((parte): parte is string => Boolean(parte))
-    .filter((parte, i, todas) => todas.indexOf(parte) === i)
-    .join(', ');
+  // El departamento sólo se nombra aparte cuando difiere de la localidad (en las
+  // tres sedes reales es Formosa/Formosa). La localidad va como chip hacia el mapa.
+  const departamento =
+    venue.department && venue.department !== venue.locality ? venue.department : null;
 
   return (
-    <article
-      className="card overflow-hidden flex flex-col h-full hover:shadow-lg transition-all hover:-translate-y-0.5 animate-fade-in"
-      style={{ animationDelay: retrasoDeEntrada(index) }}
-    >
+    <article className="card overflow-hidden flex flex-col h-full">
       {/* Portada: la foto real de la sede (16:9 fijo, sin salto de layout) o un
           placeholder decorativo con los colores del sitio. Nunca una foto
           inventada. */}
@@ -56,11 +50,16 @@ export function VenueCard({ venue, index, eventosProgramados }: VenueCardProps) 
             sede. */}
         <div className="flex items-start gap-3 mb-3">
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-primary-900 leading-snug">{venue.name}</h2>
+            <h2 className="type-h3 text-primary-900">{venue.name}</h2>
             {/* `primary-600` sobre blanco da 9.26:1. El `primary-400` que había
                 acá daba 3.75:1 en texto de 14 px, por debajo del 4.5:1 de AA — y
                 es la localidad de la sede, o sea información, no decoración. */}
-            {ubicacion && <p className="text-sm text-primary-600">{ubicacion}</p>}
+            {(venue.locality || departamento) && (
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-primary-600">
+                <LocalityChip name={venue.locality} />
+                {departamento && <span>Departamento {departamento}</span>}
+              </p>
+            )}
           </div>
         </div>
 
@@ -76,7 +75,7 @@ export function VenueCard({ venue, index, eventosProgramados }: VenueCardProps) 
           {typeof venue.capacity === 'number' && venue.capacity > 0 && (
             <p className="flex items-center gap-1.5">
               <Users className="w-4 h-4 text-primary-500" aria-hidden="true" />
-              Capacidad {venue.capacity.toLocaleString('es-AR')}
+              Capacidad <span className="tabular-nums">{venue.capacity.toLocaleString('es-AR')}</span>
             </p>
           )}
 
@@ -88,9 +87,9 @@ export function VenueCard({ venue, index, eventosProgramados }: VenueCardProps) 
               <CalendarDays className="w-4 h-4 text-primary-500" aria-hidden="true" />
               <Link
                 to="/calendario"
-                className="rounded font-medium text-primary-700 underline underline-offset-2 hover:text-primary-900"
+                className="rounded font-medium text-primary-700 underline underline-offset-2 transition-colors duration-120 hover:text-primary-900 active:text-primary-950 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
               >
-                {eventosProgramados} {eventosProgramados === 1 ? 'evento programado' : 'eventos programados'}
+                <span className="tabular-nums">{eventosProgramados}</span> {eventosProgramados === 1 ? 'evento programado' : 'eventos programados'}
               </Link>
             </p>
           )}
@@ -102,7 +101,7 @@ export function VenueCard({ venue, index, eventosProgramados }: VenueCardProps) 
               href={mapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded text-primary-600 hover:text-primary-800 text-sm font-medium transition-colors"
+              className="inline-flex items-center gap-1 rounded text-primary-600 hover:text-primary-800 active:text-primary-900 text-sm font-medium transition-colors duration-120 pointer-coarse:min-h-11"
             >
               <Navigation className="w-4 h-4" aria-hidden="true" /> Cómo llegar
             </a>

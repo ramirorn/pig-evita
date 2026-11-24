@@ -8,7 +8,8 @@ services:
     container_name: evita-postgres
     restart: unless-stopped
     ports:
-      - "5434:5432"
+      # VULN-12: servicios de desarrollo sólo en la máquina local, no en la red.
+      - "127.0.0.1:5434:5432"
     environment:
       POSTGRES_USER: evita_user
       POSTGRES_PASSWORD: evita_password
@@ -27,7 +28,7 @@ services:
     container_name: evita-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -38,12 +39,13 @@ services:
 
   # MinIO (S3-compatible object storage)
   minio:
-    image: minio/minio:latest
+    # VULN-16: versión fija (la misma que el stack de la raíz y el e2e), no `latest`.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: evita-minio
     restart: unless-stopped
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       # Se toman de backend/.env — no hay defaults: el backend rechaza "minioadmin".
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?definir MINIO_ACCESS_KEY en backend/.env}

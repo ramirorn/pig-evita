@@ -20,9 +20,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { InscriptionStatus, Sex } from '@prisma/client';
+import { AgeCriterion, InscriptionStatus, Sex } from '@prisma/client';
 import { IsDni } from '../../../common/validators';
 import { PaginationQueryDto } from '../../../common/dto';
+import { Trim } from '../../../common/transformers';
 
 /**
  * DTO público para inscripción via QR.
@@ -262,9 +263,15 @@ export class TeamInscriptionCategoryDto {
 
   @ApiProperty() name: string;
 
-  @ApiProperty() minAge: number;
+  @ApiProperty({ enum: ['AGE', 'BIRTH_YEAR'] }) ageCriterion: AgeCriterion;
 
-  @ApiProperty() maxAge: number;
+  @ApiProperty({ nullable: true, type: Number }) minAge: number | null;
+
+  @ApiProperty({ nullable: true, type: Number }) maxAge: number | null;
+
+  @ApiProperty({ nullable: true, type: Number }) minBirthYear: number | null;
+
+  @ApiProperty({ nullable: true, type: Number }) maxBirthYear: number | null;
 
   @ApiProperty({ enum: ['MASCULINO', 'FEMENINO', 'MIXTO'] }) sex: Sex;
 }
@@ -361,6 +368,8 @@ export class ReviewInscriptionDto {
 
 export class RejectInscriptionDto {
   @ApiProperty({ description: 'Motivo del rechazo' })
+  // F-06 — un motivo hecho sólo de espacios no es un motivo.
+  @Trim()
   @IsString()
   @IsNotEmpty({ message: 'Debe indicar el motivo del rechazo' })
   rejectionNote: string;
@@ -372,8 +381,12 @@ export class InscriptionFilterDto extends PaginationQueryDto {
     enum: ['PENDIENTE', 'REVISADA', 'APROBADA', 'RECHAZADA'],
   })
   @IsOptional()
-  @IsString()
-  status?: string;
+  // F-01 — sin validar, un estado inexistente llegaba al `where` de Prisma y
+  // explotaba en un 500 con la invocación de la consulta en el cuerpo.
+  @IsEnum(InscriptionStatus, {
+    message: 'El estado debe ser PENDIENTE, REVISADA, APROBADA o RECHAZADA',
+  })
+  status?: InscriptionStatus;
 
   @ApiPropertyOptional({ description: 'Filtrar por categoría' })
   @IsOptional()
@@ -392,14 +405,19 @@ export class InscriptionFilterDto extends PaginationQueryDto {
 
 /**
  * Datos mínimos del participante expuestos públicamente.
- * NUNCA debe incluir dni, email, phone, birthDate ni address.
+ * NUNCA debe incluir dni, email, phone, birthDate, address ni el apellido
+ * completo.
  */
 export class PublicInscriptionParticipantDto {
   @ApiProperty({ description: 'Nombre', example: 'Juan' })
   firstName: string;
 
-  @ApiProperty({ description: 'Apellido', example: 'Pérez' })
-  lastName: string;
+  /**
+   * Sólo la inicial del primer apellido (VULN-32): el endpoint es público y el
+   * código QR figura impreso en papel.
+   */
+  @ApiProperty({ description: 'Inicial del apellido', example: 'P.' })
+  lastInitial: string;
 }
 
 export class PublicInscriptionDisciplineDto {
@@ -417,7 +435,8 @@ export class PublicInscriptionCategoryDto {
 
 /**
  * Contrato de la respuesta del endpoint público `GET /inscriptions/qr/:qrCode`.
- * Superficie mínima: identificación del trámite + nombre + disciplina/categoría + estado.
+ * Superficie mínima: identificación del trámite + nombre e inicial del apellido +
+ * disciplina/categoría + estado.
  * Cualquier campo agregado acá queda expuesto a cualquier persona que conozca el código QR.
  */
 export class PublicInscriptionDto {

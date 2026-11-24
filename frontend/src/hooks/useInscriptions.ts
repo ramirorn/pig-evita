@@ -12,6 +12,8 @@ import {
 } from '@/api/inscriptions.api';
 import { TEAM_KEYS } from './useTeams';
 import { STALE_TIME } from '@/lib/queryClient';
+import { fetchAllPages } from '@/lib/fetchAllPages';
+import { InscriptionStatus } from '@/types';
 import { getFriendlyError } from '@/lib/utils';
 import { useQueryScope } from './useQueryScope';
 import { toast } from 'sonner';
@@ -46,6 +48,31 @@ export function useInscriptions(filters?: InscriptionFilters) {
   return useQuery({
     queryKey: INSCRIPTION_KEYS.list(scope, filters),
     queryFn: () => inscriptionsApi.findAll(filters),
+    staleTime: STALE_TIME.OPERATIONAL,
+  });
+}
+
+/**
+ * Todas las inscripciones APROBADAS de una categoría (F-29).
+ *
+ * Son los competidores de una disciplina individual: el fixture se arma con
+ * sus `participantId`. Recorre la paginación porque el backend corta en 100.
+ */
+export function useApprovedInscriptionsOfCategory(
+  categoryId: string | undefined,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
+  const scope = useQueryScope();
+  const filters: InscriptionFilters = {
+    categoryId,
+    status: InscriptionStatus.APROBADA,
+  };
+
+  return useQuery({
+    queryKey: [...INSCRIPTION_KEYS.list(scope, filters), 'all'],
+    queryFn: () =>
+      fetchAllPages((page, limit) => inscriptionsApi.findAll({ ...filters, page, limit })),
+    enabled: enabled && !!categoryId,
     staleTime: STALE_TIME.OPERATIONAL,
   });
 }

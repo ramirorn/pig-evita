@@ -26,4 +26,16 @@ export interface JwtPayload {
   zone?: string | null;
   /** Token type: 'access' | 'refresh' */
   type: 'access' | 'refresh';
+  /** Emitido en (segundos). Lo agrega `jsonwebtoken`; lo usa la revocación (VULN-05). */
+  iat?: number;
+  /** Vence en (segundos). */
+  exp?: number;
+  /** Emisor (VULN-47). */
+  iss?: string;
+  /** Audiencia (VULN-47). */
+  aud?: string | string[];
+  /** Id único de emisión del refresh token (R04). */
+  jti?: string;
+  /** Inicio de la sesión, en segundos; sólo en el refresh token (VULN-39). */
+  auth_time?: number;
 }

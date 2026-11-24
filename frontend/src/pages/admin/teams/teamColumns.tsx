@@ -40,21 +40,25 @@ export function createTeamColumns({
       // el DataTable ancla el link primario de la fila clickeable.
       rowHeader: true,
       headClassName: 'min-w-[200px]',
+      mobile: 'primary',
       cell: (team) => team.name,
     },
     {
       id: 'discipline',
       header: 'Disciplina',
+      mobile: 'secondary',
       cell: (team) => team.discipline?.name || '—',
     },
     {
       id: 'category',
       header: 'Categoría',
+      mobile: 'secondary',
       cell: (team) => team.category?.name || '—',
     },
     {
       id: 'location',
       header: 'Ubicación',
+      mobile: 'hidden',
       cell: (team) => (
         <div className="flex flex-col">
           <span className="text-sm font-medium">{team.department}</span>
@@ -65,12 +69,13 @@ export function createTeamColumns({
     {
       id: 'members',
       header: 'Jugadores',
+      mobile: 'secondary',
       cell: (team) => (
         // `variant="secondary"` no genera color (`bg-secondary` no existe en el
         // `@theme`): se usan tokens explícitos de la paleta institucional.
         <Badge variant="outline" className="bg-muted text-primary-700 border-primary-200">
-          {team._count?.members ?? team.members?.length ?? 0} /{' '}
-          {team.discipline?.maxPlayers || '-'} Jugadores
+          <span className="tabular-nums">{team._count?.members ?? team.members?.length ?? 0} /{' '}
+          {team.discipline?.maxPlayers || '-'} Jugadores</span>
         </Badge>
       ),
     },
@@ -84,6 +89,7 @@ export function createTeamColumns({
       hideHeader: true,
       // Celda con controles propios: se eleva sobre el overlay del link primario.
       interactive: true,
+      mobile: 'actions',
       headClassName: 'w-[80px]',
       cell: (team) => (
         <DropdownMenu>

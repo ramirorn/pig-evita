@@ -16,8 +16,8 @@ export function RegisterWizard({ wizard }: { wizard: InscriptionWizard }) {
   return (
     <div>
       {step < 4 && (
-        <div className="mb-8 text-center animate-fade-in">
-          <h1 className="text-3xl font-extrabold text-primary-800 tracking-tight mb-2">
+        <div className="mb-8 text-center">
+          <h1 className="type-h1 text-primary-800 mb-2">
             Inscripción a los Juegos Evita
           </h1>
           <p className="text-primary-600 max-w-lg mx-auto text-sm">
@@ -27,6 +27,10 @@ export function RegisterWizard({ wizard }: { wizard: InscriptionWizard }) {
           <InscriptionStepper step={step} />
         </div>
       )}
+
+      {/* Con la credencial emitida el encabezado grande se va; la página igual
+          necesita su único h1. */}
+      {step >= 4 && <h1 className="sr-only">Inscripción a los Juegos Evita</h1>}
 
       <InscriptionSteps wizard={wizard} />
     </div>

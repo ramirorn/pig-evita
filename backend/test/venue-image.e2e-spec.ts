@@ -26,8 +26,10 @@ import { Readable } from 'node:stream';
 import request from 'supertest';
 import { App } from 'supertest/types';
 
+import { buildHelmetMiddleware } from '../src/security';
 import { VenuesController } from '../src/modules/venues/venues.controller';
 import { VenuesService } from '../src/modules/venues/venues.service';
+import { ScopeService } from '../src/common/scope';
 import { VenueImagesController } from '../src/modules/venues/venue-images.controller';
 import { VenueImagesService } from '../src/modules/venues/venue-images.service';
 import { ImageUploadInterceptor } from '../src/modules/images/image-upload.interceptor';
@@ -196,6 +198,8 @@ describe('Foto de sede (e2e)', () => {
       controllers: [VenuesController, VenueImagesController],
       providers: [
         VenuesService,
+        // VULN-08: los controllers de sedes calculan el alcance del usuario.
+        ScopeService,
         VenueImagesService,
         ImageUploadInterceptor,
         ImageSignaturePipe,
@@ -224,6 +228,9 @@ describe('Foto de sede (e2e)', () => {
         transformOptions: { enableImplicitConversion: true },
       }),
     );
+    // Helmet real, como en `bootstrap()`: la foto tiene que pisar su CORP
+    // `same-site` global con `cross-origin` (S9).
+    app.use(buildHelmetMiddleware('production'));
     jwt = moduleFixture.get(JwtService);
     await app.init();
   });
@@ -432,6 +439,21 @@ describe('Foto de sede (e2e)', () => {
     );
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(Buffer.compare(res.body as Buffer, WEBP)).toBe(0);
+  });
+
+  it('GET público permite mostrar la foto desde otro origen (CORP cross-origin)', async () => {
+    const subida = await subir(WEBP, 'foto.webp', 'image/webp').expect(201);
+    const res = await pedirImagen(subida.body.data.imageUrl).expect(200);
+    // Sin esto, un <img> servido desde otro sitio que la API queda bloqueado
+    // por el `same-site` global de helmet.
+    expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
+  });
+
+  it('el resto de la API conserva el CORP same-site global', async () => {
+    const res = await request(app.getHttpServer())
+      .get(`/venues/${SEDE_ID}/image`)
+      .expect(404);
+    expect(res.headers['cross-origin-resource-policy']).toBe('same-site');
   });
 
   it('GET con sesión sigue siendo cacheable (la foto es igual para todos)', async () => {

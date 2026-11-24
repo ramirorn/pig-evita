@@ -10,5 +10,5 @@
     "sourceMap": false,
     "incremental": false
   },
-  "include": ["prisma/seed.ts"]
+  "include": ["prisma/seed.ts", "prisma/seed-survey-responses.ts"]
 }

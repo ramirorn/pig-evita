@@ -2,6 +2,7 @@
 // Prisma Seed - Datos Iniciales
 // ===========================================
 import {
+  Prisma,
   PrismaClient,
   UserRole,
   Sex,
@@ -20,6 +21,11 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import * as argon2 from 'argon2';
 import 'dotenv/config';
+import {
+  DESTACADOS_SEMILLA,
+  KPIS_SEMILLA,
+  PREGUNTAS_SALUD_Y_EDUCACION,
+} from './survey-seed-data';
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
@@ -258,6 +264,9 @@ const ENCUESTA_BORRADOR = {
         { texto: 'No me pasó', valor: 'no_me_paso' },
       ],
     },
+    // Salud y educación: lo que la Secretaría pidió medir además de lo
+    // psicológico (ver `survey-seed-data.ts`).
+    ...PREGUNTAS_SALUD_Y_EDUCACION,
   ],
 };
 
@@ -1057,6 +1066,20 @@ async function sembrarDatosDelMapa(venueIds: {
 }
 
 async function main() {
+  // VULN-14: esta seed es destructiva (resetea el SUPER_ADMIN, borra el
+  // calendario y los partidos de demo). En producción no corre salvo que se
+  // pida explícitamente, por ejemplo para cargar el primer administrador en
+  // una base vacía: SEED_ALLOW_PRODUCTION=true, una sola vez.
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.SEED_ALLOW_PRODUCTION !== 'true'
+  ) {
+    throw new Error(
+      '❌ La seed no corre con NODE_ENV=production: borra y reemplaza datos. ' +
+        'Si de verdad hace falta (base vacía), definí SEED_ALLOW_PRODUCTION=true.',
+    );
+  }
+
   console.log('🌱 Seeding database with comprehensive mock data...');
 
   // --- 1. Crear Super Admin ---
@@ -1875,6 +1898,50 @@ async function main() {
       '     ⚠️  El texto es un borrador del equipo de desarrollo: lo reemplaza la psicóloga desde el panel',
     );
   }
+
+  // --- Indicadores (KPIs) reutilizables de la encuesta ---
+  // Idempotente por nombre: no pisa los que se hayan editado desde el panel.
+  let kpisCreados = 0;
+  for (const kpi of KPIS_SEMILLA) {
+    const existe = await prisma.surveyKpi.findFirst({
+      where: { nombre: kpi.nombre, campaignId: null },
+      select: { id: true },
+    });
+    if (existe) continue;
+    await prisma.surveyKpi.create({
+      data: {
+        nombre: kpi.nombre,
+        descripcion: kpi.descripcion,
+        orden: kpi.orden,
+        definicion: kpi.definicion as unknown as Prisma.InputJsonValue,
+      },
+    });
+    kpisCreados += 1;
+  }
+  console.log(`  ✅ Indicadores de la encuesta: ${kpisCreados} creados`);
+
+  // --- Destacados reutilizables del panel de Métricas ---
+  // Idempotente por título, igual que los KPIs.
+  let destacadosCreados = 0;
+  for (const destacado of DESTACADOS_SEMILLA) {
+    const existe = await prisma.surveyHighlight.findFirst({
+      where: { titulo: destacado.titulo, campaignId: null },
+      select: { id: true },
+    });
+    if (existe) continue;
+    await prisma.surveyHighlight.create({
+      data: {
+        titulo: destacado.titulo,
+        descripcion: destacado.descripcion,
+        orden: destacado.orden,
+        definicion: destacado.definicion as unknown as Prisma.InputJsonValue,
+      },
+    });
+    destacadosCreados += 1;
+  }
+  console.log(
+    `  ✅ Destacados del panel de Métricas: ${destacadosCreados} creados`,
+  );
 
   console.log('\n🎉 Seed completed successfully!');
   console.log('\n📋 Para probar la generación de fixture:');

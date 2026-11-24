@@ -335,7 +335,7 @@ describe('Inscripción de plantel completo (S21)', () => {
       const codigos = r.members.map((m) => m.qrCode);
       expect(new Set(codigos).size).toBe(14);
       for (const m of r.members) {
-        expect(m.qrCode).toMatch(/^EVITA-[0-9A-F]{8}$/);
+        expect(m.qrCode).toMatch(/^EVITA-[0-9A-HJKMNP-TV-Z]{26}$/);
         expect(m.qrImage).toMatch(/^data:image\/png;base64,/);
       }
     });

@@ -7,6 +7,7 @@ import {
   type MatchResultPayload
 } from '@/api/results.api';
 import { STALE_TIME } from '@/lib/queryClient';
+import { COMPETITION_KEYS } from '@/hooks/useCompetitions';
 import { getFriendlyError } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -32,7 +33,9 @@ export function useSubmitMatchResult() {
       resultsApi.updateMatchResults(matchId, results),
     onSuccess: () => {
       toast.success('Resultados cargados exitosamente');
-      // Invalidate both matches and rankings
+      // El fixture vive dentro del detalle de la competencia: sin invalidarlo,
+      // la tarjeta del partido seguía mostrando el marcador viejo (F-32).
+      queryClient.invalidateQueries({ queryKey: COMPETITION_KEYS.all });
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       queryClient.invalidateQueries({ queryKey: RESULT_KEYS.all });
     },

@@ -20,22 +20,39 @@
 // máquina del encargado, que ya está autenticado en el panel, y se borra en
 // cuanto el servidor confirma el alta. No se guarda nada más que lo que está a
 // punto de viajar en el mismo request, y nunca un token ni una sesión.
+//
+// Y es **de quien lo cargó** (VULN-18). Las PC de sede y de oficina son
+// compartidas: el borrador guarda el id del usuario (`duenio`), sólo se lee
+// con esa misma sesión, se borra cuando entra otro usuario y al cerrar
+// sesión, y vive horas, no días. `auth.store.tsx` es quien avisa quién está
+// logueado (`fijarDuenioBorradorPlantel`) y quién salió
+// (`cerrarSesionBorradorPlantel`). Una sesión que vence sin cerrar no lo borra:
+// si vuelve a entrar la misma persona, recupera su plantel.
 import { z } from 'zod';
 import { Sex } from '@/types';
 import { borrarCrudo, escribirCrudo, leerCrudo } from '@/lib/storage';
 import type { RosterMember } from './rosterModel';
 
-const CLAVE_BORRADOR = 'evita_plantel_borrador_v1';
+const CLAVE_BORRADOR = 'evita_plantel_borrador_v2';
+
+/**
+ * La clave anterior a VULN-18, sin dueño. No se puede atribuir a nadie, así
+ * que se borra en lugar de migrarse.
+ */
+const CLAVE_BORRADOR_SIN_DUENIO = 'evita_plantel_borrador_v1';
 
 /**
  * Los borradores viejos se descartan.
  *
- * Una semana es bastante más que lo que dura una sesión de carga y bastante
- * menos que lo que tarda una categoría en cambiar de reglamento. Sin esto, un
- * plantel abandonado en marzo reaparecería en septiembre pisando lo que el
- * encargado estaba por hacer.
+ * Doce horas cubren una jornada de carga —con un 500, un F5 o una sesión que
+ * venció en el medio— sin dejar el DNI y el domicilio de 16 chicos en una PC
+ * compartida durante días. Era una semana: también evitaba que un plantel
+ * abandonado reapareciera meses después pisando el trabajo del día.
  */
-const DIAS_DE_VIDA = 7;
+const HORAS_DE_VIDA = 12;
+
+/** Usuario logueado, según `auth.store.tsx`; sin sesión no hay borrador. */
+let duenioActual: string | null = null;
 
 /**
  * Forma **estructural** del integrante guardado, a propósito más laxa que
@@ -71,6 +88,8 @@ const integranteGuardadoSchema = z.object({
 });
 
 const borradorPlantelSchema = z.object({
+  /** Id del usuario que lo cargó: sólo esa sesión lo lee. */
+  duenio: z.string().min(1),
   disciplineId: z.string().min(1),
   categoryId: z.string().min(1),
   teamName: z.string(),
@@ -89,8 +108,33 @@ export type BorradorPlantel = z.infer<typeof borradorPlantelSchema>;
 function estaVencido(guardadoEn: string, ahora: Date): boolean {
   const fecha = new Date(guardadoEn);
   if (Number.isNaN(fecha.getTime())) return true;
-  const dias = (ahora.getTime() - fecha.getTime()) / 86_400_000;
-  return dias > DIAS_DE_VIDA;
+  const horas = (ahora.getTime() - fecha.getTime()) / 3_600_000;
+  return horas > HORAS_DE_VIDA;
+}
+
+/**
+ * Avisa quién está logueado (o `null` sin sesión). Si el borrador guardado es
+ * de **otro** usuario, se borra: en una PC compartida, el que entra después no
+ * tiene por qué heredar las fichas del anterior. El borrador viejo sin dueño
+ * se borra siempre.
+ */
+export function fijarDuenioBorradorPlantel(userId: string | null): void {
+  borrarCrudo(CLAVE_BORRADOR_SIN_DUENIO, 'rosterDraft');
+  if (userId) {
+    const guardado = leerCrudo(CLAVE_BORRADOR, 'rosterDraft') as {
+      duenio?: unknown;
+    } | null;
+    if (guardado && guardado.duenio !== userId) {
+      borrarCrudo(CLAVE_BORRADOR, 'rosterDraft');
+    }
+  }
+  duenioActual = userId;
+}
+
+/** Cierre de sesión explícito: el borrador se borra y deja de haber dueño. */
+export function cerrarSesionBorradorPlantel(): void {
+  borrarBorradorPlantel();
+  duenioActual = null;
 }
 
 /**
@@ -100,8 +144,10 @@ function estaVencido(guardadoEn: string, ahora: Date): boolean {
  * sesión, con otra versión del formulario, y puede haber sido editado a mano.
  */
 export function leerBorradorPlantel(ahora = new Date()): BorradorPlantel | null {
+  if (!duenioActual) return null;
   const parseado = borradorPlantelSchema.safeParse(leerCrudo(CLAVE_BORRADOR, 'rosterDraft'));
   if (!parseado.success) return null;
+  if (parseado.data.duenio !== duenioActual) return null;
   if (parseado.data.members.length === 0) return null;
   if (estaVencido(parseado.data.guardadoEn, ahora)) return null;
   return parseado.data;
@@ -116,8 +162,9 @@ export interface DatosBorrador {
 }
 
 /**
- * Deja el plantel guardado. Devuelve `false` si el storage no dejó escribir,
- * para poder avisarle al encargado que esta vez no hay red de contención.
+ * Deja el plantel guardado. Devuelve `false` si el storage no dejó escribir
+ * (o si no hay sesión a la que atarlo), para poder avisarle al encargado que
+ * esta vez no hay red de contención.
  *
  * Un plantel **sin integrantes** borra el borrador en lugar de guardar uno
  * vacío: si el encargado sacó a todos, no hay nada que restaurar y un borrador
@@ -132,8 +179,10 @@ export function guardarBorradorPlantel(
     borrarCrudo(CLAVE_BORRADOR, 'rosterDraft');
     return true;
   }
+  if (!duenioActual) return false;
 
   return escribirCrudo(CLAVE_BORRADOR, {
+    duenio: duenioActual,
     ...datos,
     members: [...integrantes],
     guardadoEn: ahora.toISOString(),
@@ -149,4 +198,5 @@ export function guardarBorradorPlantel(
  */
 export function borrarBorradorPlantel(): void {
   borrarCrudo(CLAVE_BORRADOR, 'rosterDraft');
+  borrarCrudo(CLAVE_BORRADOR_SIN_DUENIO, 'rosterDraft');
 }

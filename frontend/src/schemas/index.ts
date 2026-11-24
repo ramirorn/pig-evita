@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { isValidExternalImageUrl } from '@/lib/news/newsImageRules';
 import {
+  AgeCriterion,
   UserRole,
   Sex,
   DisciplineType,
@@ -228,11 +229,15 @@ export const loginSchema = z.object({
 // User Schemas
 // ==========================================
 
+// Contraseñas NUEVAS: mismo mínimo que el backend (`password-policy.ts`, VULN-23).
+// El login sigue en 8 para que las cuentas existentes puedan entrar.
+const MINIMO_CONTRASENA_NUEVA = 12;
+
 export const createUserSchema = z.object({
   email: emailObligatorio(),
   password: z
     .string()
-    .min(8, 'La contraseña debe tener al menos 8 caracteres')
+    .min(MINIMO_CONTRASENA_NUEVA, `La contraseña debe tener al menos ${MINIMO_CONTRASENA_NUEVA} caracteres`)
     .max(MAX_PASSWORD, `La contraseña no puede superar los ${MAX_PASSWORD} caracteres`),
   firstName: textoObligatorio(2, MAX_NOMBRE_PERSONA, 'El nombre es obligatorio', 'El nombre'),
   lastName: textoObligatorio(2, MAX_NOMBRE_PERSONA, 'El apellido es obligatorio', 'El apellido'),
@@ -249,8 +254,8 @@ export const updateUserSchema = z.object({
   password: z
     .string()
     .refine(
-      (val) => !val || (val.length >= 8 && val.length <= MAX_PASSWORD),
-      { message: `La nueva contraseña debe tener entre 8 y ${MAX_PASSWORD} caracteres` },
+      (val) => !val || (val.length >= MINIMO_CONTRASENA_NUEVA && val.length <= MAX_PASSWORD),
+      { message: `La nueva contraseña debe tener entre ${MINIMO_CONTRASENA_NUEVA} y ${MAX_PASSWORD} caracteres` },
     )
     .optional(),
   firstName: textoObligatorio(2, MAX_NOMBRE_PERSONA, 'El nombre es obligatorio', 'El nombre'),
@@ -451,6 +456,13 @@ const MAX_NOMBRE_CATEGORIA = 50;
 /** Techo de edad de una categoría: los Juegos Evita tienen rama adultos mayores. */
 const EDAD_MAXIMA_CATEGORIA = 99;
 
+/**
+ * Un número del formulario o `null` (input vacío / criterio no elegido). El
+ * rango se exige en `superRefine` según el criterio, no acá: el par del
+ * criterio que no se usa queda en `null` y no tiene que validar.
+ */
+const enteroOpcional = (mensaje: string) => z.number().int(mensaje).nullable();
+
 export const categorySchema = z
   .object({
     disciplineId: z.string().uuid('ID de disciplina inválido'),
@@ -460,24 +472,55 @@ export const categorySchema = z
       'El nombre de categoría es obligatorio (ej. Sub 14)',
       'El nombre de categoría',
     ),
-    // El piso es el mismo que el de `participantSchema.birthDate`: una
-    // categoría no puede pedir una edad que ningún participante puede tener.
-    minAge: z
-      .number()
-      .int('La edad mínima debe ser un número entero')
-      .min(EDAD_MINIMA_PARTICIPANTE, `La edad mínima no puede ser menor a ${EDAD_MINIMA_PARTICIPANTE} años`)
-      .max(EDAD_MAXIMA_CATEGORIA, `La edad mínima no puede superar los ${EDAD_MAXIMA_CATEGORIA} años`),
-    maxAge: z
-      .number()
-      .int('La edad máxima debe ser un número entero')
-      .min(EDAD_MINIMA_PARTICIPANTE, `La edad máxima no puede ser menor a ${EDAD_MINIMA_PARTICIPANTE} años`)
-      .max(EDAD_MAXIMA_CATEGORIA, `La edad máxima no puede superar los ${EDAD_MAXIMA_CATEGORIA} años`),
+    ageCriterion: z.nativeEnum(AgeCriterion, { message: 'Elegí cómo se define la categoría' }),
+    minAge: enteroOpcional('La edad mínima debe ser un número entero'),
+    maxAge: enteroOpcional('La edad máxima debe ser un número entero'),
+    minBirthYear: enteroOpcional('El año debe ser un número entero'),
+    maxBirthYear: enteroOpcional('El año debe ser un número entero'),
     sex: z.nativeEnum(Sex),
     isActive: z.boolean().default(true),
   })
-  .refine((data) => data.maxAge >= data.minAge, {
-    message: 'La edad máxima debe ser mayor o igual a la mínima',
-    path: ['maxAge'],
+  .superRefine((data, ctx) => {
+    const fuera = (path: string, message: string) =>
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
+
+    if (data.ageCriterion === AgeCriterion.BIRTH_YEAR) {
+      // Mismos límites que `participantSchema.birthDate`: un año que ningún
+      // participante válido puede tener deja la categoría vacía para siempre.
+      const anioMaximo = new Date().getFullYear() - EDAD_MINIMA_PARTICIPANTE;
+      const anios = [
+        ['minBirthYear', data.minBirthYear, 'El año "desde"'],
+        ['maxBirthYear', data.maxBirthYear, 'El año "hasta"'],
+      ] as const;
+      for (const [campo, valor, nombre] of anios) {
+        if (valor === null) fuera(campo, `${nombre} es obligatorio`);
+        else if (valor < ANIO_MINIMO_NACIMIENTO) fuera(campo, `${nombre} no puede ser anterior a ${ANIO_MINIMO_NACIMIENTO}`);
+        else if (valor > anioMaximo) fuera(campo, `${nombre} no puede ser posterior a ${anioMaximo}`);
+      }
+      if (
+        data.minBirthYear !== null &&
+        data.maxBirthYear !== null &&
+        data.maxBirthYear < data.minBirthYear
+      ) {
+        fuera('maxBirthYear', 'El año "hasta" debe ser igual o posterior al "desde"');
+      }
+      return;
+    }
+
+    // El piso es el mismo que el de `participantSchema.birthDate`: una
+    // categoría no puede pedir una edad que ningún participante puede tener.
+    const edades = [
+      ['minAge', data.minAge, 'La edad mínima'],
+      ['maxAge', data.maxAge, 'La edad máxima'],
+    ] as const;
+    for (const [campo, valor, nombre] of edades) {
+      if (valor === null) fuera(campo, `${nombre} es obligatoria`);
+      else if (valor < EDAD_MINIMA_PARTICIPANTE) fuera(campo, `${nombre} no puede ser menor a ${EDAD_MINIMA_PARTICIPANTE} años`);
+      else if (valor > EDAD_MAXIMA_CATEGORIA) fuera(campo, `${nombre} no puede superar los ${EDAD_MAXIMA_CATEGORIA} años`);
+    }
+    if (data.minAge !== null && data.maxAge !== null && data.maxAge < data.minAge) {
+      fuera('maxAge', 'La edad máxima debe ser mayor o igual a la mínima');
+    }
   });
 
 // ==========================================

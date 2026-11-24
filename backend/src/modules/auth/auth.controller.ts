@@ -31,7 +31,7 @@ import {
   buildRefreshCookieOptions,
   buildClearCookieOptions,
 } from './auth.cookies';
-import { Public, CurrentUser } from '../../common/decorators';
+import { Public, CurrentUser, AnyAuthenticated } from '../../common/decorators';
 import { ACCIONES, accionesDe } from '../../common/constants';
 import type { JwtPayload } from './interfaces';
 
@@ -59,9 +59,18 @@ export class AuthController {
     description: 'Login exitoso',
     type: AuthResponseDto,
   })
-  @ApiResponse({ status: 401, description: 'Credenciales inválidas' })
-  @ApiResponse({ status: 403, description: 'Usuario desactivado' })
-  @ApiResponse({ status: 429, description: 'Demasiados intentos de login' })
+  @ApiResponse({
+    status: 401,
+    description:
+      'Credenciales inválidas. Mismo mensaje si el email no existe, si la ' +
+      'contraseña es incorrecta o si la cuenta está desactivada (VULN-37).',
+  })
+  @ApiResponse({
+    status: 429,
+    description:
+      'Demasiados intentos: por IP (5 cada 15 min) o por cuenta (bloqueo ' +
+      'temporal tras 10 fallos, VULN-22)',
+  })
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) response: Response,
@@ -97,10 +106,14 @@ export class AuthController {
     type: RefreshResponseDto,
   })
   @ApiResponse({ status: 401, description: 'Refresh token ausente o inválido' })
-  @ApiResponse({ status: 403, description: 'Refresh token revocado' })
+  @ApiResponse({
+    status: 403,
+    description: 'Refresh token revocado o sesión vencida (vida absoluta)',
+  })
   @ApiCookieAuth(REFRESH_TOKEN_COOKIE)
   async refresh(
-    @CurrentUser() user: JwtPayload & { refreshToken: string },
+    @CurrentUser()
+    user: JwtPayload & { refreshToken: string; authTime: number },
     @Res({ passthrough: true }) response: Response,
     @Ip() ip: string,
     @Headers('user-agent') userAgent?: string,
@@ -112,6 +125,7 @@ export class AuthController {
       user.sub,
       user.refreshToken,
       { ipAddress: ip, userAgent },
+      user.authTime,
     );
 
     this.setRefreshCookie(response, tokens.refreshToken);
@@ -120,6 +134,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @AnyAuthenticated()
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -139,13 +154,14 @@ export class AuthController {
 
     response.clearCookie(
       REFRESH_TOKEN_COOKIE,
-      buildClearCookieOptions(this.configService),
+      buildClearCookieOptions(this.configService, response.req),
     );
 
     return { message: 'Sesión cerrada exitosamente' };
   }
 
   @Get('me')
+  @AnyAuthenticated()
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -160,6 +176,7 @@ export class AuthController {
   }
 
   @Get('permissions')
+  @AnyAuthenticated()
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -187,7 +204,8 @@ export class AuthController {
     response.cookie(
       REFRESH_TOKEN_COOKIE,
       refreshToken,
-      buildRefreshCookieOptions(this.configService),
+      // El request decide `secure` si llegó por HTTPS (VULN-38).
+      buildRefreshCookieOptions(this.configService, response.req),
     );
   }
 }

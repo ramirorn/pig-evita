@@ -249,12 +249,12 @@ export const ACCIONES = {
   ],
 
   // --- Competencias y resultados ---
-  COMPETITION_MANAGE: [
-    Role.SUPER_ADMIN,
-    Role.ADMIN_PROVINCIAL,
-    Role.ADMIN_DEPARTAMENTAL,
-    Role.ADMIN_ZONAL,
-  ],
+  // VULN-08 (decisión del 23/11/2026): competencias, noticias, encuesta y
+  // calendario son de alcance provincial —una competencia no tiene
+  // departamento en el modelo—, así que los gestiona sólo la línea provincial.
+  // Las sedes y los resultados siguen abiertos a los admins territoriales,
+  // pero limitados a su territorio en el service.
+  COMPETITION_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
   RESULT_LOAD: [
     Role.SUPER_ADMIN,
     Role.ADMIN_PROVINCIAL,
@@ -268,12 +268,7 @@ export const ACCIONES = {
   CATEGORY_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
 
   // --- Contenido y sedes ---
-  NEWS_MANAGE: [
-    Role.SUPER_ADMIN,
-    Role.ADMIN_PROVINCIAL,
-    Role.ADMIN_DEPARTAMENTAL,
-    Role.ADMIN_ZONAL,
-  ],
+  NEWS_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
   /**
    * Forzar la sincronización de noticias con el portal oficial (S19).
    *
@@ -288,9 +283,9 @@ export const ACCIONES = {
    * Administrar la encuesta psicológica (S20): campañas, preguntas, opciones y
    * lectura de los agregados.
    *
-   * Mismo criterio que `NEWS_MANAGE` —la línea administrativa completa, sin
-   * roles operativos— porque es contenido que se publica en el sitio público y
-   * lo carga el mismo equipo. La psicóloga que redacta el cuestionario usa una
+   * Mismo criterio que `NEWS_MANAGE`: sólo la línea provincial (VULN-08,
+   * decisión del 23/11/2026; antes incluía a los admins territoriales), porque
+   * es contenido que se publica en el sitio público para toda la provincia. La psicóloga que redacta el cuestionario usa una
    * cuenta de esa línea; no hay un rol propio para ella y crear uno para una
    * sola persona agregaría una matriz de permisos nueva sin nadie que la
    * mantenga.
@@ -302,18 +297,8 @@ export const ACCIONES = {
    * Responder la encuesta no requiere ningún rol: el endpoint público es
    * `@Public()`.
    */
-  SURVEY_MANAGE: [
-    Role.SUPER_ADMIN,
-    Role.ADMIN_PROVINCIAL,
-    Role.ADMIN_DEPARTAMENTAL,
-    Role.ADMIN_ZONAL,
-  ],
-  CALENDAR_MANAGE: [
-    Role.SUPER_ADMIN,
-    Role.ADMIN_PROVINCIAL,
-    Role.ADMIN_DEPARTAMENTAL,
-    Role.ADMIN_ZONAL,
-  ],
+  SURVEY_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
+  CALENDAR_MANAGE: [Role.SUPER_ADMIN, Role.ADMIN_PROVINCIAL],
   VENUE_MANAGE: [
     Role.SUPER_ADMIN,
     Role.ADMIN_PROVINCIAL,
@@ -323,6 +308,18 @@ export const ACCIONES = {
 
   /** Panel de resumen: el COORDINADOR lo ve aunque no edite nada. */
   DASHBOARD_READ: [
+    Role.SUPER_ADMIN,
+    Role.ADMIN_PROVINCIAL,
+    Role.ADMIN_DEPARTAMENTAL,
+    Role.ADMIN_ZONAL,
+    Role.COORDINADOR,
+  ],
+  /**
+   * Métricas de la encuesta: los mismos roles que el dashboard. Son agregados
+   * anónimos (k-anonimato), así que quien lee el resumen general también puede
+   * leer esto; crear o editar un KPI sigue siendo `SURVEY_MANAGE`.
+   */
+  METRICS_READ: [
     Role.SUPER_ADMIN,
     Role.ADMIN_PROVINCIAL,
     Role.ADMIN_DEPARTAMENTAL,
@@ -365,4 +362,47 @@ export function accionesDe(
   role: Role | string | undefined | null,
 ): AccionProtegida[] {
   return TODAS_LAS_ACCIONES.filter((accion) => puedeAccion(role, accion));
+}
+
+// ===========================================
+// Territorio: capital vs. interior
+// ===========================================
+
+/**
+ * La capital es la **localidad** "Formosa", no el departamento del mismo
+ * nombre: el departamento Formosa también contiene Gran Guardia, Mariano
+ * Boedo o San Hilario, que son interior. Las métricas de la encuesta separan
+ * las respuestas en estas dos zonas porque es la pregunta que la Secretaría
+ * necesita responder ante otros ministerios ("los chicos del interior…").
+ */
+export const CAPITAL = {
+  localidad: 'Formosa',
+  departamento: 'Formosa',
+} as const;
+
+export type Zona = 'CAPITAL' | 'INTERIOR';
+
+/** Normaliza para comparar nombres de localidad: tildes, mayúsculas y espacios. */
+function normalizarNombre(valor: string): string {
+  return valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Zona de una localidad. Es CAPITAL sólo cuando localidad y departamento son
+ * los de `CAPITAL`; cualquier otra combinación (incluida una localidad sin
+ * cargar) cuenta como INTERIOR.
+ */
+export function zonaDeLocalidad(
+  localidad: string | null | undefined,
+  departamento: string | null | undefined,
+): Zona {
+  if (!localidad || !departamento) return 'INTERIOR';
+  const esCapital =
+    normalizarNombre(localidad) === normalizarNombre(CAPITAL.localidad) &&
+    normalizarNombre(departamento) === normalizarNombre(CAPITAL.departamento);
+  return esCapital ? 'CAPITAL' : 'INTERIOR';
 }

@@ -2,6 +2,7 @@
 // Application Constants
 // ===========================================
 import {
+  AgeCriterion,
   UserRole,
   InscriptionStatus,
   DocumentStatus,
@@ -52,6 +53,9 @@ export const ROUTES = {
   // Admin
   ADMIN: '/admin',
   DASHBOARD: '/admin/dashboard',
+  /** Métricas e indicadores de la encuesta, en vivo. */
+  METRICS: '/admin/metricas',
+  METRICS_PRESENT: '/admin/metricas/presentar',
   /** El mismo mapa de impacto del sitio público, dentro del panel. */
   IMPACT_MAP_ADMIN: '/admin/mapa',
   PARTICIPANTS: '/admin/participantes',
@@ -109,10 +113,10 @@ export const INSCRIPTION_STATUS_LABELS: Record<InscriptionStatus, string> = {
 };
 
 export const INSCRIPTION_STATUS_COLORS: Record<InscriptionStatus, string> = {
-  [InscriptionStatus.PENDIENTE]: 'bg-amber-100 text-amber-800 border-amber-200',
-  [InscriptionStatus.REVISADA]: 'bg-blue-100 text-blue-800 border-blue-200',
-  [InscriptionStatus.APROBADA]: 'bg-green-100 text-green-800 border-green-200',
-  [InscriptionStatus.RECHAZADA]: 'bg-red-100 text-red-800 border-red-200',
+  [InscriptionStatus.PENDIENTE]: 'bg-warning-100 text-warning-800 border-warning-200',
+  [InscriptionStatus.REVISADA]: 'bg-primary-100 text-primary-700 border-primary-200',
+  [InscriptionStatus.APROBADA]: 'bg-success-100 text-success-800 border-success-200',
+  [InscriptionStatus.RECHAZADA]: 'bg-destructive-50 text-destructive-700 border-destructive-500/30',
 };
 
 export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
@@ -159,6 +163,11 @@ export const RESULT_TYPE_LABELS: Record<ResultType, string> = {
   [ResultType.SETS]: 'Sets',
   [ResultType.PUNTOS]: 'Puntos',
   [ResultType.POSICIONES]: 'Posiciones',
+};
+
+export const AGE_CRITERION_LABELS: Record<AgeCriterion, string> = {
+  [AgeCriterion.AGE]: 'Por edad',
+  [AgeCriterion.BIRTH_YEAR]: 'Por año de nacimiento',
 };
 
 export const SEX_LABELS: Record<Sex, string> = {

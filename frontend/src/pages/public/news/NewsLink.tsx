@@ -16,6 +16,13 @@ import { esNoticiaExterna, hostDeLaFuente } from './newsSource';
  * artículo se lee en formosa.gob.ar. Si la tarjeta llevara a un detalle propio,
  * la pantalla prometería un texto completo que no tenemos.
  */
+/**
+ * Base común: foco visible y un cue de presión. El hover vive en el contenido
+ * de cada tarjeta (`group-hover`), que es quien sabe qué resaltar.
+ */
+const BASE_ENLACE =
+  'transition-opacity duration-120 active:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600';
+
 interface NewsLinkProps {
   news: News;
   className?: string;
@@ -32,7 +39,7 @@ export function NewsLink({ news, className, style, children }: NewsLinkProps) {
         // `noopener` no es opcional: sin él, la pestaña que abrimos puede
         // manipular `window.opener` y redirigir la nuestra.
         rel="noopener noreferrer"
-        className={className}
+        className={cn(BASE_ENLACE, className)}
         style={style}
         aria-label={`${news.title} (se abre en el portal oficial de Formosa)`}
       >
@@ -42,7 +49,7 @@ export function NewsLink({ news, className, style, children }: NewsLinkProps) {
   }
 
   return (
-    <Link to={`/noticias/${news.slug}`} className={className} style={style}>
+    <Link to={`/noticias/${news.slug}`} className={cn(BASE_ENLACE, className)} style={style}>
       {children}
     </Link>
   );
@@ -66,7 +73,7 @@ export function BadgeNoticiaExterna({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider',
+        'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider',
         'bg-celeste-50 text-celeste-900 border border-celeste-200',
         className,
       )}

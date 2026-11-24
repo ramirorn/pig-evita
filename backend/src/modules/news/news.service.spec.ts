@@ -61,3 +61,52 @@ describe('NewsService — orden del listado', () => {
     expect(JSON.stringify(orden)).not.toContain('passwordHash');
   });
 });
+
+describe('NewsService — orden por título en castellano (F-17)', () => {
+  const fila = (id: string, title: string, createdAt: string) => ({
+    id,
+    title,
+    createdAt: new Date(createdAt),
+    imageKey: null,
+  });
+  const filas = [
+    fila('1', 'Zeta', '2026-01-01T00:00:00Z'),
+    fila('2', 'Árbol', '2026-01-02T00:00:00Z'),
+    fila('3', 'alfa', '2026-01-03T00:00:00Z'),
+    fila('4', 'Ñandú', '2026-01-04T00:00:00Z'),
+    fila('5', 'Nube', '2026-01-05T00:00:00Z'),
+  ];
+
+  function armarConFilas() {
+    const findMany = jest.fn((args: { where?: { id?: { in: string[] } } }) =>
+      Promise.resolve(
+        args.where?.id?.in
+          ? filas.filter((f) => args.where!.id!.in.includes(f.id))
+          : filas,
+      ),
+    );
+    const prisma = { news: { findMany, count: jest.fn() } };
+    return new NewsService(prisma as unknown as PrismaService);
+  }
+
+  const titulos = (r: { items: Array<{ title: string }> }) =>
+    r.items.map((n) => n.title);
+
+  it('"Á" va junto a "A" y "Ñ" después de "N", sin distinguir mayúsculas', async () => {
+    const r = await armarConFilas().findAll(
+      filtro({ sortBy: 'title', sortOrder: 'asc', limit: 50 }),
+      true,
+    );
+    expect(titulos(r)).toEqual(['alfa', 'Árbol', 'Nube', 'Ñandú', 'Zeta']);
+    expect(r.meta.total).toBe(5);
+  });
+
+  it('desc invierte el orden y la paginación corta sobre el orden ya resuelto', async () => {
+    const r = await armarConFilas().findAll(
+      filtro({ sortBy: 'title', sortOrder: 'desc', page: 2, limit: 2 }),
+      true,
+    );
+    expect(titulos(r)).toEqual(['Nube', 'Árbol']);
+    expect(r.meta.total).toBe(5);
+  });
+});

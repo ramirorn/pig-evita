@@ -22,7 +22,7 @@ export function SurveyCtaSection({
       <div className="absolute inset-0 noise-bg mix-blend-overlay" />
 
       <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center pt-8 text-center">
-        <h2 className="font-display text-2xl leading-tight font-extrabold tracking-tight text-white md:text-3xl">
+        <h2 className="type-h2 text-white">
           ¿Arrancamos? Son {DURACION_ENCUESTA} y quedan entre vos y vos
         </h2>
         <p className="mt-4 max-w-xl text-base leading-relaxed text-celeste-100">

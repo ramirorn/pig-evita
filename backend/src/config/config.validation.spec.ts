@@ -40,7 +40,10 @@ describe('validateEnv — guardrails de secretos (C-05)', () => {
     it('el mensaje apunta a la variable y dice cómo generar una nueva', () => {
       let message = '';
       try {
-        validateEnv({ ...VALID_ENV, JWT_ACCESS_SECRET: 'change-me-please-32-chars-long-value' });
+        validateEnv({
+          ...VALID_ENV,
+          JWT_ACCESS_SECRET: 'change-me-please-32-chars-long-value',
+        });
       } catch (error) {
         message = (error as Error).message;
       }
@@ -91,11 +94,25 @@ describe('validateEnv — guardrails de secretos (C-05)', () => {
       ...VALID_ENV,
       NODE_ENV: 'production',
       CORS_ORIGINS: 'https://juegosevita.formosa.gob.ar',
-      DATABASE_URL: 'postgresql://evita_user:Zc8GhdV7pQx2vNf@db:5432/juegos_evita',
+      REDIS_PASSWORD: 'rD9vNfR2tLmYw3bZc8GhdV7p',
+      DATABASE_URL:
+        'postgresql://evita_user:Zc8GhdV7pQx2vNf@db:5432/juegos_evita',
     };
 
     it('acepta un entorno de producción bien configurado', () => {
       expect(() => validateEnv(PROD_ENV)).not.toThrow();
+    });
+
+    it('VULN-11: en producción REDIS_PASSWORD es obligatoria (Redis sin contraseña guarda sesiones revocadas y versiones)', () => {
+      const { REDIS_PASSWORD: _sinRedis, ...sinPassword } = PROD_ENV;
+      expect(() => validateEnv(sinPassword)).toThrow('REDIS_PASSWORD');
+      expect(() => validateEnv({ ...PROD_ENV, REDIS_PASSWORD: '  ' })).toThrow(
+        'REDIS_PASSWORD',
+      );
+    });
+
+    it('comportamiento previo: en desarrollo REDIS_PASSWORD sigue siendo opcional', () => {
+      expect(() => validateEnv(VALID_ENV)).not.toThrow();
     });
 
     it('rechaza la contraseña de base de datos por defecto', () => {
@@ -137,5 +154,26 @@ describe('validateEnv — guardrails de secretos (C-05)', () => {
       expect(parsed.API_PREFIX).toBe('api/v1');
       expect(parsed.JWT_ACCESS_EXPIRATION).toBe('15m');
     });
+  });
+});
+
+describe('validateEnv — NEWS_SYNC_PORTAL_URL (O-3)', () => {
+  it('es opcional', () => {
+    expect(() => validateEnv(VALID_ENV)).not.toThrow();
+  });
+
+  it('acepta una URL (por ejemplo, un portal simulado)', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_ENV,
+        NEWS_SYNC_PORTAL_URL: 'http://portal-mock:8080',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rechaza algo que no es URL', () => {
+    expect(() =>
+      validateEnv({ ...VALID_ENV, NEWS_SYNC_PORTAL_URL: 'no-es-url' }),
+    ).toThrow('NEWS_SYNC_PORTAL_URL');
   });
 });

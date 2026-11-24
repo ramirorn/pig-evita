@@ -10,7 +10,7 @@ import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { AppModule } from './app.module';
 import { setupSwagger, SWAGGER_PATH } from './swagger';
-import { setupSecurity } from './security';
+import { setupBodyParsers, setupSecurity } from './security';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -46,6 +46,9 @@ async function bootstrap() {
   // testearla sin levantar el AppModule entero (ver T09).
   setupSecurity(app, { nodeEnv, corsOrigins });
 
+  // Límite explícito del body JSON/urlencoded (F-22): pasarse responde 413.
+  setupBodyParsers(app);
+
   // Cookies: el refresh token viaja en una cookie httpOnly (ver auth.cookies.ts)
   app.use(cookieParser());
 
@@ -69,7 +72,17 @@ async function bootstrap() {
   );
 
   // Swagger / OpenAPI (se omite en producción, ver swagger.ts)
-  const swaggerHabilitado = setupSwagger(app, nodeEnv);
+  // VULN-13: Swagger mira el NODE_ENV crudo, no el valor con default. Si un
+  // despliegue arranca sin NODE_ENV, la config cae en 'development' (para no
+  // romper el arranque local), pero la documentación de la API no se publica.
+  if (!process.env.NODE_ENV) {
+    app
+      .get(PinoLogger)
+      .warn(
+        'NODE_ENV no está definido: se arranca con la configuración de desarrollo, pero sin Swagger. Definilo explícitamente.',
+      );
+  }
+  const swaggerHabilitado = setupSwagger(app, process.env.NODE_ENV);
 
   await app.listen(port);
 

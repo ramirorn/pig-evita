@@ -12,6 +12,11 @@ import {
 import { authApi, type LoginPayload } from '@/api/auth.api';
 import { clearAccessToken, onSessionExpired } from '@/api/client';
 import { resetQueryCache } from '@/lib/queryClient';
+import { convieneRestaurarSesion, marcarSesion, olvidarSesion } from '@/lib/sessionHint';
+import {
+  cerrarSesionBorradorPlantel,
+  fijarDuenioBorradorPlantel,
+} from '@/pages/admin/inscription/rosterDraft';
 import { type AuthUserProfile, type UserRole } from '@/types';
 
 // ============ TYPES ============
@@ -49,20 +54,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * usuario desde `/auth/me`. El servidor es la única fuente de verdad sobre
    * quién está logueado y con qué rol.
    *
-   * Para un visitante anónimo esto es una sola request que falla con 401/403 y
-   * deja `user` en null.
+   * Un visitante anónimo del portal no dispara el refresh (F-26): sólo se
+   * intenta si este navegador tuvo sesión (`sessionHint`) o si se abre una
+   * pantalla del panel, que la exige igual.
    */
   useEffect(() => {
     let cancelled = false;
 
     const restoreSession = async () => {
+      if (!convieneRestaurarSesion(window.location.pathname)) {
+        setIsLoading(false);
+        return;
+      }
       try {
         await authApi.refresh();
         const profile = await authApi.me();
+        marcarSesion();
+        // Antes de `setUser`: el wizard de planteles lee su borrador al montar.
+        fijarDuenioBorradorPlantel(profile.id);
         if (!cancelled) setUser(profile);
       } catch {
         // Sin cookie válida: sesión anónima.
         clearAccessToken();
+        olvidarSesion();
         if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -94,7 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * el redirect. Contra el cruce de sesiones ya protege el `resetQueryCache()`
    * del login, que corre antes de que el usuario nuevo quede seteado.
    */
-  useEffect(() => onSessionExpired(() => setUser(null)), []);
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        olvidarSesion();
+        setUser(null);
+      }),
+    [],
+  );
 
   const login = useCallback(async (payload: LoginPayload) => {
     const response = await authApi.login(payload);
@@ -104,6 +125,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // anterior y este login los heredaría.
     await resetQueryCache();
 
+    // VULN-18: el borrador de plantel es de quien lo cargó. Si entra otro
+    // usuario en este navegador, el del anterior se borra acá, antes de que
+    // el wizard pueda leerlo.
+    fijarDuenioBorradorPlantel(response.user.id);
+    marcarSesion();
     setUser(response.user);
 
     return response.user;
@@ -118,6 +144,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // para que también se limpie si la request de logout falla.
       await resetQueryCache();
       clearAccessToken();
+      olvidarSesion();
+      // VULN-18: cerrar sesión borra el plantel a medio cargar (DNI, fecha de
+      // nacimiento y domicilio de menores) en una PC que puede ser compartida.
+      cerrarSesionBorradorPlantel();
       setUser(null);
     }
   }, []);

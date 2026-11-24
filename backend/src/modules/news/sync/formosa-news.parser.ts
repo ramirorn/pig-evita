@@ -24,7 +24,11 @@
 /** Slug de sección que identifica a las notas de los Juegos Evita. */
 export const SLUG_JUEGOS_EVITA = 'juegos_evita_formosenos';
 
-/** Base pública del portal. */
+/**
+ * Base pública del portal. Es también el default de `NEWS_SYNC_PORTAL_URL`
+ * (O-3), que permite apuntar las descargas del sync a un portal simulado. La
+ * `sourceUrl` que se guarda sigue siendo siempre la canónica de esta base.
+ */
 export const BASE_PORTAL = 'https://www.formosa.gob.ar';
 
 /**
@@ -35,8 +39,8 @@ export const BASE_PORTAL = 'https://www.formosa.gob.ar';
  * larga —, así que el descubrimiento puede recorrer IDs sin conocer ni la
  * categoría ni el slug del título.
  */
-export function urlDeNota(id: number): string {
-  return `${BASE_PORTAL}/noticia/${id}/0/x`;
+export function urlDeNota(id: number, base: string = BASE_PORTAL): string {
+  return `${base.replace(/\/+$/, '')}/noticia/${id}/0/x`;
 }
 
 /** URL de la portada del portal: es la que enlaza las notas más recientes. */
@@ -182,26 +186,120 @@ function limpiar(texto: string): string {
   return decodificarEntidades(texto).replace(/\s+/g, ' ').trim();
 }
 
+// -------------------------------------------------
+// VULN-34 — lectura de etiquetas sin expresiones con backtracking
+// -------------------------------------------------
+//
+// Las versiones anteriores buscaban con patrones del estilo
+// `<meta[^>]+property=…[^>]*content=…` sobre el HTML entero. Con muchas
+// etiquetas `<meta` largas y sin cerrar, cada intento recorría el resto del
+// documento y retrocedía: 26 KB hostiles tardaban ~8 s y 52 KB, ~100 s, con el
+// event loop bloqueado. Ahora las etiquetas se ubican con `indexOf` (lineal) y
+// los atributos se leen sobre la etiqueta ya recortada, con un tope de largo.
+
+/** Etiquetas más largas que esto no son markup legítimo del portal: se saltean. */
+const MAX_LARGO_ETIQUETA = 4096;
+
+/**
+ * Recorre las etiquetas `<nombre ...>` de `html` en orden, en tiempo lineal.
+ * Devuelve el texto de cada etiqueta (sin `<` ni `>`) y la posición donde
+ * termina. Corta en la primera etiqueta sin `>`: después no hay nada que leer.
+ */
+function* etiquetas(
+  html: string,
+  nombre: string,
+  desde = 0,
+): Generator<{ texto: string; fin: number }> {
+  const apertura = `<${nombre}`;
+  const minusculas = html.toLowerCase();
+  let i = minusculas.indexOf(apertura, desde);
+  while (i !== -1) {
+    const siguiente = minusculas.charAt(i + apertura.length);
+    const cierre = html.indexOf('>', i);
+    if (cierre === -1) return;
+    // `<metadata>` no es `<meta`: el nombre tiene que terminar ahí.
+    if (/[\s/>]/.test(siguiente) && cierre - i <= MAX_LARGO_ETIQUETA) {
+      yield { texto: html.slice(i + apertura.length, cierre), fin: cierre + 1 };
+    }
+    i = minusculas.indexOf(apertura, cierre + 1);
+  }
+}
+
+/**
+ * La etiqueta que empieza exactamente en `i` (donde hay un `<`), o `null` si no
+ * cierra o es demasiado larga. No recorre el documento: sólo hasta su `>`.
+ */
+function etiquetaEn(
+  html: string,
+  i: number,
+): { texto: string; fin: number } | null {
+  const cierre = html.indexOf('>', i);
+  if (cierre === -1 || cierre - i > MAX_LARGO_ETIQUETA) return null;
+  const texto = html.slice(i + 1, cierre).replace(/^[a-zA-Z]+/, '');
+  return { texto, fin: cierre + 1 };
+}
+
+/**
+ * Atributos de una etiqueta ya recortada (`property="og:title" content=…`).
+ *
+ * Se leen a mano, con un único recorrido: una expresión regular global sobre
+ * la etiqueta volvería a reintentar desde cada posición (cuadrático con nombres
+ * largos o comillas sin cerrar). Cada carácter se mira a lo sumo una vez.
+ */
+function atributos(etiqueta: string): Map<string, string> {
+  const salida = new Map<string, string>();
+  const n = etiqueta.length;
+  const esEspacio = (c: string) =>
+    c === ' ' || c === '\n' || c === '\t' || c === '\r' || c === '\f';
+  let i = 0;
+  while (i < n) {
+    while (i < n && (esEspacio(etiqueta[i]) || etiqueta[i] === '/')) i++;
+    const inicioNombre = i;
+    while (i < n && !esEspacio(etiqueta[i]) && !'=/"\''.includes(etiqueta[i]))
+      i++;
+    const nombre = etiqueta.slice(inicioNombre, i).toLowerCase();
+    if (!nombre) {
+      i++; // una comilla suelta: se saltea
+      continue;
+    }
+    while (i < n && esEspacio(etiqueta[i])) i++;
+    if (etiqueta[i] !== '=') {
+      if (!salida.has(nombre)) salida.set(nombre, '');
+      continue;
+    }
+    i++;
+    while (i < n && esEspacio(etiqueta[i])) i++;
+    let valor: string;
+    const comilla = etiqueta[i];
+    if (comilla === '"' || comilla === "'") {
+      const cierre = etiqueta.indexOf(comilla, i + 1);
+      if (cierre === -1) break; // comilla sin cerrar: no hay más atributos legibles
+      valor = etiqueta.slice(i + 1, cierre);
+      i = cierre + 1;
+    } else {
+      const inicioValor = i;
+      while (i < n && !esEspacio(etiqueta[i])) i++;
+      valor = etiqueta.slice(inicioValor, i);
+    }
+    if (!salida.has(nombre)) salida.set(nombre, valor);
+  }
+  return salida;
+}
+
 /** Lee un `<meta property="og:...">`. Tolera el orden de los atributos. */
 export function leerOpenGraph(html: string, propiedad: string): string | null {
-  const prop = propiedad.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const patrones = [
-    new RegExp(
-      `<meta[^>]+property=["']og:${prop}["'][^>]*content=["']([^"']*)["']`,
-      'i',
-    ),
-    new RegExp(
-      `<meta[^>]+content=["']([^"']*)["'][^>]*property=["']og:${prop}["']`,
-      'i',
-    ),
-  ];
+  // Los Open Graph viven en el `<head>`: si está cerrado, no se mira el cuerpo.
+  const finHead = html.toLowerCase().indexOf('</head>');
+  const cabecera = finHead === -1 ? html : html.slice(0, finHead);
+  const buscada = `og:${propiedad}`.toLowerCase();
 
-  for (const patron of patrones) {
-    const encontrado = patron.exec(html);
-    if (encontrado) {
-      const valor = limpiar(encontrado[1]);
-      if (valor) return valor;
-    }
+  for (const { texto } of etiquetas(cabecera, 'meta')) {
+    const attrs = atributos(texto);
+    if (attrs.get('property')?.toLowerCase() !== buscada) continue;
+    const contenido = attrs.get('content');
+    if (contenido === undefined) continue;
+    const valor = limpiar(contenido);
+    if (valor) return valor;
   }
   return null;
 }
@@ -234,8 +332,16 @@ export function esPlantillaSinNota(html: string): boolean {
 
 /** Fecha del pie: `<span class="time">29-08-2026</span>`, en DD-MM-AAAA. */
 export function leerFecha(html: string): Date | null {
-  const crudo =
-    /<span[^>]*class=["']time["'][^>]*>\s*([^<]*?)\s*<\/span>/i.exec(html)?.[1];
+  let crudo: string | null = null;
+  for (const { texto, fin } of etiquetas(html, 'span')) {
+    if (atributos(texto).get('class') !== 'time') continue;
+    // El contenido va hasta el `<` siguiente, que tiene que ser `</span>`.
+    const corte = html.indexOf('<', fin);
+    if (corte === -1) return null;
+    if (html.slice(corte, corte + 7).toLowerCase() !== '</span>') continue;
+    crudo = html.slice(fin, corte);
+    break;
+  }
   if (!crudo) return null;
 
   const partes = /^(\d{2})-(\d{2})-(\d{4})$/.exec(crudo.trim());
@@ -262,23 +368,40 @@ export function leerFecha(html: string): Date | null {
 export function leerSeccion(
   html: string,
 ): { slug: string; nombre: string } | null {
-  const encontrado =
-    /Cargada\s+en\s*<a[^>]+href=["'][^"']*\/noticias\/categoria\/*\/([a-z0-9_-]+)["'][^>]*>([^<]*)<\/a>/i.exec(
-      html,
-    );
-  if (!encontrado) return null;
+  // "Cargada en" seguido (con espacios) de un `<a ...>`: se ubica el texto con
+  // `indexOf` y el resto se lee sobre la etiqueta ya recortada.
+  const marca = /cargada\s+en\s*<a\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = marca.exec(html)) !== null) {
+    const etiqueta = etiquetaEn(html, m.index + m[0].length - 2);
+    if (!etiqueta) return null;
+    marca.lastIndex = etiqueta.fin;
 
-  const slug = encontrado[1].toLowerCase();
-  if (!slug) return null;
+    const href = atributos(etiqueta.texto).get('href') ?? '';
+    const enHref = /\/noticias\/categoria\/+([a-z0-9_-]+)$/i.exec(href);
+    if (!enHref) continue;
 
-  return { slug, nombre: limpiar(encontrado[2]) || slug };
+    const corte = html.indexOf('<', etiqueta.fin);
+    if (corte === -1) return null;
+    if (html.slice(corte, corte + 4).toLowerCase() !== '</a>') continue;
+
+    const slug = enHref[1].toLowerCase();
+    return { slug, nombre: limpiar(html.slice(etiqueta.fin, corte)) || slug };
+  }
+  return null;
 }
 
 /** "- Fuente: Secretaría de Deportes y Recreación Comunitaria" del pie. */
 export function leerFuente(html: string): string | null {
-  const encontrado = /-\s*Fuente:\s*([^<]+)</i.exec(html);
+  // Sin `\s*([^<]+)<` (dos cuantificadores que compiten por los espacios y
+  // reintentan en cada "- Fuente:" sin cerrar): se ubica la marca y el valor
+  // va hasta el `<` siguiente.
+  const encontrado = /-\s*Fuente:/i.exec(html);
   if (!encontrado) return null;
-  const valor = limpiar(encontrado[1]);
+  const desde = encontrado.index + encontrado[0].length;
+  const corte = html.indexOf('<', desde);
+  if (corte === -1) return null;
+  const valor = limpiar(html.slice(desde, corte));
   return valor || null;
 }
 

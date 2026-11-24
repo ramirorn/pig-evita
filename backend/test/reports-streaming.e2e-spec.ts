@@ -252,7 +252,8 @@ describe('Reportes en streaming (e2e)', () => {
       });
       expect(destino.contenido.toString('utf8')).toBe(
         '﻿"Alcance del reporte: provincial (todos los departamentos)"\n' +
-          '"a"\n"dice ""hola"""\n"null"\n"7"',
+          // S10 — un `null` es una celda vacía, ya no el texto "null".
+          '"a"\n"dice ""hola"""\n""\n"7"',
       );
     });
 

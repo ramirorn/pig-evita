@@ -93,6 +93,13 @@ const {
   encolarEnvio,
   quitarPendiente,
   marcarIntento,
+  localidadesDeDepartamento,
+  departamentoDeLocalidad,
+  localidadTrasCambiarDepartamento,
+  tieneRespuestas,
+  textoRespuestas,
+  puedeEliminarCampania,
+  puedeEliminarOpcion,
   DisciplineType,
   SurveyAudience,
   SurveyQuestionKind,
@@ -318,7 +325,11 @@ const CUESTIONARIO = [P_INACTIVA, ...P_EQUIPO, ...P_TODOS, ...P_INDIVIDUAL];
   // acá porque Zod descarta lo que no esté declarado en el schema: mientras
   // `surveyContextSchema` no la tuvo, el borrador volvía sin etapa y el
   // selector aparecía otra vez en blanco (visto en el navegador, no en teoría).
-  const contexto = { disciplineId: UUID(7), etapa: CompetitionStage.PROVINCIAL };
+  const contexto = {
+    disciplineId: UUID(7),
+    etapa: CompetitionStage.PROVINCIAL,
+    localityId: UUID(901),
+  };
   const respuestas = { [P_TODOS[0].id]: [P_TODOS[0].options[0].id] };
 
   comprobar('sin nada guardado, no hay borrador', leerBorrador(campania) === null);
@@ -327,6 +338,10 @@ const CUESTIONARIO = [P_INACTIVA, ...P_EQUIPO, ...P_TODOS, ...P_INDIVIDUAL];
   const recuperado = leerBorrador(campania);
 
   comprobar('el borrador vuelve después de guardarlo', recuperado !== null);
+  comprobar(
+    'el borrador conserva la localidad elegida (si no, el envío restaurado sale sin corte territorial)',
+    recuperado?.contexto?.localityId === contexto.localityId,
+  );
   comprobar(
     'el borrador conserva el contexto',
     recuperado?.contexto?.disciplineId === contexto.disciplineId,
@@ -432,6 +447,132 @@ const CUESTIONARIO = [P_INACTIVA, ...P_EQUIPO, ...P_TODOS, ...P_INDIVIDUAL];
   comprobar(
     'un envío en cola que no valida contra el DTO se descarta',
     leerPendientes().length === 0,
+  );
+}
+
+// -------------------------------------------------
+// 6 bis. Lo que queda en el teléfono, y cuánto (VULN-33)
+// -------------------------------------------------
+// En un teléfono compartido (familiar, del entrenador, la tablet de la sede)
+// otra persona puede leer el `localStorage`. Lo que se guarda es lo mínimo
+// para no perder la respuesta, y vence.
+{
+  const CLAVE_BORRADOR = 'evita_encuesta_borrador_v1';
+  const CLAVE_PENDIENTES = 'evita_encuesta_pendientes_v1';
+  const campania = UUID(1);
+  const respuestas = { [P_TODOS[0].id]: [P_TODOS[0].options[0].id] };
+  const payload = {
+    campaignId: campania,
+    etapa: CompetitionStage.ZONAL,
+    disciplineType: DisciplineType.EQUIPO,
+    disciplineId: UUID(7),
+    respuestas: [
+      { questionId: P_TODOS[0].id, optionIds: [P_TODOS[0].options[0].id] },
+    ],
+  };
+  const hora = (h) => new Date(Date.UTC(2026, 8, 15, 0, 0, 0) + h * 3_600_000);
+
+  let datos = instalarStorage();
+  guardarBorrador(campania, { disciplineId: UUID(7) }, respuestas, hora(0));
+  comprobar(
+    'un borrador de hace menos de un día se restaura',
+    leerBorrador(campania, hora(23)) !== null,
+  );
+  comprobar(
+    'un borrador de más de un día no se restaura',
+    leerBorrador(campania, hora(25)) === null,
+  );
+  comprobar('y se borra del teléfono al encontrarlo vencido', !datos.has(CLAVE_BORRADOR));
+
+  datos = instalarStorage();
+  encolarEnvio(payload, hora(0));
+  comprobar(
+    'un envío en cola de hace menos de dos días se sigue reintentando',
+    leerPendientes(hora(47)).length === 1,
+  );
+  comprobar(
+    'un envío en cola de más de dos días se descarta',
+    leerPendientes(hora(49)).length === 0,
+  );
+  comprobar('y sale del teléfono al encontrarlo vencido', !datos.has(CLAVE_PENDIENTES));
+
+  // Encolado el envío, el borrador ya no hace falta: la cola tiene todo. Si
+  // quedara, las respuestas estarían dos veces en el teléfono y, al reabrir,
+  // el formulario restaurado invitaría a mandarlas de nuevo (duplicado).
+  datos = instalarStorage();
+  guardarBorrador(campania, { disciplineId: UUID(7) }, respuestas);
+  encolarEnvio(payload);
+  comprobar('al encolar un envío, el borrador se borra', !datos.has(CLAVE_BORRADOR));
+  comprobar('el envío encolado sigue en la cola', leerPendientes().length === 1);
+}
+
+// -------------------------------------------------
+// Selector territorial: departamento → localidad
+// -------------------------------------------------
+{
+  const CATALOGO = [
+    {
+      id: UUID(900),
+      name: 'Formosa',
+      localities: [
+        { id: UUID(901), name: 'Formosa', zona: 'CAPITAL' },
+        { id: UUID(902), name: 'Gran Guardia', zona: 'INTERIOR' },
+      ],
+    },
+    {
+      id: UUID(910),
+      name: 'Pirané',
+      localities: [{ id: UUID(911), name: 'Pirané', zona: 'INTERIOR' }],
+    },
+  ];
+
+  comprobar(
+    'sin departamento no se ofrecen localidades',
+    localidadesDeDepartamento(CATALOGO, undefined).length === 0,
+  );
+  comprobar(
+    'un departamento ofrece sólo sus localidades',
+    localidadesDeDepartamento(CATALOGO, UUID(900)).map((l) => l.name).join() ===
+      'Formosa,Gran Guardia',
+  );
+  comprobar(
+    'al restaurar, el departamento se deduce de la localidad guardada',
+    departamentoDeLocalidad(CATALOGO, UUID(911)) === UUID(910),
+  );
+  comprobar(
+    'cambiar a un departamento que no la contiene limpia la localidad',
+    localidadTrasCambiarDepartamento(CATALOGO, UUID(910), UUID(901)) === undefined,
+  );
+  comprobar(
+    'volver a elegir el mismo departamento conserva la localidad',
+    localidadTrasCambiarDepartamento(CATALOGO, UUID(900), UUID(902)) === UUID(902),
+  );
+}
+
+// -------------------------------------------------
+// Editor de campañas: sin conteos exactos (viven sólo en Métricas)
+// -------------------------------------------------
+{
+  const activa = { status: 'ACTIVA' };
+  const sinRespuestas = { ...activa, tieneRespuestas: false, _count: { responses: 0 }, opcionesElegidas: [] };
+  const pocas = { ...activa, tieneRespuestas: true, _count: { responses: 0 }, opcionesElegidas: ['o1'] };
+  const muchas = { ...activa, tieneRespuestas: true, _count: { responses: 35 }, opcionesElegidas: ['o1'] };
+
+  comprobar('respuestas: "tiene respuestas" sale del sí/no del backend', tieneRespuestas(pocas) && !tieneRespuestas(sinRespuestas));
+  comprobar('respuestas: sin respuestas se muestra 0', textoRespuestas(sinRespuestas) === '0');
+  comprobar('respuestas: de 1 a 4 se muestra "Menos de 5", nunca el número', textoRespuestas(pocas) === 'Menos de 5');
+  comprobar('respuestas: con más, el conteo de a 5', textoRespuestas(muchas) === '35');
+
+  const borrar = puedeEliminarCampania(pocas);
+  comprobar('campaña: con respuestas no se borra', !borrar.permitido);
+  comprobar('campaña: el motivo no dice cuántas respuestas hay', !/\d/.test(borrar.motivo ?? ''), borrar.motivo);
+
+  comprobar('opción: sin respuestas se puede borrar', puedeEliminarOpcion(sinRespuestas, 'o1').permitido);
+  comprobar('opción: elegida por alguien no se borra', !puedeEliminarOpcion(pocas, 'o1').permitido);
+  comprobar('opción: nunca elegida se borra aunque haya pocas respuestas', puedeEliminarOpcion(pocas, 'o2').permitido);
+  comprobar(
+    'opción: sin la lista de elegidas no se adivina',
+    !puedeEliminarOpcion({ ...activa, tieneRespuestas: true }, 'o2').permitido,
   );
 }
 

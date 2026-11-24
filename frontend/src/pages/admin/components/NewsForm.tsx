@@ -1,6 +1,7 @@
 // ===========================================
 // News Form Component
 // ===========================================
+import { Switch } from '@/components/ui/switch';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -179,7 +180,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
                   onChange={field.onChange}
                 />
               </FormControl>
-              <FormDescription className="text-[11px] text-primary-500">
+              <FormDescription className="text-xs text-primary-500">
                 Opcional. Se mostrará en listados y vistas previas.
               </FormDescription>
               <FormMessage />
@@ -215,7 +216,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
             <ImageIcon className="w-3.5 h-3.5 text-primary-600" aria-hidden="true" />
             Imagen de la noticia
           </legend>
-          <p className="text-[11px] text-primary-500">
+          <p className="text-xs text-primary-500">
             Opcional. Es la portada de la noticia en el sitio público.
           </p>
 
@@ -269,7 +270,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
                         onBlur={field.onBlur}
                       />
                     </FormControl>
-                    <FormDescription className="text-[11px] text-primary-500">
+                    <FormDescription className="text-xs text-primary-500">
                       {currentSource === 'upload'
                         ? 'Ahora la noticia tiene una imagen subida. Si guardás una URL, la reemplaza y la subida se borra.'
                         : 'Tiene que empezar con https://. Si la dejás vacía y guardás, la noticia queda sin imagen.'}
@@ -294,24 +295,19 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
                   <Send className="w-4 h-4 text-primary-600" />
                   Publicar Inmediatamente
                 </FormLabel>
-                <FormDescription className="text-[11px] text-primary-500">
+                <FormDescription className="text-xs text-primary-500">
                   Si está marcado, el artículo será visible para todo el público en el portal.
                 </FormDescription>
               </div>
               <FormControl>
-                <input
-                  type="checkbox"
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
             </FormItem>
           )}
         />
 
         {/* Botones de acción */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-primary-100">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           <Button
             type="button"
             variant="outline"
@@ -326,7 +322,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
             disabled={isPending}
             className="gap-2 cursor-pointer min-w-[140px]"
           >
-            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
             {initialData ? 'Guardar Cambios' : 'Crear Noticia'}
           </Button>
         </div>

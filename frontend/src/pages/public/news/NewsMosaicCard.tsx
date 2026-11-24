@@ -37,7 +37,7 @@ export function NewsMosaicCard({ news, tamano = 'chica' }: NewsMosaicCardProps) 
       news={news}
       className="group block h-full rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
     >
-      <article className="relative isolate flex h-full min-h-56 w-full flex-col justify-end overflow-hidden rounded-2xl bg-primary-900 shadow-sm transition-shadow duration-300 group-hover:shadow-xl">
+      <article className="relative isolate flex h-full min-h-56 w-full flex-col justify-end overflow-hidden rounded-2xl bg-primary-900 shadow-sm transition-shadow duration-200 ease-out-soft group-hover:shadow-xl group-active:shadow-md">
         <div className="absolute inset-0 -z-10">
           <SafeNewsImage imageUrl={news.imageUrl} alt={news.title} isLarge={esGrande} />
         </div>
@@ -52,7 +52,7 @@ export function NewsMosaicCard({ news, tamano = 'chica' }: NewsMosaicCardProps) 
           <h3
             className={
               esGrande
-                ? 'font-display line-clamp-3 text-xl leading-tight font-extrabold text-white md:text-2xl'
+                ? 'type-h2 line-clamp-3 text-white'
                 : 'line-clamp-3 text-sm leading-snug font-bold text-white md:text-base'
             }
           >
@@ -62,7 +62,7 @@ export function NewsMosaicCard({ news, tamano = 'chica' }: NewsMosaicCardProps) 
               largo de la fuente ("Secretaría de Deportes y Recreación…")
               cortaba la fecha, que es lo que más informa acá. */}
           {antiguedad && (
-            <p className="mt-2 text-xs font-medium text-white/85">
+            <p className="mt-2 text-xs font-medium text-white/85 tabular-nums">
               <span className="sr-only">Publicada </span>
               {antiguedad}
             </p>

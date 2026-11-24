@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { logError } from '@/lib/logger';
+import { etiquetaEnum, rangoJugadores } from '@/lib/format';
 
 export function DisciplinesAdminPage() {
   const [search, setSearch] = useState('');
@@ -92,6 +93,7 @@ export function DisciplinesAdminPage() {
     {
       id: 'name',
       header: 'Nombre',
+      mobile: 'primary',
       rowHeader: true,
       className: 'font-medium text-primary-900',
       headClassName: 'min-w-[180px]',
@@ -100,6 +102,7 @@ export function DisciplinesAdminPage() {
     {
       id: 'type',
       header: 'Tipo',
+      mobile: 'secondary',
       cell: (discipline) => (
         // `variant="default"` y `variant="secondary"` no generan color:
         // `bg-primary` y `bg-secondary` no existen en el `@theme`. El tipo se
@@ -112,23 +115,27 @@ export function DisciplinesAdminPage() {
               : 'bg-muted text-primary-700 border-primary-200'
           }
         >
-          {DISCIPLINE_TYPE_LABELS[discipline.type]}
+          {etiquetaEnum(DISCIPLINE_TYPE_LABELS, discipline.type)}
         </Badge>
       ),
     },
     {
       id: 'result',
       header: 'Resultado',
-      cell: (discipline) => RESULT_TYPE_LABELS[discipline.resultType],
+      mobile: 'hidden',
+      cell: (discipline) => etiquetaEnum(RESULT_TYPE_LABELS, discipline.resultType),
     },
     {
       id: 'players',
       header: 'Jugadores',
-      cell: (discipline) => `${discipline.minPlayers} - ${discipline.maxPlayers}`,
+      mobile: 'secondary',
+      className: 'tabular-nums',
+      cell: (discipline) => rangoJugadores(discipline.minPlayers, discipline.maxPlayers),
     },
     {
       id: 'roster',
       header: 'Plantel',
+      mobile: 'secondary',
       // Sólo las de equipo tienen plantel, y la que no lo tiene cargado no se
       // puede inscribir por plantel completo: se marca acá para que se vea en
       // el listado, sin tener que abrir cada una.
@@ -138,7 +145,7 @@ export function DisciplinesAdminPage() {
           return (
             <Badge
               variant="outline"
-              className="bg-amber-50 text-amber-800 border-amber-200"
+              className="bg-warning-50 text-warning-800 border-warning-200"
             >
               Sin configurar
             </Badge>
@@ -150,6 +157,7 @@ export function DisciplinesAdminPage() {
     {
       id: 'status',
       header: 'Estado',
+      mobile: 'secondary',
       cell: (discipline) =>
         discipline.isActive ? (
           <Badge
@@ -167,6 +175,7 @@ export function DisciplinesAdminPage() {
     {
       id: 'actions',
       header: 'Acciones',
+      mobile: 'actions',
       hideHeader: true,
       interactive: true,
       headClassName: 'w-[80px]',
@@ -196,7 +205,7 @@ export function DisciplinesAdminPage() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Disciplinas"
         description="Gestión de deportes y disciplinas de los Juegos Evita"

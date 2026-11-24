@@ -29,7 +29,6 @@ import {
 import {
   puedeEditarCuestionario,
   puedeEliminarPregunta,
-  type ConteosPorOpcion,
 } from './surveyRules';
 import { SurveyAudienceBalance } from './SurveyAudienceBalance';
 import { SurveyOptionsEditor } from './SurveyOptionsEditor';
@@ -55,10 +54,9 @@ const ETIQUETA_AUDIENCIA: Record<SurveyAudience, string> = {
 
 interface SurveyQuestionsEditorProps {
   campaign: SurveyCampaignWithQuestions;
-  conteos: ConteosPorOpcion;
 }
 
-export function SurveyQuestionsEditor({ campaign, conteos }: SurveyQuestionsEditorProps) {
+export function SurveyQuestionsEditor({ campaign }: SurveyQuestionsEditorProps) {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [editando, setEditando] = useState<SurveyQuestionWithOptions | undefined>();
   const [eliminando, setEliminando] = useState<SurveyQuestionWithOptions | null>(null);
@@ -133,7 +131,7 @@ export function SurveyQuestionsEditor({ campaign, conteos }: SurveyQuestionsEdit
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-base font-bold text-primary-900">
+        <h2 className="type-h3 text-primary-900">
           Preguntas{' '}
           <span className="text-sm font-medium text-primary-500">
             ({preguntas.length})
@@ -204,24 +202,24 @@ export function SurveyQuestionsEditor({ campaign, conteos }: SurveyQuestionsEdit
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-8">
                     <Badge
                       variant="outline"
-                      className={cn('text-[10px]', ESTILO_AUDIENCIA[pregunta.audiencia])}
+                      className={cn('text-xs', ESTILO_AUDIENCIA[pregunta.audiencia])}
                     >
                       {ETIQUETA_AUDIENCIA[pregunta.audiencia]}
                     </Badge>
-                    <Badge variant="outline" className="border-primary-200 text-[10px] text-primary-700">
+                    <Badge variant="outline" className="border-primary-200 text-xs text-primary-700">
                       {SURVEY_QUESTION_KIND_LABELS[pregunta.kind]}
                     </Badge>
                     {pregunta.obligatoria ? (
-                      <Badge variant="outline" className="border-primary-200 text-[10px] text-primary-700">
+                      <Badge variant="outline" className="border-primary-200 text-xs text-primary-700">
                         Hay que contestarla
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="border-primary-200 text-[10px] text-primary-600">
+                      <Badge variant="outline" className="border-primary-200 text-xs text-primary-600">
                         Se puede saltear
                       </Badge>
                     )}
                     {!pregunta.activa && (
-                      <Badge variant="outline" className="border-accent-300 bg-accent-50 text-[10px] text-accent-800">
+                      <Badge variant="outline" className="border-accent-300 bg-accent-50 text-xs text-accent-800">
                         No se muestra
                       </Badge>
                     )}
@@ -311,7 +309,6 @@ export function SurveyQuestionsEditor({ campaign, conteos }: SurveyQuestionsEdit
                 <SurveyOptionsEditor
                   campaign={campaign}
                   pregunta={pregunta}
-                  conteos={conteos}
                 />
               </div>
             </li>

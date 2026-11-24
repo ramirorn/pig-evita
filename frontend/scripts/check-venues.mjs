@@ -77,6 +77,12 @@ const {
   DOCUMENT_ACCEPT_ATTRIBUTE,
   DOCUMENT_UPLOADER_RULES,
   validateDocumentFile,
+  IMAGE_RETRY_DELAY_MS,
+  IMAGE_MAX_RETRIES,
+  ESTADO_CARGA_INICIAL,
+  registrarFalloImagen,
+  reintentarImagen,
+  debeMostrarImagen,
 } = await import(pathToFileURL(SALIDA).href);
 
 const MB = 1024 * 1024;
@@ -356,6 +362,44 @@ const leerBackend = (relativo) => readFile(path.join(BACKEND, relativo), 'utf8')
   );
   comprobar('sin fallo, se usa la foto', pickVenueImageSrc(URL_API, '/api/v1', null) === URL_API);
 
+  // S9 — un reintento antes del placeholder (429 del rate limit, señal caída).
+  comprobar('se reintenta una sola vez', IMAGE_MAX_RETRIES === 1);
+  comprobar(
+    'la pausa del reintento ronda 1,5 s',
+    IMAGE_RETRY_DELAY_MS >= 1000 && IMAGE_RETRY_DELAY_MS <= 3000,
+  );
+  comprobar('sin fallos se muestra la foto', debeMostrarImagen(ESTADO_CARGA_INICIAL, URL_API));
+  comprobar('sin url no hay foto', !debeMostrarImagen(ESTADO_CARGA_INICIAL, null));
+  const primero = registrarFalloImagen(ESTADO_CARGA_INICIAL, URL_API);
+  comprobar(
+    'el primer fallo programa un reintento',
+    primero.reintentarEnMs === IMAGE_RETRY_DELAY_MS,
+  );
+  comprobar(
+    'mientras se espera el reintento se pinta el placeholder',
+    !debeMostrarImagen(primero.estado, URL_API),
+  );
+  const reintento = reintentarImagen(primero.estado, URL_API);
+  comprobar(
+    'cumplida la pausa se vuelve a pintar la foto',
+    debeMostrarImagen(reintento, URL_API),
+  );
+  const segundo = registrarFalloImagen(reintento, URL_API);
+  comprobar(
+    'el segundo fallo de la misma url ya no reintenta: queda el placeholder',
+    segundo.reintentarEnMs === null && !debeMostrarImagen(segundo.estado, URL_API),
+  );
+  const otra = URL_API.replace('a1b2c3d4e5f6', 'ffffffffffff');
+  comprobar(
+    'otra url (foto reemplazada) empieza de cero',
+    debeMostrarImagen(segundo.estado, otra) &&
+      registrarFalloImagen(segundo.estado, otra).reintentarEnMs === IMAGE_RETRY_DELAY_MS,
+  );
+  comprobar(
+    'un reintento vencido de otra url no toca el estado actual',
+    reintentarImagen(segundo.estado, otra) === segundo.estado,
+  );
+
   comprobar(
     'el alt nombra a la sede',
     venueImageAlt('Estadio Cincuentenario') === 'Foto de la sede Estadio Cincuentenario',
@@ -435,6 +479,12 @@ const leerBackend = (relativo) => readFile(path.join(BACKEND, relativo), 'utf8')
 // 7. El fuente: reuso, capas y permisos
 // -------------------------------------------------
 {
+  const foto = await leer('src/components/venues/VenuePhoto.tsx');
+  comprobar(
+    'la foto de sede reintenta con useImageRetry antes del placeholder',
+    foto.includes('useImageRetry(') && !foto.includes('setFailedSrc'),
+  );
+
   const seccion = await leer('src/pages/admin/venues/VenuePhotoSection.tsx');
   comprobar('el panel reusa DocumentUploader', seccion.includes('<DocumentUploader'));
   comprobar('el panel le pasa las reglas de sede', seccion.includes('VENUE_IMAGE_UPLOADER_RULES'));

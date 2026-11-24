@@ -9,7 +9,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { News, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { MinioService } from '../documents/minio.service';
 import { borrarObjetoSinFallar } from '../images/image.util';
@@ -133,21 +133,63 @@ export class NewsService {
       ];
     }
 
-    const [newsList, total] = await Promise.all([
-      this.prisma.news.findMany({
-        where,
-        skip: filterDto.skip,
-        take: filterDto.take,
-        orderBy: ordenDelListado(filterDto, verBorradores),
-      }),
-      this.prisma.news.count({ where }),
-    ]);
+    const [newsList, total] = ordenaPorTitulo(filterDto)
+      ? await this.listarPorTitulo(where, filterDto)
+      : await Promise.all([
+          this.prisma.news.findMany({
+            where,
+            skip: filterDto.skip,
+            take: filterDto.take,
+            orderBy: ordenDelListado(filterDto, verBorradores),
+          }),
+          this.prisma.news.count({ where }),
+        ]);
 
     return buildPaginatedResponse(
       newsList.map((news) => toNewsResponse(news)),
       total,
       filterDto,
     );
+  }
+
+  /**
+   * F-17 — orden por título en castellano.
+   *
+   * La collation de la base es bytewise: "Árbol" quedaba después de "Zeta".
+   * Prisma no permite elegir la collation en un `orderBy`, y depender de una
+   * collation ICU instalada en el Postgres de cada entorno es frágil. Se
+   * ordenan en Node sólo los `id` + `title` que cumplen el filtro (la tabla de
+   * noticias es chica) con `Intl.Collator('es')`, y después se trae completa
+   * únicamente la página pedida. Desempate igual que `ordenDelListado`.
+   */
+  private async listarPorTitulo(
+    where: Prisma.NewsWhereInput,
+    filterDto: NewsFilterDto,
+  ): Promise<[News[], number]> {
+    const candidatos = await this.prisma.news.findMany({
+      where,
+      select: { id: true, title: true, createdAt: true },
+    });
+    const signo = filterDto.sortOrder === 'asc' ? 1 : -1;
+    candidatos.sort(
+      (a, b) =>
+        COLLATOR_ES.compare(a.title, b.title) * signo ||
+        b.createdAt.getTime() - a.createdAt.getTime() ||
+        (a.id < b.id ? 1 : a.id > b.id ? -1 : 0),
+    );
+
+    const pagina = candidatos
+      .slice(filterDto.skip, filterDto.skip + filterDto.take)
+      .map((c) => c.id);
+    const filas = pagina.length
+      ? await this.prisma.news.findMany({ where: { id: { in: pagina } } })
+      : [];
+    const porId = new Map(filas.map((f) => [f.id, f]));
+    const ordenadas = pagina
+      .map((id) => porId.get(id))
+      .filter((f): f is News => f !== undefined);
+
+    return [ordenadas, candidatos.length];
   }
 
   /**
@@ -279,6 +321,19 @@ export class NewsService {
     if (!this.minio) return;
     await borrarObjetoSinFallar(this.minio, clave, this.logger);
   }
+}
+
+/** Comparador de títulos en castellano: "Á" junto a "A", sin distinguir mayúsculas. */
+const COLLATOR_ES = new Intl.Collator('es', {
+  sensitivity: 'base',
+  numeric: true,
+});
+
+/** ¿El listado pidió ordenar por título? (ver `listarPorTitulo`, F-17) */
+export function ordenaPorTitulo(
+  filterDto: Pick<NewsFilterDto, 'sortBy'>,
+): boolean {
+  return filterDto.sortBy === 'title';
 }
 
 /**

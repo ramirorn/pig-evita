@@ -1,6 +1,8 @@
 // ===========================================
 // SurveyQuestionCard — una pregunta del cuestionario
 // ===========================================
+import { RadioGroup, RadioItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import {
   SurveyQuestionKind,
@@ -19,18 +21,26 @@ interface SurveyQuestionCardProps {
 }
 
 /**
- * Se usan `<input type="radio">` y `<input type="checkbox">` reales dentro de un
+ * Se usan `RadioGroup` / `Checkbox` propios (Radix: `role="radiogroup"`,
+ * `role="radio"` y `role="checkbox"` con `aria-checked`) dentro de un
  * `<fieldset>` con `<legend>`, y no `<div onClick>` con `aria-*` a mano.
  *
- * El navegador ya trae gratis lo que costaría mucho reimplementar bien: el
- * grupo de radios se recorre con las flechas, el foco se ve, y un lector de
- * pantalla anuncia "pregunta 3 de 8, opción 2 de 4, seleccionada". Quien
- * responde puede estar usando un teclado, un lector, o un teléfono viejo con el
- * JavaScript a medio cargar.
+ * Radix trae lo difícil de reimplementar bien: el grupo de radios se recorre
+ * con las flechas, Espacio marca, el foco se ve, y un lector de pantalla anuncia
+ * "pregunta 3 de 8, opción 2 de 4, seleccionada".
  *
  * El área táctil de cada opción es toda la fila (`min-h-14`, ~56 px): esto se
  * contesta mayormente desde un celular, muchas veces al sol y apurado.
  */
+const filaClase = (seleccionada: boolean) =>
+  cn(
+    'flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3',
+    'transition-colors duration-120 motion-reduce:transition-none focus-within:ring-2 focus-within:ring-primary-500',
+    seleccionada
+      ? 'border-primary-700 bg-primary-50'
+      : 'border-primary-400 bg-white hover:bg-primary-50',
+  );
+
 export function SurveyQuestionCard({
   pregunta,
   numero,
@@ -76,36 +86,47 @@ export function SurveyQuestionCard({
         {!pregunta.obligatoria && ' Si no querés contestarla, seguí de largo.'}
       </p>
 
-      <div className="mt-4 space-y-2">
-        {pregunta.options.map((opcion) => {
-          const seleccionada = elegidas.includes(opcion.id);
-
-          return (
-            <label
-              key={opcion.id}
-              className={cn(
-                'flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border-2 px-4 py-3',
-                'transition-colors focus-within:ring-2 focus-within:ring-primary-500',
-                seleccionada
-                  ? 'border-primary-700 bg-primary-50'
-                  : 'border-primary-400 bg-white hover:bg-primary-50',
-              )}
-            >
-              <input
-                type={esMultiple ? 'checkbox' : 'radio'}
-                name={pregunta.id}
-                value={opcion.id}
-                checked={seleccionada}
-                onChange={() => onElegir(opcion.id)}
-                className="h-5 w-5 shrink-0 accent-primary-700"
-              />
-              <span className="text-base leading-snug font-medium text-primary-800">
-                {opcion.texto}
-              </span>
-            </label>
-          );
-        })}
-      </div>
+      {esMultiple ? (
+        <div className="mt-4 space-y-2">
+          {pregunta.options.map((opcion) => {
+            const seleccionada = elegidas.includes(opcion.id);
+            const idControl = `${pregunta.id}-${opcion.id}`;
+            return (
+              <label key={opcion.id} htmlFor={idControl} className={filaClase(seleccionada)}>
+                <Checkbox
+                  id={idControl}
+                  checked={seleccionada}
+                  onCheckedChange={() => onElegir(opcion.id)}
+                  className="size-6"
+                />
+                <span className="text-base leading-snug font-medium text-primary-800">
+                  {opcion.texto}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      ) : (
+        <RadioGroup
+          aria-label={pregunta.texto}
+          value={elegidas[0] ?? ''}
+          onValueChange={onElegir}
+          className="mt-4 gap-2"
+        >
+          {pregunta.options.map((opcion) => {
+            const seleccionada = elegidas.includes(opcion.id);
+            const idControl = `${pregunta.id}-${opcion.id}`;
+            return (
+              <label key={opcion.id} htmlFor={idControl} className={filaClase(seleccionada)}>
+                <RadioItem id={idControl} value={opcion.id} className="size-6" />
+                <span className="text-base leading-snug font-medium text-primary-800">
+                  {opcion.texto}
+                </span>
+              </label>
+            );
+          })}
+        </RadioGroup>
+      )}
 
       {resaltarFalta && (
         <p className="mt-3 text-sm font-bold text-accent-700" role="alert">

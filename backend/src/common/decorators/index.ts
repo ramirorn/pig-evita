@@ -20,6 +20,21 @@ export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
  */
 export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
 
+/** Clave de metadata de `@AnyAuthenticated()`. */
+export const ANY_AUTHENTICATED_KEY = 'anyAuthenticated';
+
+/**
+ * Habilita la ruta para **cualquier** usuario autenticado, sin importar el rol
+ * (VULN-45).
+ *
+ * `RolesGuard` es deny-by-default: un handler que no declara `@Roles(...)`,
+ * `@Public()` ni este decorador responde 403. Así un endpoint nuevo al que se
+ * le olvidó el decorador queda cerrado en vez de abierto a todos los roles. Se
+ * usa sólo en lo que de verdad es de todos: `/auth/me`, `/auth/permissions` y
+ * `/auth/logout`.
+ */
+export const AnyAuthenticated = () => SetMetadata(ANY_AUTHENTICATED_KEY, true);
+
 /**
  * Extrae el usuario autenticado del request (inyectado por JwtAuthGuard).
  * @example @CurrentUser() user: JwtPayload

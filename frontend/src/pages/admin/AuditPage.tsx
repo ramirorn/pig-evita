@@ -1,123 +1,234 @@
 // ===========================================
 // Audit Page
 // ===========================================
+import { formatDateTime } from '@/lib/utils';
 import { useState } from 'react';
-import { Shield, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Shield } from 'lucide-react';
 import { DatePicker } from '@/components/ui/date-picker';
-import { localIsoFromDate } from '@/lib/datePicker';
 import { Badge } from '@/components/ui/badge';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { EmptyState } from '@/components/shared/EmptyState';
+import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
+import { FilterPanel } from '@/components/shared/FilterPanel';
+import { useAuditLogs } from '@/hooks/useAudit';
+import type { AuditLogRow } from '@/api/audit.api';
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
+import {
+  AUDIT_ACTION_LABELS,
+  AUDIT_ENTITY_FILTERS,
+  autorAuditoria,
+  etiquetaAccion,
+  etiquetaEntidad,
+  rangoAuditoria,
+  tonoAccion,
+  type TonoAccion,
+} from '@/lib/audit/auditLabels';
 
-// Mock data for audit logs
-const MOCK_AUDIT_LOGS = [
-  { id: '1', action: 'LOGIN', user: 'admin@evita.com', entity: 'Auth', timestamp: new Date().toISOString(), details: 'Inicio de sesión exitoso' },
-  { id: '2', action: 'CREATE', user: 'admin@evita.com', entity: 'Competition', timestamp: new Date(Date.now() - 3600000).toISOString(), details: 'Competencia creada: Fútbol Sub 14' },
-  { id: '3', action: 'UPDATE', user: 'delegado@evita.com', entity: 'Inscription', timestamp: new Date(Date.now() - 7200000).toISOString(), details: 'Inscripción actualizada: Equipo Los Pumas' },
-  { id: '4', action: 'DELETE', user: 'admin@evita.com', entity: 'News', timestamp: new Date(Date.now() - 86400000).toISOString(), details: 'Noticia eliminada: Suspensión por lluvia' },
-];
+/** Valor del Select que significa "sin filtro" (Radix no admite ""). */
+const TODAS = 'all';
+
+const CLASES_TONO: Record<TonoAccion, string> = {
+  info: 'bg-celeste-50 text-primary-700 border-celeste-200',
+  exito: 'bg-success-50 text-success-700 border-success-200',
+  aviso: 'bg-warning-50 text-warning-700 border-warning-200',
+  peligro: 'bg-destructive-50 text-destructive-700 border-destructive/30',
+  neutro: 'bg-muted text-muted-foreground border-border',
+};
+
+const OPCIONES_ACCION = Object.keys(AUDIT_ACTION_LABELS)
+  .map((valor) => ({ valor, etiqueta: etiquetaAccion(valor) }))
+  .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
+
+const OPCIONES_ENTIDAD = AUDIT_ENTITY_FILTERS.map((valor) => ({
+  valor,
+  etiqueta: etiquetaEntidad(valor),
+})).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
 
 export function AuditPage() {
-  const [search, setSearch] = useState('');
-  const [day, setDay] = useState('');
+  const [action, setAction] = useState(TODAS);
+  const [entity, setEntity] = useState(TODAS);
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
 
-  const getActionColor = (action: string) => {
-    switch (action) {
-      case 'LOGIN': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'CREATE': return 'bg-green-50 text-green-700 border-green-200';
-      case 'UPDATE': return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'DELETE': return 'bg-red-50 text-red-700 border-red-200';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
-    }
+  const { data, isLoading, isFetching, isError, refetch } = useAuditLogs({
+    page,
+    limit,
+    action: action === TODAS ? undefined : action,
+    entity: entity === TODAS ? undefined : entity,
+    ...rangoAuditoria(desde, hasta),
+  });
+
+  // Tocar un filtro vuelve a la primera página: el resultado es otro y la
+  // página en la que estabas puede ya no existir.
+  const conPrimeraPagina =
+    <T,>(set: (valor: T) => void) =>
+    (valor: T) => {
+      set(valor);
+      setPage(1);
+    };
+
+  const activeCount = [desde, hasta].filter(Boolean).length;
+  const hasActiveFilters = action !== TODAS || entity !== TODAS || activeCount > 0;
+
+  const clearFilters = () => {
+    setAction(TODAS);
+    setEntity(TODAS);
+    setDesde('');
+    setHasta('');
+    setPage(1);
   };
 
-  const filtered = MOCK_AUDIT_LOGS.filter(
-    (log) =>
-      (log.user.toLowerCase().includes(search.toLowerCase()) ||
-        log.action.toLowerCase().includes(search.toLowerCase()) ||
-        log.details.toLowerCase().includes(search.toLowerCase())) &&
-      // El día se compara en hora local: un evento de las 22 h de Argentina es de ese día.
-      (!day || localIsoFromDate(new Date(log.timestamp)) === day),
-  );
+  const columns: DataTableColumn<AuditLogRow>[] = [
+    {
+      id: 'timestamp',
+      header: 'Fecha y hora',
+      className: 'text-primary-600 font-mono text-xs tabular-nums',
+      mobile: 'secondary',
+      cell: (log) => formatDateTime(log.createdAt),
+    },
+    {
+      id: 'user',
+      header: 'Usuario',
+      className: 'font-medium text-primary-900',
+      mobile: 'primary',
+      cell: (log) => {
+        const autor = autorAuditoria(log.user);
+        return (
+          <div className="min-w-0">
+            <span className="block truncate">{autor.nombre}</span>
+            {autor.email && (
+              <span className="block truncate text-xs font-normal text-primary-500">
+                {autor.email}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'action',
+      header: 'Acción',
+      mobile: 'secondary',
+      cell: (log) => (
+        <Badge variant="outline" className={CLASES_TONO[tonoAccion(log.action)]}>
+          {etiquetaAccion(log.action)}
+        </Badge>
+      ),
+    },
+    {
+      id: 'entity',
+      header: 'Entidad',
+      className: 'text-primary-600',
+      mobile: 'secondary',
+      cell: (log) => etiquetaEntidad(log.entity),
+    },
+    {
+      id: 'details',
+      header: 'Detalles',
+      className: 'text-primary-800',
+      mobile: 'secondary',
+      cell: (log) => (
+        <div className="min-w-0 text-xs">
+          <span className="block font-mono truncate">
+            {log.entityId ? `Registro ${log.entityId.slice(0, 8)}` : 'Sin registro asociado'}
+          </span>
+          {log.ipAddress && (
+            <span className="block text-primary-500">IP {log.ipAddress}</span>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
       <PageHeader
         title="Auditoría del Sistema"
         description="Registro de actividades, eventos de seguridad y cambios realizados"
         icon={<Shield className="w-5 h-5 text-white" />}
       />
 
-      <div className="card">
-        <div className="p-4 border-b border-primary-100 flex flex-wrap gap-4 items-center">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
-            <Input 
-              placeholder="Buscar por usuario o acción..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <DatePicker
-              aria-label="Filtrar por día"
-              value={day}
-              onChange={setDay}
-              wrapperClassName="w-48"
-              pickerLabel="Elegir día"
-            />
-          </div>
-        </div>
-
-        <div className="relative">
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={<Shield className="w-10 h-10" />}
-              title="Sin registros de auditoría"
-              description="No hay eventos registrados que coincidan con la búsqueda."
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha y Hora</TableHead>
-                  <TableHead>Usuario</TableHead>
-                  <TableHead>Acción</TableHead>
-                  <TableHead>Entidad</TableHead>
-                  <TableHead>Detalles</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="text-primary-600 font-mono text-xs">
-                      {new Date(log.timestamp).toLocaleString('es-AR')}
-                    </TableCell>
-                    <TableCell className="font-medium text-primary-900">{log.user}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getActionColor(log.action)}>
-                        {log.action}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-primary-600">{log.entity}</TableCell>
-                    <TableCell className="text-primary-800">{log.details}</TableCell>
-                  </TableRow>
+      <DataTable
+        entityName="registros de auditoría"
+        columns={columns}
+        rows={data?.data ?? []}
+        getRowId={(log) => log.id}
+        isLoading={isLoading}
+        isFetching={isFetching && !isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        meta={data?.meta}
+        onPageChange={setPage}
+        onLimitChange={(nuevo) => {
+          setLimit(nuevo);
+          setPage(1);
+        }}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
+        emptyIcon={<Shield className="w-10 h-10" />}
+        emptyTitle={hasActiveFilters ? 'No hay eventos que coincidan' : 'Todavía no hay eventos registrados'}
+        emptyDescription={
+          hasActiveFilters
+            ? 'Probá con otra acción o entidad, o ampliá el rango de fechas para ver más eventos.'
+            : 'Los movimientos del sistema aparecen acá a medida que se registran.'
+        }
+        toolbar={
+          <>
+            <Select value={action} onValueChange={conPrimeraPagina(setAction)}>
+              <SelectTrigger className="w-full md:w-[240px]" aria-label="Filtrar por acción">
+                <SelectValue placeholder="Acción" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODAS}>Todas las acciones</SelectItem>
+                {OPCIONES_ACCION.map((opcion) => (
+                  <SelectItem key={opcion.valor} value={opcion.valor}>
+                    {opcion.etiqueta}
+                  </SelectItem>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </div>
-      </div>
+              </SelectContent>
+            </Select>
+            <Select value={entity} onValueChange={conPrimeraPagina(setEntity)}>
+              <SelectTrigger className="w-full md:w-[220px]" aria-label="Filtrar por entidad">
+                <SelectValue placeholder="Entidad" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODAS}>Todas las entidades</SelectItem>
+                {OPCIONES_ENTIDAD.map((opcion) => (
+                  <SelectItem key={opcion.valor} value={opcion.valor}>
+                    {opcion.etiqueta}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FilterPanel activeCount={activeCount} className="md:w-auto">
+              <DatePicker
+                aria-label="Filtrar desde el día"
+                value={desde}
+                max={hasta || undefined}
+                onChange={conPrimeraPagina(setDesde)}
+                wrapperClassName="w-full md:w-44"
+                pickerLabel="Elegir día de inicio"
+              />
+              <DatePicker
+                aria-label="Filtrar hasta el día"
+                value={hasta}
+                min={desde || undefined}
+                onChange={conPrimeraPagina(setHasta)}
+                wrapperClassName="w-full md:w-44"
+                pickerLabel="Elegir día de fin"
+              />
+            </FilterPanel>
+          </>
+        }
+      />
     </div>
   );
 }

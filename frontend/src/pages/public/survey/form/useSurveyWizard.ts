@@ -53,6 +53,8 @@ export type ResultadoEnvio = 'pendiente' | 'confirmado' | 'encolado';
 interface ContextoEncuesta {
   disciplineId?: string;
   categoryId?: string;
+  /** Opcional: sale del catálogo `GET /localities`, nunca de un texto libre. */
+  localityId?: string;
   sexo?: Sex;
   /** Sólo se pide cuando la campaña no fija una etapa (`etapa: null`). */
   etapa?: CompetitionStage;
@@ -208,6 +210,10 @@ export function useSurveyWizard({ etapa: etapaSugerida }: SurveyWizardOptions = 
     setContexto((actual) => ({ ...actual, sexo }));
   }, []);
 
+  const elegirLocalidad = useCallback((localityId: string | undefined) => {
+    setContexto((actual) => ({ ...actual, localityId }));
+  }, []);
+
   const elegirEtapa = useCallback((etapaElegida: CompetitionStage) => {
     setContexto((actual) => ({ ...actual, etapa: etapaElegida }));
   }, []);
@@ -358,6 +364,7 @@ export function useSurveyWizard({ etapa: etapaSugerida }: SurveyWizardOptions = 
       disciplineType,
       disciplineId: contexto.disciplineId,
       categoryId: contexto.categoryId,
+      localityId: contexto.localityId,
       sexo: contexto.sexo,
       respuestas: aRespuestasPayload(visibles, respuestas),
     };
@@ -466,6 +473,7 @@ export function useSurveyWizard({ etapa: etapaSugerida }: SurveyWizardOptions = 
     elegirDisciplina,
     elegirCategoria,
     elegirSexo,
+    elegirLocalidad,
     elegirEtapa,
     responder,
     irAPreguntas,

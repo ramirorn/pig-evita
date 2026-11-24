@@ -27,6 +27,15 @@ export const UMBRAL_K_ANONIMATO = 5;
 export const MOTIVO_SUPRESION = 'MUESTRA_INSUFICIENTE' as const;
 
 /**
+ * Respuestas mínimas en la base de un destacado para escribir frases en
+ * lenguaje simple ("4 de cada 10", "la mayoría"). El k-anonimato protege a las
+ * personas; este piso protege la lectura: con 8 respuestas un "la mitad
+ * necesita transporte" es anecdótico, y en un panel que se presenta a
+ * funcionarios se toma como conclusión.
+ */
+export const MINIMO_PARA_FRASES = 30;
+
+/**
  * Cupo del endpoint público de envío de respuestas.
  *
  * Más estricto que `PUBLIC_READ_RATE_LIMIT` (20/min) porque no es una lectura:
@@ -38,3 +47,29 @@ export const MOTIVO_SUPRESION = 'MUESTRA_INSUFICIENTE' as const;
  * problema que tuvo la edición anterior— y corta cualquier script.
  */
 export const SURVEY_SUBMIT_RATE_LIMIT = { limit: 3, ttl: 60_000 } as const;
+
+/**
+ * Envíos por campaña y por hora a partir de los cuales el servicio deja una
+ * advertencia en el log (VULN-20).
+ *
+ * No bloquea nada: sin identidad no hay forma de distinguir una respuesta
+ * fabricada de una real, y un tope duro por campaña dejaría a la encuesta
+ * cerrada para todos con sólo llenarlo. Es una señal para que alguien mire el
+ * volumen (y, si hace falta, el rango horario) antes de leer las métricas como
+ * conclusión. El número es holgado a propósito: en una sede con muchos chicos
+ * contestando a la vez, 200 en una hora todavía es plausible, pero no es el
+ * ritmo normal de una campaña.
+ */
+export const ALERTA_RESPUESTAS_POR_HORA = 200;
+
+/**
+ * Clave en Redis del contador de versión de una campaña. Sube cada vez que se
+ * completa una tanda de `UMBRAL_K_ANONIMATO` respuestas (no con cada una: el
+ * panel la consulta cada 10 s y revelaría el momento de cada envío, VULN-19)
+ * y con cada cambio de preguntas, opciones, KPIs o destacados; las métricas la
+ * usan para invalidar agregados cacheados y el panel la consulta para saber
+ * si tiene que volver a pedir los datos. Compartida entre survey y metrics.
+ */
+export function claveVersionCampania(campaignId: string): string {
+  return `metrics:survey:${campaignId}:version`;
+}

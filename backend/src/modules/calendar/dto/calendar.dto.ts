@@ -56,7 +56,9 @@ export class CreateCalendarEventDto {
   @ValidateIf(
     (o) => o.venueId !== '' && o.venueId !== null && o.venueId !== undefined,
   )
-  @IsString()
+  // F-24 — un id que no es UUID llegaba a Prisma y respondía 500 con el
+  // detalle de la consulta. La existencia se verifica en el service.
+  @IsUUID('all', { message: 'venueId debe ser un UUID válido' })
   venueId?: string;
 
   @ApiPropertyOptional({ description: 'ID de la disciplina' })
@@ -67,7 +69,7 @@ export class CreateCalendarEventDto {
       o.disciplineId !== null &&
       o.disciplineId !== undefined,
   )
-  @IsString()
+  @IsUUID('all', { message: 'disciplineId debe ser un UUID válido' })
   disciplineId?: string;
 
   @ApiPropertyOptional({ description: 'Publicar inmediatamente' })

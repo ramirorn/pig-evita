@@ -36,9 +36,24 @@ export function estaCerrada(campaign: Pick<SurveyCampaign, 'status'>): boolean {
   return campaign.status === SurveyCampaignStatus.CERRADA;
 }
 
-/** Cuántas respuestas lleva la campaña. `_count` puede no venir: se asume 0. */
-export function respuestasDe(campaign: Pick<SurveyCampaign, '_count'>): number {
-  return campaign._count?.responses ?? 0;
+/**
+ * ¿La campaña ya recibió respuestas? El backend no publica cuántas fuera de
+ * Métricas: manda un sí/no y el conteo de a 5.
+ */
+export function tieneRespuestas(campaign: Pick<SurveyCampaign, 'tieneRespuestas'>): boolean {
+  return campaign.tieneRespuestas ?? false;
+}
+
+/**
+ * Cómo se muestran las respuestas de una campaña en el listado y el detalle:
+ * de a 5, como en Métricas; de 1 a 4, "Menos de 5" (nunca el número exacto).
+ */
+export function textoRespuestas(
+  campaign: Pick<SurveyCampaign, 'tieneRespuestas' | '_count'>,
+): string {
+  if (!tieneRespuestas(campaign)) return '0';
+  const deACinco = campaign._count?.responses ?? 0;
+  return deACinco === 0 ? 'Menos de 5' : deACinco.toLocaleString('es-AR');
 }
 
 /**
@@ -64,13 +79,13 @@ export function puedeEditarCuestionario(
  * que con respuestas cargadas la salida correcta es cerrar.
  */
 export function puedeEliminarCampania(
-  campaign: Pick<SurveyCampaign, 'status' | '_count'>,
+  campaign: Pick<SurveyCampaign, 'status' | 'tieneRespuestas' | 'opcionesElegidas' | '_count'>,
 ): Permiso {
-  const respuestas = respuestasDe(campaign);
-  if (respuestas > 0) {
+  if (tieneRespuestas(campaign)) {
     return {
       permitido: false,
-      motivo: `Ya hay ${respuestas} ${respuestas === 1 ? 'respuesta cargada' : 'respuestas cargadas'} y eliminar la campaña las borraría. Cerrala en vez de eliminarla.`,
+      motivo:
+        'Ya hay respuestas cargadas y eliminar la campaña las borraría. Cerrala en vez de eliminarla.',
     };
   }
   return PERMITIDO;
@@ -169,13 +184,12 @@ export function puedePublicarCampania(
  * borraría en cascada lo que ya contestaron. El camino correcto es desactivarla.
  */
 export function puedeEliminarPregunta(
-  campaign: Pick<SurveyCampaign, 'status' | '_count'>,
+  campaign: Pick<SurveyCampaign, 'status' | 'tieneRespuestas' | 'opcionesElegidas' | '_count'>,
 ): Permiso {
   const cerrada = puedeEditarCuestionario(campaign);
   if (!cerrada.permitido) return cerrada;
 
-  const respuestas = respuestasDe(campaign);
-  if (respuestas > 0) {
+  if (tieneRespuestas(campaign)) {
     return {
       permitido: false,
       motivo:
@@ -190,52 +204,37 @@ export function puedeEliminarPregunta(
 // ===========================================
 
 /**
- * Cuántas veces se eligió cada opción, sacado de las métricas sin filtrar.
- *
- * `undefined` significa **no lo sabemos**, y no es lo mismo que cero: cuando la
- * campaña tiene menos respuestas que el umbral de k-anonimato, el backend
- * suprime el desglose entero y no hay forma legítima de saber si una opción ya
- * fue elegida. Ver `puedeEliminarOpcion`.
- */
-export type ConteosPorOpcion = Map<string, number> | undefined;
-
-/**
  * Espejo de `removeOption`: una opción ya elegida no se borra, porque borrarla
  * se llevaría las respuestas que la eligieron.
  *
- * El caso interesante es el tercero: la campaña tiene respuestas pero son menos
- * que el umbral, así que las métricas vienen suprimidas y el conteo por opción
- * no existe. Ahí **no se adivina**: se deshabilita el borrado diciendo que no se
- * puede saber. Suponer "0 respuestas" ofrecería un botón que el backend rechaza,
- * y suponer "ya la eligieron" sería mentir.
+ * Se decide con `opcionesElegidas` del detalle (qué opciones eligió alguien,
+ * sin cuántas veces). Si la campaña tiene respuestas y esa lista no vino, **no
+ * se adivina**: se deshabilita el borrado diciendo que no se puede saber.
  */
 export function puedeEliminarOpcion(
-  campaign: Pick<SurveyCampaign, 'status' | '_count'>,
+  campaign: Pick<SurveyCampaign, 'status' | 'tieneRespuestas' | 'opcionesElegidas' | '_count'>,
   optionId: string,
-  conteos: ConteosPorOpcion,
 ): Permiso {
   const cerrada = puedeEditarCuestionario(campaign);
   if (!cerrada.permitido) return cerrada;
 
-  if (respuestasDe(campaign) === 0) return PERMITIDO;
+  if (!tieneRespuestas(campaign)) return PERMITIDO;
 
-  if (conteos === undefined) {
+  if (campaign.opcionesElegidas === undefined) {
     return {
       permitido: false,
       motivo:
-        'La campaña ya tiene respuestas, pero son muy pocas para publicar el detalle por opción: no se puede saber si alguien ya eligió ésta. Reescribí el texto en vez de borrarla.',
+        'La campaña ya tiene respuestas y no se pudo saber si alguien eligió esta opción. Reescribí el texto en vez de borrarla.',
     };
   }
 
-  const elegida = conteos.get(optionId) ?? 0;
-  if (elegida > 0) {
+  if (campaign.opcionesElegidas.includes(optionId)) {
     return {
       permitido: false,
       motivo:
         'Alguien ya eligió esta opción: borrarla borraría esas respuestas. Podés reescribir el texto, que no afecta lo ya recolectado.',
     };
   }
-
   return PERMITIDO;
 }
 
@@ -245,12 +244,12 @@ export function puedeEliminarOpcion(
  * es la clave con la que se agregan las métricas históricas.
  */
 export function puedeEditarValorDeOpcion(
-  campaign: Pick<SurveyCampaign, 'status' | '_count'>,
+  campaign: Pick<SurveyCampaign, 'status' | 'tieneRespuestas' | 'opcionesElegidas' | '_count'>,
 ): Permiso {
   const cerrada = puedeEditarCuestionario(campaign);
   if (!cerrada.permitido) return cerrada;
 
-  if (respuestasDe(campaign) > 0) {
+  if (tieneRespuestas(campaign)) {
     return {
       permitido: false,
       motivo:

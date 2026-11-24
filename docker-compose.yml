@@ -72,8 +72,10 @@ services:
     # 9100: el navegador abre los documentos con links firmados que apuntan acá.
     # 9101: consola web de MinIO.
     ports:
-      - "9100:9000"
-      - "9101:9001"
+      # VULN-12: por defecto sólo en esta máquina. Para mostrarlo en la red local
+      # (una demo), arrancar con BIND_HOST=0.0.0.0.
+      - "${BIND_HOST:-127.0.0.1}:9100:9000"
+      - "${BIND_HOST:-127.0.0.1}:9101:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -130,7 +132,8 @@ services:
     restart: unless-stopped
     logging: *default-logging
     ports:
-      - "8080:80"
+      # VULN-12: ídem; BIND_HOST=0.0.0.0 para abrirlo a la red local.
+      - "${BIND_HOST:-127.0.0.1}:8080:80"
     depends_on:
       backend:
         condition: service_healthy

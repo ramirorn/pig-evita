@@ -42,7 +42,7 @@ export function SurveyDoneStep({ wizard }: SurveyDoneStepProps) {
         />
       )}
 
-      <h1 className="font-display mt-6 text-2xl leading-tight font-extrabold tracking-tight text-primary-800 md:text-3xl">
+      <h1 className="type-h1 mt-6 text-primary-800">
         {encolado ? 'Quedaron guardadas en este teléfono' : '¡Gracias por contestar!'}
       </h1>
 
@@ -66,7 +66,7 @@ export function SurveyDoneStep({ wizard }: SurveyDoneStepProps) {
             type="button"
             onClick={() => void wizard.reintentarPendientes()}
             disabled={wizard.enviando}
-            className="mt-4 inline-flex min-h-12 items-center gap-2 rounded-full bg-primary-800 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-primary-900 disabled:cursor-not-allowed disabled:opacity-70"
+            className="mt-4 inline-flex min-h-12 items-center gap-2 rounded-full bg-primary-800 px-6 py-3 text-sm font-bold text-white transition-colors duration-120 hover:bg-primary-900 active:bg-primary-950 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {wizard.enviando ? (
               <>
@@ -85,7 +85,7 @@ export function SurveyDoneStep({ wizard }: SurveyDoneStepProps) {
 
       <Link
         to={ROUTES.HOME}
-        className="mt-10 inline-flex min-h-14 items-center justify-center rounded-full border-2 border-primary-700 px-8 py-4 text-base font-bold text-primary-800 transition-colors hover:bg-primary-50"
+        className="mt-10 inline-flex min-h-14 items-center justify-center rounded-full border-2 border-primary-700 px-8 py-4 text-base font-bold text-primary-800 transition-colors duration-120 hover:bg-primary-50 active:bg-primary-100"
       >
         Volver al inicio
       </Link>

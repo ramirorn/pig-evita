@@ -83,9 +83,9 @@ export function isDocumentType(value: string): value is DocumentType {
 // -------------------------------------------------
 
 export const DOCUMENT_STATUS_BADGE_CLASSES: Record<DocumentStatus, string> = {
-  [DocumentStatus.PENDIENTE]: 'bg-amber-100 text-amber-800 border-amber-200',
-  [DocumentStatus.APROBADO]: 'bg-green-100 text-green-800 border-green-200',
-  [DocumentStatus.RECHAZADO]: 'bg-red-100 text-red-800 border-red-200',
+  [DocumentStatus.PENDIENTE]: 'bg-warning-100 text-warning-800 border-warning-200',
+  [DocumentStatus.APROBADO]: 'bg-success-100 text-success-800 border-success-200',
+  [DocumentStatus.RECHAZADO]: 'bg-destructive-50 text-destructive-700 border-destructive-500/30',
 };
 
 // -------------------------------------------------

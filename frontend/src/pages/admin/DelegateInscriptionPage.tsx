@@ -13,6 +13,7 @@ import { StepRoster } from './inscription/StepRoster';
 import { StepTeamReview } from './inscription/StepTeamReview';
 import { StepTeamSuccess } from './inscription/StepTeamSuccess';
 import { useTeamInscriptionWizard } from './inscription/useTeamInscriptionWizard';
+import { tituloCompuesto } from '@/lib/format';
 
 /**
  * El orden del asistente está invertido respecto del anterior: **primero la
@@ -43,7 +44,7 @@ export function DelegateInscriptionPage() {
     <div className="space-y-6">
       <PageHeader
         title="Nueva Inscripción"
-        description={`Inscribí participantes o un plantel completo. Responsable: ${user?.firstName} ${user?.lastName}`}
+        description={`Inscribí participantes o un plantel completo. Responsable: ${tituloCompuesto([user?.firstName, user?.lastName], ' ')}`}
         icon={<UserPlus className="w-5 h-5 text-white" />}
       />
 

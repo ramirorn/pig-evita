@@ -6,7 +6,6 @@ import { Link } from 'react-router';
 import type { Competition, CompetitionStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { STAGE_LABELS, FORMAT_LABELS, COMPETITION_STATUS_LABELS } from '@/lib/constants';
-import { retrasoDeEntrada } from '@/lib/gridVolumen';
 
 /**
  * `BORRADOR` no está en este mapa a propósito: la página descarta los
@@ -43,10 +42,9 @@ function tituloDe(competition: Competition): string {
 
 interface CompetitionCardProps {
   competition: Competition;
-  index: number;
 }
 
-export function CompetitionCard({ competition, index }: CompetitionCardProps) {
+export function CompetitionCard({ competition }: CompetitionCardProps) {
   /**
    * El pie de la tarjeta, que era el peor de los cuatro problemas.
    *
@@ -73,10 +71,9 @@ export function CompetitionCard({ competition, index }: CompetitionCardProps) {
       to={`/competencias/${competition.id}`}
       // `block h-full` + el radio de la tarjeta: ver el comentario de
       // `DisciplineCard`. Es el mismo arreglo por el mismo motivo.
-      className="group block h-full rounded-xl animate-fade-in"
-      style={{ animationDelay: retrasoDeEntrada(index) }}
+      className="group block h-full rounded-xl"
     >
-      <div className="card p-6 h-full hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col justify-between border-t-4 border-t-accent-500">
+      <div className="card card-interactive p-6 h-full flex flex-col justify-between border-t-4 border-t-accent-500">
         <div>
           <div className="flex items-center justify-between mb-3">
             <span
@@ -108,7 +105,7 @@ export function CompetitionCard({ competition, index }: CompetitionCardProps) {
             </div>
           )}
 
-          <h2 className="text-xl font-bold text-primary-900 mb-2">{tituloDe(competition)}</h2>
+          <h2 className="type-h3 text-primary-900 mb-2 transition-colors duration-120 group-hover:text-primary-600">{tituloDe(competition)}</h2>
 
           <div className="space-y-1 text-sm text-primary-600">
             {metadatos.length > 0 && <p>{metadatos.join(' · ')}</p>}
@@ -118,7 +115,7 @@ export function CompetitionCard({ competition, index }: CompetitionCardProps) {
             {inicio && (
               <p className="flex items-center gap-1.5">
                 <CalendarDays className="w-4 h-4 text-primary-500" aria-hidden="true" />
-                {fin ? `Del ${inicio} al ${fin}` : `Desde el ${inicio}`}
+                <span className="tabular-nums">{fin ? `Del ${inicio} al ${fin}` : `Desde el ${inicio}`}</span>
               </p>
             )}
           </div>
@@ -131,7 +128,7 @@ export function CompetitionCard({ competition, index }: CompetitionCardProps) {
               // envuelve toda la tarjeta.
               <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-50 px-2.5 py-1 text-xs font-semibold text-accent-800">
                 <ListChecks className="w-3.5 h-3.5" aria-hidden="true" />
-                Ver fixture y posiciones ({partidos} {partidos === 1 ? 'partido' : 'partidos'})
+                Ver fixture y posiciones (<span className="tabular-nums">{partidos}</span> {partidos === 1 ? 'partido' : 'partidos'})
               </span>
             ) : (
               // Sin forma de botón, porque no es una acción. Y es información

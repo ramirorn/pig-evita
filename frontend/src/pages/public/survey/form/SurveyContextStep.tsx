@@ -1,11 +1,18 @@
 // ===========================================
 // SurveyContextStep — paso 1: de qué deporte venís
 // ===========================================
+import { useEffect, useState } from 'react';
 import { ArrowRight, EyeOff } from 'lucide-react';
 import { CompetitionStage, Sex } from '@/types';
 import { SEX_LABELS, STAGE_LABELS } from '@/lib/constants';
 import { SelectField } from '@/components/ui/select';
+import { useLocalities } from '@/hooks/useLocalities';
 import type { SurveyWizard } from './useSurveyWizard';
+import {
+  departamentoDeLocalidad,
+  localidadesDeDepartamento,
+  localidadTrasCambiarDepartamento,
+} from './surveyLocality';
 
 interface SurveyContextStepProps {
   wizard: SurveyWizard;
@@ -39,18 +46,37 @@ function esSexo(valor: string): valor is Sex {
  *
  * ⚠️ Acá no se pide ni se puede pedir nombre, DNI, mail ni teléfono.
  *
- * La **localidad** no se ofrece aunque el endpoint la acepte: no hay ningún
- * endpoint que liste las localidades del catálogo, y un campo de texto libre
- * produciría "Formosa", "formosa" y "Fsa" como tres cortes distintos, que es
- * peor que no tener el dato. Queda pendiente para cuando exista
- * `GET /localities`.
+ * La **localidad** sale del catálogo `GET /localities` con dos selectores
+ * (departamento → localidad), nunca de un texto libre: "Formosa", "formosa" y
+ * "Fsa" serían tres cortes distintos. Es opcional como los demás, pero es lo
+ * que permite separar interior y capital en las métricas.
  */
 export function SurveyContextStep({ wizard }: SurveyContextStepProps) {
   const { contexto, disciplinas, categoriasDisponibles, pideEtapa } = wizard;
+  const { data: catalogo = [] } = useLocalities();
+
+  // El departamento es sólo un filtro de la UI: lo que viaja es la localidad.
+  // Al restaurar un borrador se reconstruye desde la localidad guardada.
+  const [departamentoId, setDepartamentoId] = useState<string | undefined>();
+  useEffect(() => {
+    if (!departamentoId && contexto.localityId && catalogo.length > 0) {
+      setDepartamentoId(departamentoDeLocalidad(catalogo, contexto.localityId));
+    }
+  }, [catalogo, contexto.localityId, departamentoId]);
+
+  const localidades = localidadesDeDepartamento(catalogo, departamentoId);
+
+  const elegirDepartamento = (valor: string) => {
+    const departamento = valor || undefined;
+    setDepartamentoId(departamento);
+    wizard.elegirLocalidad(
+      localidadTrasCambiarDepartamento(catalogo, departamento, contexto.localityId),
+    );
+  };
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 md:py-14">
-      <h1 className="font-display text-2xl leading-tight font-extrabold tracking-tight text-primary-800 md:text-3xl">
+      <h1 className="type-h2 text-primary-800">
         Antes de arrancar, dos datos del deporte
       </h1>
       <p className="mt-3 text-base leading-relaxed text-primary-700">
@@ -135,6 +161,58 @@ export function SurveyContextStep({ wizard }: SurveyContextStepProps) {
           </div>
         )}
 
+        {catalogo.length > 0 && (
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="survey-departamento"
+                className="text-sm font-bold text-primary-800"
+              >
+                ¿De qué departamento sos?{' '}
+                <span className="font-medium">(opcional)</span>
+              </label>
+              <SelectField
+                id="survey-departamento"
+                size="xl"
+                className={CLASES_SELECT}
+                contentClassName={CLASES_LISTA}
+                value={departamentoId ?? ''}
+                onValueChange={elegirDepartamento}
+                emptyOptionLabel="Prefiero no decirlo"
+                options={catalogo.map((departamento) => ({
+                  value: departamento.id,
+                  label: departamento.name,
+                }))}
+              />
+            </div>
+
+            {/* Sin departamento no hay localidades que ofrecer. */}
+            {localidades.length > 0 && (
+              <div>
+                <label
+                  htmlFor="survey-localidad"
+                  className="text-sm font-bold text-primary-800"
+                >
+                  ¿Y de qué localidad?
+                </label>
+                <SelectField
+                  id="survey-localidad"
+                  size="xl"
+                  className={CLASES_SELECT}
+                  contentClassName={CLASES_LISTA}
+                  value={contexto.localityId ?? ''}
+                  onValueChange={(valor) => wizard.elegirLocalidad(valor || undefined)}
+                  emptyOptionLabel="Prefiero no decirlo"
+                  options={localidades.map((localidad) => ({
+                    value: localidad.id,
+                    label: localidad.name,
+                  }))}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         <div>
           <label
             htmlFor="survey-sexo"
@@ -165,11 +243,11 @@ export function SurveyContextStep({ wizard }: SurveyContextStepProps) {
       <button
         type="button"
         onClick={wizard.irAPreguntas}
-        className="group mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-primary-800 px-8 py-4 text-base font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-primary-900 hover:shadow-lg active:translate-y-0 sm:w-auto"
+        className="group mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-primary-800 px-8 py-4 text-base font-bold text-white transition-[background-color,box-shadow,transform] duration-200 ease-out-soft hover:bg-primary-900 hover:shadow-lg active:scale-[0.98] active:duration-120 sm:w-auto"
       >
         Empezar la encuesta
         <ArrowRight
-          className="h-5 w-5 transition-transform group-hover:translate-x-1"
+          className="h-5 w-5 transition-transform duration-200 ease-out-soft group-hover:translate-x-1"
           aria-hidden="true"
         />
       </button>

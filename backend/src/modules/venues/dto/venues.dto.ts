@@ -9,6 +9,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
 } from 'class-validator';
 import { ToBoolean } from '../../../common/transformers';
@@ -41,14 +42,28 @@ export class CreateVenueDto {
   @IsNotEmpty({ message: 'El departamento es obligatorio' })
   department: string;
 
-  @ApiPropertyOptional({ description: 'Latitud geográfica' })
+  // F-16 — una coordenada fuera del globo (latitude=999) rompía el mapa de
+  // sedes sin que nadie se enterara al cargarla.
+  @ApiPropertyOptional({
+    description: 'Latitud geográfica',
+    minimum: -90,
+    maximum: 90,
+  })
   @IsOptional()
   @IsNumber()
+  @Min(-90, { message: 'La latitud debe estar entre -90 y 90' })
+  @Max(90, { message: 'La latitud debe estar entre -90 y 90' })
   latitude?: number;
 
-  @ApiPropertyOptional({ description: 'Longitud geográfica' })
+  @ApiPropertyOptional({
+    description: 'Longitud geográfica',
+    minimum: -180,
+    maximum: 180,
+  })
   @IsOptional()
   @IsNumber()
+  @Min(-180, { message: 'La longitud debe estar entre -180 y 180' })
+  @Max(180, { message: 'La longitud debe estar entre -180 y 180' })
   longitude?: number;
 
   @ApiPropertyOptional({ description: 'Capacidad estimada de espectadores' })
@@ -56,15 +71,19 @@ export class CreateVenueDto {
   @IsInt()
   @Min(0)
   capacity?: number;
-}
 
-export class UpdateVenueDto extends PartialType(CreateVenueDto) {
-  @ApiPropertyOptional({ description: 'Activo o inactivo' })
+  // F-37 — el formulario de alta del panel manda `isActive`; con
+  // `forbidNonWhitelisted` el campo no declarado hacía fallar toda alta con
+  // 400. Opcional: si no viene, la base aplica su default (activa).
+  @ApiPropertyOptional({ description: 'Activo o inactivo', default: true })
   @IsOptional()
   @ToBoolean()
   @IsBoolean()
   isActive?: boolean;
 }
+
+/** `isActive` se hereda de `CreateVenueDto`, igual que el resto. */
+export class UpdateVenueDto extends PartialType(CreateVenueDto) {}
 
 export const CAMPOS_ORDEN_VENUE = [
   'createdAt',

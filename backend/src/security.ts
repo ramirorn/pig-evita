@@ -2,6 +2,7 @@
 // Cabeceras de seguridad y CORS (T09 — hallazgos M-02, M-03)
 // ===========================================
 import type { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import helmet, { type HelmetOptions } from 'helmet';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -262,4 +263,29 @@ export function setupSecurity(
   app.enableCors(buildCorsOptions(corsOrigins, options.nodeEnv));
 
   return { corsOrigins };
+}
+
+// -------------------------------------------------
+// Límite del body (F-22)
+// -------------------------------------------------
+
+/**
+ * Tamaño máximo de un body JSON / urlencoded.
+ *
+ * Antes quedaba el default implícito de `body-parser` (100 KB) y nadie lo
+ * había decidido. 1 MB alcanza de sobra para el contenido HTML de una noticia
+ * (las imágenes y documentos viajan por multipart, que no pasa por acá) y sigue
+ * cortando un body desproporcionado antes de que llegue a validarse. Pasarse
+ * del límite responde 413 (ver `GlobalExceptionFilter`).
+ */
+export const BODY_LIMIT = '1mb';
+
+/**
+ * Registra los parsers de JSON y urlencoded con el límite explícito. Se llama
+ * antes de `app.init()`/`listen()`: Nest detecta que ya están montados y no
+ * agrega los suyos con el límite por defecto.
+ */
+export function setupBodyParsers(app: NestExpressApplication): void {
+  app.useBodyParser('json', { limit: BODY_LIMIT });
+  app.useBodyParser('urlencoded', { limit: BODY_LIMIT, extended: true });
 }

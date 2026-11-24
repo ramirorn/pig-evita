@@ -29,7 +29,7 @@ const GARANTIAS = [
 export function SurveyAboutSection() {
   return (
     <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 md:py-20 lg:px-8">
-      <h2 className="font-display text-2xl leading-tight font-extrabold tracking-tight text-primary-800 md:text-3xl">
+      <h2 className="type-h2 text-primary-800">
         De qué va esta encuesta
       </h2>
       <p className="mt-3 max-w-2xl text-base leading-relaxed text-primary-700">
@@ -40,7 +40,7 @@ export function SurveyAboutSection() {
 
       <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="card p-6 md:p-8">
-          <h3 className="flex items-center gap-2 text-lg font-bold text-primary-800">
+          <h3 className="type-h3 flex items-center gap-2 text-primary-800">
             <ListChecks
               className="h-5 w-5 text-primary-700"
               aria-hidden="true"
@@ -72,7 +72,7 @@ export function SurveyAboutSection() {
           <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent-500 text-primary-900">
             <EyeOff className="h-6 w-6" aria-hidden="true" />
           </span>
-          <h3 className="font-display text-xl font-extrabold text-primary-900 md:text-2xl">
+          <h3 className="type-h3 text-primary-900">
             Es anónima. En serio.
           </h3>
           <p className="mt-2 text-base font-semibold text-primary-800">

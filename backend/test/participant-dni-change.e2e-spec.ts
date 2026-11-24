@@ -161,8 +161,9 @@ describe('PATCH /participants/:id — cambio de DNI (R17)', () => {
   // El DoD, primera mitad: el rol operativo no puede
   // -------------------------------------------------
   describe('DELEGADO', () => {
-    it('mandar `dni` en el PATCH devuelve 400', async () => {
-      const res = await patch(Role.DELEGADO, { dni: DNI_NUEVO }).expect(400);
+    // F-05 — falta de permiso: 403, no 400 (el pedido está bien formado).
+    it('mandar `dni` en el PATCH devuelve 403', async () => {
+      const res = await patch(Role.DELEGADO, { dni: DNI_NUEVO }).expect(403);
 
       expect(res.body.message).toMatch(
         /No tiene permisos para modificar el DNI/,
@@ -170,7 +171,7 @@ describe('PATCH /participants/:id — cambio de DNI (R17)', () => {
     });
 
     it('el DNI no cambió en la base', async () => {
-      await patch(Role.DELEGADO, { dni: DNI_NUEVO }).expect(400);
+      await patch(Role.DELEGADO, { dni: DNI_NUEVO }).expect(403);
 
       // Lo que importa: no es que la respuesta diga que no, es que no pasó.
       expect(fila.dni).toBe(DNI_ORIGINAL);
@@ -178,20 +179,20 @@ describe('PATCH /participants/:id — cambio de DNI (R17)', () => {
 
     it('tampoco cambia nada más del mismo PATCH', async () => {
       // Rechazo total, no parcial: si se aplicara el teléfono y se descartara
-      // el DNI, el operador vería un 400 y a la vez un cambio hecho.
+      // el DNI, el operador vería un 403 y a la vez un cambio hecho.
       await patch(Role.DELEGADO, {
         dni: DNI_NUEVO,
         phone: '3704000000',
-      }).expect(400);
+      }).expect(403);
 
       expect(fila.phone).toBe('3704123456');
     });
 
     it('el rechazo es explícito, no un descarte mudo', async () => {
       // Ignorar el campo en silencio dejaría al delegado convencido de que
-      // corrigió el documento. Por eso 400 y no 200.
+      // corrigió el documento. Por eso 403 y no 200.
       const res = await patch(Role.DELEGADO, { dni: DNI_NUEVO });
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(403);
     });
 
     it('puede seguir editando el resto de los campos', async () => {
@@ -216,7 +217,7 @@ describe('PATCH /participants/:id — cambio de DNI (R17)', () => {
   it.each([Role.ADMIN_DEPARTAMENTAL])(
     '%s tampoco puede cambiar el DNI',
     async (role) => {
-      await patch(role, { dni: DNI_NUEVO }).expect(400);
+      await patch(role, { dni: DNI_NUEVO }).expect(403);
       expect(fila.dni).toBe(DNI_ORIGINAL);
     },
   );

@@ -4,6 +4,7 @@
 import type { ReactNode } from 'react';
 import {
   LayoutDashboard,
+  PieChart,
   Map as MapIcon,
   Users,
   ClipboardList,
@@ -50,6 +51,7 @@ export interface NavItem {
  */
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: ROUTES.DASHBOARD, icon: <LayoutDashboard className="w-5 h-5" /> },
+  { label: 'Métricas', path: ROUTES.METRICS, icon: <PieChart className="w-5 h-5" /> },
   { label: 'Mapa de impacto', path: ROUTES.IMPACT_MAP_ADMIN, icon: <MapIcon className="w-5 h-5" /> },
   // Gestión
   { label: 'Participantes', path: ROUTES.PARTICIPANTS, icon: <Users className="w-5 h-5" />, separator: true },

@@ -117,6 +117,9 @@ const SIN_ENTRADA_EN_EL_MENU = new Set([
   // está en el menú. Un link directo al detalle necesitaría un `:id` que el
   // menú no tiene de dónde sacar.
   ROUTES.SURVEY_CAMPAIGN_DETAIL,
+  // El modo presentación se abre con el botón "Presentar" de Métricas, que sí
+  // está en el menú; es la misma pantalla en versión para proyectar.
+  ROUTES.METRICS_PRESENT,
 ]);
 
 // -------------------------------------------------
@@ -314,6 +317,15 @@ comprobar(
   'ARBITRO aterriza en Resultados, su única pantalla real',
   rutaInicialPara(UserRole.ARBITRO) === ROUTES.RESULTS,
 );
+// F-31 — "Cargar Resultados" (en Resultados) lleva al detalle de la
+// competencia: quien puede ver Resultados tiene que poder abrirlo.
+for (const role of ROLES) {
+  if (!puedeVerRuta(role, ROUTES.RESULTS)) continue;
+  comprobar(
+    `[${role}] llega desde Resultados al detalle de la competencia para cargar`,
+    puedeVerRuta(role, ROUTES.COMPETITION_DETAIL),
+  );
+}
 
 // -------------------------------------------------
 // 4. La ruta intentada antes del login se respeta sólo si es alcanzable
@@ -404,6 +416,30 @@ for (const role of ROLES) {
 // La dirección que se olvida, igual que en el menú: un rol puede tener el
 // permiso y no tener ninguna pantalla donde ejercerlo. El permiso queda
 // decorativo y nadie se entera, porque no falla nada.
+// Al revés (VULN-08): una pantalla que sólo sirve para gestionar no se le
+// muestra a un rol que no puede ninguna de sus acciones. Así se detectó que el
+// menú seguía ofreciendo Competencias, Noticias, Calendario y Encuesta a los
+// admins territoriales después de pasar esas acciones a la línea provincial.
+const PANTALLAS_SOLO_GESTION = [
+  ROUTES.COMPETITIONS,
+  ROUTES.NEWS_ADMIN,
+  ROUTES.CALENDAR_ADMIN,
+  ROUTES.VENUES_ADMIN,
+  ROUTES.SURVEY_ADMIN,
+];
+for (const pantalla of PANTALLAS_SOLO_GESTION) {
+  const acciones = ACCIONES_POR_PANTALLA[pantalla] ?? [];
+  for (const role of ROLES) {
+    if (!puedeVerRuta(role, pantalla)) continue;
+    verificaciones.push(`[${role}] ve ${pantalla} y puede alguna de sus acciones`);
+    if (!acciones.some((accion) => puedeAccion(role, accion))) {
+      problemas.push(
+        `[${role}] ve ${pantalla} pero no puede ninguna de sus acciones (${acciones.join(', ')})`,
+      );
+    }
+  }
+}
+
 for (const [pantalla, acciones] of Object.entries(ACCIONES_POR_PANTALLA)) {
   for (const accion of acciones) {
     for (const role of ROLES) {
@@ -451,6 +487,12 @@ const PANTALLAS_QUE_FILTRAN = [
   // la ruta se abre a un rol de sólo lectura, el uploader no puede quedar a la
   // vista devolviendo 403.
   ['src/pages/admin/venues/VenuePhotoSection.tsx', ['VENUE_MANAGE']],
+  // F-31 — el detalle de la competencia lo abre también el ARBITRO para cargar
+  // resultados: la generación del fixture no puede quedarle a la vista.
+  [
+    'src/pages/admin/CompetitionDetailPage.tsx',
+    ['COMPETITION_MANAGE', 'RESULT_LOAD'],
+  ],
 ];
 
 for (const [archivo, acciones] of PANTALLAS_QUE_FILTRAN) {

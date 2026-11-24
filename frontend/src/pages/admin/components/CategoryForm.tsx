@@ -1,6 +1,8 @@
 // ===========================================
 // Category Form Component
 // ===========================================
+import { NumberField } from '@/components/ui/number-field';
+import { Switch } from '@/components/ui/switch';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,8 +11,8 @@ import { Loader2 } from 'lucide-react';
 import { categorySchema } from '@/schemas';
 import { useCreateCategory, useUpdateCategory } from '@/hooks/useCategories';
 import { useAllDisciplines } from '@/hooks/useDisciplines';
-import { Sex, type Category } from '@/types';
-import { SEX_LABELS } from '@/lib/constants';
+import { AgeCriterion, Sex, type Category } from '@/types';
+import { AGE_CRITERION_LABELS, SEX_LABELS } from '@/lib/constants';
 
 import {
   Form,
@@ -33,6 +35,21 @@ import { logError } from '@/lib/logger';
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
+/** Input numérico vacío → `null`, que es lo que el schema y la API esperan. */
+// El campo numérico entrega `undefined` cuando queda vacío; acá un vacío viaja como `null`.
+const aEntero = (valor: number | undefined) => valor ?? null;
+
+/**
+ * El par del criterio que no se eligió viaja en `null`. En el formulario se
+ * conserva mientras se edita (ir y volver de criterio no borra lo tipeado),
+ * pero no se guarda: una categoría por año no tiene rango de edad.
+ */
+function aPayload(values: CategoryFormValues): CategoryFormValues {
+  return values.ageCriterion === AgeCriterion.BIRTH_YEAR
+    ? { ...values, minAge: null, maxAge: null }
+    : { ...values, minBirthYear: null, maxBirthYear: null };
+}
+
 interface CategoryFormProps {
   initialData?: Category;
   onSuccess?: () => void;
@@ -53,8 +70,11 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
     defaultValues: (initialData as any) || {
       disciplineId: '',
       name: '',
+      ageCriterion: AgeCriterion.AGE,
       minAge: 5,
       maxAge: 99,
+      minBirthYear: null,
+      maxBirthYear: null,
       sex: Sex.MIXTO,
       isActive: true,
     },
@@ -65,20 +85,43 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
       form.reset({
         disciplineId: initialData.disciplineId,
         name: initialData.name,
-        minAge: initialData.minAge,
-        maxAge: initialData.maxAge,
+        // Las categorías creadas antes del criterio no lo traen: eran por edad.
+        ageCriterion: initialData.ageCriterion ?? AgeCriterion.AGE,
+        minAge: initialData.minAge ?? null,
+        maxAge: initialData.maxAge ?? null,
+        minBirthYear: initialData.minBirthYear ?? null,
+        maxBirthYear: initialData.maxBirthYear ?? null,
         sex: initialData.sex,
         isActive: initialData.isActive,
       });
     }
   }, [initialData, form]);
 
+  const ageCriterion = form.watch('ageCriterion');
+
+  /**
+   * Al pasar de edad a año de nacimiento, propone los años equivalentes en el
+   * año en curso (12 a 14 años hoy → nacidos de 2012 a 2014) si todavía no hay
+   * años cargados. Es un punto de partida editable, no una conversión exacta.
+   */
+  const cambiarCriterio = (siguiente: AgeCriterion) => {
+    form.setValue('ageCriterion', siguiente, { shouldDirty: true });
+    if (siguiente !== AgeCriterion.BIRTH_YEAR) return;
+    const { minAge, maxAge, minBirthYear, maxBirthYear } = form.getValues();
+    if (minBirthYear === null && maxBirthYear === null && minAge !== null && maxAge !== null) {
+      const anio = new Date().getFullYear();
+      form.setValue('minBirthYear', anio - maxAge, { shouldDirty: true });
+      form.setValue('maxBirthYear', anio - minAge, { shouldDirty: true });
+    }
+  };
+
   const onSubmit = async (values: CategoryFormValues) => {
+    const payload = aPayload(values);
     try {
       if (initialData) {
-        await updateMutation.mutateAsync({ id: initialData.id, payload: values });
+        await updateMutation.mutateAsync({ id: initialData.id, payload });
       } else {
-        await createMutation.mutateAsync(values);
+        await createMutation.mutateAsync(payload);
       }
       onSuccess?.();
     } catch (error) {
@@ -119,7 +162,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre de la Categoría</FormLabel>
+              <FormLabel>Nombre de la categoría</FormLabel>
               <FormControl>
                 <Input placeholder="Ej. Sub 14, Libre" {...field} />
               </FormControl>
@@ -128,43 +171,140 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="minAge"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Edad Mínima</FormLabel>
+        <FormField
+          control={form.control}
+          name="ageCriterion"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Criterio de edad</FormLabel>
+              <Select
+                onValueChange={(valor) => cambiarCriterio(valor as AgeCriterion)}
+                value={field.value}
+              >
                 <FormControl>
-                  <Input 
-                    type="number" 
-                    {...field} 
-                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} 
-                  />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar criterio" />
+                  </SelectTrigger>
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <SelectContent>
+                  {Object.values(AgeCriterion).map((criterio) => (
+                    <SelectItem key={criterio} value={criterio}>
+                      {AGE_CRITERION_LABELS[criterio]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {field.value === AgeCriterion.BIRTH_YEAR
+                  ? 'Entran los nacidos entre los años indicados, sin importar si ya cumplieron años.'
+                  : 'Entran quienes tengan la edad indicada al momento de inscribirse.'}
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <FormField
-            control={form.control}
-            name="maxAge"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Edad Máxima</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    {...field} 
-                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        {ageCriterion === AgeCriterion.BIRTH_YEAR ? (
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+            <FormField
+              key="minBirthYear"
+              control={form.control}
+              name="minBirthYear"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Año de nacimiento desde</FormLabel>
+                  <FormControl>
+                    <NumberField
+                      min={0}
+                      placeholder="Ej. 2012"
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              key="maxBirthYear"
+              control={form.control}
+              name="maxBirthYear"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Año de nacimiento hasta</FormLabel>
+                  <FormControl>
+                    <NumberField
+                      min={0}
+                      placeholder="Ej. 2014"
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+            <FormField
+              key="minAge"
+              control={form.control}
+              name="minAge"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Edad mínima</FormLabel>
+                  <FormControl>
+                    <NumberField
+                      min={0}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              key="maxAge"
+              control={form.control}
+              name="maxAge"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Edad máxima</FormLabel>
+                  <FormControl>
+                    <NumberField
+                      min={0}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={field.value}
+                      onValueChange={(valor) => field.onChange(aEntero(valor))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
+
+        <p className="-mt-2 text-xs text-muted-foreground">
+          {ageCriterion === AgeCriterion.BIRTH_YEAR
+            ? 'Los dos años están incluidos. Dejá uno vacío si la categoría no tiene tope de ese lado.'
+            : 'Las dos edades están incluidas. Dejá una vacía si la categoría no tiene tope de ese lado.'}
+        </p>
 
         <FormField
           control={form.control}
@@ -197,31 +337,26 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
-                <FormLabel className="text-base">Estado Activo</FormLabel>
+                <FormLabel className="text-base">Estado activo</FormLabel>
                 <p className="text-sm text-muted-foreground">
                   Habilita o deshabilita la categoría para inscripciones.
                 </p>
               </div>
               <FormControl>
-                <input
-                  type="checkbox"
-                  checked={field.value}
-                  onChange={field.onChange}
-                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                />
+                <Switch checked={field.value} onCheckedChange={field.onChange} />
               </FormControl>
             </FormItem>
           )}
         />
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex flex-col-reverse gap-2 border-t border-primary-100 pt-4 sm:flex-row sm:justify-end sm:gap-3 [&>button]:w-full sm:[&>button]:w-auto">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel}>
               Cancelar
             </Button>
           )}
           <Button type="submit" disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
             {initialData ? 'Actualizar' : 'Crear'} Categoría
           </Button>
         </div>

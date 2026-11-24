@@ -12,6 +12,12 @@
 // en el envío anónimo —disciplina, categoría, sexo y los ids de las opciones
 // elegidas—, sin nombre, DNI, mail ni teléfono. Y se borra en cuanto el
 // servidor confirma.
+//
+// Aun así son respuestas de un menor sobre su bienestar, en un teléfono que
+// puede ser compartido (familiar, del entrenador, la tablet de la sede): lo que
+// queda es lo mínimo y vence (VULN-33). El borrador dura un día y un envío en
+// cola, dos; al encolar un envío el borrador se borra, porque la cola ya tiene
+// todo y tenerlo dos veces sólo invitaría a mandarlo duplicado.
 import { z } from 'zod';
 import {
   surveyContextSchema,
@@ -34,6 +40,18 @@ const CLAVE_PENDIENTES = 'evita_encuesta_pendientes_v1';
  * campaña ya cerrada.
  */
 const MAX_PENDIENTES = 5;
+
+/** Vida de un borrador: pasado un día ya no se restaura y se borra. */
+const VIDA_BORRADOR_MS = 24 * 60 * 60 * 1000;
+
+/** Vida de un envío en cola: pasados dos días se descarta. */
+const VIDA_PENDIENTE_MS = 2 * 24 * 60 * 60 * 1000;
+
+/** ¿La fecha ISO quedó más atrás que `vidaMs`? Una fecha ilegible cuenta como vencida. */
+function vencido(iso: string, vidaMs: number, ahora: Date): boolean {
+  const momento = Date.parse(iso);
+  return Number.isNaN(momento) || ahora.getTime() - momento > vidaMs;
+}
 
 const borradorSchema = z.object({
   campaignId: z.string().uuid(),
@@ -77,9 +95,16 @@ export type EnvioPendiente = z.infer<typeof envioPendienteSchema>;
  * PRE, se publicó la DURANTE, y el borrador viejo le restauraría respuestas a
  * preguntas de otra encuesta.
  */
-export function leerBorrador(campaignId: string): BorradorEncuesta | null {
+export function leerBorrador(
+  campaignId: string,
+  ahora: Date = new Date(),
+): BorradorEncuesta | null {
   const parseado = borradorSchema.safeParse(leerCrudo(CLAVE_BORRADOR, 'surveyDraft'));
   if (!parseado.success) return null;
+  if (vencido(parseado.data.guardadoEn, VIDA_BORRADOR_MS, ahora)) {
+    borrarBorrador();
+    return null;
+  }
   if (parseado.data.campaignId !== campaignId) return null;
   return parseado.data;
 }
@@ -88,12 +113,13 @@ export function guardarBorrador(
   campaignId: string,
   contexto: BorradorEncuesta['contexto'],
   respuestas: RespuestasPorPregunta,
+  ahora: Date = new Date(),
 ): void {
   escribirCrudo(CLAVE_BORRADOR, {
     campaignId,
     contexto,
     respuestas,
-    guardadoEn: new Date().toISOString(),
+    guardadoEn: ahora.toISOString(),
   } satisfies BorradorEncuesta, 'surveyDraft');
 }
 
@@ -112,14 +138,20 @@ export function borrarBorrador(): void {
  * Los que no validan contra `surveySubmissionSchema` se tiran: mandarlos sólo
  * cosecharía un 400 que quien responde no puede accionar.
  */
-export function leerPendientes(): EnvioPendiente[] {
+export function leerPendientes(ahora: Date = new Date()): EnvioPendiente[] {
   const crudo = leerCrudo(CLAVE_PENDIENTES, 'surveyDraft');
   if (!Array.isArray(crudo)) return [];
 
-  return crudo.flatMap((item) => {
+  const validos = crudo.flatMap((item) => {
     const parseado = envioPendienteSchema.safeParse(item);
     return parseado.success ? [parseado.data] : [];
   });
+  const vigentes = validos.filter(
+    (item) => !vencido(item.creadoEn, VIDA_PENDIENTE_MS, ahora),
+  );
+  // Lo vencido sale del teléfono en cuanto se lo encuentra.
+  if (vigentes.length !== validos.length) guardarPendientes(vigentes);
+  return vigentes;
 }
 
 function guardarPendientes(pendientes: EnvioPendiente[]): void {
@@ -139,16 +171,19 @@ function guardarPendientes(pendientes: EnvioPendiente[]): void {
  */
 export function encolarEnvio(
   payload: SurveySubmissionValues,
+  ahora: Date = new Date(),
 ): EnvioPendiente[] {
   const pendiente: EnvioPendiente = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-    creadoEn: new Date().toISOString(),
+    id: `${ahora.getTime()}-${Math.random().toString(36).slice(2, 10)}`,
+    creadoEn: ahora.toISOString(),
     intentos: 1,
     payload,
   };
 
-  const pendientes = [...leerPendientes(), pendiente];
+  const pendientes = [...leerPendientes(ahora), pendiente];
   guardarPendientes(pendientes);
+  // La cola ya tiene el envío completo: el borrador sobra.
+  borrarBorrador();
   return pendientes.slice(-MAX_PENDIENTES);
 }
 

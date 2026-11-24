@@ -6,6 +6,9 @@ import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
 
+/** Página máxima aceptada por los listados paginados (F-21). */
+export const MAX_PAGE = 100_000;
+
 /**
  * DTO base para paginación.
  * Todos los endpoints de listado deben aceptar estos query params.
@@ -15,11 +18,16 @@ export class PaginationQueryDto {
     description: 'Número de página',
     default: 1,
     minimum: 1,
+    maximum: MAX_PAGE,
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  // F-21 — sin tope, `?page=99999999999999999999` hacía desbordar el `skip` de
+  // Prisma (entero de 32/64 bits) y respondía 500. Con 100.000 páginas de a 100
+  // (10 millones de filas) sobra para cualquier listado real del sistema.
+  @Max(MAX_PAGE)
   page?: number = 1;
 
   @ApiPropertyOptional({

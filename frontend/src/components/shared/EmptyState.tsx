@@ -36,12 +36,12 @@ export function EmptyState({
           </div>
         </div>
         {/* Decorative ring */}
-        <div className="absolute inset-0 w-20 h-20 rounded-full border-2 border-dashed border-primary-100 animate-spin-slow" />
+        <div className="absolute inset-0 w-20 h-20 rounded-full border-2 border-dashed border-primary-100" />
       </div>
 
-      <h3 className="text-lg font-semibold text-primary-800 mb-1.5">
+      <h2 className="type-h3 text-primary-800 mb-1.5">
         {title}
-      </h3>
+      </h2>
       <p className="text-sm text-primary-500 max-w-sm leading-relaxed mb-6">
         {description}
       </p>

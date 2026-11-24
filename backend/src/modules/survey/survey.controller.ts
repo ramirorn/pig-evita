@@ -27,7 +27,6 @@ import {
   CreateSurveyQuestionDto,
   SubmitSurveyResponseDto,
   SurveyCampaignFilterDto,
-  SurveyMetricsQueryDto,
   UpdateSurveyCampaignDto,
   UpdateSurveyOptionDto,
   UpdateSurveyQuestionDto,
@@ -36,6 +35,7 @@ import {
   CACHE_TTL,
   CacheControl,
   CurrentUser,
+  NoAudit,
   Public,
   PublicReadThrottle,
   Roles,
@@ -83,9 +83,18 @@ export class SurveyController {
    *
    * ⚠️ Este handler **no** recibe ni `@CurrentUser()` ni el request: no hay
    * nada de quien responde que deba llegar al service.
+   *
+   * `@NoAudit()` — motivo (VULN-01): el `AuditInterceptor` global grababa en
+   * `AuditLog` el cuerpo completo del envío (cortes y opciones elegidas) junto
+   * con la IP, el User-Agent y la hora. Esa fila es una respuesta individual
+   * de un menor atada a un dispositivo, consultable sin umbral ni tandas: lo
+   * que el modelo `SurveyResponse` se cuida de no guardar. No tiene valor
+   * forense (no hay usuario) y se excluye a propósito.
+   * `test/seguridad-privacidad-encuesta.e2e-spec.ts` lo fija.
    */
   @Post('responses')
   @Public()
+  @NoAudit()
   @Throttle({ default: { ...SURVEY_SUBMIT_RATE_LIMIT } })
   @ApiOperation({ summary: 'Enviar una respuesta anónima' })
   @ApiResponse({ status: 201, description: 'Respuesta registrada' })
@@ -122,7 +131,7 @@ export class SurveyController {
   @Roles(...ACCIONES.SURVEY_MANAGE)
   @ApiOperation({ summary: 'Obtener campaña con su cuestionario' })
   async findCampaign(@Param('id', ParseUUIDPipe) id: string) {
-    return this.surveyService.findCampaign(id);
+    return this.surveyService.findCampaignDetail(id);
   }
 
   @Patch('campaigns/:id')
@@ -223,35 +232,5 @@ export class SurveyController {
     @Param('optionId', ParseUUIDPipe) optionId: string,
   ) {
     return this.surveyService.removeOption(id, questionId, optionId);
-  }
-
-  // ===========================================
-  // Métricas (admin)
-  // ===========================================
-
-  /**
-   * Agregados por pregunta y opción.
-   *
-   * Los cortes con menos de `UMBRAL_K_ANONIMATO` respuestas vuelven suprimidos:
-   * responden menores de edad sobre su salud mental y un filtro fino sobre una
-   * muestra chica alcanza para reidentificar a uno.
-   */
-  @Get('campaigns/:id/metrics')
-  @Roles(...ACCIONES.SURVEY_MANAGE)
-  @ApiOperation({ summary: 'Métricas agregadas por pregunta y opción' })
-  async getMetrics(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Query() query: SurveyMetricsQueryDto,
-  ) {
-    return this.surveyService.getMetrics(id, query);
-  }
-
-  @Get('campaigns/:id/flow')
-  @Roles(...ACCIONES.SURVEY_MANAGE)
-  @ApiOperation({
-    summary: 'Conteos por etapa/ventana, disciplina y localidad',
-  })
-  async getFlow(@Param('id', ParseUUIDPipe) id: string) {
-    return this.surveyService.getFlow(id);
   }
 }

@@ -31,22 +31,19 @@ import {
   puedeEliminarOpcion,
   valorUnico,
   valoresDe,
-  type ConteosPorOpcion,
 } from './surveyRules';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 interface SurveyOptionsEditorProps {
-  campaign: Pick<SurveyCampaign, 'id' | 'status' | '_count'>;
+  campaign: Pick<SurveyCampaign, 'id' | 'status' | '_count' | 'tieneRespuestas' | 'opcionesElegidas'>;
   pregunta: SurveyQuestionWithOptions;
-  conteos: ConteosPorOpcion;
 }
 
 export function SurveyOptionsEditor({
   campaign,
   pregunta,
-  conteos,
 }: SurveyOptionsEditorProps) {
   const [editando, setEditando] = useState<string | null>(null);
   const [textoEditado, setTextoEditado] = useState('');
@@ -150,7 +147,7 @@ export function SurveyOptionsEditor({
 
       <ul className="space-y-1.5">
         {opciones.map((opcion, indice) => {
-          const borrado = puedeEliminarOpcion(campaign, opcion.id, conteos);
+          const borrado = puedeEliminarOpcion(campaign, opcion.id);
           const enEdicion = editando === opcion.id;
 
           return (
@@ -210,7 +207,7 @@ export function SurveyOptionsEditor({
                     históricos, pero no es algo que Laura tenga que completar.
                   */}
                   <code
-                    className="hidden shrink-0 rounded bg-primary-50 px-1.5 py-0.5 font-mono text-[10px] text-primary-500 sm:inline"
+                    className="hidden shrink-0 rounded bg-primary-50 px-1.5 py-0.5 font-mono text-xs text-primary-500 sm:inline"
                     title={
                       valorEditable.permitido
                         ? 'Identificador interno con el que se agrupan las respuestas. Se arma solo a partir del texto.'

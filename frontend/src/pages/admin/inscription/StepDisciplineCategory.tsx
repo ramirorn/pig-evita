@@ -6,6 +6,7 @@ import { Trophy, ArrowRight, AlertTriangle, Users, User, Settings2 } from 'lucid
 import { DisciplineType, type Category, type Discipline } from '@/types';
 import { DISCIPLINE_TYPE_LABELS, ROUTES, SEX_LABELS } from '@/lib/constants';
 import type { PlantelRequerido } from './rosterModel';
+import { formatCategoryRange } from '@/lib/categoryRange';
 
 interface StepDisciplineCategoryProps {
   disciplineId: string;
@@ -46,11 +47,11 @@ export function StepDisciplineCategory({
         e.preventDefault();
         onNext();
       }}
-      className="card p-6 md:p-8 space-y-6 animate-fade-in shadow-md"
+      className="card p-6 md:p-8 space-y-6 shadow-md"
     >
       <div className="flex items-center gap-2.5 pb-4 border-b border-primary-100 text-primary-800 font-bold text-lg">
-        <Trophy className="w-5 h-5 text-accent-600" />
-        <span>Paso 1: Disciplina y Categoría</span>
+        <Trophy className="w-5 h-5 text-accent-600" aria-hidden="true" />
+        <h2 className="type-h2 text-primary-800">Paso 1: disciplina y categoría</h2>
       </div>
 
       <div>
@@ -71,14 +72,14 @@ export function StepDisciplineCategory({
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => onSelectDiscipline(discipline.id)}
-                  className={`p-3 rounded-xl text-left border transition-all flex flex-col justify-between ${
+                  className={`p-3 pointer-coarse:min-h-11 rounded-xl text-left border transition-colors duration-120 active:bg-primary-100 flex flex-col justify-between ${
                     isSelected
                       ? 'border-primary-800 bg-primary-50 text-primary-900 ring-2 ring-primary-700 shadow-xs'
-                      : 'border-primary-200 bg-white hover:border-primary-300 text-primary-700'
+                      : 'border-primary-200 bg-white hover:border-primary-400 hover:bg-primary-50 text-primary-700'
                   }`}
                 >
                   <span className="font-bold text-xs line-clamp-1">{discipline.name}</span>
-                  <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-white border border-primary-100 text-primary-600 w-fit">
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold uppercase px-1.5 py-0.5 rounded-md bg-white border border-primary-100 text-primary-600 w-fit">
                     {discipline.type === DisciplineType.EQUIPO ? (
                       <Users className="w-3 h-3" aria-hidden="true" />
                     ) : (
@@ -102,7 +103,7 @@ export function StepDisciplineCategory({
           {loadingCategories ? (
             <div className="p-4 text-center text-primary-400 text-sm">Cargando categorías...</div>
           ) : availableCategories.length === 0 ? (
-            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+            <div className="p-4 rounded-xl bg-warning-50 border border-warning-200 text-warning-800 text-xs">
               No hay categorías activas para esta disciplina en este momento.
             </div>
           ) : (
@@ -115,16 +116,16 @@ export function StepDisciplineCategory({
                     type="button"
                     aria-pressed={isSelected}
                     onClick={() => onSelectCategory(category.id)}
-                    className={`p-4 rounded-xl text-left border transition-all ${
+                    className={`p-4 pointer-coarse:min-h-11 rounded-xl text-left border transition-colors duration-120 active:bg-secondary-100 ${
                       isSelected
                         ? 'border-secondary-600 bg-secondary-50 text-secondary-900 ring-2 ring-secondary-500 shadow-sm'
-                        : 'border-primary-200 bg-white hover:border-primary-300 text-primary-800'
+                        : 'border-primary-200 bg-white hover:border-primary-400 hover:bg-primary-50 text-primary-800'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm">{category.name}</span>
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-primary-100 text-primary-700">
-                        {category.minAge} - {category.maxAge} años
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white border border-primary-100 text-primary-700">
+                        {formatCategoryRange(category)}
                       </span>
                     </div>
                     <p className="mt-2 text-xs font-medium text-primary-600">
@@ -167,13 +168,13 @@ export function StepDisciplineCategory({
       {esEquipo && faltaConfigurarPlantel && (
         <div
           role="alert"
-          className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 animate-fade-in"
+          className="p-4 rounded-xl bg-warning-50 border border-warning-200 flex items-start gap-3 animate-fade-in"
         >
           <AlertTriangle
-            className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5"
+            className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5"
             aria-hidden="true"
           />
-          <div className="text-sm text-amber-900">
+          <div className="text-sm text-warning-800">
             <p className="font-bold">
               Todavía no se definió el plantel de {selectedDiscipline?.name}.
             </p>
@@ -184,7 +185,7 @@ export function StepDisciplineCategory({
             </p>
             <Link
               to={ROUTES.DISCIPLINES_ADMIN}
-              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-700 hover:bg-amber-800 transition-colors"
+              className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-warning-700 hover:bg-warning-800 transition-colors"
             >
               <Settings2 className="w-3.5 h-3.5" aria-hidden="true" />
               Configurar {selectedDiscipline?.name} en Disciplinas
@@ -207,7 +208,7 @@ export function StepDisciplineCategory({
         <button
           type="submit"
           disabled={!categoryId || faltaConfigurarPlantel}
-          className="inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all"
+          className="inline-flex items-center gap-2 px-7 py-3 rounded-xl text-sm font-bold text-white bg-primary-800 hover:bg-primary-900 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-colors duration-120"
         >
           {esEquipo ? 'Siguiente: Cargar Plantel' : 'Siguiente: Datos del Participante'}
           <ArrowRight className="w-4 h-4" aria-hidden="true" />

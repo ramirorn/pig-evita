@@ -49,7 +49,7 @@ export function ReportFiltersPanel({
       <div className="flex items-center justify-between border-b border-primary-100 pb-3">
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-primary-600" />
-          <h3 className="font-semibold text-sm text-primary-900">
+          <h3 className="type-h3 text-primary-900">
             Filtros para Exportación
           </h3>
           {hasActiveFilters && (

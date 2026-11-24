@@ -160,8 +160,6 @@ export const ACTION_ROLES = {
   COMPETITION_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
-    UserRole.ADMIN_DEPARTAMENTAL,
-    UserRole.ADMIN_ZONAL,
   ],
   RESULT_LOAD: [
     UserRole.SUPER_ADMIN,
@@ -179,8 +177,6 @@ export const ACTION_ROLES = {
   NEWS_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
-    UserRole.ADMIN_DEPARTAMENTAL,
-    UserRole.ADMIN_ZONAL,
   ],
   /**
    * S19 — forzar la sincronización con el portal oficial.
@@ -203,14 +199,10 @@ export const ACTION_ROLES = {
   SURVEY_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
-    UserRole.ADMIN_DEPARTAMENTAL,
-    UserRole.ADMIN_ZONAL,
   ],
   CALENDAR_MANAGE: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
-    UserRole.ADMIN_DEPARTAMENTAL,
-    UserRole.ADMIN_ZONAL,
   ],
   VENUE_MANAGE: [
     UserRole.SUPER_ADMIN,
@@ -221,6 +213,13 @@ export const ACTION_ROLES = {
 
   /** Panel de resumen: el COORDINADOR lo ve aunque no edite nada. */
   DASHBOARD_READ: [
+    UserRole.SUPER_ADMIN,
+    UserRole.ADMIN_PROVINCIAL,
+    UserRole.ADMIN_DEPARTAMENTAL,
+    UserRole.ADMIN_ZONAL,
+    UserRole.COORDINADOR,
+  ],
+  METRICS_READ: [
     UserRole.SUPER_ADMIN,
     UserRole.ADMIN_PROVINCIAL,
     UserRole.ADMIN_DEPARTAMENTAL,
@@ -283,7 +282,7 @@ export const ACCIONES_POR_PANTALLA: Partial<
   [ROUTES.REPORTS]: ['REPORT_EXPORT'],
   [ROUTES.RESULTS]: ['RESULT_LOAD'],
   [ROUTES.COMPETITIONS]: ['COMPETITION_MANAGE'],
-  [ROUTES.COMPETITION_DETAIL]: ['COMPETITION_MANAGE'],
+  [ROUTES.COMPETITION_DETAIL]: ['COMPETITION_MANAGE', 'RESULT_LOAD'],
   [ROUTES.DISCIPLINES_ADMIN]: ['DISCIPLINE_MANAGE'],
   [ROUTES.CATEGORIES_ADMIN]: ['CATEGORY_MANAGE'],
   [ROUTES.NEWS_ADMIN]: ['NEWS_MANAGE', 'NEWS_SYNC'],
@@ -293,5 +292,7 @@ export const ACCIONES_POR_PANTALLA: Partial<
   // vive en el listado y la edición del cuestionario en el detalle.
   [ROUTES.SURVEY_ADMIN]: ['SURVEY_MANAGE'],
   [ROUTES.SURVEY_CAMPAIGN_DETAIL]: ['SURVEY_MANAGE'],
+  // Las tarjetas de KPI se crean, editan y borran desde Métricas.
+  [ROUTES.METRICS]: ['SURVEY_MANAGE'],
   [ROUTES.USERS]: ['USER_MANAGE'],
 };

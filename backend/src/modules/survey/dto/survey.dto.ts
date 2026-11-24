@@ -363,34 +363,3 @@ export class SubmitSurveyResponseDto {
   @Type(() => SurveyAnswerInputDto)
   respuestas: SurveyAnswerInputDto[];
 }
-
-// ===========================================
-// Métricas
-// ===========================================
-
-export class SurveyMetricsQueryDto {
-  @ApiPropertyOptional({ enum: CompetitionStage })
-  @IsOptional()
-  @IsEnum(CompetitionStage)
-  etapa?: CompetitionStage;
-
-  @ApiPropertyOptional({ enum: SurveyWindow })
-  @IsOptional()
-  @IsEnum(SurveyWindow)
-  ventana?: SurveyWindow;
-
-  @ApiPropertyOptional({ description: 'Disciplina' })
-  @IsOptional()
-  @IsUUID()
-  disciplineId?: string;
-
-  @ApiPropertyOptional({ enum: DisciplineType })
-  @IsOptional()
-  @IsEnum(DisciplineType)
-  disciplineType?: DisciplineType;
-
-  @ApiPropertyOptional({ description: 'Localidad' })
-  @IsOptional()
-  @IsUUID()
-  localityId?: string;
-}

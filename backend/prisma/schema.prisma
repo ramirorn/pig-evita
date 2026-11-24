@@ -30,6 +30,14 @@ enum Sex {
   MIXTO
 }
 
+/// Cómo define una categoría quién entra: por edad cumplida al día de la
+/// inscripción, o por año de nacimiento (el chico que cumple la edad de la
+/// categoría superior ese mismo año ya no entra en la de abajo).
+enum AgeCriterion {
+  AGE
+  BIRTH_YEAR
+}
+
 enum DisciplineType {
   INDIVIDUAL
   EQUIPO
@@ -242,15 +250,20 @@ model Discipline {
 
 /// Categorías por disciplina (edad, sexo)
 model Category {
-  id           String   @id @default(uuid()) @db.Uuid
-  disciplineId String   @map("discipline_id") @db.Uuid
+  id           String       @id @default(uuid()) @db.Uuid
+  disciplineId String       @map("discipline_id") @db.Uuid
   name         String /// e.g., "Sub-14 Masculino"
-  minAge       Int      @map("min_age")
-  maxAge       Int      @map("max_age")
+  ageCriterion AgeCriterion @default(AGE) @map("age_criterion")
+  /// Rango por edad: sólo con `ageCriterion = AGE`, NULL en el otro caso.
+  minAge       Int?         @map("min_age")
+  maxAge       Int?         @map("max_age")
+  /// Rango por año de nacimiento: sólo con `ageCriterion = BIRTH_YEAR`.
+  minBirthYear Int?         @map("min_birth_year")
+  maxBirthYear Int?         @map("max_birth_year")
   sex          Sex
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
 
   // Relations
   discipline      Discipline       @relation(fields: [disciplineId], references: [id], onDelete: Cascade)
@@ -648,13 +661,64 @@ model SurveyCampaign {
   updatedAt   DateTime             @updatedAt @map("updated_at")
 
   // Relations
-  createdBy User?            @relation("SurveyCampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  questions SurveyQuestion[]
-  responses SurveyResponse[]
+  createdBy  User?             @relation("SurveyCampaignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  questions  SurveyQuestion[]
+  responses  SurveyResponse[]
+  kpis       SurveyKpi[]
+  highlights SurveyHighlight[]
 
   @@index([status, ventana, etapa])
   @@index([anio])
   @@map("survey_campaigns")
+}
+
+/// Indicador compuesto (KPI) sobre las respuestas de la encuesta.
+///
+/// La definición es declarativa y matchea opciones por su `valor` (slug), no
+/// por id: las preguntas se reescriben cada edición y un KPI tiene que
+/// sobrevivir a eso. `campaignId` en `null` significa "reutilizable para
+/// cualquier campaña": el indicador se evalúa sobre la que se esté mirando.
+model SurveyKpi {
+  id          String   @id @default(uuid()) @db.Uuid
+  campaignId  String?  @map("campaign_id") @db.Uuid
+  nombre      String
+  descripcion String?  @db.Text
+  orden       Int      @default(0)
+  activo      Boolean  @default(true)
+  /// `{ numerador: [{ valores: string[] }], denominador: 'todas' | 'contestaron' | [{ valores }], formato: 'porcentaje' | 'conteo' }`
+  definicion  Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  campaign SurveyCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, activo, orden])
+  @@map("survey_kpis")
+}
+
+/// Destacado del panel de Métricas: un ranking de opciones con un título en
+/// lenguaje simple ("Lo que más necesitan los deportistas es:").
+///
+/// Igual que `SurveyKpi`, la definición matchea opciones por su `valor` y
+/// `campaignId` en `null` lo hace reutilizable entre ediciones.
+model SurveyHighlight {
+  id          String   @id @default(uuid()) @db.Uuid
+  campaignId  String?  @map("campaign_id") @db.Uuid
+  titulo      String
+  descripcion String?  @db.Text
+  orden       Int      @default(0)
+  activo      Boolean  @default(true)
+  /// `{ opciones: string[] (valor de opción), top: 1..10 }`
+  definicion  Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  campaign SurveyCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, activo, orden])
+  @@map("survey_highlights")
 }
 
 /// Pregunta del cuestionario.
