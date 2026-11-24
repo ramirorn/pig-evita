@@ -5,7 +5,7 @@
 | **Rama** | `dev-lucas` (base: `develop` + `dev-santi`) |
 | **Autor** | Lucas Zigaran |
 | **Última actualización** | 24/11/2026 |
-| **Estado** | Fase 0 (red de seguridad) **terminada**. Módulos 1 a 8 **pendientes**. |
+| **Estado** | Fase 0 y Módulo 1 **terminados**. Módulos 2 a 8 **pendientes**. |
 | **Seguimiento detallado** | [`odd/tasks/refactor-solid.md`](../../odd/tasks/refactor-solid.md) |
 | **Análisis de origen** | [`analisis-buenas-practicas.pdf`](analisis-buenas-practicas.pdf) (en esta carpeta) |
 | **Relevamiento de seguridad** | [`../seguridad/relevamiento-owasp-2025.md`](../seguridad/relevamiento-owasp-2025.md) |
@@ -56,11 +56,25 @@ El objetivo era que cualquier cambio posterior quede verificado automáticamente
 
 | Flujo | Hoy | Meta | Módulo que lo baja |
 |---|---|---|---|
-| Alta de un plantel de 16 integrantes | 68 | ≤ 8 | 1 |
+| Alta de un plantel de 16 integrantes | 68 → **7** ✓ | ≤ 8 | 1 |
 | Fixture round robin de 16 competidores | 244 | ≤ 5 | 4 |
 | Métricas `overview` con la caché ya cargada | 1 | 0 | 3 |
 
-### 2.3 Problemas que encontró la red de seguridad (corregidos)
+### 2.3 Módulo 1 — Inscripciones y participantes (terminado)
+
+| Commit | Qué se hizo |
+|---|---|
+| `1862c57` | Reglas puras con su spec (21 tests): `inscription-eligibility.ts` (edad o año de nacimiento y sexo, con `Sex.MIXTO` en lugar del texto) y `roster-rules.ts` (DNI repetidos, capitán único, cupo de titulares y suplentes). |
+| `3180f86` | `InscriptionsService` (1.182 líneas) dividido por responsabilidad: `InscriptionsService` (alta individual, listado y detalle), `TeamInscriptionsService` (planteles), `InscriptionReviewService` (revisar, aprobar y rechazar) e `InscriptionQrService` (código, imagen y consulta pública). El alta de un plantel escribe en lote: **de 68 a 7 consultas** para 16 integrantes, y el costo ya no crece con el tamaño del plantel. La revisión, aprobación y rechazo dejan de devolver la fila completa del participante (que incluía el domicilio). |
+| (este) | Comentarios del controller recortados según `AGENTS.md` §6.9. |
+
+Las rutas, los mensajes de error y el orden de las validaciones no cambiaron. Ningún test de comportamiento se modificó.
+
+**Dos pasos del plan quedaron diferidos, con motivo:**
+- **VULN-28 (sacar los IDs internos de las vistas públicas):** el UUID del participante no sale solo en `participantId`, sino también en `participant.id` y como `id` de cada fila del ranking, y la suite de Playwright lo usa para cargar resultados. Hacerlo bien requiere separar la proyección pública de la de administración en `GET /competitions/:id` (con el patrón `OptionalJwtAuthGuard`, como en noticias y calendario), y depende de la decisión pendiente sobre qué se publica de los menores.
+- **Listado de participantes con `PARTICIPANT_SUMMARY`:** el formulario de edición se rellena con la fila del listado. Si el listado dejara de traer email, teléfono y domicilio, esos campos aparecerían vacíos al editar y se podrían borrar al guardar. Pasa al Módulo 7: el formulario tiene que cargar el detalle antes de editar.
+
+### 2.4 Problemas que encontró la red de seguridad (corregidos)
 
 Al correr todo con el CI nuevo aparecieron problemas que ya existían y que el CI anterior no detectaba. Ninguno era del código de la aplicación:
 
@@ -72,15 +86,15 @@ Al correr todo con el CI nuevo aparecieron problemas que ya existían y que el C
 | `4b6eda6` | La suite de planteles tardaba ~2 minutos renderizando imágenes QR reales y a veces pasaba su timeout. | Usa un QR simulado: ese spec prueba la atomicidad, no el render. La suite e2e completa bajó de ~176 s a ~78 s. |
 | `9bd3260` | Playwright en celular: el clic sobre "Encuesta" caía mientras el menú todavía se desplegaba. | El helper espera a que el menú se vea entero antes del clic. |
 
-### 2.4 Estado verificado
+### 2.5 Estado verificado
 
 Todo en verde en GitHub Actions (corrida `45433399536`) y en local:
 
 | Suite | Resultado |
 |---|---|
 | Backend: lint | 0 errores (15 avisos de `any`) |
-| Backend: tests unitarios | 309 / 309 |
-| Backend: tests e2e | 1.060 / 1.060 |
+| Backend: tests unitarios | 330 / 330 |
+| Backend: tests e2e | 1.062 / 1.062 |
 | Frontend: lint, build y checks | OK, 14 / 14 checks |
 | Playwright (API, escritorio y celular) | 409 OK, 1 omitido a propósito (`content.spec.ts:130`: el stack aislado no tiene noticias del portal) |
 
@@ -107,17 +121,8 @@ Todo en verde en GitHub Actions (corrida `45433399536`) y en local:
 
 ### 3.3 Módulos, ordenados de mayor a menor riesgo
 
-#### Módulo 1 — Inscripciones y participantes (riesgo más alto, 3–4 días)
-Por qué primero: datos de menores, una clase que hace demasiado, y `createTeam` hace ~4 consultas por integrante dentro de una transacción con límite de 5 s, así que **un plantel grande puede fallar**.
-1. Revisar que los e2e existentes cubran alta individual, alta de equipo, revisión y QR; agregar lo que falte.
-2. Reglas puras con su spec: `eligibility.ts` (edad y sexo, con `Sex.MIXTO`) y `roster-rules.ts` (DNIs repetidos, un solo capitán, cupo de titulares y suplentes).
-3. `InscriptionQrService`: generar el código, renderizar la imagen (con una sola constante de opciones, hoy duplicada) y buscar por QR.
-4. `InscriptionReviewService`: `review`, `approve` y `reject`.
-5. `TeamInscriptionsService.createTeam` con **escritura en lote**: un `findMany` por DNI, `createManyAndReturn` para los participantes nuevos, `update` solo de los que cambiaron, y `createMany` para miembros e inscripciones. **Meta: de 68 a ≤ 8 consultas.**
-6. Mismas rutas en el controlador; se registran los providers nuevos.
-7. **VULN-28 (parte técnica):** sacar `participantId` de las proyecciones públicas (`RESULT_PUBLIC`, `TEAM_MEMBER_WITH_PARTICIPANT`).
-8. `participants.findAll` con `PARTICIPANT_SUMMARY` en lugar de la fila completa.
-9. Nombres en inglés y comentarios cortos en todo el módulo.
+#### Módulo 1 — Inscripciones y participantes ✓ terminado (ver 2.3)
+Pendientes que salieron de este módulo: VULN-28 (sección 3.4) y el listado de participantes (Módulo 7).
 
 #### Módulo 2 — Autenticación y usuarios (2–3 días)
 1. Tipar `request.user` (extender `Request` de Express), `jwt-auth.guard` y `expiresIn`, y quitar los `any`.
@@ -162,13 +167,14 @@ Por qué primero: datos de menores, una clase que hace demasiado, y `createTeam`
 
 #### Módulo 7 — Frontend de administración (2–3 días)
 1. Formularios con `useForm<z.input, unknown, z.output>`: quitar los ~28 `as any` y los `as Resolver`.
-2. Hook `useCrudPageState` para el estado repetido en las 6 páginas de administración, con el layout de Teams/Venues como modelo.
-3. Rendimiento:
+2. El formulario de edición de participantes carga el detalle (`useParticipant(id)`) en vez de usar la fila del listado; recién entonces el listado puede bajar a `PARTICIPANT_SUMMARY` (pendiente del Módulo 1).
+3. Hook `useCrudPageState` para el estado repetido en las 6 páginas de administración, con el layout de Teams/Venues como modelo.
+4. Rendimiento:
    - memoizar las columnas de las tablas;
    - guardar los borradores con debounce;
    - borrar el barrel muerto `pages/admin/index.tsx`;
    - una sola fuente para el prefetch de rutas.
-4. Partir `schemas/index.ts`, `types/index.ts` y `lib/utils.ts` por dominio, manteniendo un `index.ts` que reexporte.
+5. Partir `schemas/index.ts`, `types/index.ts` y `lib/utils.ts` por dominio, manteniendo un `index.ts` que reexporte.
 
 #### Módulo 8 — Frontend público y componentes grandes (2 días)
 1. `ImpactMapSvg`: extraer los hooks `useMapView`, `useMapGestures` y `useElementSize`.
@@ -188,7 +194,7 @@ No bloquean el resto del trabajo.
 | VULN-20 | Si se agrega un token de un solo uso o Turnstile a la encuesta (el tope por IP se hace igual). |
 | VULN-23 | Si se fuerza el cambio de contraseña a todas las cuentas existentes. |
 | VULN-27 | Cuánto tiempo se conservan los registros de auditoría. |
-| VULN-28 | Qué datos de los menores se publican en fixtures y rankings. |
+| VULN-28 | Qué datos de los menores se publican en fixtures y rankings. Con eso se separa la proyección pública de la de administración en `GET /competitions/:id` y en el ranking (los IDs internos hoy salen en `participantId`, `participant.id` y el `id` de cada fila). |
 | VULN-03 / 11 | Topología de producción y TLS. |
 | Vitest | Si se suma al stack para reemplazar los scripts `check-*.mjs` (requiere actualizar `AGENTS.md` y `plan.md`). |
 
