@@ -92,12 +92,7 @@ export class InscriptionsController {
   }
 
   // --- Endpoint AUTENTICADO: inscripción de un plantel completo (S21) ---
-  //
-  // Mismos `@Roles(...)` que el alta individual: es el mismo acto de negocio
-  // —inscribir gente— hecho de a un equipo en vez de de a una persona, y quien
-  // puede lo uno puede lo otro. Una acción nueva en `ACCIONES` habría creado un
-  // permiso que nadie sabría a quién asignar y que en la práctica se terminaría
-  // dando a la misma lista.
+  // Mismos roles que el alta individual: es el mismo acto de negocio.
   @Post('team')
   @Roles(...ACCIONES.INSCRIPTION_CREATE)
   @ApiBearerAuth('access-token')
@@ -193,7 +188,9 @@ export class InscriptionsController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Obtener inscripción',
-    description: 'Incluye participante, documentos y equipo.',
+    description:
+      'Incluye participante, categoría, equipo con su plantel y trazabilidad. ' +
+      'Los documentos se piden por GET /documents/participant/:id.',
   })
   @ApiResponse({
     status: 200,
@@ -212,11 +209,7 @@ export class InscriptionsController {
   }
 
   @Patch(':id/review')
-  // Para HTTP esto es un PATCH y el interceptor lo registraría como UPDATE,
-  // que no distingue una revisión de cualquier otra edición. `@Audit` corrige
-  // el nombre de la acción sin agregar una segunda fila: el evento de negocio
-  // sigue saliendo por la misma vía. Ver el contrato en
-  // `common/decorators/audit.decorator.ts`.
+  // `@Audit` nombra la acción de negocio; si no, el PATCH se auditaría como UPDATE.
   @Audit({ action: AuditAction.REVIEW_INSCRIPTION })
   @Roles(...ACCIONES.INSCRIPTION_REVIEW)
   @ApiBearerAuth('access-token')
@@ -242,11 +235,7 @@ export class InscriptionsController {
   }
 
   @Patch(':id/approve')
-  // Para HTTP esto es un PATCH y el interceptor lo registraría como UPDATE,
-  // que no distingue una aprobación de cualquier otra edición. `@Audit` corrige
-  // el nombre de la acción sin agregar una segunda fila: el evento de negocio
-  // sigue saliendo por la misma vía. Ver el contrato en
-  // `common/decorators/audit.decorator.ts`.
+  // `@Audit` nombra la acción de negocio; si no, el PATCH se auditaría como UPDATE.
   @Audit({ action: AuditAction.APPROVE_INSCRIPTION })
   @Roles(...ACCIONES.INSCRIPTION_APPROVE)
   @ApiBearerAuth('access-token')
@@ -270,11 +259,7 @@ export class InscriptionsController {
   }
 
   @Patch(':id/reject')
-  // Para HTTP esto es un PATCH y el interceptor lo registraría como UPDATE,
-  // que no distingue una rechazo de cualquier otra edición. `@Audit` corrige
-  // el nombre de la acción sin agregar una segunda fila: el evento de negocio
-  // sigue saliendo por la misma vía. Ver el contrato en
-  // `common/decorators/audit.decorator.ts`.
+  // `@Audit` nombra la acción de negocio; si no, el PATCH se auditaría como UPDATE.
   @Audit({ action: AuditAction.REJECT_INSCRIPTION })
   @Roles(...ACCIONES.INSCRIPTION_REJECT)
   @ApiBearerAuth('access-token')
