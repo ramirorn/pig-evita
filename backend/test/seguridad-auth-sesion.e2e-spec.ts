@@ -672,12 +672,13 @@ describe('Sesión y autenticación — unidad A del relevamiento OWASP 2025 (e2e
       await refrescar(legado).expect(401);
     });
 
-    it('comportamiento previo (mitigación parcial): un access token sin iss/aud sigue valiendo', async () => {
+    it('un access token sin iss/aud (legado) se rechaza con 401', async () => {
+      // Cierre de VULN-47: la transición que los aceptaba terminó.
       const legado = jwt.sign(
         { sub: IDS.delegado, email: 'x', role: Role.DELEGADO, type: 'access' },
         { secret: ACCESS_SECRET },
       );
-      await me(legado).expect(200);
+      await me(legado).expect(401);
     });
   });
 

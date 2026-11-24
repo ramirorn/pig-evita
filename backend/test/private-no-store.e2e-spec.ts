@@ -35,6 +35,7 @@ import { AuditService } from '../src/modules/audit/audit.service';
 import { PrismaService } from '../src/database/prisma.service';
 import { ScopeService } from '../src/common/scope';
 import { Role } from '../src/common/constants';
+import { ACCESS_SIGN_OPTIONS } from './mocks/jwt-test';
 
 const ACCESS_SECRET = 'test-access-secret-de-mas-de-32-caracteres';
 const CONFIG: Record<string, unknown> = {
@@ -97,7 +98,10 @@ describe('Cache-Control en respuestas privadas (R16)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         PassportModule.register({ defaultStrategy: 'jwt' }),
-        JwtModule.register({ secret: ACCESS_SECRET }),
+        JwtModule.register({
+          secret: ACCESS_SECRET,
+          signOptions: ACCESS_SIGN_OPTIONS,
+        }),
       ],
       controllers: [DisciplinesController, ParticipantsController],
       providers: [

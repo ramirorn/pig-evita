@@ -31,6 +31,7 @@ import {
 } from '../src/common/interceptors';
 import { Role } from '../src/common/constants';
 import { ScopeService } from '../src/common/scope';
+import { ACCESS_SIGN_OPTIONS } from './mocks/jwt-test';
 
 const ACCESS_SECRET = 'test-access-secret-de-mas-de-32-caracteres';
 const CONFIG: Record<string, unknown> = {
@@ -176,7 +177,10 @@ describe('Resultados y rankings (e2e)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         PassportModule.register({ defaultStrategy: 'jwt' }),
-        JwtModule.register({ secret: ACCESS_SECRET }),
+        JwtModule.register({
+          secret: ACCESS_SECRET,
+          signOptions: ACCESS_SIGN_OPTIONS,
+        }),
       ],
       controllers: [ResultsController],
       providers: [

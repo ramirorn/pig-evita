@@ -13,14 +13,6 @@ import {
 } from '../auth.constants';
 import { RevocacionSesionesService } from '../session-revocation.service';
 
-/** `aud` puede ser string o lista; vale si incluye la audiencia esperada. */
-function audienciaValida(aud: JwtPayload['aud']): boolean {
-  if (aud === undefined) return true;
-  return Array.isArray(aud)
-    ? aud.includes(JWT_AUDIENCE_ACCESS)
-    : aud === JWT_AUDIENCE_ACCESS;
-}
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
@@ -41,8 +33,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: secret,
-      // VULN-47 — sólo el algoritmo con el que se firma.
+      // VULN-47 — algoritmo, emisor y audiencia obligatorios, igual que en el
+      // refresh: un token sin `iss`/`aud`, o de otro emisor, se rechaza (401).
       algorithms: [JWT_ALGORITHM],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE_ACCESS,
     });
   }
 
@@ -50,20 +45,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (payload.type !== 'access') {
       throw new UnauthorizedException(
         'Token inválido: se esperaba un access token',
-      );
-    }
-
-    // VULN-47 — mitigación parcial. Todo access token emitido lleva
-    // `iss`/`aud`; uno que declare **otro** emisor o audiencia se rechaza. Uno
-    // sin esos claims todavía se acepta: los tests e2e de otros módulos firman
-    // tokens a mano sin ellos. Exigirlos es cambiar `issuer`/`audience` a
-    // obligatorios en `super()` una vez actualizados esos fixtures.
-    if (
-      (payload.iss !== undefined && payload.iss !== JWT_ISSUER) ||
-      !audienciaValida(payload.aud)
-    ) {
-      throw new UnauthorizedException(
-        'Token inválido: emisor o audiencia desconocidos',
       );
     }
 

@@ -26,6 +26,7 @@ import {
   CacheControlInterceptor,
 } from '../src/common/interceptors';
 import { Role } from '../src/common/constants';
+import { ACCESS_SIGN_OPTIONS } from './mocks/jwt-test';
 
 const ACCESS_SECRET = 'test-access-secret-de-mas-de-32-caracteres';
 const CONFIG: Record<string, unknown> = {
@@ -73,7 +74,10 @@ describe('Calendario (e2e)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         PassportModule.register({ defaultStrategy: 'jwt' }),
-        JwtModule.register({ secret: ACCESS_SECRET }),
+        JwtModule.register({
+          secret: ACCESS_SECRET,
+          signOptions: ACCESS_SIGN_OPTIONS,
+        }),
       ],
       controllers: [CalendarController],
       providers: [
