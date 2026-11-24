@@ -35,6 +35,7 @@ import cookieParser from 'cookie-parser';
 import * as argon2 from 'argon2';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { AuthTokensService } from '../src/modules/auth/auth-tokens.service';
 import {
   JwtStrategy,
   JwtRefreshStrategy,
@@ -138,6 +139,7 @@ describe('Rotación atómica del refresh token (e2e)', () => {
       controllers: [AuthController],
       providers: [
         AuthService,
+        AuthTokensService,
         AuditService,
         JwtStrategy,
         JwtRefreshStrategy,

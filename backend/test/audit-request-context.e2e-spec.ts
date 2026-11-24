@@ -21,6 +21,7 @@ import { AuditInterceptor } from '../src/modules/audit/audit.interceptor';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { AuthTokensService } from '../src/modules/auth/auth-tokens.service';
 import {
   JwtStrategy,
   JwtRefreshStrategy,
@@ -110,6 +111,7 @@ describe('Auditoría — IP y User-Agent (e2e)', () => {
       controllers: [AuthController, DisciplinesController],
       providers: [
         AuthService,
+        AuthTokensService,
         AuditService,
         JwtStrategy,
         JwtRefreshStrategy,

@@ -29,6 +29,7 @@ import { randomUUID } from 'node:crypto';
 
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { AuthTokensService } from '../src/modules/auth/auth-tokens.service';
 import {
   JwtStrategy,
   JwtRefreshStrategy,
@@ -301,6 +302,7 @@ describe('Sesión y autenticación — unidad A del relevamiento OWASP 2025 (e2e
       controllers: [AuthController, UsersController],
       providers: [
         AuthService,
+        AuthTokensService,
         UsersService,
         AuditService,
         JwtStrategy,

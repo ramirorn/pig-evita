@@ -5,6 +5,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
+import { AuthTokensService } from './auth-tokens.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy, JwtRefreshStrategy } from './strategies';
 import { RevocacionSesionesService } from './session-revocation.service';
@@ -17,6 +18,7 @@ import { RevocacionSesionesService } from './session-revocation.service';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AuthTokensService,
     JwtStrategy,
     JwtRefreshStrategy,
     // VULN-05 — una sola instancia, compartida con `UsersService` (que marca

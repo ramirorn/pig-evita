@@ -34,6 +34,7 @@ import { AuditInterceptor } from '../src/modules/audit/audit.interceptor';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { AuthTokensService } from '../src/modules/auth/auth-tokens.service';
 import {
   JwtStrategy,
   JwtRefreshStrategy,
@@ -216,6 +217,7 @@ describe('Contrato de auditoría (e2e)', () => {
         // R05 — los services acotados por territorio inyectan ScopeService.
         ScopeService,
         AuthService,
+        AuthTokensService,
         AuditService,
         JwtStrategy,
         JwtRefreshStrategy,
