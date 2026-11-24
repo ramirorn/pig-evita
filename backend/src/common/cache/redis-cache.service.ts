@@ -99,6 +99,31 @@ export class RedisCacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Corre un script Lua que devuelve una lista de enteros; `null` si no hay
+   * Redis o falla. Para operaciones que tienen que ser atómicas entre varias
+   * claves, como el contador del throttler (`RedisThrottlerStorage`).
+   */
+  async evalNumbers(
+    script: string,
+    keys: string[],
+    args: Array<string | number>,
+  ): Promise<number[] | null> {
+    if (!this.disponible) return null;
+    try {
+      const resultado = await this.cliente!.eval(
+        script,
+        keys.length,
+        ...keys,
+        ...args,
+      );
+      return Array.isArray(resultado) ? resultado.map(Number) : null;
+    } catch (e) {
+      this.logger.error(`Error en script de Redis: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
   /** Lee un contador numérico; `null` si no hay Redis o la clave no existe. */
   async getNumero(clave: string): Promise<number | null> {
     if (!this.disponible) return null;

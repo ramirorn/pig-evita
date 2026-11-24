@@ -2,7 +2,7 @@
 // App Module - Root Module
 // ===========================================
 import { Module, RequestMethod } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
@@ -29,7 +29,11 @@ import {
 } from './common/interceptors';
 import { RolesGuard } from './common/guards';
 import { ScopeModule } from './common/scope';
-import { CacheModule } from './common/cache';
+import {
+  CacheModule,
+  RedisCacheService,
+  RedisThrottlerStorage,
+} from './common/cache';
 
 // Feature Modules
 import { HealthModule } from './modules/health/health.module';
@@ -103,13 +107,21 @@ export { urlParaLog };
       },
     }),
 
-    // Rate Limiting
-    ThrottlerModule.forRoot([
-      {
-        ttl: parseInt(process.env.THROTTLE_TTL || '60000', 10),
-        limit: parseInt(process.env.THROTTLE_LIMIT || '100', 10),
-      },
-    ]),
+    // Rate limiting. VULN-22: la cuenta vive en Redis (compartida entre
+    // instancias); si Redis no está, el storage cae a memoria. La configuración
+    // sale del namespace `throttle`, validado al arrancar.
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService, RedisCacheService],
+      useFactory: (config: ConfigService, cache: RedisCacheService) => ({
+        throttlers: [
+          {
+            ttl: config.get<number>('throttle.ttl', 60_000),
+            limit: config.get<number>('throttle.limit', 100),
+          },
+        ],
+        storage: new RedisThrottlerStorage(cache),
+      }),
+    }),
 
     // Database
     DatabaseModule,
