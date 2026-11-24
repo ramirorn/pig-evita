@@ -14,7 +14,9 @@ import { join } from 'node:path';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { IS_PUBLIC_KEY, ROLES_KEY } from '../src/common/constants';
 import { ANY_AUTHENTICATED_KEY } from '../src/common/decorators';
-import { urlParaLog } from '../src/app.module';
+// Desde su archivo y no desde `app.module`: importar el módulo raíz valida el
+// entorno al cargarse y la suite fallaba en cualquier máquina sin `.env` (el CI).
+import { urlParaLog } from '../src/common/logging/url-para-log';
 
 function archivosDeControllers(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
