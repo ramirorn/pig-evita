@@ -117,40 +117,74 @@ function crearPrismaFalso(
 
   let inscripcionesIntentadas = 0;
 
+  const errorUnico = (detalle: string) =>
+    Object.assign(new Error(`Unique constraint failed${detalle}`), {
+      code: 'P2002',
+    });
+
+  /**
+   * S04 — la búsqueda por DNI lleva el filtro territorial adentro del `where`.
+   * El doble lo evalúa además del DNI: si sólo matcheara por DNI, un
+   * participante ajeno se reutilizaría y el spec quedaría en verde con la fuga
+   * puesta. Acepta `dni` exacto o `dni: { in }` (búsqueda en lote).
+   */
+  const coincideParticipante = (
+    p: Record<string, any>,
+    where: Record<string, any>,
+  ) => {
+    const dni = where.dni;
+    if (Array.isArray(dni?.in) && !dni.in.includes(p.dni)) return false;
+    if (typeof dni === 'string' && p.dni !== dni) return false;
+    const dep = where.department;
+    if (dep === undefined && !Array.isArray(where.OR)) return true;
+    if (Array.isArray(dep?.in)) return dep.in.includes(p.department);
+    if (Array.isArray(where.OR)) {
+      return where.OR.some((c: any) => c.department?.equals === p.department);
+    }
+    return true;
+  };
+
+  /** Una inscripción por intento; `fallarEnInscripcionNro` corta en esa. */
+  const intentarInscripcion = () => {
+    inscripcionesIntentadas += 1;
+    return inscripcionesIntentadas === opciones.fallarEnInscripcionNro;
+  };
+
   const api = (t: Tablas) => ({
     participant: {
-      // S04 — la búsqueda por DNI lleva el filtro territorial adentro del
-      // `where`. El doble lo evalúa además del DNI: si sólo matcheara por DNI,
-      // un participante ajeno se reutilizaría y el spec quedaría en verde con la
-      // fuga puesta.
       findFirst: jest.fn(({ where }: { where: Record<string, any> }) =>
         Promise.resolve(
-          t.participants.find((p) => {
-            if (where.dni !== undefined && p.dni !== where.dni) return false;
-            const dep = where.department;
-            if (dep === undefined && !Array.isArray(where.OR)) return true;
-            if (Array.isArray(dep?.in)) return dep.in.includes(p.department);
-            if (Array.isArray(where.OR)) {
-              return where.OR.some(
-                (c: any) => c.department?.equals === p.department,
-              );
-            }
-            return true;
-          }) ?? null,
+          t.participants.find((p) => coincideParticipante(p, where)) ?? null,
+        ),
+      ),
+      findMany: jest.fn(({ where }: { where: Record<string, any> }) =>
+        Promise.resolve(
+          t.participants.filter((p) => coincideParticipante(p, where)),
         ),
       ),
       create: jest.fn(({ data }: { data: Record<string, any> }) => {
         if (t.participants.some((p) => p.dni === data.dni)) {
-          return Promise.reject(
-            Object.assign(new Error('Unique constraint failed: (`dni`)'), {
-              code: 'P2002',
-            }),
-          );
+          return Promise.reject(errorUnico(': (`dni`)'));
         }
         const fila = { id: `p-${data.dni}`, ...data };
         t.participants.push(fila);
         return Promise.resolve(fila);
       }),
+      // Lote atómico, como Postgres: un DNI repetido no deja insertar ninguno.
+      createManyAndReturn: jest.fn(
+        ({ data }: { data: Array<Record<string, any>> }) => {
+          const dnis = data.map((d) => d.dni);
+          const choca = dnis.some(
+            (dni, i) =>
+              dnis.indexOf(dni) !== i ||
+              t.participants.some((p) => p.dni === dni),
+          );
+          if (choca) return Promise.reject(errorUnico(': (`dni`)'));
+          const filas = data.map((d) => ({ id: `p-${d.dni}`, ...d }));
+          t.participants.push(...filas);
+          return Promise.resolve(filas);
+        },
+      ),
       update: jest.fn(
         ({ where, data }: { where: { id: string }; data: any }) => {
           const fila = t.participants.find((p) => p.id === where.id);
@@ -167,13 +201,7 @@ function crearPrismaFalso(
             x.disciplineId === data.disciplineId &&
             x.categoryId === data.categoryId,
         );
-        if (choca) {
-          return Promise.reject(
-            Object.assign(new Error('Unique constraint failed'), {
-              code: 'P2002',
-            }),
-          );
-        }
+        if (choca) return Promise.reject(errorUnico(''));
         const fila = { id: `t${t.teams.length + 1}`, ...data };
         t.teams.push(fila);
         return Promise.resolve(fila);
@@ -184,6 +212,12 @@ function crearPrismaFalso(
         const fila = { id: `tm${t.teamMembers.length + 1}`, ...data };
         t.teamMembers.push(fila);
         return Promise.resolve(fila);
+      }),
+      createMany: jest.fn(({ data }: { data: Array<Record<string, any>> }) => {
+        for (const d of data) {
+          t.teamMembers.push({ id: `tm${t.teamMembers.length + 1}`, ...d });
+        }
+        return Promise.resolve({ count: data.length });
       }),
     },
     inscription: {
@@ -199,14 +233,8 @@ function crearPrismaFalso(
         ),
       ),
       create: jest.fn(({ data }: { data: Record<string, any> }) => {
-        inscripcionesIntentadas += 1;
-        if (inscripcionesIntentadas === opciones.fallarEnInscripcionNro) {
-          return Promise.reject(
-            Object.assign(
-              new Error('Unique constraint failed on the fields: (`qr_code`)'),
-              { code: 'P2002' },
-            ),
-          );
+        if (intentarInscripcion()) {
+          return Promise.reject(errorUnico(' on the fields: (`qr_code`)'));
         }
         const fila = {
           id: `i${t.inscriptions.length + 1}`,
@@ -215,6 +243,21 @@ function crearPrismaFalso(
         };
         t.inscriptions.push(fila);
         return Promise.resolve(fila);
+      }),
+      // Lote atómico: si la inscripción N del plantel falla, no entra ninguna.
+      createMany: jest.fn(({ data }: { data: Array<Record<string, any>> }) => {
+        const falla = data.map(() => intentarInscripcion()).some(Boolean);
+        if (falla) {
+          return Promise.reject(errorUnico(' on the fields: (`qr_code`)'));
+        }
+        for (const d of data) {
+          t.inscriptions.push({
+            id: `i${t.inscriptions.length + 1}`,
+            status: 'PENDIENTE',
+            ...d,
+          });
+        }
+        return Promise.resolve({ count: data.length });
       }),
     },
   });

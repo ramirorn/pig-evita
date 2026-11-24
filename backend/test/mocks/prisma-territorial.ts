@@ -118,6 +118,49 @@ export function tabla<T extends Record<string, any>>(
 
   const buscar = (where: Where) => filas.filter((f) => coincide(f, where));
 
+  /** Error P2002 si `datos` choca con una `unique` contra `existentes`. */
+  const violacionUnica = (
+    datos: Record<string, any>,
+    existentes: any[],
+  ): Prisma.PrismaClientKnownRequestError | null => {
+    for (const campo of UNICOS[modelo] ?? []) {
+      const valor = datos?.[campo];
+      if (valor !== undefined && existentes.some((f) => f[campo] === valor)) {
+        return new Prisma.PrismaClientKnownRequestError(
+          `Unique constraint failed on the fields: (\`${campo}\`)`,
+          { code: 'P2002', clientVersion: 'test', meta: { target: [campo] } },
+        );
+      }
+    }
+    return null;
+  };
+
+  const nuevaFila = (datos: Record<string, any>) =>
+    alCrear ? alCrear(datos) : { id: `generado-${filas.length + 1}`, ...datos };
+
+  /**
+   * Inserción en lote con la semántica de Postgres: si una fila viola una
+   * `unique` (contra la tabla o contra otra fila del mismo lote) no se inserta
+   * **ninguna**, salvo con `skipDuplicates`, que saltea sólo las que chocan.
+   */
+  const insertarLote = (
+    args: any,
+  ): any[] | Prisma.PrismaClientKnownRequestError => {
+    const lote: Record<string, any>[] = [].concat(args.data ?? []);
+    const aceptadas: any[] = [];
+    for (const datos of lote) {
+      const error = violacionUnica(datos, [...filas, ...aceptadas]);
+      if (error && args.skipDuplicates) continue;
+      if (error) return error;
+      aceptadas.push(datos);
+    }
+    return aceptadas.map((datos) => {
+      const nueva = nuevaFila(datos);
+      filas.push(nueva);
+      return nueva;
+    });
+  };
+
   return {
     /** Acceso crudo, para las aserciones del propio test. */
     _filas: filas,
@@ -166,27 +209,24 @@ export function tabla<T extends Record<string, any>>(
       // búsqueda acotada no encuentra al participante ajeno y cae en la rama de
       // creación, donde la unique tiene que cortar. Un mock complaciente acá
       // haría pasar el test con la fuga puesta.
-      for (const campo of UNICOS[modelo] ?? []) {
-        const valor = args.data?.[campo];
-        if (valor !== undefined && filas.some((f: any) => f[campo] === valor)) {
-          return Promise.reject(
-            new Prisma.PrismaClientKnownRequestError(
-              `Unique constraint failed on the fields: (\`${campo}\`)`,
-              {
-                code: 'P2002',
-                clientVersion: 'test',
-                meta: { target: [campo] },
-              },
-            ),
-          );
-        }
-      }
+      const error = violacionUnica(args.data, filas);
+      if (error) return Promise.reject(error);
 
-      const nueva = alCrear
-        ? alCrear(args.data)
-        : { id: `generado-${filas.length + 1}`, ...args.data };
+      const nueva = nuevaFila(args.data);
       filas.push(nueva);
       return Promise.resolve(proyectar(nueva, args, modelo));
+    }),
+
+    createMany: jest.fn((args: any = {}) => {
+      const resultado = insertarLote(args);
+      if (resultado instanceof Error) return Promise.reject(resultado);
+      return Promise.resolve({ count: resultado.length });
+    }),
+
+    createManyAndReturn: jest.fn((args: any = {}) => {
+      const resultado = insertarLote(args);
+      if (resultado instanceof Error) return Promise.reject(resultado);
+      return Promise.resolve(resultado.map((f) => proyectar(f, args, modelo)));
     }),
 
     update: jest.fn((args: any = {}) => {

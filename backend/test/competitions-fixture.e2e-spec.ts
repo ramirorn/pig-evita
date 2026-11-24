@@ -141,6 +141,23 @@ describe('Competencias y fixture (e2e)', () => {
             return Promise.resolve(comps.get(args.where.id));
           },
         ),
+        // Actualización condicionada al estado (`where: { id, status }`): es
+        // como se "reclama" la competencia para que dos fixtures simultáneos no
+        // se escriban los dos.
+        updateMany: jest.fn(
+          (args: {
+            where: { id: string; status?: string };
+            data: Partial<Comp>;
+          }) => {
+            const c = comps.get(args.where.id);
+            const coincide =
+              c !== undefined &&
+              (args.where.status === undefined ||
+                c.status === args.where.status);
+            if (coincide) Object.assign(c, args.data);
+            return Promise.resolve({ count: coincide ? 1 : 0 });
+          },
+        ),
       },
       category: {
         findUnique: jest.fn((args: { where: { id: string } }) =>
@@ -162,6 +179,20 @@ describe('Competencias y fixture (e2e)', () => {
             const m = { id: `m-${++n}`, ...args.data };
             matches.push(m);
             return Promise.resolve(m);
+          },
+        ),
+        createManyAndReturn: jest.fn(
+          (args: {
+            data: Array<{
+              competitionId: string;
+              round: number;
+              matchNumber: number;
+              status: string;
+            }>;
+          }) => {
+            const creados = args.data.map((d) => ({ id: `m-${++n}`, ...d }));
+            matches.push(...creados);
+            return Promise.resolve(creados);
           },
         ),
       },
