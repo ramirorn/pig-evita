@@ -11,6 +11,7 @@ import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request } from 'express';
+import type { RequestWithUser } from '../auth/interfaces';
 import { AuditService } from './audit.service';
 import {
   AUDIT_KEY,
@@ -47,8 +48,8 @@ export class AuditInterceptor implements NestInterceptor {
     private readonly reflector: Reflector,
   ) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest<Request>();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const { method, url, body, ip } = request;
 
     if (method === 'GET') {
@@ -84,8 +85,7 @@ export class AuditInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const user = (request as any).user;
-    const userId = user?.sub ?? null;
+    const userId = request.user?.sub ?? null;
 
     // Acá se parsea la URL real, no el patrón del router: el uuid del recurso
     // está en `/inscriptions/<uuid>/approve` y no en `/inscriptions/:id/approve`.
@@ -128,8 +128,8 @@ export class AuditInterceptor implements NestInterceptor {
   private interceptarLectura(
     context: ExecutionContext,
     next: CallHandler,
-    request: Request,
-  ): Observable<any> {
+    request: RequestWithUser,
+  ): Observable<unknown> {
     const options =
       this.reflector.getAllAndOverride<AuditOptions>(AUDIT_KEY, [
         context.getHandler(),
@@ -137,7 +137,7 @@ export class AuditInterceptor implements NestInterceptor {
       ]) ?? {};
     if (!options.lectura || options.skip) return next.handle();
 
-    const userId = (request as any).user?.sub ?? null;
+    const userId = request.user?.sub ?? null;
     const ruta = request.url.split('?')[0].split('#')[0];
     const query = (request.query ?? {}) as Record<string, unknown>;
     const ordenada = Object.fromEntries(

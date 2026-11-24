@@ -9,6 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../../../common/constants';
+import type { JwtPayload } from '../interfaces';
 
 /**
  * Guard global de autenticación JWT.
@@ -34,7 +35,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest<TUser = any>(err: any, user: TUser, _info: any): TUser {
+  handleRequest<TUser = JwtPayload>(
+    err: unknown,
+    user: TUser | false,
+    _info: unknown,
+  ): TUser {
     if (err || !user) {
       throw (
         err ||
