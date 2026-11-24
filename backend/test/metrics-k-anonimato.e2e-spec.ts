@@ -17,7 +17,12 @@ import request from 'supertest';
 import { MetricsController } from '../src/modules/metrics/metrics.controller';
 import { MetricsService } from '../src/modules/metrics/metrics.service';
 import { PrismaService } from '../src/database/prisma.service';
-import { MOTIVO_SUPRESION } from '../src/modules/survey/survey.constants';
+import {
+  MOTIVO_SUPRESION,
+  claveVersionCampania,
+} from '../src/modules/survey/survey.constants';
+import { RedisCacheService } from '../src/common/cache/redis-cache.service';
+import { medirConsultas } from './mocks/query-budget';
 
 const CAMPAIGN_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const Q_LESION = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -169,6 +174,8 @@ describe('/metrics (e2e) — k-anonimato', () => {
   let respuestas: Respuesta[];
   let kpis: Array<Record<string, any>>;
   let destacados: Array<Record<string, any>>;
+  /** El doble de Prisma de cada test, para medir consultas. */
+  let prismaFalso: Record<string, unknown>;
 
   beforeEach(async () => {
     respuestas = [];
@@ -255,6 +262,7 @@ describe('/metrics (e2e) — k-anonimato', () => {
       discipline: { findMany: jest.fn(() => Promise.resolve([])) },
       category: { findMany: jest.fn(() => Promise.resolve([])) },
     };
+    prismaFalso = prisma;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [MetricsController],
@@ -862,5 +870,80 @@ describe('/metrics (e2e) — k-anonimato', () => {
       zona: 'CAPITAL',
     });
     expect(res.body.umbral).toBe(5);
+  });
+
+  // -------------------------------------------------
+  // Presupuesto de consultas (refactor, Fase 0)
+  // -------------------------------------------------
+  // Con la caché cargada, un `overview` repetido no debería tocar la base. Hoy
+  // busca la campaña **antes** de mirar la caché, así que cada acierto cuesta
+  // igual una consulta. El módulo 3 del refactor invierte el orden y baja este
+  // techo a 0.
+  describe('presupuesto de consultas con caché', () => {
+    const TECHO_CONSULTAS_OVERVIEW_CACHEADO = 1;
+
+    /** Redis en memoria con la API de `RedisCacheService` que usa el service. */
+    const cacheEnMemoria = () => {
+      const datos = new Map<string, unknown>();
+      return {
+        disponible: true,
+        get: jest.fn((clave: string) =>
+          Promise.resolve(datos.has(clave) ? datos.get(clave) : null),
+        ),
+        setex: jest.fn((clave: string, _ttl: number, valor: unknown) => {
+          datos.set(clave, valor);
+          return Promise.resolve();
+        }),
+        incr: jest.fn((clave: string) => {
+          const n = Number(datos.get(clave) ?? 0) + 1;
+          datos.set(clave, n);
+          return Promise.resolve(n);
+        }),
+        getNumero: jest.fn((clave: string) =>
+          Promise.resolve(datos.has(clave) ? Number(datos.get(clave)) : null),
+        ),
+      };
+    };
+
+    beforeEach(async () => {
+      // Se rearma la app sobre el mismo doble de Prisma, ahora con caché.
+      await app.close();
+      const cache = cacheEnMemoria();
+      await cache.setex(claveVersionCampania(CAMPAIGN_ID), 0, 5);
+      const moduleFixture: TestingModule = await Test.createTestingModule({
+        controllers: [MetricsController],
+        providers: [
+          MetricsService,
+          { provide: PrismaService, useValue: prismaFalso },
+          { provide: RedisCacheService, useValue: cache },
+        ],
+      }).compile();
+      app = moduleFixture.createNestApplication();
+      app.useGlobalPipes(
+        new ValidationPipe({
+          whitelist: true,
+          forbidNonWhitelisted: true,
+          transform: true,
+          transformOptions: { enableImplicitConversion: true },
+        }),
+      );
+      await app.init();
+    });
+
+    it('overview repetido con la caché cargada no supera el techo', async () => {
+      respuestas.push(
+        ...repetir(12, () => respuesta(LOC_PIRANE, OPC.no, null)),
+      );
+      const url = `/metrics/survey/${CAMPAIGN_ID}/overview`;
+      const primero = await get(url);
+      expect(primero.status).toBe(200);
+
+      const consultas = await medirConsultas(prismaFalso, async () => {
+        const segundo = await get(url);
+        expect(segundo.body).toEqual(primero.body);
+      });
+
+      expect(consultas).toBeLessThanOrEqual(TECHO_CONSULTAS_OVERVIEW_CACHEADO);
+    });
   });
 });

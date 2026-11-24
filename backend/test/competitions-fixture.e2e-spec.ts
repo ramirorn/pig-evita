@@ -34,6 +34,7 @@ import {
   CacheControlInterceptor,
 } from '../src/common/interceptors';
 import { Role } from '../src/common/constants';
+import { medirConsultas } from './mocks/query-budget';
 
 const ACCESS_SECRET = 'test-access-secret-de-mas-de-32-caracteres';
 const CONFIG: Record<string, unknown> = {
@@ -59,6 +60,8 @@ interface Comp {
 describe('Competencias y fixture (e2e)', () => {
   let app: INestApplication<App>;
   let jwt: JwtService;
+  /** El doble de Prisma de cada test, para medir consultas. */
+  let prismaFalso: Record<string, unknown>;
   let comps: Map<string, Comp>;
   let matches: Array<{
     id: string;
@@ -241,6 +244,7 @@ describe('Competencias y fixture (e2e)', () => {
     prisma.$transaction = jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
       fn(prisma),
     );
+    prismaFalso = prisma;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -483,6 +487,31 @@ describe('Competencias y fixture (e2e)', () => {
       await fixture({ teamIds: [uuid(1), uuid(2)] }).expect(400);
       aprobar(2, 'teamId');
       await fixture({ teamIds: [uuid(1), uuid(2)] }).expect(201);
+    });
+  });
+
+  // -------------------------------------------------
+  // Presupuesto de consultas (refactor, Fase 0)
+  // -------------------------------------------------
+  // Línea base del fixture: hoy cada partido cuesta un `match.create` y un
+  // `result.createMany` (N+1). El módulo 4 del refactor los pasa a un lote y
+  // baja este techo.
+  describe('presupuesto de consultas', () => {
+    const TECHO_CONSULTAS_FIXTURE = 244;
+
+    it('round robin de 16 competidores no supera el techo', async () => {
+      await crear().expect(201);
+      aprobar(16);
+      const ids = Array.from({ length: 16 }, (_, i) => uuid(i + 1));
+
+      const consultas = await medirConsultas(prismaFalso, () =>
+        fixture({ participantIds: ids }).expect(201),
+      );
+
+      expect(matches).toHaveLength(120);
+      // Línea base medida antes del refactor: 244 (2 por partido + 4). Meta
+      // del módulo 4: ≤ 5, constante sin importar la cantidad de partidos.
+      expect(consultas).toBeLessThanOrEqual(TECHO_CONSULTAS_FIXTURE);
     });
   });
 });

@@ -23,13 +23,21 @@ import { PrismaService } from '../src/database/prisma.service';
 import { ALCANCE_PROVINCIAL, ScopeService } from '../src/common/scope';
 import { CreateTeamInscriptionDto } from '../src/modules/inscriptions/dto';
 import { DisciplineType, Sex } from '@prisma/client';
+import { medirConsultas } from './mocks/query-budget';
 
 // Un plantel son 14 imágenes QR. `qrcode` tarda ~17 ms por código en Node suelto
-// pero ~650 ms bajo el sandbox de Jest (el encoder PNG pasa por zlib), así que el
-// camino feliz se come los 5 s de default sin que haya nada lento en el código.
-// El costo es del entorno de test, no del endpoint: no se recorta la generación
-// de QR para que el test entre.
-jest.setTimeout(45_000);
+// pero ~650 ms bajo el sandbox de Jest (el encoder PNG pasa por zlib): la suite
+// tardaba ~2 minutos sola y, con todas las suites en paralelo, algún test pasaba
+// su timeout. El costo es del entorno de test, no del endpoint, y este spec
+// prueba la atomicidad del plantel, no el render: se reemplaza el encoder por
+// uno que devuelve un data URL con el mismo formato. El código del service no
+// cambia.
+jest.mock('qrcode', () => ({
+  toDataURL: (texto: string) =>
+    Promise.resolve(
+      `data:image/png;base64,${Buffer.from(texto).toString('base64')}`,
+    ),
+}));
 
 const DISCIPLINA_EQUIPO = {
   id: '22222222-2222-4222-8222-222222222222',
@@ -732,5 +740,34 @@ describe('Inscripción de plantel completo (S21)', () => {
 
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
+  });
+});
+
+// -------------------------------------------------
+// Presupuesto de consultas (refactor, Fase 0)
+// -------------------------------------------------
+const TECHO_CONSULTAS_PLANTEL = 68;
+
+// Línea base del alta de un plantel. Hoy cada integrante cuesta varias
+// consultas dentro de la transacción (N+1); el módulo 1 del refactor las pasa a
+// escrituras en lote y baja este techo. Si alguien vuelve a meter un bucle de
+// consultas, el techo lo corta.
+describe('Presupuesto de consultas — alta de plantel', () => {
+  it('plantel máximo (11 titulares + 5 suplentes) no supera el techo', async () => {
+    const prisma = crearPrismaFalso();
+    const service = await construir(prisma);
+    const plantel = plantelValido();
+    plantel.members.push(
+      integrante(15, { isSubstitute: true }),
+      integrante(16, { isSubstitute: true }),
+    );
+
+    const consultas = await medirConsultas(prisma, () =>
+      service.createTeam(plantel, USUARIO, ALCANCE_PROVINCIAL),
+    );
+
+    // Línea base medida antes del refactor: 68 (≈ 4 por integrante). Meta del
+    // módulo 1: ≤ 8, constante sin importar el tamaño del plantel.
+    expect(consultas).toBeLessThanOrEqual(TECHO_CONSULTAS_PLANTEL);
   });
 });
