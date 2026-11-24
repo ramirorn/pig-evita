@@ -17,7 +17,17 @@ const PAGINAS: Array<{ ruta: string; nombre: string; texto: RegExp }> = [
 
 async function abrirMenuSiHaceFalta(page: Page) {
   const burger = page.getByRole('button', { name: 'Menú de navegación' });
-  if (await burger.isVisible()) await burger.click();
+  if (!(await burger.isVisible())) return;
+  await burger.click();
+  // El panel se despliega con una transición de `max-height` (320 ms) dentro de
+  // un contenedor `overflow-hidden`: los enlaces ya están en su lugar y Playwright
+  // los da por estables, pero los últimos siguen recortados. Un clic en ese
+  // momento caía fuera del enlace (pasó en CI con "Encuesta"). `toBeInViewport`
+  // sí considera el recorte del contenedor: se espera a que el último enlace se
+  // vea entero, como lo vería una persona antes de tocarlo.
+  await expect(
+    page.getByRole('navigation', { name: 'Navegación móvil' }).getByRole('link').last(),
+  ).toBeInViewport({ ratio: 1 });
 }
 
 test.describe('páginas públicas', () => {
