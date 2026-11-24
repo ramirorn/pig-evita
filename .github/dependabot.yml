@@ -21,3 +21,18 @@ updates:
     directory: /
     schedule:
       interval: weekly
+  # VULN-16: imágenes base de los Dockerfile y de los compose.
+  - package-ecosystem: docker
+    directories:
+      - /backend/docker
+      - /frontend/docker
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  - package-ecosystem: docker-compose
+    directories:
+      - /
+      - /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

@@ -21,6 +21,7 @@
     "check:news-images": "node scripts/check-news-images.mjs",
     "check:audit": "node scripts/check-audit.mjs",
     "check:format": "node scripts/check-format.mjs",
+    "check:all": "node scripts/run-checks.mjs",
     "geo:build": "node scripts/geo/build-geo.mjs",
     "preview": "vite preview"
   },

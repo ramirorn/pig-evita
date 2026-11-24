@@ -1,91 +1,154 @@
-name: Juegos Evita Backend CI
+name: Juegos Evita CI
 
+# Red de seguridad del refactor (odd/tasks/refactor-solid.md, Fase 0) y VULN-15:
+# backend, frontend y e2e se verifican en cada push, también en las ramas de
+# trabajo `dev-*`, para no enterarse de una rotura recién en el PR.
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop", "dev-*"]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
+  workflow_dispatch:
 
 # VULN-15: el token del workflow sólo lee el repositorio.
 permissions:
   contents: read
 
+# Un push nuevo a la misma rama cancela la corrida anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# VULN-15: las acciones van fijadas por SHA (el comentario indica la versión);
+# Dependabot propone las actualizaciones.
 jobs:
-  build-and-test:
+  audit:
+    name: Auditoría de dependencias
     runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:15-alpine
-        env:
-          POSTGRES_USER: evitas
-          POSTGRES_PASSWORD: evitas_password
-          POSTGRES_DB: evitas_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          
-      redis:
-        image: redis:alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        # Misma versión que las imágenes (node:22-alpine).
-        node-version: '22.x'
-        cache: 'npm'
-        cache-dependency-path: backend/package-lock.json
-        
-    # VULN-15: análisis de componentes (SCA) en cada push. Sólo necesita el
-    # lockfile. Bloquea con avisos críticos en dependencias de producción; los
-    # altos se informan sin cortar el build (hay avisos sin versión corregida
-    # que se siguen en documentacion/seguridad/relevamiento-owasp-2025.md).
-    - name: Audit backend dependencies (critical blocks)
-      working-directory: ./backend
-      run: npm audit --package-lock-only --omit=dev --audit-level=critical
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-    - name: Audit frontend dependencies (critical blocks)
-      working-directory: ./frontend
-      run: npm audit --package-lock-only --omit=dev --audit-level=critical
+      # Bloquea con avisos críticos en dependencias de producción; los altos se
+      # informan sin cortar (hay avisos sin versión corregida que se siguen en
+      # documentacion/seguridad/relevamiento-owasp-2025.md).
+      - name: Backend (críticos bloquean)
+        working-directory: ./backend
+        run: npm audit --package-lock-only --omit=dev --audit-level=critical
 
-    - name: Report high-severity advisories
-      continue-on-error: true
-      run: |
-        (cd backend && npm audit --package-lock-only --omit=dev --audit-level=high)
-        (cd frontend && npm audit --package-lock-only --omit=dev --audit-level=high)
+      - name: Frontend (críticos bloquean)
+        working-directory: ./frontend
+        run: npm audit --package-lock-only --omit=dev --audit-level=critical
 
-    - name: Install dependencies
-      working-directory: ./backend
-      run: npm ci
-      
-    - name: Generate Prisma Client
-      working-directory: ./backend
-      run: npx prisma generate
-      
-    - name: Run ESLint
-      working-directory: ./backend
-      run: npm run lint
-      
-    - name: Run Build
-      working-directory: ./backend
-      run: npm run build
-      
-    - name: Run Unit Tests
-      working-directory: ./backend
-      env:
-        DATABASE_URL: postgresql://evitas:evitas_password@localhost:5432/evitas_db?schema=public
-      run: npm run test
+      - name: Avisos altos (informativo)
+        continue-on-error: true
+        run: |
+          (cd backend && npm audit --package-lock-only --omit=dev --audit-level=high)
+          (cd frontend && npm audit --package-lock-only --omit=dev --audit-level=high)
+
+  backend:
+    name: Backend (lint, build, unit, e2e)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          # Misma versión que las imágenes (node:22-alpine).
+          node-version: "22.x"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # `postinstall` ya corre `prisma generate`.
+      - run: npm ci
+
+      # Sin `--fix`: en CI un error de lint tiene que fallar, no corregirse solo.
+      - name: Lint
+        run: npm run lint:check
+
+      - name: Build
+        run: npm run build
+
+      # Los tests no necesitan Postgres ni Redis: los e2e usan dobles de Prisma
+      # en memoria (test/mocks) y PGlite para el SQL crudo de estadísticas.
+      - name: Tests unitarios
+        run: npm test
+
+      - name: Tests e2e
+        run: npm run test:e2e
+
+  frontend:
+    name: Frontend (lint, build, checks)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.x"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # `tsc -b && vite build`: atrapa los errores de tipos además del bundle.
+      - name: Build
+        run: npm run build
+
+      - name: Checks
+        run: npm run check:all
+
+  playwright:
+    name: E2E Playwright (stack aislado)
+    # Levantar el stack completo en Docker lleva varios minutos: corre en los PR
+    # y a mano, no en cada push.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ./e2e
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22.x"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - run: npm ci
+
+      - name: Navegador de Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Levantar el stack aislado
+        run: npm run stack:up
+
+      - name: Suite API, escritorio y celular
+        run: npm test
+
+      - name: Logs del stack
+        if: failure()
+        run: docker compose -p evita-e2e -f docker-compose.e2e.yml --env-file .env.e2e logs --no-color --tail=300
+
+      - name: Bajar el stack
+        if: always()
+        run: npm run stack:down
+
+      - name: Reporte y trazas
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-results
+          path: e2e/test-results
+          retention-days: 7
