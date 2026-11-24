@@ -22,12 +22,22 @@ export default tseslint.config(
   },
   {
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
+      // AGENTS.md §6.1: sin `any` salvo justificado. Queda como aviso para que la
+      // deuda se vea sin cortar el CI; el refactor la va bajando (odd/tasks/refactor-solid.md).
+      '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
+    },
+  },
+  {
+    // Los dobles de Prisma y las fixtures de los tests imitan datos sin tipos a
+    // propósito: el aviso de `any` ahí sería ruido.
+    files: ['test/**/*.ts', 'src/**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
 );
