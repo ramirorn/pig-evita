@@ -66,7 +66,7 @@ El objetivo era que cualquier cambio posterior quede verificado automáticamente
 |---|---|
 | `1862c57` | Reglas puras con su spec (21 tests): `inscription-eligibility.ts` (edad o año de nacimiento y sexo, con `Sex.MIXTO` en lugar del texto) y `roster-rules.ts` (DNI repetidos, capitán único, cupo de titulares y suplentes). |
 | `3180f86` | `InscriptionsService` (1.182 líneas) dividido por responsabilidad: `InscriptionsService` (alta individual, listado y detalle), `TeamInscriptionsService` (planteles), `InscriptionReviewService` (revisar, aprobar y rechazar) e `InscriptionQrService` (código, imagen y consulta pública). El alta de un plantel escribe en lote: **de 68 a 7 consultas** para 16 integrantes, y el costo ya no crece con el tamaño del plantel. La revisión, aprobación y rechazo dejan de devolver la fila completa del participante (que incluía el domicilio). |
-| (este) | Comentarios del controller recortados según `AGENTS.md` §6.9. |
+| `23d65a4` | Comentarios del controller recortados según `AGENTS.md` §6.9. |
 
 Las rutas, los mensajes de error y el orden de las validaciones no cambiaron. Ningún test de comportamiento se modificó.
 
