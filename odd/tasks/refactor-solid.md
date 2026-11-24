@@ -16,11 +16,11 @@ Branch: `dev-lucas`. Delivery: one commit per step (`refactor(<módulo>): …`, 
 
 | ID | Módulo | Alcance | Status | Commit |
 |---|---|---|---|---|
-| F0.1 | Red de seguridad | CI completo (backend unit + e2e, frontend lint/build/checks, Playwright en PR), acciones por SHA, Dependabot para Docker (VULN-15, VULN-16) | in progress | |
-| F0.2 | Red de seguridad | `no-explicit-any` como aviso en backend y frontend | pending | |
-| F0.3 | Red de seguridad | Tests de presupuesto de consultas: `createTeam`, `generateFixture`, `metrics overview` con caché | pending | |
-| F0.4 | Red de seguridad | Dobles de Prisma con `createMany`, `createManyAndReturn` y `updateMany` | pending | |
-| F0.5 | Red de seguridad | Este tracker; PDF del análisis con su nombre final | pending | |
+| F0.1 | Red de seguridad | CI completo (backend unit + e2e, frontend lint/build/checks, Playwright en PR), acciones por SHA, Dependabot para Docker (VULN-15, VULN-16) | done | 1e85627 |
+| F0.2 | Red de seguridad | `no-explicit-any` como aviso en backend y frontend | done | 51e63fd |
+| F0.3 | Red de seguridad | Tests de presupuesto de consultas: `createTeam`, `generateFixture`, `metrics overview` con caché | done | 4b6eda6 |
+| F0.4 | Red de seguridad | Dobles de Prisma con `createMany`, `createManyAndReturn` y `updateMany` | done | 7c9d5c2 |
+| F0.5 | Red de seguridad | Este tracker; PDF del análisis con su nombre final | partial (PDF bloqueado por Acrobat) | 4010998 |
 | M1 | Inscripciones y participantes | Reglas puras, `InscriptionQrService`, `InscriptionReviewService`, `TeamInscriptionsService` con escritura en lote, VULN-28 (ids internos) | pending | |
 | M2 | Autenticación y usuarios | Tipado, throttler en Redis (VULN-22), `TokenService`, VULN-23, VULN-27, VULN-47 | pending | |
 | M3 | Encuesta y métricas | `SurveyVersionCache`, división de `MetricsService`, caché antes que la base, VULN-20, VULN-35 | pending | |
@@ -37,3 +37,5 @@ VULN-07 (árbitro ↔ partido), VULN-19 (alcance de COORDINADOR en métricas), V
 ## Log
 
 - L1 2026-11-24: plan aprobado. `dev-santi` mergeado en `dev-lucas` (2dd98a6). Arranca la Fase 0.
+- L2 2026-11-24: línea base sobre el código sin tocar. Backend unit 309/309, e2e 1046 con 3-5 fallos que cambiaban en cada corrida; frontend lint/build y 14/14 checks OK. Causas de los fallos, ninguna del código productivo: (a) `seguridad-auth-rutas` importaba `app.module`, que valida el entorno al cargarse y falla sin `.env` (ce93f10); (b) los specs de auth hacen 10+ argon2 por test y bajo varios workers pasaban los 5 s de Jest (f56c1cd, timeout e2e 30 s). `lint:check` sin `--fix` destapó 8 errores de Prettier que el CI escondía (4528599).
+- L3 2026-11-24: presupuesto de consultas medido (4b6eda6). Plantel de 16 = 68 consultas (meta M1 ≤ 8); fixture round robin de 16 = 244 (meta M4 ≤ 5); overview de métricas con caché = 1 (meta M3: 0). El spec de planteles simula `qrcode`: el render de PNG bajo Jest llevaba la suite a ~2 min y la hacía intermitente. Suites al cierre de la Fase 0: backend unit 309/309, e2e 1060/1060 (~78 s, antes ~176 s), lint 0 errores (15 avisos de `any`); frontend 28 avisos de `any`. Pendiente: Playwright nunca corrió en CI (necesita push), y renombrar el PDF del análisis cuando se cierre en Acrobat.
