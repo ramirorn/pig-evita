@@ -40,8 +40,8 @@ Como el sistema **todavía no está en producción** y nadie más estaba modific
 | **2** | Autenticación y usuarios | 🟡 Casi completa | 5 / 6 (falta VULN-23, funcional) |
 | **3** | Encuesta y métricas | 🟡 Casi completa | 4 / 6 (faltan VULN-20 y VULN-35, funcionales) |
 | **4** | Competencias y resultados | ✅ Terminada | 5 / 5 |
-| **5** | Plataforma transversal | 🟡 En curso | 3 / 5 |
-| **6** | Reportes y documentos | ⬜ Pendiente | 0 / 4 |
+| **5** | Plataforma transversal | 🟡 Casi completa | 4 / 5 (falta dependencias e imágenes, PR aparte) |
+| **6** | Reportes y documentos | ✅ Terminada | 4 / 4 (paginación de documentos descartada con motivo) |
 | **7** | Frontend de administración | ⬜ Pendiente | 0 / 5 |
 | **8** | Frontend público y componentes grandes | ⬜ Pendiente | 0 / 5 |
 
@@ -63,13 +63,14 @@ Como el sistema **todavía no está en producción** y nadie más estaba modific
 | `InscriptionsService` (1.182) | `InscriptionsService` 333, `TeamInscriptionsService` 543, `InscriptionReviewService` 126, `InscriptionQrService` 107, más 2 archivos de reglas puras |
 | `MetricsService` (1.082) | `MetricsQueryService` 791, `MetricsKpisService` 98, `MetricsHighlightsService` 100, más `response-filter.ts` y `metrics-campaign.ts` |
 | `AuthService` (500) | `AuthService` 394 + `AuthTokensService` 122 |
+| `ReportsService` (978) | Fachada de 105, `ReportWriter` 345, `report-format.ts` 141 y un archivo por reporte (84–144) |
 
 **Calidad y pruebas:**
 
 | | Antes | Ahora |
 |---|---|---|
-| Backend: lint | 8 errores escondidos por `--fix`, regla de `any` apagada | 0 errores, **6** avisos de `any` (eran 15) |
-| Backend: tests unitarios | 309 | **354** |
+| Backend: lint | 8 errores escondidos por `--fix`, regla de `any` apagada | 0 errores, **0** avisos de `any` (eran 15) |
+| Backend: tests unitarios | 309 | **361** |
 | Backend: tests e2e | 1.046, con 3–5 fallos intermitentes; ~176 s | **1.064**, estables; ~80 s |
 | Frontend: lint, build y checks | 14/14, pero no corrían en CI | 14/14 en CI (28 avisos de `any`, se resuelven en la Fase 7) |
 | Playwright | No corría en CI | **409 OK** + 1 omitido a propósito, en CI |
@@ -159,17 +160,31 @@ Resuelve **M7** y la parte de competencias de **B2**.
 
 **Pendiente menor:** renombrar a inglés las funciones de `bracket.ts` y `standings.ts`. VULN-07 espera decisión.
 
-### 2.7 Fase 5 — Plataforma transversal 🟡 (3 de 5)
+### 2.7 Fase 5 — Plataforma transversal 🟡 (4 de 5)
 
 | Paso | Commit | Qué se hizo |
 |---|---|---|
 | `ConfigService` + **VULN-13** | `8eda7bd` | `NODE_ENV` obligatorio (antes caía en `development`: falla abierta). Logger, `PrismaService` y Swagger leen de `ConfigService`. Quedan 2 `process.env` con motivo: el filtro global (los specs lo crean con `new`) y una constante de `image.util.ts`. |
 | `redact` | `8eda7bd` | Pino oculta authorization, cookies, contraseñas, tokens, DNI, email, teléfono y domicilio. |
 | Caché unificada | `9412492` | Dashboard y Stats usan `RedisCacheService`: dos conexiones a Redis menos. |
-| Cursor común | — | **Pendiente** (guía 5.1). |
+| Cursor común | `4985957` | `common/prisma/batch-pagination.ts`: `paginateByCursor`, `paginateByOffset` y `mapBatches`, con spec. Los usan los cuatro reportes. En métricas no se aplicó: `projectResponses` necesita **todas** las respuestas del corte (k-anonimato y cruces), así que leer por lotes no baja la memoria total. Cerrado así. |
 | Dependencias e imágenes | — | **Pendiente**, en un PR aparte (guía 5.2). VULN-17 espera la topología. |
 
 Verificado en CI con Playwright (`45835145010`), que confirma que la app arranca bien con los cambios de configuración.
+
+### 2.7 bis Fase 6 — Reportes y documentos ✅
+
+Resuelve **M2**, **M3** y **B5**. El backend queda con **0 avisos de `any`**.
+
+| Paso | Commit | Qué se hizo |
+|---|---|---|
+| Definiciones de reporte (OCP) | `5d650fa` | `reports/definitions/<x>.report.ts` para participantes, inscripciones, equipos y resultados. Un reporte nuevo es un archivo nuevo. `ReportsService` queda como fachada con la misma API y reexporta lo que importan los tests. |
+| Escritor y formato (SRP) | `5d650fa` | `ReportWriter` (CSV y Excel en streaming, sin cambios de formato) y `report-format.ts` (etiquetas, puntajes, neutralización de fórmulas, `toCsvLine`). |
+| `where` tipados | `5d650fa` | `Prisma.InscriptionWhereInput` y `Prisma.MatchWhereInput`; `status` como `InscriptionStatus` (el DTO ya lo validaba con `@IsEnum`). |
+| Proyecciones | `5d650fa` | `select` explícito en los cuatro reportes. `PARTICIPANT_REPORT` en `prisma-selects.ts`: los reportes ya no leen el domicilio. |
+| **Bug corregido** | `5d650fa` | El reporte de resultados tomaba `results[0]` como local sin `orderBy`: Postgres podía invertir local y visitante. Ahora ordena por `isHome desc`, como el fixture público (R23). Lo cubre `report-definitions.spec.ts`. |
+| DTO sin `any` | `08c13cf` | `file?: Express.Multer.File` en documentos y `config?: Record<string, unknown>` en competencias. |
+| Documentos | — | `findByParticipant` **no** se paginó: un participante tiene pocos documentos (uno por tipo) y paginar cambia la forma de la respuesta que consume el frontend. Ya devuelve solo lo necesario (sin `fileKey`). |
 
 ### 2.8 Problemas que destapó la red de seguridad (corregidos)
 
@@ -178,6 +193,7 @@ Verificado en CI con Playwright (`45835145010`), que confirma que la app arranca
 | `4528599` | El CI corría el lint con `--fix` y escondía 8 errores. | Formato aplicado; el CI usa `lint:check`. |
 | `ce93f10` | Una suite importaba `app.module` y fallaba en cualquier máquina sin `.env`. | Importa solo lo que usa. |
 | `f56c1cd` | Fallos intermitentes por `argon2` con varios workers. | Timeout de 30 s en la suite e2e. |
+| `5d650fa` | La regla `reports/` de `backend/.gitignore` (pensada para reportes generados con PII) también ignoraba `src/modules/reports/`: los archivos nuevos del módulo no aparecían en `git status`. | Excepción `!src/modules/reports/`; la regla sigue protegiendo los archivos generados. |
 | `4b6eda6` | La suite de planteles tardaba ~2 min por los QR reales. | QR simulado en ese spec; la suite e2e bajó de ~176 s a ~78 s. |
 | `9bd3260` | Playwright móvil hacía clic con el menú a medio desplegar. | Espera a que el menú se vea entero. |
 | `cfa53f4` | Tres archivos nuevos de la encuesta no entraron en `3597358` (`git commit <rutas>` no incluye archivos sin versionar). | Se agregaron; quedó como trampa documentada en la guía. |
@@ -194,14 +210,12 @@ El detalle y la receta de cada punto están en la [guía de traspaso](GUIA-DE-TR
 | 3 | VULN-20: tope diario por IP en la encuesta | N diario; token o Turnstile | 5.6 |
 | 3 | VULN-35: hora truncada en las respuestas | Confirmar la resolución del panel | 5.6 |
 | 4 | Nombres en inglés en `bracket.ts`/`standings.ts` | No | 5.7 |
-| 5 | Paginación por cursor común | No | 5.1 |
 | 5 | Dependencias e imágenes (VULN-29, 46, 16) | No (PR aparte) | 5.2 |
-| 6 | Reportes y documentos: `where` tipados, `select`, definiciones de reporte, DTO de documentos | No | 5.3 |
 | 7 | Formularios tipados, edición de participantes, `useCrudPageState`, rendimiento, archivos por dominio | No | 5.4 |
 | 8 | Hooks del mapa, uploader y noticias; `metricsRules` por tema; Vitest | Vitest: sí | 5.5 |
 | — | VULN-07, VULN-17, VULN-28, purga de auditoría | Sí | 5.7 |
 
-**Próximo paso recomendado:** abrir el PR de lo hecho (guía, sección 6) y seguir con la **Fase 6**, que no depende de decisiones y deja el backend en 0 avisos de `any`.
+**Próximo paso recomendado:** abrir el PR de lo hecho (guía, sección 6) y seguir con la **Fase 7** (frontend de administración), que no depende de decisiones.
 
 ---
 
@@ -234,8 +248,8 @@ Quedan aceptados y no se tocan: VULN-21, 36 y 44 (inherentes al diseño) y VULN-
 | A3 | `MetricsService` mezcla consultas, dos CRUD y caché | Alta | 3 | ✅ Resuelto |
 | A4 | El CI no cubre frontend ni e2e | Alta | 0 | ✅ Resuelto |
 | M1 | `as any` en formularios (28) | Media | 7 | ⬜ Pendiente |
-| M2 | `no-explicit-any` apagado y `where: any` en reportes | Media | 0 y 6 | 🟡 Regla activa; quedan 6 `any` en el backend |
-| M3 | Reportes traen la fila completa del participante | Media | 6 | ⬜ Pendiente |
+| M2 | `no-explicit-any` apagado y `where: any` en reportes | Media | 0 y 6 | ✅ Resuelto: regla activa y 0 `any` en el backend |
+| M3 | Reportes traen la fila completa del participante | Media | 6 | ✅ Resuelto |
 | M4 | `process.env` fuera del `ConfigService` | Media | 2 y 5 | 🟡 De 9 lecturas a 2, ambas con motivo |
 | M5 | Páginas CRUD con el mismo estado copiado | Media | 7 | ⬜ Pendiente |
 | M6 | Archivos "cajón de sastre" | Media | 7 | ⬜ Pendiente |
@@ -245,9 +259,9 @@ Quedan aceptados y no se tocan: VULN-21, 36 y 44 (inherentes al diseño) y VULN-
 | B2 | Strings mágicos en lugar de enums | Baja | 1 y 4 | 🟡 Inscripciones, competencias y resultados resueltos |
 | B3 | Identificadores en español | Baja | 1 a 4 | 🟡 Código nuevo en inglés; faltan `bracket.ts`, `standings.ts` y `metrics-aggregation.ts` |
 | B4 | Comentarios muy extensos o desactualizados | Baja | todas | 🟡 Se corrige en cada fase |
-| B5 | `any` en guard, interceptor, auth y DTO | Baja | 2 y 6 | 🟡 Guard, interceptor y auth resueltos; faltan DTOs de documentos y competencias |
+| B5 | `any` en guard, interceptor, auth y DTO | Baja | 2 y 6 | ✅ Resuelto |
 
-**Resumen:** 5 resueltos, 6 en parte, 4 pendientes, 1 esperando decisión y 1 reemplazado por un patrón existente.
+**Resumen:** 8 resueltos, 5 en parte, 3 pendientes, 1 esperando decisión y 1 reemplazado por un patrón existente.
 
 ---
 

@@ -20,12 +20,12 @@
 | 2 — Autenticación | 🟡 5/6 | VULN-23 (cambio funcional + decisión) |
 | 3 — Encuesta y métricas | 🟡 4/6 | VULN-20 y VULN-35 (cambios funcionales) |
 | 4 — Competencias | ✅ | Renombrar `bracket.ts`/`standings.ts` a inglés; VULN-07 (decisión) |
-| 5 — Plataforma | 🟡 3/5 | Cursor común (5.4) y dependencias/imágenes (5.5); VULN-17 (decisión) |
-| 6 — Reportes y documentos | ⬜ | Todo |
+| 5 — Plataforma | 🟡 4/5 | Dependencias/imágenes (5.5, PR aparte); VULN-17 (decisión) |
+| 6 — Reportes y documentos | ✅ | — |
 | 7 — Frontend de administración | ⬜ | Todo |
 | 8 — Frontend público | ⬜ | Todo |
 
-**Próximo paso recomendado:** la **Fase 6**. No depende de ninguna decisión, deja el backend en **0 avisos de `any`** y su receta está en la sección 5.3.
+**Próximo paso recomendado:** la **Fase 7** (frontend de administración). No depende de ninguna decisión y su receta está en la sección 5.4.
 
 Antes de empezar, conviene abrir el PR de lo hecho hasta ahora (sección 6).
 
@@ -53,9 +53,9 @@ Estos son los comandos de cada paso. Así tiene que quedar **antes** de tocar na
 
 | Dónde | Comando | Resultado esperado hoy |
 |---|---|---|
-| `backend/` | `npm run lint:check` | 0 errores, 6 avisos de `any` |
+| `backend/` | `npm run lint:check` | 0 errores, 0 avisos |
 | `backend/` | `npm run build` | sin errores |
-| `backend/` | `npx jest` | 354 / 354 |
+| `backend/` | `npx jest` | 361 / 361 |
 | `backend/` | `npm run test:e2e` | 1.064 / 1.064 (~80 s) |
 | `frontend/` | `npm run lint` | 0 errores, 28 avisos de `any` |
 | `frontend/` | `npm run build` | sin errores |
@@ -173,7 +173,8 @@ JwtModule.register({ secret: ACCESS_SECRET, signOptions: ACCESS_SIGN_OPTIONS })
    - `argon2` es lento a propósito: la suite e2e tiene un timeout de 30 s.
    - Renderizar QR bajo Jest tarda ~650 ms por imagen: el spec de planteles simula `qrcode`.
    - En Playwright móvil, esperá a que el menú termine de desplegarse (`toBeInViewport({ ratio: 1 })`).
-9. **Supuestos del plan que no se sostuvieron al leer el código.** Por eso conviene leer antes de mover:
+9. **`backend/.gitignore` ignora `reports/` en cualquier carpeta** (para no versionar reportes con PII). Ya hay una excepción para `src/modules/reports/`, pero si creás otra carpeta llamada `reports`, revisá `git status -uall` o `git check-ignore -v <archivo>`.
+10. **Supuestos del plan que no se sostuvieron al leer el código.** Por eso conviene leer antes de mover:
    - **Listado de participantes:** recortar su proyección habría borrado datos al editar, porque el formulario usa la fila del listado.
    - **VULN-28:** el UUID también sale en `participant.id` y en el ranking.
    - **Carrera del fixture:** cerrarla "por estado" no servía, porque el estado se edita por PATCH.
@@ -185,7 +186,9 @@ JwtModule.register({ secret: ACCESS_SECRET, signOptions: ACCESS_SIGN_OPTIONS })
 
 Cada receta dice qué tocar, cómo y cómo saber que quedó bien. Las líneas son las del commit `ce007b8`.
 
-### 5.1 Fase 5 — Paso 5.4: paginación por cursor común
+### 5.1 Fase 5 — Paso 5.4: paginación por cursor común ✅ HECHO (`4985957`)
+Quedó en `backend/src/common/prisma/batch-pagination.ts` (no en `cursor.ts`, porque también tiene la variante por offset). En métricas se cerró sin aplicar, por el motivo de abajo. Se deja la receta original como referencia:
+
 - **Hoy:** `paginarPorCursor` es un generador privado de `backend/src/modules/reports/reports.service.ts:250`.
 - **Hacer:**
   1. Moverlo a `backend/src/common/prisma/cursor.ts` como función exportada (`paginateByCursor(fetchBatch, batchSize)`), con su spec (lote vacío, lote incompleto, varios lotes).
@@ -205,7 +208,9 @@ Cada receta dice qué tocar, cómo y cómo saber que quedó bien. Las líneas so
    Verificar que la imagen construye (`docker compose -f e2e/docker-compose.e2e.yml build`).
 3. **VULN-16:** fijar las imágenes base por digest (`node:22-alpine@sha256:…`, `postgres`, `redis`, `nginx`, `minio`). Dependabot ya vigila Docker y compose.
 
-### 5.3 Fase 6 — Reportes y documentos (recomendada como siguiente)
+### 5.3 Fase 6 — Reportes y documentos ✅ HECHA (`5d650fa`, `08c13cf`)
+Lo que cambió respecto de la receta: el escritor quedó en `report-writer.ts` (clase `ReportWriter`); `findByParticipant` no se paginó (pocos documentos por participante y cambiaba la respuesta del frontend); se corrigió además el orden local/visitante del reporte de resultados. Para agregar un reporte: un archivo en `definitions/` que devuelva `EspecificacionReporte` (copiar `teams.report.ts`) y un método de una línea en la fachada. Receta original como referencia:
+
 Deja el backend en **0 avisos de `any`**.
 
 1. **Tipar los `where`**:
