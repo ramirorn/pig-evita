@@ -1085,13 +1085,19 @@ export async function montarApp(): Promise<{
   );
   await app.init();
 
-  // El service arma su propio cliente de Redis en `onModuleInit`. Se lo
-  // reemplaza por uno de mentira: así el test no depende de que haya un Redis
-  // corriendo y, sobre todo, se pueden mirar las claves que escribe (S02).
+  // El cache compartido se reemplaza por uno de mentira con la misma API: así
+  // el test no depende de que haya un Redis corriendo y, sobre todo, se pueden
+  // mirar las claves que escribe el dashboard (S02).
   const dashboard = app.get(DashboardService);
-  dashboard.onModuleDestroy();
   const redis = crearRedisFalso();
-  (dashboard as unknown as { redisClient: unknown }).redisClient = redis;
+  (dashboard as unknown as { cache: unknown }).cache = {
+    get: async (k: string) => {
+      const v = await redis.get(k);
+      return v ? (JSON.parse(v) as unknown) : null;
+    },
+    setex: (k: string, ttl: number, valor: unknown) =>
+      redis.setex(k, ttl, JSON.stringify(valor)),
+  };
 
   return { app, jwt: moduleFixture.get(JwtService), prisma, redis };
 }

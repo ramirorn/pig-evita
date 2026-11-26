@@ -1,16 +1,10 @@
 // ===========================================
 // Stats Service — participación agregada por localidad
 // ===========================================
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-  OnModuleDestroy,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InscriptionStatus, Prisma } from '@prisma/client';
-import Redis from 'ioredis';
 import { PrismaService } from '../../database/prisma.service';
+import { RedisCacheService } from '../../common/cache';
 import { LocalitiesStatsDto, LocalityStatsDto } from './dto';
 
 /**
@@ -52,9 +46,8 @@ interface FilaLocalidad {
 }
 
 @Injectable()
-export class StatsService implements OnModuleInit, OnModuleDestroy {
+export class StatsService {
   private readonly logger = new Logger(StatsService.name);
-  private redisClient: Redis | null = null;
 
   /**
    * Clave única y global, a diferencia de la del dashboard (S02): este endpoint
@@ -74,37 +67,10 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    // Cache compartido (un solo cliente de Redis para toda la app). Opcional:
+    // sin Redis, la lectura va directo a la base.
+    @Optional() private readonly cache?: RedisCacheService,
   ) {}
-
-  onModuleInit() {
-    try {
-      const host = this.configService.get<string>('redis.host', 'localhost');
-      const port = this.configService.get<number>('redis.port', 6379);
-      const password = this.configService.get<string>('redis.password');
-
-      this.redisClient = new Redis({ host, port, password, lazyConnect: true });
-
-      this.redisClient.on('error', (err) => {
-        this.logger.warn(
-          `Redis connection error: ${err.message}. Locality stats will fallback to direct DB queries without cache.`,
-        );
-      });
-
-      // Conexión en background: si Redis no está, el endpoint sigue andando.
-      this.redisClient.connect().catch(() => {});
-    } catch {
-      this.logger.warn(
-        'Failed to initialize Redis client for locality stats. Using DB fallback.',
-      );
-    }
-  }
-
-  onModuleDestroy() {
-    if (this.redisClient) {
-      this.redisClient.disconnect();
-    }
-  }
 
   /**
    * Participación de cada localidad, para el mapa de calor público.
@@ -318,34 +284,12 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
    * opcional caído no justifica un 500.
    */
   private async leerCache(): Promise<LocalitiesStatsDto | null> {
-    if (!this.redisClient || this.redisClient.status !== 'ready') {
-      return null;
-    }
-    try {
-      const cached = await this.redisClient.get(this.CLAVE_CACHE);
-      return cached ? (JSON.parse(cached) as LocalitiesStatsDto) : null;
-    } catch (e) {
-      this.logger.error(
-        `Error reading from Redis cache: ${(e as Error).message}`,
-      );
-      return null;
-    }
+    return (
+      (await this.cache?.get<LocalitiesStatsDto>(this.CLAVE_CACHE)) ?? null
+    );
   }
 
   private async escribirCache(stats: LocalitiesStatsDto): Promise<void> {
-    if (!this.redisClient || this.redisClient.status !== 'ready') {
-      return;
-    }
-    try {
-      await this.redisClient.setex(
-        this.CLAVE_CACHE,
-        this.CACHE_TTL_SECONDS,
-        JSON.stringify(stats),
-      );
-    } catch (e) {
-      this.logger.error(
-        `Error writing to Redis cache: ${(e as Error).message}`,
-      );
-    }
+    await this.cache?.setex(this.CLAVE_CACHE, this.CACHE_TTL_SECONDS, stats);
   }
 }

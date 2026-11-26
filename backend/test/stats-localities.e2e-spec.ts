@@ -42,6 +42,7 @@ class FakeRedis {
   on = jest.fn();
   connect = jest.fn(() => Promise.resolve());
   disconnect = jest.fn();
+  quit = jest.fn(() => Promise.resolve('OK'));
 
   constructor() {
     FakeRedis.ultimaInstancia = this;
@@ -55,6 +56,7 @@ jest.mock('ioredis', () => ({
 
 import { StatsController } from '../src/modules/stats/stats.controller';
 import { StatsService } from '../src/modules/stats/stats.service';
+import { RedisCacheService } from '../src/common/cache/redis-cache.service';
 import { PrismaService } from '../src/database/prisma.service';
 import {
   TransformInterceptor,
@@ -158,6 +160,8 @@ describe('GET /stats/localities (e2e)', () => {
       controllers: [StatsController],
       providers: [
         StatsService,
+        // El cache compartido; arma su cliente (el FakeRedis de arriba) al iniciar.
+        RedisCacheService,
         JwtStrategy,
         { provide: PrismaService, useValue: { $queryRaw: queryRaw } },
         {

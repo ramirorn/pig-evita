@@ -32,6 +32,7 @@ class FakeRedis {
   on = jest.fn();
   connect = jest.fn(() => Promise.resolve());
   disconnect = jest.fn();
+  quit = jest.fn(() => Promise.resolve('OK'));
 
   constructor() {
     FakeRedis.ultimaInstancia = this;
@@ -44,6 +45,7 @@ jest.mock('ioredis', () => ({
 }));
 
 import { DashboardController } from '../src/modules/dashboard/dashboard.controller';
+import { RedisCacheService } from '../src/common/cache/redis-cache.service';
 // S02 — el service pasó a recortar por alcance territorial, así que necesita el
 // ScopeService igual que en producción.
 import { ScopeService } from '../src/common/scope';
@@ -162,6 +164,8 @@ describe('GET /dashboard/stats (e2e)', () => {
       controllers: [DashboardController],
       providers: [
         DashboardService,
+        // El cache compartido; arma su cliente (el FakeRedis de arriba) al iniciar.
+        RedisCacheService,
         ScopeService,
         { provide: PrismaService, useValue: prisma },
         {

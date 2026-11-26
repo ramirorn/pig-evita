@@ -1,20 +1,14 @@
 // ===========================================
 // Dashboard Service
 // ===========================================
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-  OnModuleDestroy,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InscriptionStatus } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { RedisCacheService } from '../../common/cache';
 import { PARTICIPANT_NAME, CATEGORY_NAME } from '../../common/prisma-selects';
 import { Alcance, ScopeService } from '../../common/scope';
 import { DashboardStatsDto } from './dto';
-import Redis from 'ioredis';
 
 /**
  * Orden fijo de los estados en la respuesta.
@@ -35,9 +29,8 @@ const ESTADOS_INSCRIPCION: InscriptionStatus[] = [
 const ULTIMAS_INSCRIPCIONES = 5;
 
 @Injectable()
-export class DashboardService implements OnModuleInit, OnModuleDestroy {
+export class DashboardService {
   private readonly logger = new Logger(DashboardService.name);
-  private redisClient: Redis | null = null;
 
   /**
    * Prefijo de la clave de cache. **Nunca se usa sola** (S02).
@@ -68,8 +61,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
     private readonly scope: ScopeService,
+    // Cache compartido (un solo cliente de Redis para toda la app). Opcional:
+    // sin Redis, la lectura va directo a la base.
+    @Optional() private readonly cache?: RedisCacheService,
   ) {}
 
   /**
@@ -106,40 +101,6 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       .slice(0, 16);
 
     return `${this.PREFIJO_CACHE}:deps:${alcance.departamentos.length}:${huella}`;
-  }
-
-  onModuleInit() {
-    try {
-      const host = this.configService.get<string>('redis.host', 'localhost');
-      const port = this.configService.get<number>('redis.port', 6379);
-      const password = this.configService.get<string>('redis.password');
-
-      this.redisClient = new Redis({
-        host,
-        port,
-        password,
-        lazyConnect: true,
-      });
-
-      this.redisClient.on('error', (err) => {
-        this.logger.warn(
-          `Redis connection error: ${err.message}. Dashboard will fallback to direct DB queries without cache.`,
-        );
-      });
-
-      // Intentar conectar en background, ignorar fallos para no romper la app si Redis no está
-      this.redisClient.connect().catch(() => {});
-    } catch {
-      this.logger.warn(
-        'Failed to initialize Redis client for Dashboard. Using DB fallback.',
-      );
-    }
-  }
-
-  onModuleDestroy() {
-    if (this.redisClient) {
-      this.redisClient.disconnect();
-    }
   }
 
   async getGlobalStats(alcance: Alcance): Promise<DashboardStatsDto> {
@@ -246,37 +207,13 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
    * devolver un 500 porque un cache opcional no responde.
    */
   private async leerCache(clave: string): Promise<DashboardStatsDto | null> {
-    if (!this.redisClient || this.redisClient.status !== 'ready') {
-      return null;
-    }
-    try {
-      const cached = await this.redisClient.get(clave);
-      return cached ? (JSON.parse(cached) as DashboardStatsDto) : null;
-    } catch (e) {
-      this.logger.error(
-        `Error reading from Redis cache: ${(e as Error).message}`,
-      );
-      return null;
-    }
+    return (await this.cache?.get<DashboardStatsDto>(clave)) ?? null;
   }
 
   private async escribirCache(
     clave: string,
     stats: DashboardStatsDto,
   ): Promise<void> {
-    if (!this.redisClient || this.redisClient.status !== 'ready') {
-      return;
-    }
-    try {
-      await this.redisClient.setex(
-        clave,
-        this.CACHE_TTL_SECONDS,
-        JSON.stringify(stats),
-      );
-    } catch (e) {
-      this.logger.error(
-        `Error writing to Redis cache: ${(e as Error).message}`,
-      );
-    }
+    await this.cache?.setex(clave, this.CACHE_TTL_SECONDS, stats);
   }
 }
