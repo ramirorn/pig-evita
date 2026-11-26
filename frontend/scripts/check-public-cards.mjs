@@ -1415,7 +1415,10 @@ const clasesDeTarjeta = (html) => /<li class="(grid[^"]*rounded-2xl[^"]*)"/.exec
       /No hay eventos próximos/.test(texto(panelVacio)) &&
       /href="\/calendario"/.test(panelVacio),
   );
-  const pagina = sinComentarios(fuentes.get('pages/public/NewsPage.tsx'));
+  // La página dibuja y `useNewsPageData` consulta (Fase 8): se miran los dos.
+  const pagina = sinComentarios(
+    [fuentes.get('pages/public/NewsPage.tsx'), fuentes.get('pages/public/news/useNewsPageData.ts')].join('\n'),
+  );
   comprobar(
     '[NewsPage] el panel se alimenta del hook real del calendario (useAllCalendarEvents + proximosEventos)',
     /useAllCalendarEvents\(\{\s*isPublished:\s*true\s*\}\)/.test(pagina) &&

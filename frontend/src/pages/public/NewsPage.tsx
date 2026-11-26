@@ -1,35 +1,23 @@
 // ===========================================
 // News Page — Public
 // ===========================================
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Newspaper, Search, X } from 'lucide-react';
-import { useNewsList } from '@/hooks/useNews';
-import { useAllCalendarEvents } from '@/hooks/useCalendar';
-import { useAllVenues } from '@/hooks/useVenues';
-import { useDebounce } from '@/hooks/useDebounce';
+import { Newspaper, Search, X } from 'lucide-react';
 import { PublicPageHeader } from '@/components/shared/PublicPageHeader';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Pagination } from '@/components/shared/Pagination';
 import { PublicListState } from '@/components/shared/PublicListState';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { News } from '@/types';
 import { NewsListSkeleton } from './news/NewsListSkeleton';
-import { NewsCard } from './news/NewsCard';
-import { NewsMosaicCard } from './news/NewsMosaicCard';
 import { NewsTickerCard } from './news/NewsTickerCard';
 import { NewsHeroCarousel } from './news/NewsHeroCarousel';
 import { NewsSidebarList } from './news/NewsSidebarList';
 import { UpcomingEventsPanel } from './news/UpcomingEventsPanel';
-import { NOTAS_EN_PORTADA, repartirPortada } from './news/newsLayout';
-import { proximosEventos } from './news/proximosEventos';
-import {
-  NewsOriginFilter,
-  type OrigenDeNoticia,
-} from './news/NewsOriginFilter';
-
-/** Página de la grilla de resultados (búsqueda, filtro o "Ver todas"). */
-const NOTICIAS_POR_PAGINA = 12;
+import { NOTAS_EN_PORTADA } from './news/newsLayout';
+import { NewsOriginFilter } from './news/NewsOriginFilter';
+import { GrillaDeNotas, Mosaico, TituloDeSeccion } from './news/NewsSections';
+import { Resultados } from './news/NewsResults';
+import { useNewsPageData } from './news/useNewsPageData';
 
 /**
  * Columnas de la tira superior en escritorio según cuántas notas lleva. Clases
@@ -57,81 +45,31 @@ const COLUMNAS_DE_LA_TIRA: Record<number, string> = {
  * ser importantes, y quien busca quiere recorrer la lista entera.
  */
 export function NewsPage() {
-  const [search, setSearch] = useState('');
-  const [origen, setOrigen] = useState<OrigenDeNoticia>(undefined);
-  const [verTodas, setVerTodas] = useState(false);
-  const [page, setPage] = useState(1);
-  const [paginaArchivo, setPaginaArchivo] = useState(1);
-  const busqueda = useDebounce(search.trim());
-  const [enfocarResultados, setEnfocarResultados] = useState(false);
-
-  const hayFiltro = Boolean(busqueda) || origen !== undefined;
-  const enListado = hayFiltro || verTodas;
-
-  // ---- Portada: las 18 más recientes, repartidas entre las secciones.
-  const portada = useNewsList(
-    { isPublished: true, page: 1, limit: NOTAS_EN_PORTADA },
-    { enabled: !enListado },
-  );
-  const totalPublicadas = portada.data?.meta.total ?? 0;
-  const paginasDeArchivo = Math.max(0, (portada.data?.meta.totalPages ?? 1) - 1);
-
-  // ---- Archivo: lo que no entró en la portada. Mismo tamaño de página que la
-  // portada, así "la página 2 del backend" es exactamente lo que sigue.
-  const archivo = useNewsList(
-    { isPublished: true, page: paginaArchivo + 1, limit: NOTAS_EN_PORTADA },
-    { enabled: !enListado && paginasDeArchivo > 0 },
-  );
-
-  // ---- Grilla de resultados: búsqueda y filtro los resuelve el backend
-  // (`/news?search=&isExternal=`), nunca un `filter()` en memoria (R29).
-  const resultados = useNewsList(
-    {
-      isPublished: true,
-      page,
-      limit: NOTICIAS_POR_PAGINA,
-      search: busqueda || undefined,
-      isExternal: origen,
-    },
-    { enabled: enListado },
-  );
-
-  // ---- Calendario: mismo hook y misma clave que /calendario (cache compartido).
-  const calendario = useAllCalendarEvents({ isPublished: true });
-  const sedes = useAllVenues({ isActive: true });
-
-  // Cambiar la búsqueda o el filtro reinicia la paginación.
-  useEffect(() => {
-    setPage(1);
-  }, [busqueda, origen]);
-
-  const reparto = useMemo(
-    () => repartirPortada(portada.data?.data ?? []),
-    [portada.data],
-  );
-  const eventos = useMemo(
-    () => proximosEventos(calendario.data ?? []),
-    [calendario.data],
-  );
-  const sedePorId = useMemo(
-    () => new Map((sedes.data ?? []).map((v) => [v.id, v.name])),
-    [sedes.data],
-  );
-
-  const abrirTodas = () => {
-    setVerTodas(true);
-    setPage(1);
-    // El contenido cambia de forma entera: la grilla lleva el foco a su
-    // encabezado al montarse, para que el lector no quede parado sobre un
-    // botón que ya no existe (el foco caería al <body>).
-    setEnfocarResultados(true);
-  };
-
-  const volverAPortada = () => {
-    setVerTodas(false);
-    setSearch('');
-    setOrigen(undefined);
-  };
+  // Datos y estado en `useNewsPageData`; acá queda el dibujo.
+  const {
+    search,
+    setSearch,
+    origen,
+    cambiarOrigen,
+    hayFiltro,
+    enListado,
+    setPage,
+    paginaArchivo,
+    setPaginaArchivo,
+    enfocarResultados,
+    terminarEnfoque,
+    portada,
+    archivo,
+    resultados,
+    calendario,
+    totalPublicadas,
+    paginasDeArchivo,
+    reparto,
+    eventos,
+    sedePorId,
+    abrirTodas,
+    volverAPortada,
+  } = useNewsPageData();
 
   return (
     <div className="min-h-screen bg-surface pb-20">
@@ -169,17 +107,13 @@ export function NewsPage() {
 
         <NewsOriginFilter
           valor={origen}
-          onChange={(valor) => {
-            setOrigen(valor);
-            // "Todas" sin búsqueda vuelve a la portada editorial.
-            if (valor === undefined) setVerTodas(false);
-          }}
+          onChange={cambiarOrigen}
         />
 
         {enListado ? (
           <Resultados
             enfocar={enfocarResultados}
-            onEnfocado={() => setEnfocarResultados(false)}
+            onEnfocado={terminarEnfoque}
             noticias={resultados.data?.data ?? []}
             meta={resultados.data?.meta}
             isLoading={resultados.isLoading}
@@ -333,163 +267,5 @@ export function NewsPage() {
         )}
       </div>
     </div>
-  );
-}
-
-/**
- * Encabezado de sección con una regla corta arriba (no es un estado: es sólo
- * jerarquía, así que no va como borde lateral de color).
- */
-function TituloDeSeccion({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <h2
-      id={id}
-      className="type-h2 mb-4 relative pt-3 before:absolute before:top-0 before:left-0 before:h-0.5 before:w-10 before:rounded-full before:bg-primary-600 before:content-[''] text-primary-900"
-    >
-      {children}
-    </h2>
-  );
-}
-
-/**
- * Mosaico: una grande que ocupa dos filas y las demás en 2×2 (con 5), o una
- * grande y dos apiladas (con 3). En celular, todas una debajo de la otra.
- */
-function Mosaico({ noticias }: { noticias: readonly News[] }) {
-  const [grande, ...chicas] = noticias;
-  if (!grande) return null;
-  const completo = chicas.length >= 4;
-
-  return (
-    <div
-      className={
-        completo
-          ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 md:grid-rows-[14rem_14rem]'
-          : 'grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-rows-[14rem_14rem]'
-      }
-    >
-      <div
-        className={
-          completo
-            ? 'min-h-72 sm:col-span-2 md:col-span-1 md:row-span-2'
-            : 'min-h-72 sm:row-span-2'
-        }
-      >
-        <NewsMosaicCard news={grande} tamano="grande" />
-      </div>
-      {chicas.map((n) => (
-        <div key={n.id}>
-          <NewsMosaicCard news={n} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function GrillaDeNotas({ noticias }: { noticias: readonly News[] }) {
-  return (
-    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {noticias.map((n) => (
-        <li key={n.id}>
-          <NewsCard news={n} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-interface ResultadosProps {
-  /** Llevar el foco al encabezado al montarse (se llegó por "Ver todas"). */
-  enfocar: boolean;
-  onEnfocado: () => void;
-  noticias: News[];
-  meta?: { page: number; totalPages: number; total: number; limit: number };
-  isLoading: boolean;
-  hayFiltro: boolean;
-  onPageChange: (page: number) => void;
-  onVolver: () => void;
-}
-
-/** Grilla pareja y paginada: búsqueda, filtro de origen o "Ver todas". */
-function Resultados({
-  enfocar,
-  onEnfocado,
-  noticias,
-  meta,
-  isLoading,
-  hayFiltro,
-  onPageChange,
-  onVolver,
-}: ResultadosProps) {
-  const tituloRef = useRef<HTMLHeadingElement>(null);
-
-  useEffect(() => {
-    if (!enfocar) return;
-    tituloRef.current?.focus({ preventScroll: true });
-    // Arriba de todo: el encabezado de la grilla queda a la vista con el
-    // buscador y los filtros, que es desde donde se sigue.
-    // 'instant': el html tiene scroll-behavior smooth y la animación se corta
-    // cuando la grilla reemplaza al esqueleto.
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    onEnfocado();
-  }, [enfocar, onEnfocado]);
-
-  return (
-    <section aria-labelledby="resultados-titulo">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2
-          id="resultados-titulo"
-          ref={tituloRef}
-          tabIndex={-1}
-          className="type-h2 scroll-mt-24 relative pt-3 before:absolute before:top-0 before:left-0 before:h-0.5 before:w-10 before:rounded-full before:bg-primary-600 before:content-[''] text-primary-900 focus:outline-none"
-        >
-          {hayFiltro ? 'Resultados' : 'Todas las noticias'}
-          {meta && (
-            <span className="ml-2 text-base font-semibold text-primary-600 tabular-nums">({meta.total})</span>
-          )}
-        </h2>
-        <button
-          type="button"
-          onClick={onVolver}
-          className="inline-flex items-center gap-1.5 rounded-full text-sm font-semibold text-primary-600 transition-colors duration-120 hover:text-primary-800 active:text-primary-900 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Volver a la portada
-        </button>
-      </div>
-
-      <PublicListState
-        isLoading={isLoading}
-        isEmpty={noticias.length === 0}
-        skeleton={<NewsListSkeleton variante="grilla" />}
-        empty={
-          <EmptyState
-            icon={<Newspaper className="h-10 w-10" />}
-            title="Sin noticias disponibles"
-            description={
-              // Cierta: la búsqueda la resolvió el backend sobre el archivo
-              // completo, no un `filter()` sobre las filas traídas.
-              hayFiltro
-                ? 'No se encontraron artículos que coincidan con la búsqueda o el filtro.'
-                : 'No hay noticias publicadas en este momento. ¡Volvé a consultar pronto!'
-            }
-          />
-        }
-      >
-        <GrillaDeNotas noticias={noticias} />
-        {meta && meta.totalPages > 1 && (
-          <div className="mt-6 rounded-2xl border border-primary-100 bg-surface-elevated">
-            <Pagination
-              page={meta.page}
-              totalPages={meta.totalPages}
-              total={meta.total}
-              limit={meta.limit}
-              onPageChange={onPageChange}
-              className="border-t-0"
-            />
-          </div>
-        )}
-      </PublicListState>
-    </section>
   );
 }
