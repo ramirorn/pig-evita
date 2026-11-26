@@ -69,7 +69,7 @@ export class CreateCompetitionDto {
     description: 'Configuración JSON del motor (ej: puntos por victoria)',
   })
   @IsOptional()
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
 }
 
 export class UpdateCompetitionDto extends PartialType(CreateCompetitionDto) {

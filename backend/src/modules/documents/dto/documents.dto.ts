@@ -42,7 +42,7 @@ export class UploadDocumentDto {
     format: 'binary',
   })
   @Allow()
-  file?: any;
+  file?: Express.Multer.File;
 }
 
 export class ReviewDocumentDto {
