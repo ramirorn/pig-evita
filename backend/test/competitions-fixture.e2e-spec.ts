@@ -185,6 +185,12 @@ describe('Competencias y fixture (e2e)', () => {
             return Promise.resolve(m);
           },
         ),
+        count: jest.fn((args: { where: { competitionId: string } }) =>
+          Promise.resolve(
+            matches.filter((m) => m.competitionId === args.where.competitionId)
+              .length,
+          ),
+        ),
         createManyAndReturn: jest.fn(
           (args: {
             data: Array<{
@@ -245,6 +251,9 @@ describe('Competencias y fixture (e2e)', () => {
     prisma.$transaction = jest.fn((fn: (tx: unknown) => Promise<unknown>) =>
       fn(prisma),
     );
+    // El bloqueo `FOR UPDATE` de la competencia: en el doble no hay nada que
+    // bloquear, sólo se registra que se pidió.
+    prisma.$queryRaw = jest.fn(() => Promise.resolve([]));
     prismaFalso = prisma;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -497,11 +506,10 @@ describe('Competencias y fixture (e2e)', () => {
   // -------------------------------------------------
   // Presupuesto de consultas (refactor, Fase 0)
   // -------------------------------------------------
-  // Línea base del fixture: hoy cada partido cuesta un `match.create` y un
-  // `result.createMany` (N+1). El módulo 4 del refactor los pasa a un lote y
-  // baja este techo.
+  // Antes de la fase 4 cada partido costaba un `match.create` y un
+  // `result.createMany` (N+1). Ahora la escritura va en lote: el costo es fijo.
   describe('presupuesto de consultas', () => {
-    const TECHO_CONSULTAS_FIXTURE = 244;
+    const TECHO_CONSULTAS_FIXTURE = 7;
 
     it('round robin de 16 competidores no supera el techo', async () => {
       await crear().expect(201);
@@ -513,9 +521,32 @@ describe('Competencias y fixture (e2e)', () => {
       );
 
       expect(matches).toHaveLength(120);
-      // Línea base medida antes del refactor: 244 (2 por partido + 4). Meta
-      // del módulo 4: ≤ 5, constante sin importar la cantidad de partidos.
+      // Antes de la fase 4: 244 (2 por partido + 4). Ahora 7 en todo el
+      // pedido: lectura, admitidos, conteo, partidos y resultados en lote,
+      // estado y lectura final. El `FOR UPDATE` ($queryRaw) no entra en la
+      // cuenta del doble: en Postgres son 8.
       expect(consultas).toBeLessThanOrEqual(TECHO_CONSULTAS_FIXTURE);
+    });
+
+    it('el costo no crece con la cantidad de competidores (4 y 16 cuestan lo mismo)', async () => {
+      await crear().expect(201);
+      aprobar(16);
+      const chico = await medirConsultas(prismaFalso, () =>
+        fixture({
+          participantIds: Array.from({ length: 4 }, (_, i) => uuid(i + 1)),
+        }).expect(201),
+      );
+      // Segunda competencia para medir el fixture grande en limpio.
+      comps.clear();
+      matches.length = 0;
+      results.length = 0;
+      await crear().expect(201);
+      const grande = await medirConsultas(prismaFalso, () =>
+        fixture({
+          participantIds: Array.from({ length: 16 }, (_, i) => uuid(i + 1)),
+        }).expect(201),
+      );
+      expect(grande).toBe(chico);
     });
   });
 });

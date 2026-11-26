@@ -8,7 +8,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { InscriptionStatus, Prisma } from '@prisma/client';
+import { CompetitionStatus, InscriptionStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import {
   CreateCompetitionDto,
@@ -34,15 +34,23 @@ export class CompetitionsService {
   ) {}
 
   async create(createDto: CreateCompetitionDto) {
-    const existing = await this.prisma.competition.findUnique({
-      where: {
-        disciplineId_categoryId_stage: {
-          disciplineId: createDto.disciplineId,
-          categoryId: createDto.categoryId,
-          stage: createDto.stage,
+    // Independientes: en paralelo. Se informan en el mismo orden que antes.
+    const [existing, category] = await Promise.all([
+      this.prisma.competition.findUnique({
+        where: {
+          disciplineId_categoryId_stage: {
+            disciplineId: createDto.disciplineId,
+            categoryId: createDto.categoryId,
+            stage: createDto.stage,
+          },
         },
-      },
-    });
+        select: { id: true },
+      }),
+      this.prisma.category.findUnique({
+        where: { id: createDto.categoryId },
+        select: { disciplineId: true },
+      }),
+    ]);
 
     if (existing) {
       throw new ConflictException(
@@ -50,10 +58,6 @@ export class CompetitionsService {
       );
     }
 
-    // Verificar disciplina y categoría
-    const category = await this.prisma.category.findUnique({
-      where: { id: createDto.categoryId },
-    });
     if (!category || category.disciplineId !== createDto.disciplineId) {
       throw new BadRequestException(
         'Categoría inválida para la disciplina seleccionada',
@@ -209,20 +213,24 @@ export class CompetitionsService {
 
     const engine = this.engineFactory.getEngine(competition.format);
 
-    // F-13 — todo o nada: si un insert falla a mitad de camino, no queda un
-    // fixture a medias que después bloquee el reintento con un 409.
-    await this.prisma.$transaction(
-      async (tx) => {
-        await engine.generateFixture(competition, ids, tipo, tx);
-        await tx.competition.update({
-          where: { id },
-          data: { status: 'ACTIVA' },
-        });
-      },
-      // Un round robin grande son cientos de inserts secuenciales; el default
-      // de 5 s de Prisma cortaría la transacción en medio.
-      { timeout: 60_000 },
-    );
+    // F-13 — todo o nada. La escritura va en lote (dos inserts en total), así
+    // que entra holgada en el timeout por defecto de la transacción.
+    await this.prisma.$transaction(async (tx) => {
+      // Serializa dos generaciones simultáneas de la misma competencia, con el
+      // mismo bloqueo que usa `ResultsService` para la llave: el chequeo de
+      // arriba se hizo antes de abrir la transacción y no alcanza.
+      await tx.$queryRaw`SELECT id FROM competitions WHERE id = ${id}::uuid FOR UPDATE`;
+      if ((await tx.match.count({ where: { competitionId: id } })) > 0) {
+        throw new ConflictException(
+          'La competencia ya tiene un fixture generado',
+        );
+      }
+      await engine.generateFixture(competition, ids, tipo, tx);
+      await tx.competition.update({
+        where: { id },
+        data: { status: CompetitionStatus.ACTIVA },
+      });
+    });
 
     this.logger.log(`Fixture generated for competition ${id}`);
     return this.findOne(id); // Devolver la competencia con sus partidos

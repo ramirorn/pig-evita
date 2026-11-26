@@ -117,6 +117,17 @@ function armar() {
           return Promise.resolve(p);
         },
       ),
+      createManyAndReturn: jest.fn(
+        ({ data }: { data: Array<Omit<Partido, 'id' | 'finishedAt'>> }) =>
+          Promise.resolve(
+            data.map((d) => {
+              const id = `m${++n}`;
+              const p = { id, finishedAt: null, ...d };
+              partidos.set(id, p);
+              return p;
+            }),
+          ),
+      ),
     },
     result: {
       update: jest.fn(

@@ -9,7 +9,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { CompetitionFormat, MatchStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { DISCIPLINE_IN_COMPETITION } from '../../common/prisma-selects';
 import { Role } from '../../common/constants';
@@ -130,7 +130,7 @@ export class ResultsService {
 
     this.validarCarga(match.results, resultsToUpdate);
 
-    const esCorreccion = match.status === 'FINALIZADO';
+    const esCorreccion = match.status === MatchStatus.FINALIZADO;
     if (esCorreccion && !RESULT_CORRECT.includes(usuario.role)) {
       throw new ForbiddenException(
         'El partido ya tiene resultado cargado: sólo un ADMIN_PROVINCIAL o superior puede corregirlo',
@@ -140,7 +140,8 @@ export class ResultsService {
     // `competition` siempre viene en la consulta real; el `?.` cubre los
     // dobles de Prisma de los tests que no la incluyen.
     const competitionId = match.competition?.id ?? match.competitionId;
-    const esLlave = match.competition?.format === 'ELIMINACION_DIRECTA';
+    const esLlave =
+      match.competition?.format === CompetitionFormat.ELIMINACION_DIRECTA;
     if (esLlave && match.results.length < 2) {
       throw new BadRequestException(
         'Es un pase directo (bye): no tiene resultado para cargar',
@@ -187,7 +188,7 @@ export class ResultsService {
       await tx.match.update({
         where: { id: matchId },
         data: {
-          status: 'FINALIZADO',
+          status: MatchStatus.FINALIZADO,
           // Una corrección no cambia cuándo terminó el partido.
           finishedAt: match.finishedAt ?? new Date(),
         },
@@ -291,7 +292,7 @@ export class ResultsService {
         id: true,
         format: true,
         matches: {
-          where: { status: 'FINALIZADO' },
+          where: { status: MatchStatus.FINALIZADO },
           select: {
             id: true,
             results: {
@@ -367,7 +368,7 @@ export class ResultsService {
 
     const tabla = [...filas.values()];
 
-    if (competition.format === 'FASE_GRUPOS') {
+    if (competition.format === CompetitionFormat.FASE_GRUPOS) {
       // El grupo sale del fixture completo, no sólo de lo jugado: con media
       // fecha jugada, un grupo de 4 todavía no está conectado.
       const fixture = await this.prisma.match.findMany({

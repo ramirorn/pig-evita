@@ -6,7 +6,7 @@
 // los tres motores. Viven aparte de `engine.factory.ts` porque la llave
 // también la avanza `ResultsService` cuando se cierra una ronda, y ese módulo
 // no tiene por qué inyectar los motores para eso.
-import { Prisma, Match } from '@prisma/client';
+import { MatchStatus, Prisma, Match } from '@prisma/client';
 
 /** Qué representan los ids: lo decide quien llama (ver `engine.factory.ts`). */
 export type TipoDeCompetidor = 'team' | 'participant';
@@ -163,7 +163,9 @@ export function crucesFaseDeGrupos(ids: readonly string[]): Cruce[] {
 }
 
 /**
- * Escribe los cruces y sus `Result` pendientes.
+ * Escribe los cruces y sus `Result` pendientes, en lote: un insert de
+ * partidos y uno de resultados, sin importar cuántos cruces haya (antes eran
+ * dos consultas por partido).
  *
  * `isHome` se persiste acá (R23) porque es acá donde el dato existe: el
  * algoritmo ya distingue local de visitante al armar el cruce. Un bye se
@@ -176,25 +178,47 @@ export async function escribirCruces(
   cruces: readonly Cruce[],
   tipo: TipoDeCompetidor,
 ): Promise<Match[]> {
+  if (cruces.length === 0) return [];
   const campoId = tipo === 'team' ? 'teamId' : 'participantId';
-  const creados: Match[] = [];
+  const ahora = new Date();
 
-  for (const cruce of cruces) {
-    const esBye = cruce.awayId === null;
-    const partido = await db.match.create({
-      data: {
-        competitionId,
-        round: cruce.round,
-        matchNumber: cruce.matchNumber,
-        status: esBye ? 'FINALIZADO' : 'PROGRAMADO',
-        ...(esBye ? { finishedAt: new Date(), notes: NOTA_BYE } : {}),
-      },
-    });
+  const creados = await db.match.createManyAndReturn({
+    data: cruces.map((cruce) =>
+      cruce.awayId === null
+        ? {
+            competitionId,
+            round: cruce.round,
+            matchNumber: cruce.matchNumber,
+            status: MatchStatus.FINALIZADO,
+            finishedAt: ahora,
+            notes: NOTA_BYE,
+          }
+        : {
+            competitionId,
+            round: cruce.round,
+            matchNumber: cruce.matchNumber,
+            status: MatchStatus.PROGRAMADO,
+          },
+    ),
+  });
 
-    const filas = esBye
+  // El lote no garantiza el orden de devolución: se reordena por
+  // (ronda, número), que no se repite dentro de una misma escritura.
+  const clave = (round: number, matchNumber: number) =>
+    `${round}:${matchNumber}`;
+  const porClave = new Map(
+    creados.map((m) => [clave(m.round, m.matchNumber), m]),
+  );
+  const partidos = cruces.map((c) =>
+    porClave.get(clave(c.round, c.matchNumber))!,
+  );
+
+  const filas = cruces.flatMap((cruce, i): Array<Record<string, unknown>> => {
+    const matchId = partidos[i].id;
+    return cruce.awayId === null
       ? [
           {
-            matchId: partido.id,
+            matchId,
             [campoId]: cruce.homeId,
             scoreData: {},
             isWinner: true,
@@ -202,27 +226,15 @@ export async function escribirCruces(
           },
         ]
       : [
-          {
-            matchId: partido.id,
-            [campoId]: cruce.homeId,
-            scoreData: {},
-            isHome: true,
-          },
-          {
-            matchId: partido.id,
-            [campoId]: cruce.awayId,
-            scoreData: {},
-            isHome: false,
-          },
+          { matchId, [campoId]: cruce.homeId, scoreData: {}, isHome: true },
+          { matchId, [campoId]: cruce.awayId, scoreData: {}, isHome: false },
         ];
+  });
+  await db.result.createMany({
+    data: filas as Prisma.ResultCreateManyInput[],
+  });
 
-    await db.result.createMany({
-      data: filas as Prisma.ResultCreateManyInput[],
-    });
-    creados.push(partido);
-  }
-
-  return creados;
+  return partidos;
 }
 
 /** Lo mínimo que hace falta de un partido para avanzar la llave. */
@@ -257,7 +269,7 @@ export function siguienteRondaEliminacion(
     .sort((a, b) => a.matchNumber - b.matchNumber);
 
   if (ronda.length < 2) return null; // era la final
-  if (ronda.some((p) => p.status !== 'FINALIZADO')) return null;
+  if (ronda.some((p) => p.status !== MatchStatus.FINALIZADO)) return null;
 
   const ganadores: string[] = [];
   let tipo: TipoDeCompetidor = 'participant';

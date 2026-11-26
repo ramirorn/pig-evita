@@ -3,9 +3,9 @@
 // ===========================================
 import { Injectable, NotImplementedException } from '@nestjs/common';
 import { CompetitionFormat, Competition, Match } from '@prisma/client';
-import { PrismaService } from '../../database/prisma.service';
 import {
   ClienteFixture,
+  Cruce,
   TipoDeCompetidor,
   crucesFaseDeGrupos,
   crucesTodosContraTodos,
@@ -26,123 +26,106 @@ import {
 export type { TipoDeCompetidor } from './bracket';
 
 /**
- * Interfaz base para los motores de fixture.
- *
- * `db` es el cliente de la transacción del service (F-13). Si se omite, el
- * motor escribe con su `PrismaService`.
+ * Un formato de competencia: sólo sabe armar los cruces (función pura). No
+ * depende de Prisma: la escritura recibe el cliente de quien llama (DIP), que
+ * en el service es el de la transacción (F-13).
  */
 export interface IFixtureEngine {
+  pairings(ids: readonly string[]): Cruce[];
   generateFixture(
     competition: Pick<Competition, 'id'>,
     participantOrTeamIds: string[],
     tipo: TipoDeCompetidor,
-    db?: ClienteFixture,
+    db: ClienteFixture,
   ): Promise<Match[]>;
 }
 
-function exigirDos(ids: readonly string[], formato: string) {
-  if (ids.length < 2) {
-    throw new Error(
-      `Se necesitan al menos 2 participantes/equipos para ${formato}`,
-    );
+/** Escritura común a todos los formatos (template method sobre `pairings`). */
+abstract class FixtureEngine implements IFixtureEngine {
+  protected abstract readonly formatName: string;
+
+  abstract pairings(ids: readonly string[]): Cruce[];
+
+  async generateFixture(
+    competition: Pick<Competition, 'id'>,
+    ids: string[],
+    tipo: TipoDeCompetidor,
+    db: ClienteFixture,
+  ): Promise<Match[]> {
+    if (ids.length < 2) {
+      throw new Error(
+        `Se necesitan al menos 2 participantes/equipos para ${this.formatName}`,
+      );
+    }
+    return escribirCruces(db, competition.id, this.pairings(ids), tipo);
   }
 }
 
 /**
  * Todos contra todos. Con cantidad impar, en cada fecha alguien descansa y
- * ese cruce no se escribe.
- *
- * La entrada no se muta: el 'BYE' se agregaba sobre el `teamIds` del DTO y un
- * segundo uso del mismo arreglo veía un competidor que nadie mandó.
+ * ese cruce no se escribe. La entrada no se muta.
  */
 @Injectable()
-export class RoundRobinEngine implements IFixtureEngine {
-  constructor(private readonly prisma: PrismaService) {}
-
-  async generateFixture(
-    competition: Pick<Competition, 'id'>,
-    ids: string[],
-    tipo: TipoDeCompetidor,
-    db: ClienteFixture = this.prisma,
-  ): Promise<Match[]> {
-    exigirDos(ids, 'Round Robin');
-    return escribirCruces(
-      db,
-      competition.id,
-      crucesTodosContraTodos(ids),
-      tipo,
-    );
+export class RoundRobinEngine extends FixtureEngine {
+  protected readonly formatName = 'Round Robin';
+  pairings(ids: readonly string[]): Cruce[] {
+    return crucesTodosContraTodos(ids);
   }
 }
 
 /**
- * Eliminación directa (F-14).
- *
- * Escribe sólo la primera ronda, con byes si la cantidad no es potencia de 2.
- * Las rondas siguientes las arma `avanzarLlave` cuando se cierra la anterior:
- * hasta entonces no se sabe quién las juega, y el modelo no tiene partidos con
- * casilleros vacíos.
+ * Eliminación directa (F-14): sólo la primera ronda, con byes si la cantidad
+ * no es potencia de 2. Las siguientes las arma `avanzarLlave` al cerrarse la
+ * anterior: hasta entonces no se sabe quién las juega.
  */
 @Injectable()
-export class EliminacionDirectaEngine implements IFixtureEngine {
-  constructor(private readonly prisma: PrismaService) {}
-
-  async generateFixture(
-    competition: Pick<Competition, 'id'>,
-    ids: string[],
-    tipo: TipoDeCompetidor,
-    db: ClienteFixture = this.prisma,
-  ): Promise<Match[]> {
-    exigirDos(ids, 'Eliminación Directa');
-    return escribirCruces(
-      db,
-      competition.id,
-      primeraRondaEliminacion(ids),
-      tipo,
-    );
+export class EliminacionDirectaEngine extends FixtureEngine {
+  protected readonly formatName = 'Eliminación Directa';
+  pairings(ids: readonly string[]): Cruce[] {
+    return primeraRondaEliminacion(ids);
   }
 }
 
 /**
- * Fase de grupos (F-14): grupos de 3 o 4 (ver `repartirEnGrupos`) y todos
- * contra todos dentro de cada uno, reusando el mismo emparejamiento del round
- * robin.
+ * Fase de grupos (F-14): grupos de 3 o 4 y todos contra todos dentro de cada
+ * uno, con el mismo emparejamiento del round robin.
  */
 @Injectable()
-export class FaseGruposEngine implements IFixtureEngine {
-  constructor(private readonly prisma: PrismaService) {}
-
-  async generateFixture(
-    competition: Pick<Competition, 'id'>,
-    ids: string[],
-    tipo: TipoDeCompetidor,
-    db: ClienteFixture = this.prisma,
-  ): Promise<Match[]> {
-    exigirDos(ids, 'Fase de Grupos');
-    return escribirCruces(db, competition.id, crucesFaseDeGrupos(ids), tipo);
+export class FaseGruposEngine extends FixtureEngine {
+  protected readonly formatName = 'Fase de Grupos';
+  pairings(ids: readonly string[]): Cruce[] {
+    return crucesFaseDeGrupos(ids);
   }
 }
 
+/**
+ * Un motor por formato. Es un `Record` sobre el enum de Prisma: agregar un
+ * formato al esquema no compila hasta registrar su motor (OCP: un formato nuevo
+ * es una clase nueva y una entrada acá, sin tocar a los demás).
+ */
 @Injectable()
 export class EngineFactory {
+  private readonly engines: Record<CompetitionFormat, IFixtureEngine>;
+
   constructor(
-    private readonly roundRobinEngine: RoundRobinEngine,
-    private readonly eliminacionDirectaEngine: EliminacionDirectaEngine,
-    private readonly faseGruposEngine: FaseGruposEngine,
-  ) {}
+    roundRobin: RoundRobinEngine,
+    eliminacionDirecta: EliminacionDirectaEngine,
+    faseGrupos: FaseGruposEngine,
+  ) {
+    this.engines = {
+      [CompetitionFormat.ROUND_ROBIN]: roundRobin,
+      [CompetitionFormat.ELIMINACION_DIRECTA]: eliminacionDirecta,
+      [CompetitionFormat.FASE_GRUPOS]: faseGrupos,
+    };
+  }
 
   getEngine(format: CompetitionFormat): IFixtureEngine {
-    switch (format) {
-      case 'ROUND_ROBIN':
-        return this.roundRobinEngine;
-      case 'ELIMINACION_DIRECTA':
-        return this.eliminacionDirectaEngine;
-      case 'FASE_GRUPOS':
-        return this.faseGruposEngine;
-      default:
-        throw new NotImplementedException(
-          `El formato ${String(format)} aún no está implementado`,
-        );
+    const engine = this.engines[format];
+    if (!engine) {
+      throw new NotImplementedException(
+        `El formato ${String(format)} aún no está implementado`,
+      );
     }
+    return engine;
   }
 }

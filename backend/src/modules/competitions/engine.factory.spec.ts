@@ -49,11 +49,13 @@ function armarPrisma() {
 
   const prisma = {
     match: {
-      create: jest.fn(({ data }: { data: Record<string, unknown> }) => {
-        const fila = { id: `m${++n}`, ...data };
-        partidos.push(fila);
-        return Promise.resolve(fila);
-      }),
+      createManyAndReturn: jest.fn(
+        ({ data }: { data: Array<Record<string, unknown>> }) => {
+          const filas = data.map((d) => ({ id: `m${++n}`, ...d }));
+          partidos.push(...filas);
+          return Promise.resolve(filas);
+        },
+      ),
     },
     result: {
       createMany: jest.fn(({ data }: { data: FilaResultado[] }) => {
@@ -70,10 +72,11 @@ describe('RoundRobinEngine', () => {
   describe('Localía (R23)', () => {
     it('cada partido guarda un local y un visitante, no dos filas indistinguibles', async () => {
       const { prisma, resultados } = armarPrisma();
-      await new RoundRobinEngine(prisma).generateFixture(
+      await new RoundRobinEngine().generateFixture(
         COMPETENCIA,
         [...IDS],
         'team',
+        prisma,
       );
 
       const porPartido = new Map<string, FilaResultado[]>();
@@ -90,10 +93,11 @@ describe('RoundRobinEngine', () => {
 
     it('ninguna fila queda con isHome sin definir', async () => {
       const { prisma, resultados } = armarPrisma();
-      await new RoundRobinEngine(prisma).generateFixture(
+      await new RoundRobinEngine().generateFixture(
         COMPETENCIA,
         [...IDS],
         'team',
+        prisma,
       );
 
       // `isHome` es nullable en el modelo porque en otros contextos no aplica,
@@ -104,10 +108,11 @@ describe('RoundRobinEngine', () => {
 
     it('el local es el que el algoritmo eligió como local, no el primero que se escribió', async () => {
       const { prisma, resultados, partidos } = armarPrisma();
-      await new RoundRobinEngine(prisma).generateFixture(
+      await new RoundRobinEngine().generateFixture(
         COMPETENCIA,
         [...IDS],
         'team',
+        prisma,
       );
 
       // El mismo competidor no puede ser local de sí mismo en un cruce, y a lo
@@ -130,10 +135,11 @@ describe('RoundRobinEngine', () => {
   describe('Tipo de competidor: lo decide el llamador, no el formato del id', () => {
     it("con 'participant' escribe participantId y NUNCA teamId", async () => {
       const { prisma, resultados } = armarPrisma();
-      await new RoundRobinEngine(prisma).generateFixture(
+      await new RoundRobinEngine().generateFixture(
         COMPETENCIA,
         [...IDS],
         'participant',
+        prisma,
       );
 
       // Éste es el caso que fallaba: los ids son uuid, así que la heurística
@@ -145,10 +151,11 @@ describe('RoundRobinEngine', () => {
 
     it("con 'team' escribe teamId y NUNCA participantId", async () => {
       const { prisma, resultados } = armarPrisma();
-      await new RoundRobinEngine(prisma).generateFixture(
+      await new RoundRobinEngine().generateFixture(
         COMPETENCIA,
         [...IDS],
         'team',
+        prisma,
       );
 
       expect(resultados).toHaveLength(6);
@@ -158,10 +165,11 @@ describe('RoundRobinEngine', () => {
 
     it('los ids que se guardan son exactamente los que se pasaron', async () => {
       const { prisma, resultados } = armarPrisma();
-      await new RoundRobinEngine(prisma).generateFixture(
+      await new RoundRobinEngine().generateFixture(
         COMPETENCIA,
         [...IDS],
         'participant',
+        prisma,
       );
 
       expect(new Set(resultados.map((r) => r.participantId))).toEqual(
@@ -173,10 +181,11 @@ describe('RoundRobinEngine', () => {
   describe('Lo que ya funcionaba y no debe romperse', () => {
     it('con cantidad impar el BYE no genera partidos fantasma', async () => {
       const { prisma, partidos, resultados } = armarPrisma();
-      await new RoundRobinEngine(prisma).generateFixture(
+      await new RoundRobinEngine().generateFixture(
         COMPETENCIA,
         [...IDS],
         'team',
+        prisma,
       );
 
       // 3 competidores + BYE = 4 casilleros, 3 rondas de 2 cruces, pero uno de
@@ -189,20 +198,22 @@ describe('RoundRobinEngine', () => {
     it('con menos de 2 competidores no genera nada', async () => {
       const { prisma } = armarPrisma();
       await expect(
-        new RoundRobinEngine(prisma).generateFixture(
+        new RoundRobinEngine().generateFixture(
           COMPETENCIA,
           [IDS[0]!],
           'team',
+          prisma,
         ),
       ).rejects.toThrow(/al menos 2/i);
     });
 
     it('con 4 competidores arma los 6 cruces del round robin', async () => {
       const { prisma, partidos } = armarPrisma();
-      await new RoundRobinEngine(prisma).generateFixture(
+      await new RoundRobinEngine().generateFixture(
         COMPETENCIA,
         [...IDS, '44444444-4444-4444-8444-444444444444'],
         'team',
+        prisma,
       );
 
       expect(partidos).toHaveLength(6);
