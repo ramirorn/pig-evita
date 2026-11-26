@@ -23,9 +23,9 @@
 | 5 — Plataforma | 🟡 4/5 | Dependencias/imágenes (5.5, PR aparte); VULN-17 (decisión) |
 | 6 — Reportes y documentos | ✅ | — |
 | 7 — Frontend de administración | ✅ | — |
-| 8 — Frontend público | ⬜ | Todo |
+| 8 — Frontend público | ✅ 4/5 | Vitest (decisión) |
 
-**Próximo paso recomendado:** la **Fase 8** (frontend público y componentes grandes). Solo Vitest necesita decisión; su receta está en la sección 5.5.
+**Próximo paso recomendado:** abrir el PR (sección 6). Sin decisiones quedan las dependencias e imágenes (5.2, PR aparte) y el renombre de `bracket.ts`/`standings.ts` (5.7); lo demás espera las decisiones de la sección 4 del README.
 
 Antes de empezar, conviene abrir el PR de lo hecho hasta ahora (sección 6).
 
@@ -249,7 +249,9 @@ Diferencias con la receta: el hook se llama `useCrudPageState<T, F>(emptyFilters
    - generar `lib/routePrefetch.ts` desde `lazyPages.tsx`.
 5. **Archivos por dominio:** partir `schemas/index.ts`, `types/index.ts` y `lib/utils.ts`, dejando un `index.ts` que reexporte (no cambia ningún import).
 
-### 5.5 Fase 8 — Frontend público
+### 5.5 Fase 8 — Frontend público ✅ HECHA salvo Vitest (`cf1f730`, `ae56599`, `2b071a6`, `977938a`)
+Diferencias con la receta: `useMapView` y `useMapGestures` viven junto al mapa (`components/localityMap/`) y `useElementSize` en `hooks/`; `useDocumentUpload` va junto al uploader porque `check:documents` prohíbe que importe de `@/hooks/`; `useNewsPageData` va en `pages/public/news/`. Receta original como referencia:
+
 Extraer hooks:
 - `useMapView`, `useMapGestures` y `useElementSize` de `components/localityMap/ImpactMapSvg.tsx`;
 - `useDocumentUpload` de `components/shared/DocumentUploader.tsx`;

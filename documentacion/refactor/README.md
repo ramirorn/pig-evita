@@ -43,7 +43,7 @@ Como el sistema **todavía no está en producción** y nadie más estaba modific
 | **5** | Plataforma transversal | 🟡 Casi completa | 4 / 5 (falta dependencias e imágenes, PR aparte) |
 | **6** | Reportes y documentos | ✅ Terminada | 4 / 4 (paginación de documentos descartada con motivo) |
 | **7** | Frontend de administración | ✅ Terminada | 5 / 5 (debounce de borradores descartado con motivo) |
-| **8** | Frontend público y componentes grandes | ⬜ Pendiente | 0 / 5 |
+| **8** | Frontend público y componentes grandes | ✅ Terminada | 4 / 5 (Vitest espera decisión) |
 
 ### 1.2 Resultados medidos
 
@@ -201,6 +201,18 @@ Resuelve **M1**, **M5** y **M6**. El frontend queda con **0 avisos de `any`** (e
 | Descartado: debounce de borradores | — | La encuesta guarda en cada cambio a propósito, para sobrevivir a un cierre abrupto del navegador; demorar la escritura perdería las últimas teclas y el costo ahorrado (una escritura chica en `localStorage`) es despreciable. Lo mismo para el plantel. |
 | Pendiente menor | — | Las toolbars de Categories, Disciplines, News y Users siguen dentro de la página (son un solo control cada una). La tabla del calendario no se memoizó: la página le pasa handlers no estables. |
 
+### 2.7 quater Fase 8 — Frontend público y componentes grandes ✅ (4 de 5)
+
+| Paso | Commit | Qué se hizo |
+|---|---|---|
+| Mapa de impacto | `cf1f730` | `useMapView` (zoom con transiciones), `useMapGestures` (rueda, arrastre, pellizco, doble clic y teclado) y `useElementSize` (`ResizeObserver`). `ImpactMapSvg`: 796 → 556 líneas, queda con el dibujo. |
+| Uploader de documentos | `ae56599` | `useDocumentUpload` con el ciclo de la subida (preparar, validar, previsualizar, progreso, cancelar, error). Va junto al componente y no en `@/hooks/`: `check:documents` exige que el uploader no importe de ahí (no hace HTTP). 532 → 414 líneas. |
+| Noticias | `2b071a6` | `useNewsPageData` (búsqueda, filtro, vista y las cuatro consultas) y `NewsSections` / `NewsResults` en `pages/public/news/`. El `useEffect` que volvía a la página 1 se reemplazó por guardar la página junto con la clave del filtro: un render menos y sin pedir la página vieja. 495 → 271 líneas. |
+| `metricsRules` por tema | `977938a` | 8 módulos (`chartData`, `chartLayout`, `plainLanguage`, `period`, `heatmap`, `kpis`, `csv`, `filters`); el index reexporta las mismas 57 exportaciones. |
+| Vitest | — | **Espera decisión del equipo** (dependencia nueva; `AGENTS.md` pide confirmación). |
+
+Dos `check:*` leían archivos por ruta y se actualizaron en el mismo commit: `check:cards` mira `NewsPage` y su hook.
+
 ### 2.8 Problemas que destapó la red de seguridad (corregidos)
 
 | Commit | Problema | Corrección |
@@ -226,10 +238,10 @@ El detalle y la receta de cada punto están en la [guía de traspaso](GUIA-DE-TR
 | 3 | VULN-35: hora truncada en las respuestas | Confirmar la resolución del panel | 5.6 |
 | 4 | Nombres en inglés en `bracket.ts`/`standings.ts` | No | 5.7 |
 | 5 | Dependencias e imágenes (VULN-29, 46, 16) | No (PR aparte) | 5.2 |
-| 8 | Hooks del mapa, uploader y noticias; `metricsRules` por tema; Vitest | Vitest: sí | 5.5 |
+| 8 | Vitest en el frontend | Sí: aprobación del equipo | 5.5 |
 | — | VULN-07, VULN-17, VULN-28, purga de auditoría | Sí | 5.7 |
 
-**Próximo paso recomendado:** abrir el PR de lo hecho (guía, sección 6) y seguir con la **Fase 8** (frontend público y componentes grandes); solo Vitest necesita decisión.
+**Próximo paso recomendado:** abrir el PR de lo hecho (guía, sección 6). Lo que queda sin decisiones es chico (dependencias e imágenes en un PR aparte, renombrar `bracket.ts`/`standings.ts`); el resto espera las decisiones de la sección 4.
 
 ---
 
