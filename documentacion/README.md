@@ -18,6 +18,7 @@ Sistema web para la **Secretaría de Deportes de la Provincia de Formosa** que d
 | [`documentation.md`](./documentation.md) | Documento técnico extendido de referencia |
 | [`seguridad/relevamiento-owasp-2025.md`](./seguridad/relevamiento-owasp-2025.md) | Relevamiento de seguridad OWASP Top 10:2025 y estado de la mitigación |
 | [`refactor/README.md`](./refactor/README.md) | Estado del refactor SOLID por fases |
+| [`refactor/GUIA-DE-TRASPASO.md`](./refactor/GUIA-DE-TRASPASO.md) | Cómo retomar el refactor: entorno, método, herramientas, trampas y recetas para lo pendiente |
 | [`legal/marco-legal.md`](./legal/marco-legal.md) | Marco legal aplicable (Argentina y Formosa), matriz de cumplimiento y pendientes |
 
 ---
