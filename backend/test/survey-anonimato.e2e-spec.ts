@@ -27,6 +27,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { SurveyController } from '../src/modules/survey/survey.controller';
 import { SurveyService } from '../src/modules/survey/survey.service';
+import { SurveyVersionCache } from '../src/modules/survey/survey-version.cache';
 import { PrismaService } from '../src/database/prisma.service';
 
 const CAMPAIGN_ID = '11111111-1111-4111-8111-111111111111';
@@ -212,7 +213,11 @@ describe('Encuesta psicológica (e2e)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [SurveyController],
-      providers: [SurveyService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        SurveyService,
+        SurveyVersionCache,
+        { provide: PrismaService, useValue: prisma },
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();

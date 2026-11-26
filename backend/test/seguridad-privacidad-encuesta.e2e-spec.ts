@@ -24,6 +24,7 @@ import { AuditInterceptor } from '../src/modules/audit/audit.interceptor';
 import { AuditService } from '../src/modules/audit/audit.service';
 import { SurveyController } from '../src/modules/survey/survey.controller';
 import { SurveyService } from '../src/modules/survey/survey.service';
+import { SurveyVersionCache } from '../src/modules/survey/survey-version.cache';
 import {
   ALERTA_RESPUESTAS_POR_HORA,
   claveVersionCampania,
@@ -136,6 +137,7 @@ describe('Encuesta — privacidad alrededor del envío anónimo (e2e)', () => {
       controllers: [SurveyController],
       providers: [
         SurveyService,
+        SurveyVersionCache,
         AuditService,
         { provide: PrismaService, useValue: prisma },
         { provide: RedisCacheService, useValue: { incr } },

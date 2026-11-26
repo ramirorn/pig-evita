@@ -6,11 +6,9 @@ import {
   ConflictException,
   Injectable,
   Logger,
-  Optional,
   NotFoundException,
 } from '@nestjs/common';
 import {
-  DisciplineType,
   Prisma,
   SurveyAudience,
   SurveyCampaignStatus,
@@ -33,10 +31,10 @@ import {
 } from './dto';
 import {
   ALERTA_RESPUESTAS_POR_HORA,
-  claveVersionCampania,
   UMBRAL_K_ANONIMATO,
 } from './survey.constants';
-import { RedisCacheService } from '../../common/cache';
+import { SurveyVersionCache } from './survey-version.cache';
+import { answersError } from './survey-answers';
 import type { SurveySubmitResult } from './survey.types';
 
 /** Campaña con sus preguntas y opciones ya ordenadas, como la ve el formulario. */
@@ -52,24 +50,19 @@ export class SurveyService {
   private readonly logger = new Logger(SurveyService.name);
 
   /**
-   * El cache es opcional a propósito: los specs arman el servicio sólo con
-   * Prisma, y sin Redis la encuesta tiene que seguir funcionando igual. Lo
-   * único que se pierde sin él es el versionado que usan las métricas.
+   * Sin Redis la encuesta funciona igual; lo único que se pierde es el
+   * versionado que usan las métricas (ver `SurveyVersionCache`).
    */
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly cache?: RedisCacheService,
+    private readonly versions: SurveyVersionCache,
   ) {}
 
   /** Envíos por campaña y hora, para la advertencia de volumen (VULN-20). */
   private readonly enviosPorHora = new Map<string, number>();
 
-  /**
-   * Sube la versión de la campaña en Redis. Fire-and-forget: ni espera ni
-   * falla; si Redis no está, las métricas caen al conteo de respuestas.
-   */
   private subirVersion(campaignId: string): void {
-    void this.cache?.incr(claveVersionCampania(campaignId));
+    this.versions.bump(campaignId);
   }
 
   /**
@@ -88,7 +81,7 @@ export class SurveyService {
    * fallar el envío.
    */
   private subirVersionPorTanda(campaignId: string): void {
-    if (!this.cache) return;
+    if (!this.versions.enabled) return;
     void this.prisma.surveyResponse
       .count({ where: { campaignId } })
       .then((total) => {
@@ -231,73 +224,12 @@ export class SurveyService {
       throw new BadRequestException('La encuesta ya está cerrada');
     }
 
-    const activas = campaign.questions.filter((q) => q.activa);
-    const porId = new Map(activas.map((q) => [q.id, q]));
-    const vistas = new Set<string>();
-
-    for (const respuesta of dto.respuestas) {
-      const pregunta = porId.get(respuesta.questionId);
-
-      if (!pregunta) {
-        throw new BadRequestException(
-          'Una de las preguntas enviadas no pertenece a esta encuesta o ya no está activa',
-        );
-      }
-
-      if (vistas.has(pregunta.id)) {
-        throw new BadRequestException(
-          `La pregunta "${pregunta.texto}" vino repetida en el envío`,
-        );
-      }
-      vistas.add(pregunta.id);
-
-      if (!this.audienciaCompatible(pregunta.audiencia, dto.disciplineType)) {
-        throw new BadRequestException(
-          `La pregunta "${pregunta.texto}" no corresponde a una disciplina ${dto.disciplineType.toLowerCase()}`,
-        );
-      }
-
-      const opcionesValidas = new Set(pregunta.options.map((o) => o.id));
-      const elegidas = new Set(respuesta.optionIds);
-
-      if (elegidas.size !== respuesta.optionIds.length) {
-        throw new BadRequestException(
-          `Se eligió dos veces la misma opción en "${pregunta.texto}"`,
-        );
-      }
-
-      for (const optionId of respuesta.optionIds) {
-        if (!opcionesValidas.has(optionId)) {
-          throw new BadRequestException(
-            `Una de las opciones elegidas no pertenece a la pregunta "${pregunta.texto}"`,
-          );
-        }
-      }
-
-      if (
-        pregunta.kind === SurveyQuestionKind.UNICA &&
-        respuesta.optionIds.length !== 1
-      ) {
-        throw new BadRequestException(
-          `La pregunta "${pregunta.texto}" admite una sola opción`,
-        );
-      }
-    }
-
-    // Las obligatorias que le tocan a esta persona tienen que estar todas.
-    const faltante = activas.find(
-      (q) =>
-        q.obligatoria &&
-        this.audienciaCompatible(q.audiencia, dto.disciplineType) &&
-        q.options.length > 0 &&
-        !vistas.has(q.id),
+    const invalid = answersError(
+      campaign.questions,
+      dto.respuestas,
+      dto.disciplineType,
     );
-
-    if (faltante) {
-      throw new BadRequestException(
-        `Falta responder la pregunta obligatoria "${faltante.texto}"`,
-      );
-    }
+    if (invalid) throw new BadRequestException(invalid);
 
     await this.validarCortes(dto);
 
@@ -337,17 +269,6 @@ export class SurveyService {
     return { registrada: true, enviadaEn: response.enviadaEn };
   }
 
-  /** `TODOS` va siempre; el resto tiene que coincidir con el tipo de disciplina. */
-  private audienciaCompatible(
-    audiencia: SurveyAudience,
-    tipo: DisciplineType,
-  ): boolean {
-    if (audiencia === SurveyAudience.TODOS) return true;
-    return audiencia === SurveyAudience.INDIVIDUAL
-      ? tipo === DisciplineType.INDIVIDUAL
-      : tipo === DisciplineType.EQUIPO;
-  }
-
   /**
    * Los cortes demográficos tienen que existir de verdad.
    *
@@ -358,12 +279,30 @@ export class SurveyService {
    * válidas: mandar ajedrez con `EQUIPO` colaría las preguntas de equipo.
    */
   private async validarCortes(dto: SubmitSurveyResponseDto): Promise<void> {
-    if (dto.disciplineId) {
-      const disciplina = await this.prisma.discipline.findUnique({
-        where: { id: dto.disciplineId },
-        select: { type: true },
-      });
+    // Las tres búsquedas son independientes: en paralelo. Se informan en el
+    // mismo orden que antes (disciplina, localidad, categoría).
+    const [disciplina, localidad, categoria] = await Promise.all([
+      dto.disciplineId
+        ? this.prisma.discipline.findUnique({
+            where: { id: dto.disciplineId },
+            select: { type: true },
+          })
+        : null,
+      dto.localityId
+        ? this.prisma.locality.findUnique({
+            where: { id: dto.localityId },
+            select: { id: true },
+          })
+        : null,
+      dto.categoryId
+        ? this.prisma.category.findUnique({
+            where: { id: dto.categoryId },
+            select: { id: true },
+          })
+        : null,
+    ]);
 
+    if (dto.disciplineId) {
       if (!disciplina) {
         throw new BadRequestException('La disciplina indicada no existe');
       }
@@ -376,20 +315,12 @@ export class SurveyService {
     }
 
     if (dto.localityId) {
-      const localidad = await this.prisma.locality.findUnique({
-        where: { id: dto.localityId },
-        select: { id: true },
-      });
       if (!localidad) {
         throw new BadRequestException('La localidad indicada no existe');
       }
     }
 
     if (dto.categoryId) {
-      const categoria = await this.prisma.category.findUnique({
-        where: { id: dto.categoryId },
-        select: { id: true },
-      });
       if (!categoria) {
         throw new BadRequestException('La categoría indicada no existe');
       }
