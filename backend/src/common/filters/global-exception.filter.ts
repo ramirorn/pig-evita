@@ -7,11 +7,18 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Inject,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { esAutenticado } from '../interceptors/cache-control.interceptor';
 import { urlParaLog } from '../logging/url-para-log';
+import {
+  ACCESS_DENIED_RECORDER,
+  type AccessDeniedRecorder,
+  isAuthRoute,
+} from '../security/access-denied';
 
 /**
  * Errores de Prisma que significan "la base no está disponible", no un bug:
@@ -94,6 +101,16 @@ function esErrorDeBodyParser(
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
+  /**
+   * Opcional: los specs que instancian el filtro con `new` no lo pasan, y sin
+   * él el acceso denegado sólo queda en el log.
+   */
+  constructor(
+    @Optional()
+    @Inject(ACCESS_DENIED_RECORDER)
+    private readonly accessDenied?: AccessDeniedRecorder,
+  ) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -161,10 +178,23 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     ) {
       const usuario = (request as Request & { user?: { sub?: string } }).user
         ?.sub;
+      const ruta = urlParaLog(request.url);
       this.logger.warn(
-        `Acceso denegado ${statusCode} ${request.method} ${urlParaLog(request.url)}` +
+        `Acceso denegado ${statusCode} ${request.method} ${ruta}` +
           ` usuario=${usuario ?? 'anónimo'} ip=${request.ip ?? '-'}`,
       );
+      // Además, a la auditoría (con tope por IP), salvo `/auth/*`, que
+      // `AuthService` ya audita con su propia acción.
+      if (!isAuthRoute(ruta)) {
+        this.accessDenied?.record({
+          status: statusCode as 401 | 403,
+          method: request.method,
+          path: ruta,
+          userId: usuario ?? null,
+          ipAddress: request.ip ?? null,
+          userAgent: request.get?.('user-agent') ?? null,
+        });
+      }
     }
 
     // R11 — corte final antes de serializar.

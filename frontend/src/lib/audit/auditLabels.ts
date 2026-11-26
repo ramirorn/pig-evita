@@ -33,6 +33,7 @@ export const AUDIT_ACTION_LABELS: Readonly<Record<string, string>> = {
   REJECT_INSCRIPTION: 'Inscripción rechazada',
   UPLOAD: 'Subida de archivo',
   DNI_CHANGE: 'Cambio de DNI',
+  ACCESS_DENIED: 'Acceso denegado',
 };
 
 /**
@@ -61,6 +62,7 @@ export const AUDIT_ENTITY_LABELS: Readonly<Record<string, string>> = {
   metrics: 'Métricas',
   reports: 'Reportes',
   User: 'Sesión de usuario',
+  Route: 'Ruta protegida',
 };
 
 /**
@@ -92,6 +94,7 @@ const TONO_POR_ACCION: Readonly<Record<string, TonoAccion>> = {
   LOGIN_FAILED: 'peligro',
   REFRESH_TOKEN_REUSE: 'peligro',
   REFRESH_TOKEN_DENIED: 'peligro',
+  ACCESS_DENIED: 'peligro',
   LOGIN: 'info',
   LOGOUT: 'info',
 };

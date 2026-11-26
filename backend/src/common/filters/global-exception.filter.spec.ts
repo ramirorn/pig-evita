@@ -120,3 +120,42 @@ describe('GlobalExceptionFilter — log', () => {
     });
   });
 });
+
+describe('GlobalExceptionFilter — auditoría de accesos denegados (VULN-27)', () => {
+  beforeEach(() => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  const conRecorder = () => {
+    const record = jest.fn();
+    return { record, filtro: new GlobalExceptionFilter({ record }) };
+  };
+
+  it('un 403 se manda a la auditoría con la ruta sin query', () => {
+    const { record, filtro } = conRecorder();
+    filtro.catch(
+      new ForbiddenException(),
+      host('/api/v1/participants?search=40123456', { sub: 'u-1' }),
+    );
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record.mock.calls[0][0]).toMatchObject({
+      status: 403,
+      method: 'GET',
+      userId: 'u-1',
+    });
+    expect(JSON.stringify(record.mock.calls)).not.toContain('40123456');
+  });
+
+  it('las rutas de /auth no se duplican: las audita AuthService', () => {
+    const { record, filtro } = conRecorder();
+    filtro.catch(new UnauthorizedException(), host('/api/v1/auth/refresh'));
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it('un 404 no es un acceso denegado', () => {
+    const { record, filtro } = conRecorder();
+    filtro.catch(new NotFoundException(), host('/api/v1/news/x'));
+    expect(record).not.toHaveBeenCalled();
+  });
+});

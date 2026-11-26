@@ -81,6 +81,8 @@ export enum AuditAction {
   UPLOAD = 'UPLOAD',
   /** Cambio de DNI de un participante (R17): se audita aparte del UPDATE. */
   DNI_CHANGE = 'DNI_CHANGE',
+  /** 401 o 403 fuera de `/auth/*` (VULN-27). */
+  ACCESS_DENIED = 'ACCESS_DENIED',
 }
 
 // ===========================================
