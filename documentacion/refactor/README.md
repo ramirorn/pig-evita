@@ -6,8 +6,8 @@
 | **Autor** | Lucas Zigaran |
 | **Última actualización** | 26/11/2026 |
 | **Fases del plan** | **9**: Fase 0 (red de seguridad) + Módulos 1 a 8 |
-| **Estado** | Fase 0 y Módulo 1 **terminados**. Módulos 2 y 3 **en curso**: lo que falta de cada uno son cambios funcionales (VULN-23, VULN-27, VULN-20 y VULN-35) que primero necesitan `spec.md`/`tasks.md` o una decisión. Módulos 4 a 8 **pendientes**. |
-| **Avance global** | 2 fases cerradas, 2 en curso y 5 pendientes. 19 de 49 pasos hechos, 2 diferidos con motivo, 28 pendientes. |
+| **Estado** | Fases 0, 1 y 4 **terminadas**. Fases 2 y 3 **en curso**: solo les faltan cambios funcionales (VULN-23, VULN-20 y VULN-35) que primero necesitan `spec.md`/`tasks.md` y una decisión. Fases 5 a 8 **pendientes**. |
+| **Avance global** | 3 fases cerradas, 2 en curso y 4 pendientes. 25 de 49 pasos hechos, 2 diferidos con motivo, 22 pendientes. |
 | **Seguimiento detallado** | [`odd/tasks/refactor-solid.md`](../../odd/tasks/refactor-solid.md) |
 | **Análisis de origen** | [`analisis-buenas-practicas.pdf`](analisis-buenas-practicas.pdf) (en esta carpeta) |
 | **Relevamiento de seguridad** | [`../seguridad/relevamiento-owasp-2025.md`](../seguridad/relevamiento-owasp-2025.md) |
@@ -38,9 +38,9 @@ El plan del PDF (sección 8) proponía 9 pasos ordenados por impacto. Se reorgan
 |---|---|---|---|---|
 | **0** | Red de seguridad: CI, avisos de `any`, presupuesto de consultas | 1 día | ✅ Terminada | 5 / 5 |
 | **1** | Inscripciones y participantes | 2–3 días | ✅ Terminada | 6 / 8 (2 diferidos) |
-| **2** | Autenticación y usuarios | 2–3 días | 🟡 En curso | 4 / 6 |
+| **2** | Autenticación y usuarios | 2–3 días | 🟡 En curso | 5 / 6 |
 | **3** | Encuesta y métricas | 3 días | 🟡 En curso | 4 / 6 |
-| **4** | Competencias y resultados | 1½ días | ⬜ Pendiente | 0 / 5 |
+| **4** | Competencias y resultados | 1½ días | ✅ Terminada | 5 / 5 |
 | **5** | Plataforma transversal | 1½ días | ⬜ Pendiente | 0 / 5 |
 | **6** | Reportes y documentos | 1 día | ⬜ Pendiente | 0 / 4 |
 | **7** | Frontend de administración | 2–3 días | ⬜ Pendiente | 0 / 5 |
@@ -111,7 +111,7 @@ Las rutas, los mensajes de error y el orden de las validaciones no cambiaron. **
 - **1.7 — VULN-28 (sacar los IDs internos de las vistas públicas):** el UUID del participante no sale solo en `participantId`, sino también en `participant.id` (`PARTICIPANT_NAME`) y como `id` de cada fila del ranking, y la suite de Playwright lo usa para cargar resultados. Hacerlo bien requiere separar la proyección pública de la de administración en `GET /competitions/:id` (con el patrón `OptionalJwtAuthGuard`, como en noticias y calendario), y depende de la decisión pendiente sobre qué se publica de los menores (sección 6).
 - **1.8 — Listado de participantes con `PARTICIPANT_SUMMARY`:** el formulario de edición se rellena con la fila del listado. Si el listado dejara de traer email, teléfono y domicilio, esos campos aparecerían vacíos al editar y se podrían borrar al guardar. Pasa al Módulo 7: el formulario tiene que cargar el detalle antes de editar.
 
-### 2.4 Fase 2 — Autenticación y usuarios 🟡 en curso (4 de 6 pasos)
+### 2.4 Fase 2 — Autenticación y usuarios 🟡 en curso (5 de 6 pasos)
 
 **Objetivo:** quitar los `any` de autenticación, separar la emisión de tokens y cerrar las vulnerabilidades de autenticación abiertas. Resuelve la parte de auth del hallazgo **B5** y parte de **M4**.
 
@@ -121,14 +121,14 @@ Las rutas, los mensajes de error y el orden de las validaciones no cambiaron. **
 | 2.2 VULN-22 — throttler en Redis | ✅ (falta probar contra Redis real) | `6bce3ca` | `RedisThrottlerStorage` (`common/cache/redis-throttler.storage.ts`, con spec) implementa la interfaz `ThrottlerStorage` sobre el `RedisCacheService` existente, con un script Lua atómico y el namespace `throttle`. El límite de pedidos queda compartido entre instancias. Si Redis no está, sigue funcionando en memoria. Sin dependencias nuevas. `ThrottlerModule.forRootAsync` lee la configuración desde `ConfigService` (antes `parseInt(process.env…)` en `app.module.ts`). |
 | 2.3 `AuthTokensService` | ✅ | `b138e1b` | Generación, rotación y detección de reuso de tokens separadas de `AuthService` (500 → 394 líneas; el nuevo servicio tiene 122). `expiresIn` tipado en segundos y calculado con el mismo parser que la cookie, para que no puedan desalinearse. Sin los `as any` en las opciones de firma. |
 | 2.4 VULN-23 — cambio de contraseña | ⬜ Pendiente | — | Ver abajo. |
-| 2.5 VULN-27 — auditar accesos denegados | ⬜ Pendiente | — | Ver abajo. |
+| 2.5 VULN-27 — auditar accesos denegados | ✅ | `c28f7dd` | Cada 401/403 fuera de `/auth/*` queda en `audit_logs` como `ACCESS_DENIED` (ruta sin query, método, usuario, IP). El filtro global depende de un puerto en `common/security` (`ACCESS_DENIED_RECORDER`) y `AuditModule` provee la implementación (DIP). Tope de 10 filas por IP y minuto; fire-and-forget; sin migración. El panel muestra "Acceso denegado". 13 tests nuevos. Falta solo la purga, que espera la decisión de retención. |
 | 2.6 VULN-47 — `iss` y `aud` obligatorios | ✅ **cerrada** | `ed139e9` | `JwtStrategy` ya no acepta tokens sin `iss`/`aud` (se quitó la aceptación transitoria). Los 16 specs que firman tokens usan `ACCESS_SIGN_OPTIONS`, igual que la app. |
 
 **Resultados hasta ahora:** avisos de `any` en el backend de 15 a 6 (los que quedan están en reportes y en el DTO de documentos, y se resuelven en el Módulo 6). Backend unitarios 334/334, e2e 1.062/1.062.
 
 **Lo que falta del Módulo 2, en detalle:**
 - **2.4 — VULN-23 (cambio funcional):** columna `mustChangePassword` en el usuario, endpoint `POST /auth/change-password` (contraseña actual + nueva, con las reglas de fortaleza existentes y revocación de las otras sesiones) y una pantalla en el frontend a la que se redirige mientras la marca esté activa. Antes de programarlo: un ítem en `spec.md` y una tarea en `tasks.md` (`AGENTS.md` §1.1), y la decisión de si se fuerza a todas las cuentas existentes (sección 6). Requiere migración de Prisma.
-- **2.5 — VULN-27:** registrar los 401/403 como `ACCESS_DENIED` en `audit_logs` desde el `GlobalExceptionFilter`. No requiere migración (`action` es `String`). Cuidados: hace falta un tope por IP para que un atacante no llene la tabla, y tres specs más `body-limit` instancian el filtro a mano, sin inyección de dependencias, así que hay que adaptarlos. El script de purga se deja listo, pero su plazo espera la decisión de retención (sección 6).
+- **Throttler contra Redis real:** ✅ verificado con Playwright en CI (corrida `45829533809`, 409 OK).
 - **Verificar el throttler contra Redis real:** el script Lua solo se probó con el doble; se confirma corriendo Playwright en CI (el stack aislado tiene Redis).
 - **Cerrar la fase:** correr Playwright, actualizar el tracker y abrir el PR de `dev-lucas` a `develop`.
 
@@ -190,16 +190,16 @@ Pasos 2.4 (VULN-23) y 2.5 (VULN-27), verificación del throttler contra Redis re
 ### Fase 3 — Encuesta y métricas (resto)
 Pasos 3.5 (VULN-20) y 3.6 (VULN-35), los dos funcionales, y cierre con Playwright y PR. Detalle en la sección 2.5.
 
-### Fase 4 — Competencias y resultados (1½ días) ⬜
-Resuelve el hallazgo **M7** y la parte de competencias de **B2** y **B3**. Baja el techo del fixture de 244 a **≤ 5 consultas**.
-
-| Paso | Qué hay que hacer |
+### Fase 4 — Competencias y resultados ✅ terminada (`ced316a`)
+| Paso | Qué se hizo |
 |---|---|
-| 4.1 Motores de fixture puros | Los tres motores (`IFixtureEngine`) solo calculan los cruces y no usan Prisma; la escritura queda en el servicio, con el tipo `ClienteFixture` de `bracket.ts`. |
-| 4.2 `EngineFactory` con mapa | `Record<CompetitionFormat, IFixtureEngine>` en lugar del `switch` con textos (`'ROUND_ROBIN'`…): agregar un formato no toca la fábrica y TypeScript avisa si falta alguno (OCP). |
-| 4.3 Fixture en lote | `createManyAndReturn` para los partidos y un `createMany` para los resultados; se quita el timeout de 60 s de la transacción. |
-| 4.4 Condición de carrera | El primer paso de la transacción cambia la competencia de `BORRADOR` a `ACTIVA` solo si sigue en `BORRADOR`; si otro pedido ya la activó, responde 409. |
-| 4.5 Limpieza | `Promise.all` en `competitions.create`; `CompetitionStatus.ACTIVA` en lugar de `'ACTIVA'` (`competitions.service.ts`); nombres en inglés (`escribirCruces`, `crucesTodosContraTodos`, `avanzarLlave`). |
+| 4.1 Motores puros | Los tres motores ya no dependen de `PrismaService`: cada formato solo define `pairings(ids)` y una clase base escribe con el cliente que recibe (el de la transacción). |
+| 4.2 `EngineFactory` con mapa | `Record<CompetitionFormat, IFixtureEngine>` en lugar del `switch`: un formato nuevo en el esquema no compila hasta registrar su motor (OCP). |
+| 4.3 Fixture en lote | `createManyAndReturn` de partidos + un `createMany` de resultados. **Fixture de 16: de 244 consultas a 7** (+ el `FOR UPDATE`), y 4 y 16 competidores cuestan lo mismo. Sin el timeout de 60 s. La llave de eliminación directa (`avanzarLlave`) también escribe en lote. |
+| 4.4 Condición de carrera | **Ajuste respecto del plan:** en vez de condicionar por estado (`BORRADOR` → `ACTIVA`), la transacción bloquea la competencia con `FOR UPDATE`, el mismo patrón que ya usa `ResultsService`, y vuelve a contar los partidos adentro. El estado se puede editar por `PATCH`, así que un chequeo por estado no era confiable. |
+| 4.5 Limpieza | `Promise.all` en `competitions.create`; enums de Prisma en lugar de textos (`'ACTIVA'`, `'PROGRAMADO'`, `'FINALIZADO'` y los formatos) en competencias y resultados. **Queda pendiente** el renombre a inglés de las funciones de `bracket.ts` y `standings.ts` (se usan en varios specs; conviene hacerlo en un commit propio). |
+
+VULN-07 (vínculo árbitro ↔ partido) sigue esperando la decisión del cliente (sección 6).
 
 ### Fase 5 — Plataforma transversal (1½ días) ⬜
 Resuelve el hallazgo **M4** y las vulnerabilidades **VULN-13**, **VULN-17**, **VULN-29**, **VULN-46** y el resto de **VULN-16**.
