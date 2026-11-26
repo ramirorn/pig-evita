@@ -4,10 +4,10 @@
 |---|---|
 | **Rama** | `dev-lucas` (base: `develop` + `dev-santi`) |
 | **Autor** | Lucas Zigaran |
-| **Última actualización** | 25/11/2026 |
+| **Última actualización** | 26/11/2026 |
 | **Fases del plan** | **9**: Fase 0 (red de seguridad) + Módulos 1 a 8 |
-| **Estado** | Fase 0 y Módulo 1 **terminados**. Módulo 2 **en curso** (4 de 6 pasos; faltan VULN-23 y VULN-27). Módulos 3 a 8 **pendientes**. |
-| **Avance global** | 2 fases cerradas, 1 en curso y 6 pendientes. 15 de 49 pasos hechos, 2 diferidos con motivo, 32 pendientes. |
+| **Estado** | Fase 0 y Módulo 1 **terminados**. Módulos 2 y 3 **en curso**: lo que falta de cada uno son cambios funcionales (VULN-23, VULN-27, VULN-20 y VULN-35) que primero necesitan `spec.md`/`tasks.md` o una decisión. Módulos 4 a 8 **pendientes**. |
+| **Avance global** | 2 fases cerradas, 2 en curso y 5 pendientes. 19 de 49 pasos hechos, 2 diferidos con motivo, 28 pendientes. |
 | **Seguimiento detallado** | [`odd/tasks/refactor-solid.md`](../../odd/tasks/refactor-solid.md) |
 | **Análisis de origen** | [`analisis-buenas-practicas.pdf`](analisis-buenas-practicas.pdf) (en esta carpeta) |
 | **Relevamiento de seguridad** | [`../seguridad/relevamiento-owasp-2025.md`](../seguridad/relevamiento-owasp-2025.md) |
@@ -39,7 +39,7 @@ El plan del PDF (sección 8) proponía 9 pasos ordenados por impacto. Se reorgan
 | **0** | Red de seguridad: CI, avisos de `any`, presupuesto de consultas | 1 día | ✅ Terminada | 5 / 5 |
 | **1** | Inscripciones y participantes | 2–3 días | ✅ Terminada | 6 / 8 (2 diferidos) |
 | **2** | Autenticación y usuarios | 2–3 días | 🟡 En curso | 4 / 6 |
-| **3** | Encuesta y métricas | 3 días | ⬜ Pendiente | 0 / 6 |
+| **3** | Encuesta y métricas | 3 días | 🟡 En curso | 4 / 6 |
 | **4** | Competencias y resultados | 1½ días | ⬜ Pendiente | 0 / 5 |
 | **5** | Plataforma transversal | 1½ días | ⬜ Pendiente | 0 / 5 |
 | **6** | Reportes y documentos | 1 día | ⬜ Pendiente | 0 / 4 |
@@ -132,7 +132,31 @@ Las rutas, los mensajes de error y el orden de las validaciones no cambiaron. **
 - **Verificar el throttler contra Redis real:** el script Lua solo se probó con el doble; se confirma corriendo Playwright en CI (el stack aislado tiene Redis).
 - **Cerrar la fase:** correr Playwright, actualizar el tracker y abrir el PR de `dev-lucas` a `develop`.
 
-### 2.5 Problemas que encontró la red de seguridad (corregidos)
+### 2.5 Fase 3 — Encuesta y métricas 🟡 en curso (4 de 6 pasos)
+
+**Objetivo:** dividir `MetricsService`, tener una sola caché por versión y que un acierto de caché no toque la base. Resuelve el hallazgo **A3** y la parte de métricas de **B3** y **B4**.
+
+| Paso | Estado | Commit | Qué se hizo |
+|---|---|---|---|
+| 3.1 `SurveyVersionCache` | ✅ | `3597358` | Una sola implementación de la versión de campaña (leer, subir, armar la clave, leer y escribir agregados) en `survey/survey-version.cache.ts`. La usan la encuesta y los tres servicios de métricas; antes cada uno tenía su propia versión. |
+| 3.2 Dividir `MetricsService` | ✅ | `dde2e3b` | 1.082 líneas → `MetricsQueryService` (lectura, 791), `MetricsKpisService` (98) y `MetricsHighlightsService` (100), más `response-filter.ts` (puro: el `where` del corte y los filtros informados) y `metrics-campaign.ts` (cuestionario y mapeo del catálogo). Los ABM invalidan por `SurveyVersionCache` sin llamarse entre sí y ya no traen el cuestionario entero para verificar que la campaña existe. Identificadores nuevos en inglés; se corrigió el comentario que citaba un método inexistente. |
+| 3.3 Rendimiento | ✅ (con dos ajustes, ver abajo) | `dde2e3b`, `3597358` | La caché se consulta **antes** que la base en resumen, cruce, KPIs y destacados: **`overview` con caché pasa de 1 consulta a 0**. Los cortes padre de la verificación de k-anonimato se memoizan: con dos filtros, **de 9 a 8 consultas** (el corte sin filtros se leía dos veces). KPIs y destacados leen definiciones y respuestas en paralelo; la encuesta valida disciplina, localidad y categoría en paralelo. |
+| 3.4 Validación pura de respuestas | ✅ | `3597358` | `survey/survey-answers.ts` (`answersError`, `isAudienceCompatible`) con su spec (10 tests). Mismos mensajes y mismo orden que antes. |
+| 3.5 VULN-20 — tope diario por IP | ⬜ Pendiente | — | Cambio funcional: ver abajo. |
+| 3.6 VULN-35 — hora truncada | ⬜ Pendiente | — | Cambio funcional: ver abajo. |
+
+**Ajustes respecto del plan en 3.3, con motivo:**
+- **La recursión de la verificación de k-anonimato no se eliminó, se memoizó.** Reemplazarla por otra estrategia cambia la lógica que protege el anonimato, y los 76 tests de k-anonimato fijan ese comportamiento exacto. La memoización da la mejora sin tocar la regla.
+- **La lectura por lotes con cursor pasa a la Fase 5**, que crea el helper de cursor común en `common/`. Los listados de KPIs y destacados se dejan sin `select`: el ABM usa la fila completa.
+
+**Resultados:** avisos de `any` sin cambios (6). Backend unitarios 344/344, e2e 1.063/1.063, con los mismos 308 tests de métricas, encuesta y permisos sin cambios de comportamiento.
+
+**Lo que falta de la Fase 3:**
+- **3.5 — VULN-20 (funcional):** tope diario de respuestas por IP en `POST /survey/responses`, con un throttler con nombre de 24 h sobre el storage de Redis del paso 2.2. Antes: ítem en `spec.md` y `tasks.md`. Si además se agrega un token de un solo uso o Turnstile, lo decide el equipo (sección 6).
+- **3.6 — VULN-35 (funcional):** guardar `enviadaEn` truncada a la hora, con una migración que trunque las existentes. Antes de hacerlo hay que confirmar que la serie temporal del panel no necesite más resolución que la hora. Antes: ítem en `spec.md` y `tasks.md`.
+- **Cerrar la fase:** correr Playwright en CI y abrir el PR.
+
+### 2.6 Problemas que encontró la red de seguridad (corregidos)
 
 Al correr todo con el CI nuevo aparecieron problemas que ya existían y que el CI anterior no detectaba. Ninguno era del código de la aplicación:
 
@@ -144,15 +168,15 @@ Al correr todo con el CI nuevo aparecieron problemas que ya existían y que el C
 | `4b6eda6` | La suite de planteles tardaba ~2 minutos renderizando imágenes QR reales y a veces pasaba su timeout. | Usa un QR simulado: ese spec prueba la atomicidad, no el render. La suite e2e completa bajó de ~176 s a ~78 s. |
 | `9bd3260` | Playwright en celular: el clic sobre "Encuesta" caía mientras el menú todavía se desplegaba (enlace recortado por `overflow-hidden` durante la transición de `max-height`). | El helper espera a que el último enlace del menú se vea entero (`toBeInViewport({ ratio: 1 })`) antes del clic. |
 
-### 2.6 Estado verificado
+### 2.7 Estado verificado
 
 Todo en verde en GitHub Actions y en local:
 
 | Suite | Línea base (antes del refactor) | Hoy |
 |---|---|---|
 | Backend: lint | 8 errores escondidos por `--fix`, regla de `any` apagada | 0 errores (6 avisos de `any`) |
-| Backend: tests unitarios | 309 / 309 | 334 / 334 |
-| Backend: tests e2e | 1.046, con 3–5 fallos intermitentes; ~176 s | 1.062 / 1.062; ~78 s |
+| Backend: tests unitarios | 309 / 309 | 344 / 344 |
+| Backend: tests e2e | 1.046, con 3–5 fallos intermitentes; ~176 s | 1.063 / 1.063; ~78 s |
 | Frontend: lint, build y checks | OK, 14 / 14 (no corrían en CI) | OK, 14 / 14 (28 avisos de `any`) |
 | Playwright (API, escritorio y celular) | No corría en CI | 409 OK, 1 omitido a propósito (`content.spec.ts:130`: el stack aislado no tiene noticias del portal) |
 
@@ -163,17 +187,8 @@ Todo en verde en GitHub Actions y en local:
 ### Fase 2 — Autenticación y usuarios (resto)
 Pasos 2.4 (VULN-23) y 2.5 (VULN-27), verificación del throttler contra Redis real y PR. Detalle en la sección 2.4.
 
-### Fase 3 — Encuesta y métricas (3 días) ⬜
-Resuelve el hallazgo **A3**, la parte de métricas de **B3** y **B4**, y las vulnerabilidades **VULN-20** y **VULN-35**. Baja el techo de `overview` con caché de 1 a **0 consultas**.
-
-| Paso | Qué hay que hacer |
-|---|---|
-| 3.1 `SurveyVersionCache` | Una sola implementación de la caché por versión de campaña (versión, claves e invalidación), compartida por encuesta y métricas. Hoy cada servicio tiene la suya. |
-| 3.2 Dividir `MetricsService` (1.082 líneas) | `MetricsQueryService` (solo lectura: `catalog`, `overview`, `cross`, `kpis`, `highlights`), `MetricsKpisService` (CRUD de KPIs) y `MetricsHighlightsService` (CRUD de destacados), más un filtro puro `buildResponseWhere` (hoy `filtrosDe` + `construirWhere`) reutilizable por la encuesta. Los CRUD invalidan a través de la caché, sin llamarse entre sí. Renombrar a inglés en el mismo cambio y corregir el comentario desactualizado de `metrics.service.ts:902` (cita un `SurveyService.buildResponseWhere` que ya no existe). |
-| 3.3 Rendimiento | Consultar la caché **antes** que la base; `Promise.all` en las consultas independientes; sacar el `findMany` recursivo de `corteCoherente`; leer las respuestas por lotes con cursor; `select` en los listados. |
-| 3.4 `validateAnswers` | Extraer de `submitResponse` la validación de respuestas como función pura con su spec. |
-| 3.5 VULN-20 (funcional) | Tope diario de respuestas por IP, reutilizando el storage de Redis del paso 2.2. Antes: ítem en `spec.md` y `tasks.md`. Si además se agrega token de un solo uso o Turnstile, lo decide el equipo (sección 6). |
-| 3.6 VULN-35 (funcional) | Guardar `enviadaEn` truncada a la hora para que la marca de tiempo no ayude a identificar a quien respondió. Antes: ítem en `spec.md` y `tasks.md`. |
+### Fase 3 — Encuesta y métricas (resto)
+Pasos 3.5 (VULN-20) y 3.6 (VULN-35), los dos funcionales, y cierre con Playwright y PR. Detalle en la sección 2.5.
 
 ### Fase 4 — Competencias y resultados (1½ días) ⬜
 Resuelve el hallazgo **M7** y la parte de competencias de **B2** y **B3**. Baja el techo del fixture de 244 a **≤ 5 consultas**.
