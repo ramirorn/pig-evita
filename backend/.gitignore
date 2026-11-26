@@ -93,6 +93,9 @@ tmp/
 # Reports generados en disco (Excel/CSV con PII)
 # ==============================
 reports/
+# …pero no el código fuente del módulo de reportes (L14: sin esta excepción
+# los archivos nuevos de `src/modules/reports/` quedaban ignorados en silencio).
+!src/modules/reports/
 generated/
 
 # ==============================

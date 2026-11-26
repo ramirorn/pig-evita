@@ -61,6 +61,23 @@ export const PARTICIPANT_CONTACT = {
   phone: true,
 } satisfies Prisma.ParticipantSelect;
 
+/**
+ * Participante en las exportaciones (padrón e inscripciones): sólo las columnas
+ * que se escriben en el archivo. Sin domicilio: ningún reporte lo muestra, y un
+ * `include` de la fila entera lo arrastraba (M3).
+ */
+export const PARTICIPANT_REPORT = {
+  dni: true,
+  firstName: true,
+  lastName: true,
+  sex: true,
+  birthDate: true,
+  department: true,
+  locality: true,
+  phone: true,
+  email: true,
+} satisfies Prisma.ParticipantSelect;
+
 /** Disciplina reducida a lo que necesitan encabezados y validaciones de cupo. */
 export const DISCIPLINE_SUMMARY = {
   id: true,
