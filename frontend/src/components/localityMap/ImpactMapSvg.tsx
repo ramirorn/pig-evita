@@ -1,17 +1,7 @@
 // ===========================================
 // ImpactMapSvg — mapa de calor fluido de la provincia, con zoom
 // ===========================================
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type MouseEvent,
-  type PointerEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { Maximize2, Minus, Plus } from 'lucide-react';
 import { GEO_AREAS, GEO_DEPARTMENTS, GEO_POINTS, GEO_VIEWBOX } from '@/lib/geo/formosa.generated';
 import {
@@ -32,22 +22,19 @@ import {
 import {
   centerOn,
   FOCUS_ZOOM,
-  IDENTITY_VIEW,
   inverseScale,
   isVisible,
-  lerpView,
   markersOnScreen,
   MAX_ZOOM,
   MIN_ZOOM,
-  panBy,
-  sameView,
   toScreen,
   ZOOM_STEP,
-  zoomAt,
-  type MapView,
 } from '@/lib/mapZoom';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useHeatImage } from '@/hooks/useHeatImage';
+import { useElementSize } from '@/hooks/useElementSize';
+import { useMapView } from './useMapView';
+import { useMapGestures } from './useMapGestures';
 
 /** Ids únicos por página. */
 const RECORTE_ID = 'impacto-recorte-provincia';
@@ -73,10 +60,6 @@ const PX = {
   /** Lo que un rótulo no puede tapar alrededor de un marcador. */
   marcadorParaRotulos: 4,
 };
-
-/** Desplazamiento de las flechas del teclado, en unidades de pantalla. */
-const PASO_FLECHA = 80;
-const DURACION_MS = 220;
 
 /** Todas las localidades del mapa con su punto, para "Mostrar todas" y centrar. */
 const TODAS = [
@@ -128,265 +111,48 @@ export function ImpactMapSvg({
 }: ImpactMapSvgProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
-  const [view, setView] = useState<MapView>(IDENTITY_VIEW);
-  const [aviso, setAviso] = useState(false);
 
   const { width: W, height: H } = GEO_VIEWBOX;
   const sinMovimiento = useMediaQuery('(prefers-reduced-motion: reduce)');
   const urlCalor = useHeatImage(points, W, H);
 
   const svgRef = useRef<SVGSVGElement>(null);
-  const viewRef = useRef(view);
-  viewRef.current = view;
-  const animRef = useRef<number | null>(null);
-  const finRef = useRef<number | null>(null);
-  const avisoRef = useRef<number | null>(null);
 
-  // ---------- Vista y transiciones ----------
-
-  const cortarAnimacion = () => {
-    if (animRef.current !== null) cancelAnimationFrame(animRef.current);
-    animRef.current = null;
-    if (finRef.current !== null) window.clearTimeout(finRef.current);
-    finRef.current = null;
-  };
-
-  /** Pasa a una vista nueva, con transición salvo movimiento reducido. */
-  const irA = useCallback(
-    (destino: MapView, animar = true) => {
-      cortarAnimacion();
-      const desde = viewRef.current;
-      if (!animar || sinMovimiento || document.hidden || sameView(desde, destino)) {
-        setView(destino);
-        return;
-      }
-      const inicio = performance.now();
-      const paso = (ahora: number) => {
-        const t = Math.min(1, (ahora - inicio) / DURACION_MS);
-        const suave = 1 - (1 - t) ** 3;
-        setView(t >= 1 ? destino : lerpView(desde, destino, suave));
-        animRef.current = t >= 1 ? null : requestAnimationFrame(paso);
-        if (t >= 1 && finRef.current !== null) {
-          window.clearTimeout(finRef.current);
-          finRef.current = null;
-        }
-      };
-      animRef.current = requestAnimationFrame(paso);
-      // Red de seguridad: si el navegador frena los frames (pestaña en segundo
-      // plano, ventana tapada), la vista igual llega a destino.
-      finRef.current = window.setTimeout(() => {
-        cortarAnimacion();
-        setView(destino);
-      }, DURACION_MS + 80);
-    },
-    [sinMovimiento],
-  );
-
-  useEffect(() => () => {
-    cortarAnimacion();
-    if (avisoRef.current !== null) window.clearTimeout(avisoRef.current);
-  }, []);
-
-  /** Posición del cliente → coordenadas del viewBox (fuera del grupo transformado). */
-  const aSvg = useCallback((clientX: number, clientY: number) => {
-    const svg = svgRef.current;
-    const ctm = svg?.getScreenCTM();
-    if (!svg || !ctm) return { x: W / 2, y: H / 2 };
-    const p = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
-    return { x: p.x, y: p.y };
-  }, [W, H]);
-
-  /** Unidades del viewBox por píxel de pantalla. */
-  const unidadesPorPx = () => {
-    const ctm = svgRef.current?.getScreenCTM();
-    return ctm ? 1 / ctm.a : 1;
-  };
-
-  const acercar = (factor: number, px = W / 2, py = H / 2, animar = true) =>
-    irA(zoomAt(viewRef.current, factor, px, py, W, H), animar);
-  const restablecer = () => irA(IDENTITY_VIEW);
+  // Vista y gestos viven en sus hooks (SRP); acá queda el dibujo.
+  const { view, setView, viewRef, irA, cortarAnimacion, acercar, restablecer } = useMapView({
+    width: W,
+    height: H,
+    reducedMotion: sinMovimiento,
+  });
+  const { aviso, handlers } = useMapGestures({
+    svgRef,
+    width: W,
+    height: H,
+    viewRef,
+    setView,
+    irA,
+    cortarAnimacion,
+    acercar,
+    restablecer,
+  });
 
   // Centrar una localidad pedida desde el Top 5 o la tabla.
   useEffect(() => {
     if (!centerRequest) return;
     const lugar = TODAS.find((t) => t.id === centerRequest.id);
     if (!lugar) return;
-    irA(centerOn(lugar.x, lugar.y, Math.max(viewRef.current.k, FOCUS_ZOOM), W, H));
-  }, [centerRequest, irA, W, H]);
-
-  // ---------- Rueda (Ctrl/⌘ + rueda) y pellizco ----------
-  //
-  // Van con listeners nativos porque React registra `wheel` y `touchmove` como
-  // pasivos y acá hace falta `preventDefault`: con Ctrl + rueda el navegador
-  // haría zoom de la página entera, y con dos dedos la desplazaría.
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const alRodar = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const p = aSvg(e.clientX, e.clientY);
-        irA(zoomAt(viewRef.current, Math.exp(-e.deltaY * 0.0025), p.x, p.y, W, H), false);
-        return;
-      }
-      // Rueda sola: la página sigue scrolleando; sólo se avisa cómo acercar.
-      setAviso(true);
-      if (avisoRef.current !== null) window.clearTimeout(avisoRef.current);
-      avisoRef.current = window.setTimeout(() => setAviso(false), 1400);
-    };
-    const alMoverDedos = (e: TouchEvent) => {
-      if (e.touches.length >= 2) e.preventDefault();
-    };
-    svg.addEventListener('wheel', alRodar, { passive: false });
-    svg.addEventListener('touchmove', alMoverDedos, { passive: false });
-    return () => {
-      svg.removeEventListener('wheel', alRodar);
-      svg.removeEventListener('touchmove', alMoverDedos);
-    };
-  }, [aSvg, irA, W, H]);
-
-  // ---------- Arrastre (mouse) y pellizco (dos dedos) ----------
-
-  const dedos = useRef(new Map<number, { x: number; y: number }>());
-  const pellizco = useRef<{ dist: number; mid: { x: number; y: number } } | null>(null);
-  const arrastre = useRef<{ id: number; x: number; y: number; movio: boolean } | null>(null);
-  const suprimirClic = useRef(false);
-
-  const datosPellizco = () => {
-    const [a, b] = [...dedos.current.values()];
-    if (!a || !b) return null;
-    return {
-      dist: Math.hypot(a.x - b.x, a.y - b.y),
-      mid: aSvg((a.x + b.x) / 2, (a.y + b.y) / 2),
-    };
-  };
-
-  const alBajar = (e: PointerEvent<SVGSVGElement>) => {
-    if (e.pointerType === 'touch') {
-      dedos.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (dedos.current.size === 2) {
-        cortarAnimacion();
-        pellizco.current = datosPellizco();
-      }
-      return;
-    }
-    if (e.button !== 0 || viewRef.current.k <= MIN_ZOOM) return;
-    cortarAnimacion();
-    arrastre.current = { id: e.pointerId, x: e.clientX, y: e.clientY, movio: false };
-  };
-
-  const alMover = (e: PointerEvent<SVGSVGElement>) => {
-    if (e.pointerType === 'touch') {
-      if (!dedos.current.has(e.pointerId)) return;
-      dedos.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      const antes = pellizco.current;
-      const ahora = datosPellizco();
-      if (!antes || !ahora || antes.dist === 0) return;
-      let v = zoomAt(viewRef.current, ahora.dist / antes.dist, ahora.mid.x, ahora.mid.y, W, H);
-      v = panBy(v, ahora.mid.x - antes.mid.x, ahora.mid.y - antes.mid.y, W, H);
-      setView(v);
-      pellizco.current = ahora;
-      suprimirClic.current = true;
-      return;
-    }
-    const a = arrastre.current;
-    if (!a || a.id !== e.pointerId) return;
-    const dx = e.clientX - a.x;
-    const dy = e.clientY - a.y;
-    if (!a.movio && Math.hypot(dx, dy) < 4) return;
-    if (!a.movio) {
-      a.movio = true;
-      // La captura recién ahora: capturar en el pointerdown mandaría el clic
-      // al <svg> y ninguna localidad respondería.
-      e.currentTarget.setPointerCapture(e.pointerId);
-    }
-    const u = unidadesPorPx();
-    setView(panBy(viewRef.current, dx * u, dy * u, W, H));
-    a.x = e.clientX;
-    a.y = e.clientY;
-  };
-
-  const alSoltar = (e: PointerEvent<SVGSVGElement>) => {
-    if (e.pointerType === 'touch') {
-      dedos.current.delete(e.pointerId);
-      if (dedos.current.size < 2) pellizco.current = null;
-      if (dedos.current.size === 0) window.setTimeout(() => (suprimirClic.current = false), 0);
-      return;
-    }
-    const a = arrastre.current;
-    if (a?.movio) {
-      suprimirClic.current = true;
-      window.setTimeout(() => (suprimirClic.current = false), 0);
-    }
-    arrastre.current = null;
-  };
-
-  const alClicCaptura = (e: MouseEvent<SVGSVGElement>) => {
-    if (suprimirClic.current) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-  };
-
-  const alDobleClic = (e: MouseEvent<SVGSVGElement>) => {
-    const p = aSvg(e.clientX, e.clientY);
-    acercar(2, p.x, p.y);
-  };
-
-  const alTeclado = (e: KeyboardEvent<SVGSVGElement>) => {
-    const v = viewRef.current;
-    const mover = (dx: number, dy: number) => {
-      if (v.k <= MIN_ZOOM) return;
-      e.preventDefault();
-      irA(panBy(v, dx, dy, W, H));
-    };
-    switch (e.key) {
-      case '+':
-      case '=':
-        e.preventDefault();
-        acercar(ZOOM_STEP);
-        break;
-      case '-':
-      case '_':
-        e.preventDefault();
-        acercar(1 / ZOOM_STEP);
-        break;
-      case '0':
-        e.preventDefault();
-        restablecer();
-        break;
-      case 'ArrowLeft':
-        mover(PASO_FLECHA, 0);
-        break;
-      case 'ArrowRight':
-        mover(-PASO_FLECHA, 0);
-        break;
-      case 'ArrowUp':
-        mover(0, PASO_FLECHA);
-        break;
-      case 'ArrowDown':
-        mover(0, -PASO_FLECHA);
-        break;
-    }
-  };
+    // El zoom actual se lee del ref: centrar no debe re-dispararse con cada cambio de vista.
+    const actual = viewRef.current;
+    irA(centerOn(lugar.x, lugar.y, Math.max(actual.k, FOCUS_ZOOM), W, H));
+  }, [centerRequest, irA, viewRef, W, H]);
 
   // ---------- Geometría en pantalla ----------
 
   // Píxeles de pantalla por unidad del viewBox: los marcadores, anillos y
   // rótulos se miden en píxeles (`u` los pasa a unidades).
-  const [pxPorUnidad, setPxPorUnidad] = useState(0.65);
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const medir = () => {
-      const r = svg.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) setPxPorUnidad(Math.min(r.width / W, r.height / H));
-    };
-    medir();
-    const obs = new ResizeObserver(medir);
-    obs.observe(svg);
-    return () => obs.disconnect();
-  }, [W, H]);
+  // Hasta la primera medición se usa 0,65 (el tamaño típico en escritorio).
+  const tamSvg = useElementSize(svgRef);
+  const pxPorUnidad = tamSvg.width > 0 ? Math.min(tamSvg.width / W, tamSvg.height / H) : 0.65;
   const u = 1 / pxPorUnidad;
   const tamLocalidad = PX.rotuloLocalidad * u;
   const tamDepto = PX.rotuloDepto * u;
@@ -526,13 +292,7 @@ export function ImpactMapSvg({
         tabIndex={0}
         role="group"
         aria-label={`Mapa de calor de ${metricInfo(metric).plural} por localidad; la tabla de más abajo tiene los mismos datos. Con el mapa enfocado: más y menos acercan, cero restablece y las flechas desplazan. Recorré las localidades con Tab y abrí el detalle con Enter.`}
-        onKeyDown={alTeclado}
-        onPointerDown={alBajar}
-        onPointerMove={alMover}
-        onPointerUp={alSoltar}
-        onPointerCancel={alSoltar}
-        onClickCapture={alClicCaptura}
-        onDoubleClick={alDobleClic}
+        {...handlers}
       >
         <defs>
           {/* Recorte estricto: el calor no se pinta fuera de Formosa. */}
