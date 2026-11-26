@@ -121,9 +121,10 @@ const leer = (relativo) => readFile(path.join(SRC, relativo), 'utf8');
 const CRUDO_TITULO = /`\$\{competition\.discipline\?\.name\} - \$\{competition\.category\?\.name\}`/;
 
 {
-  const f = await leer('pages/admin/DisciplinesAdminPage.tsx');
+  // Las columnas salieron de la página a su archivo en la Fase 7.
+  const f = await leer('pages/admin/disciplines/disciplineColumns.tsx');
   comprobar(
-    'DisciplinesAdminPage usa rangoJugadores',
+    'la tabla de disciplinas usa rangoJugadores',
     f.includes('rangoJugadores(') && !f.includes('${discipline.minPlayers} - ${discipline.maxPlayers}'),
   );
 }

@@ -89,7 +89,7 @@ export function EventScheduleFields({ form }: { form: CalendarEventFormApi }) {
   const previewText = formatHumanReadableRange(
     watchStartDate,
     watchStartTime,
-    watchHasEndDate,
+    watchHasEndDate ?? false,
     form.watch('endDate'),
     form.watch('endTime')
   );
@@ -205,7 +205,7 @@ export function EventScheduleFields({ form }: { form: CalendarEventFormApi }) {
                     <FormLabel className="text-xs font-semibold text-primary-800">Hora de Fin</FormLabel>
                     <FormControl>
                       <ClockTimePicker
-                        value={field.value}
+                        value={field.value ?? undefined}
                         onChange={(time) => field.onChange(time)}
                       />
                     </FormControl>

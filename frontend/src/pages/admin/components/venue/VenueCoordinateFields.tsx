@@ -41,7 +41,7 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
                   name={field.name}
                   ref={field.ref}
                   onBlur={field.onBlur}
-                  value={field.value}
+                  value={typeof field.value === 'number' ? field.value : undefined}
                   onValueChange={field.onChange}
                 />
               </FormControl>
@@ -69,7 +69,7 @@ export function VenueCoordinateFields({ form }: { form: VenueFormApi }) {
                   name={field.name}
                   ref={field.ref}
                   onBlur={field.onBlur}
-                  value={field.value}
+                  value={typeof field.value === 'number' ? field.value : undefined}
                   onValueChange={field.onChange}
                 />
               </FormControl>

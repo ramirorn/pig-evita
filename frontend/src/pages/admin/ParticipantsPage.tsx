@@ -1,16 +1,15 @@
 // ===========================================
 // Participants Admin Page
 // ===========================================
-import { useState } from 'react';
-import { Users, Plus } from 'lucide-react';
-import { useParticipants } from '@/hooks/useParticipants';
+import { useMemo } from 'react';
+import { Users, Plus, Loader2 } from 'lucide-react';
+import { useParticipant, useParticipants } from '@/hooks/useParticipants';
 import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { useAllCategories } from '@/hooks/useCategories';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePermisos } from '@/hooks/usePermisos';
-import type { Participant } from '@/types';
+import { useCrudPageState } from '@/hooks/useCrudPageState';
 import { ParticipantForm } from './components/ParticipantForm';
-import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { createParticipantColumns } from './participants/participantColumns';
@@ -34,12 +33,16 @@ export function ParticipantsPage() {
   // R22 — el alta excluye a COORDINADOR y la edición además a ADMIN_ZONAL,
   // aunque los cuatro roles vean esta pantalla.
   const { puede, puedeFiltrarPorDepartamento } = usePermisos();
-  const [filters, setFilters] = useState<ParticipantListFilters>(EMPTY_PARTICIPANT_FILTERS);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingParticipant, setEditingParticipant] = useState<Participant | undefined>();
+  // Se edita por id y no con la fila: el listado trae sólo las columnas de la tabla
+  // (sin domicilio ni contacto), así que editar desde la fila borraba esos datos
+  // al guardar. El form recibe el detalle completo (paso 1.8).
+  const crud = useCrudPageState<string, ParticipantListFilters>(EMPTY_PARTICIPANT_FILTERS);
+  const { filters, page, limit, editing: editingId } = crud;
+  const {
+    data: editingParticipant,
+    isError: isDetailError,
+    refetch: refetchDetail,
+  } = useParticipant(editingId ?? '');
 
   // Los selectores del toolbar recorren la paginación hasta el final (S06):
   // con el hook paginado ofrecían como mucho 20 opciones.
@@ -72,39 +75,17 @@ export function ParticipantsPage() {
   // buscó mal) del vacío-sin-datos (el padrón está vacío de verdad).
   const hasActiveFilters = hasActiveParticipantFilters(filters);
 
-  // Tocar cualquier filtro vuelve a la primera página: el resultado es otro y
-  // la página en la que estabas puede ya no existir.
-  const patchFilters = (patch: Partial<ParticipantListFilters>) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
-    setPage(1);
-  };
-
-  const clearFilters = () => {
-    setFilters(EMPTY_PARTICIPANT_FILTERS);
-    setPage(1);
-  };
-
-  const handleCreate = () => {
-    setEditingParticipant(undefined);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingParticipant(undefined);
-  };
-
-  const columns = createParticipantColumns({
-    // Sin permiso no se pasa el handler: la columna directamente no arma el
-    // menú de acciones, en vez de mostrarlo deshabilitado. Un "Editar" gris con
-    // tooltip sigue insinuando que el rol podría llegar a poder.
-    onEdit: puede('PARTICIPANT_UPDATE')
-      ? (participant) => {
-          setEditingParticipant(participant);
-          setIsModalOpen(true);
-        }
-      : undefined,
-  });
+  // Sin permiso no se pasa el handler: la columna directamente no arma el menú
+  // de acciones, en vez de mostrarlo deshabilitado. Memoizadas para no
+  // re-renderizar todas las celdas en cada tecla de un filtro.
+  const { openEdit } = crud;
+  const columns = useMemo(
+    () =>
+      createParticipantColumns({
+        onEdit: puede('PARTICIPANT_UPDATE') ? (participant) => openEdit(participant.id) : undefined,
+      }),
+    [puede, openEdit],
+  );
 
   return (
     <div className="space-y-6">
@@ -114,7 +95,7 @@ export function ParticipantsPage() {
         icon={<Users className="w-5 h-5 text-white" />}
         actions={
           puede('PARTICIPANT_CREATE') ? (
-            <Button onClick={handleCreate} className="gap-2">
+            <Button onClick={crud.openCreate} className="gap-2">
               <Plus className="w-4 h-4" />
               Nuevo Participante
             </Button>
@@ -138,19 +119,16 @@ export function ParticipantsPage() {
         isError={isError}
         onRetry={() => void refetch()}
         meta={participantsData?.meta}
-        onPageChange={setPage}
-        onLimitChange={(newLimit) => {
-          setLimit(newLimit);
-          setPage(1);
-        }}
+        onPageChange={crud.setPage}
+        onLimitChange={crud.changeLimit}
         hasActiveFilters={hasActiveFilters}
-        onClearFilters={clearFilters}
+        onClearFilters={crud.clearFilters}
         emptyIcon={<Users className="w-10 h-10" />}
         emptyTitle="Todavía no hay participantes"
         emptyDescription="Registrá al primer deportista o entrenador para empezar a armar el padrón."
         emptyAction={
           puede('PARTICIPANT_CREATE') ? (
-            <Button onClick={handleCreate} className="gap-2">
+            <Button onClick={crud.openCreate} className="gap-2">
               <Plus className="w-4 h-4" /> Crear Participante
             </Button>
           ) : undefined
@@ -158,7 +136,7 @@ export function ParticipantsPage() {
         toolbar={
           <ParticipantsToolbar
             filters={filters}
-            onChange={patchFilters}
+            onChange={crud.patchFilters}
             mostrarFiltroDepartamento={puedeFiltrarPorDepartamento}
             disciplines={disciplines ?? []}
             categories={categories ?? []}
@@ -166,18 +144,31 @@ export function ParticipantsPage() {
         }
       />
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={crud.isFormOpen} onOpenChange={crud.onFormOpenChange}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingParticipant ? 'Editar Participante' : 'Nuevo Participante'}
+              {editingId ? 'Editar Participante' : 'Nuevo Participante'}
             </DialogTitle>
           </DialogHeader>
-          <ParticipantForm
-            initialData={editingParticipant}
-            onSuccess={closeModal}
-            onCancel={closeModal}
-          />
+          {editingId && isDetailError ? (
+            <div className="space-y-3 py-6 text-center" role="alert">
+              <p className="text-sm text-primary-700">No se pudo cargar el participante.</p>
+              <Button variant="outline" onClick={() => void refetchDetail()}>
+                Reintentar
+              </Button>
+            </div>
+          ) : editingId && !editingParticipant ? (
+            <div className="flex justify-center py-10" role="status" aria-label="Cargando participante">
+              <Loader2 className="w-6 h-6 animate-spin text-primary-600" />
+            </div>
+          ) : (
+            <ParticipantForm
+              initialData={editingId ? editingParticipant : undefined}
+              onSuccess={crud.closeForm}
+              onCancel={crud.closeForm}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

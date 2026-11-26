@@ -4,9 +4,9 @@
 import { useEffect } from 'react';
 import {
   useForm,
-  type Resolver,
   type SubmitHandler,
 } from 'react-hook-form';
+import type { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   surveyCampaignSchema,
@@ -69,10 +69,10 @@ export function useSurveyCampaignForm({ initialData, onSuccess }: Opciones) {
   const createMutation = useCreateSurveyCampaign();
   const updateMutation = useUpdateSurveyCampaign();
 
-  const form = useForm<SurveyCampaignFormValues>({
-    // Mismo cast acotado que `useCalendarEventForm`: el schema tiene `.default()`,
-    // así que los tipos de entrada y salida de Zod difieren y RHF sólo expone dos.
-    resolver: zodResolver(surveyCampaignSchema) as Resolver<SurveyCampaignFormValues>,
+  const form = useForm<z.input<typeof surveyCampaignSchema>, unknown, SurveyCampaignFormValues>({
+    // Entrada y salida de Zod difieren (`.default()`, `.transform()`): se
+    // tipan las dos con los tres genéricos de `useForm`, sin cast (M1).
+    resolver: zodResolver(surveyCampaignSchema),
     defaultValues: valoresIniciales(initialData),
   });
 

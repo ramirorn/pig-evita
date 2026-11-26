@@ -50,6 +50,70 @@ const OPCIONES_ENTIDAD = AUDIT_ENTITY_FILTERS.map((valor) => ({
   etiqueta: etiquetaEntidad(valor),
 })).sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, 'es'));
 
+// Las columnas no dependen del estado de la página: se definen una vez a nivel
+// de módulo y el DataTable no las recibe nuevas en cada render.
+const COLUMNS: DataTableColumn<AuditLogRow>[] = [
+  {
+    id: 'timestamp',
+    header: 'Fecha y hora',
+    className: 'text-primary-600 font-mono text-xs tabular-nums',
+    mobile: 'secondary',
+    cell: (log) => formatDateTime(log.createdAt),
+  },
+  {
+    id: 'user',
+    header: 'Usuario',
+    className: 'font-medium text-primary-900',
+    mobile: 'primary',
+    cell: (log) => {
+      const autor = autorAuditoria(log.user);
+      return (
+        <div className="min-w-0">
+          <span className="block truncate">{autor.nombre}</span>
+          {autor.email && (
+            <span className="block truncate text-xs font-normal text-primary-500">
+              {autor.email}
+            </span>
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    id: 'action',
+    header: 'Acción',
+    mobile: 'secondary',
+    cell: (log) => (
+      <Badge variant="outline" className={CLASES_TONO[tonoAccion(log.action)]}>
+        {etiquetaAccion(log.action)}
+      </Badge>
+    ),
+  },
+  {
+    id: 'entity',
+    header: 'Entidad',
+    className: 'text-primary-600',
+    mobile: 'secondary',
+    cell: (log) => etiquetaEntidad(log.entity),
+  },
+  {
+    id: 'details',
+    header: 'Detalles',
+    className: 'text-primary-800',
+    mobile: 'secondary',
+    cell: (log) => (
+      <div className="min-w-0 text-xs">
+        <span className="block font-mono truncate">
+          {log.entityId ? `Registro ${log.entityId.slice(0, 8)}` : 'Sin registro asociado'}
+        </span>
+        {log.ipAddress && (
+          <span className="block text-primary-500">IP {log.ipAddress}</span>
+        )}
+      </div>
+    ),
+  },
+];
+
 export function AuditPage() {
   const [action, setAction] = useState(TODAS);
   const [entity, setEntity] = useState(TODAS);
@@ -86,68 +150,6 @@ export function AuditPage() {
     setPage(1);
   };
 
-  const columns: DataTableColumn<AuditLogRow>[] = [
-    {
-      id: 'timestamp',
-      header: 'Fecha y hora',
-      className: 'text-primary-600 font-mono text-xs tabular-nums',
-      mobile: 'secondary',
-      cell: (log) => formatDateTime(log.createdAt),
-    },
-    {
-      id: 'user',
-      header: 'Usuario',
-      className: 'font-medium text-primary-900',
-      mobile: 'primary',
-      cell: (log) => {
-        const autor = autorAuditoria(log.user);
-        return (
-          <div className="min-w-0">
-            <span className="block truncate">{autor.nombre}</span>
-            {autor.email && (
-              <span className="block truncate text-xs font-normal text-primary-500">
-                {autor.email}
-              </span>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: 'action',
-      header: 'Acción',
-      mobile: 'secondary',
-      cell: (log) => (
-        <Badge variant="outline" className={CLASES_TONO[tonoAccion(log.action)]}>
-          {etiquetaAccion(log.action)}
-        </Badge>
-      ),
-    },
-    {
-      id: 'entity',
-      header: 'Entidad',
-      className: 'text-primary-600',
-      mobile: 'secondary',
-      cell: (log) => etiquetaEntidad(log.entity),
-    },
-    {
-      id: 'details',
-      header: 'Detalles',
-      className: 'text-primary-800',
-      mobile: 'secondary',
-      cell: (log) => (
-        <div className="min-w-0 text-xs">
-          <span className="block font-mono truncate">
-            {log.entityId ? `Registro ${log.entityId.slice(0, 8)}` : 'Sin registro asociado'}
-          </span>
-          {log.ipAddress && (
-            <span className="block text-primary-500">IP {log.ipAddress}</span>
-          )}
-        </div>
-      ),
-    },
-  ];
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -158,7 +160,7 @@ export function AuditPage() {
 
       <DataTable
         entityName="registros de auditoría"
-        columns={columns}
+        columns={COLUMNS}
         rows={data?.data ?? []}
         getRowId={(log) => log.id}
         isLoading={isLoading}

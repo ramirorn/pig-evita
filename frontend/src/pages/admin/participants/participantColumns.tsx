@@ -2,7 +2,7 @@
 // participantColumns — columnas de la tabla del padrón
 // ===========================================
 import { MoreVertical, Pencil } from 'lucide-react';
-import type { Participant } from '@/types';
+import type { ParticipantListItem } from '@/types';
 import type { DataTableColumn } from '@/components/shared/DataTable';
 import { SEX_LABELS } from '@/lib/constants';
 import { formatCalendarDate } from '@/lib/utils';
@@ -20,7 +20,7 @@ interface ParticipantColumnActions {
    * `PARTICIPANT_UPDATE`, la página no lo pasa y la columna de acciones no se
    * dibuja (R22).
    */
-  onEdit?: (participant: Participant) => void;
+  onEdit?: (participant: ParticipantListItem) => void;
 }
 
 /**
@@ -30,8 +30,8 @@ interface ParticipantColumnActions {
  */
 export function createParticipantColumns({
   onEdit,
-}: ParticipantColumnActions): DataTableColumn<Participant>[] {
-  const columnas: DataTableColumn<Participant>[] = [
+}: ParticipantColumnActions): DataTableColumn<ParticipantListItem>[] {
+  const columnas: DataTableColumn<ParticipantListItem>[] = [
     {
       id: 'dni',
       header: 'DNI',

@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/select';
 import { logError } from '@/lib/logger';
 
-type TeamFormValues = z.infer<typeof teamSchema>;
+type TeamFormValues = z.output<typeof teamSchema>;
 
 interface TeamFormProps {
   initialData?: Team;
@@ -47,8 +47,8 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
   // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
   const { data: disciplinesData } = useAllDisciplines({ isActive: true });
   
-  const form = useForm<TeamFormValues>({
-    resolver: zodResolver(teamSchema) as any,
+  const form = useForm<z.input<typeof teamSchema>, unknown, TeamFormValues>({
+    resolver: zodResolver(teamSchema),
     defaultValues: {
       name: '',
       disciplineId: '',
@@ -101,9 +101,9 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
@@ -118,7 +118,7 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="disciplineId"
             render={({ field }) => (
               <FormItem>
@@ -143,7 +143,7 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="categoryId"
             render={({ field }) => (
               <FormItem>
@@ -170,7 +170,7 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="department"
             render={({ field }) => (
               <FormItem>
@@ -184,7 +184,7 @@ export function TeamForm({ initialData, onSuccess, onCancel }: TeamFormProps) {
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="locality"
             render={({ field }) => (
               <FormItem>

@@ -2,7 +2,7 @@
 // Participants API
 // ===========================================
 import apiClient from './client';
-import type { Participant, PaginatedResponse } from '@/types';
+import type { Participant, ParticipantListItem, PaginatedResponse } from '@/types';
 
 export interface ParticipantFilters {
   page?: number;
@@ -31,8 +31,8 @@ export interface CreateParticipantPayload {
 export type UpdateParticipantPayload = Partial<CreateParticipantPayload>;
 
 export const participantsApi = {
-  async findAll(filters?: ParticipantFilters): Promise<PaginatedResponse<Participant>> {
-    const { data } = await apiClient.get<PaginatedResponse<Participant>>('/participants', { params: filters });
+  async findAll(filters?: ParticipantFilters): Promise<PaginatedResponse<ParticipantListItem>> {
+    const { data } = await apiClient.get<PaginatedResponse<ParticipantListItem>>('/participants', { params: filters });
     return data;
   },
 

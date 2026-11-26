@@ -1,7 +1,7 @@
 // ===========================================
 // Teams Admin Page
 // ===========================================
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { UsersRound, Plus } from 'lucide-react';
 import { useTeams, useDeleteTeam } from '@/hooks/useTeams';
 import type { Team } from '@/types';
@@ -10,7 +10,7 @@ import { useAllDisciplines } from '@/hooks/useDisciplines';
 import { useAllCategories } from '@/hooks/useCategories';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePermisos } from '@/hooks/usePermisos';
-import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
+import { useCrudPageState } from '@/hooks/useCrudPageState';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
@@ -36,13 +36,8 @@ export function TeamsAdminPage() {
   // R22 — COORDINADOR puede crear equipos y armar planteles, pero no editar ni
   // eliminar: el backend rechaza el PATCH y el DELETE.
   const { puede, puedeFiltrarPorDepartamento } = usePermisos();
-  const [filters, setFilters] = useState<TeamListFilters>(EMPTY_TEAM_FILTERS);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTeam, setEditingTeam] = useState<Team | undefined>();
-  const [deletingTeam, setDeletingTeam] = useState<Team | null>(null);
+  const crud = useCrudPageState<Team, TeamListFilters>(EMPTY_TEAM_FILTERS);
+  const { filters, page, limit, editing: editingTeam, deleting: deletingTeam } = crud;
 
   // Los selectores del toolbar recorren la paginación hasta el final (S06):
   // con el hook paginado ofrecían como mucho 20 opciones.
@@ -74,47 +69,27 @@ export function TeamsAdminPage() {
   // del vacío-sin-datos.
   const hasActiveFilters = hasActiveTeamFilters(filters);
 
-  // Tocar cualquier filtro vuelve a la primera página: el resultado es otro y
-  // la página en la que estabas puede ya no existir.
-  const patchFilters = (patch: Partial<TeamListFilters>) => {
-    setFilters((prev) => ({ ...prev, ...patch }));
-    setPage(1);
-  };
-
-  const clearFilters = () => {
-    setFilters(EMPTY_TEAM_FILTERS);
-    setPage(1);
-  };
-
-  const handleCreate = () => {
-    setEditingTeam(undefined);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingTeam(undefined);
-  };
-
   const handleDeleteConfirm = async () => {
     if (!deletingTeam) return;
     try {
       await deleteMutation.mutateAsync(deletingTeam.id);
-      setDeletingTeam(null);
+      crud.cancelDelete();
     } catch (error) {
       logError('TeamsAdminPage.handleDeleteConfirm', error);
     }
   };
 
-  const columns = createTeamColumns({
-    onEdit: puede('TEAM_UPDATE')
-      ? (team) => {
-          setEditingTeam(team);
-          setIsModalOpen(true);
-        }
-      : undefined,
-    onDelete: puede('TEAM_DELETE') ? setDeletingTeam : undefined,
-  });
+  // Memoizadas: sin esto el DataTable recibía columnas nuevas en cada render
+  // (cada tecla en un filtro) y re-renderizaba todas las celdas.
+  const { openEdit, askDelete } = crud;
+  const columns = useMemo(
+    () =>
+      createTeamColumns({
+        onEdit: puede('TEAM_UPDATE') ? openEdit : undefined,
+        onDelete: puede('TEAM_DELETE') ? askDelete : undefined,
+      }),
+    [puede, openEdit, askDelete],
+  );
 
   return (
     <div className="space-y-6">
@@ -124,7 +99,7 @@ export function TeamsAdminPage() {
         icon={<UsersRound className="w-5 h-5 text-white" />}
         actions={
           puede('TEAM_CREATE') ? (
-            <Button onClick={handleCreate} className="gap-2">
+            <Button onClick={crud.openCreate} className="gap-2">
               <Plus className="w-4 h-4" />
               Nuevo Equipo
             </Button>
@@ -143,19 +118,16 @@ export function TeamsAdminPage() {
         isError={isError}
         onRetry={() => void refetch()}
         meta={teamsData?.meta}
-        onPageChange={setPage}
-        onLimitChange={(newLimit) => {
-          setLimit(newLimit);
-          setPage(1);
-        }}
+        onPageChange={crud.setPage}
+        onLimitChange={crud.changeLimit}
         hasActiveFilters={hasActiveFilters}
-        onClearFilters={clearFilters}
+        onClearFilters={crud.clearFilters}
         emptyIcon={<UsersRound className="w-10 h-10" />}
         emptyTitle="Todavía no hay equipos"
         emptyDescription="Registrá el primer equipo para empezar a armar las listas de buena fe."
         emptyAction={
           puede('TEAM_CREATE') ? (
-            <Button onClick={handleCreate} className="gap-2">
+            <Button onClick={crud.openCreate} className="gap-2">
               <Plus className="w-4 h-4" /> Crear Equipo
             </Button>
           ) : undefined
@@ -163,7 +135,7 @@ export function TeamsAdminPage() {
         toolbar={
           <TeamsToolbar
             filters={filters}
-            onChange={patchFilters}
+            onChange={crud.patchFilters}
             mostrarFiltroDepartamento={puedeFiltrarPorDepartamento}
             disciplines={disciplines ?? []}
             categories={categories ?? []}
@@ -171,7 +143,7 @@ export function TeamsAdminPage() {
         }
       />
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={crud.isFormOpen} onOpenChange={crud.onFormOpenChange}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>
@@ -180,8 +152,8 @@ export function TeamsAdminPage() {
           </DialogHeader>
           <TeamForm
             initialData={editingTeam}
-            onSuccess={closeModal}
-            onCancel={closeModal}
+            onSuccess={crud.closeForm}
+            onCancel={crud.closeForm}
           />
         </DialogContent>
       </Dialog>
@@ -192,7 +164,7 @@ export function TeamsAdminPage() {
         description={`¿Estás seguro de que deseas eliminar el equipo "${deletingTeam?.name}"? Si ya posee partidos o inscripciones jugadas, pasará a estado Inactivo.`}
         isLoading={deleteMutation.isPending}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeletingTeam(null)}
+        onCancel={crud.cancelDelete}
       />
     </div>
   );

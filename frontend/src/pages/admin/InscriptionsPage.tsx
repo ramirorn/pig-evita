@@ -21,6 +21,82 @@ import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
 import { InscriptionStatusBadge } from '@/components/shared/InscriptionStatusBadge';
 import { DEFAULT_PAGE_SIZE, ROUTES } from '@/lib/constants';
 
+// Las columnas no dependen del estado de la página: se definen una vez a nivel
+// de módulo y el DataTable no las recibe nuevas en cada render.
+const COLUMNS: DataTableColumn<Inscription>[] = [
+  {
+    id: 'qr',
+    header: 'Código QR',
+    mobile: 'secondary',
+    // Identidad de la fila. No lleva link primario: la navegación al detalle
+    // ya la ofrece el botón "Revisar", y la spec pide un solo `<a>` por fila.
+    rowHeader: true,
+    className: 'font-mono font-medium text-primary-600',
+    headClassName: 'min-w-[140px]',
+    cell: (inscription) => inscription.qrCode,
+  },
+  {
+    id: 'applicant',
+    header: 'Solicitante',
+    mobile: 'primary',
+    headClassName: 'min-w-[200px]',
+    cell: (inscription) => (
+      <>
+        <div className="font-medium text-primary-900">
+          {inscription.participant?.lastName}, {inscription.participant?.firstName}
+        </div>
+        <div className="text-xs text-primary-500">DNI <span className="tabular-nums">{inscription.participant?.dni}</span></div>
+      </>
+    ),
+  },
+  {
+    id: 'category',
+    header: 'Categoría',
+    mobile: 'secondary',
+    className: 'text-primary-600',
+    cell: (inscription) => inscription.category?.name,
+  },
+  {
+    id: 'team',
+    header: 'Equipo',
+    mobile: 'secondary',
+    cell: (inscription) =>
+      inscription.team ? (
+        <span className="font-medium text-primary-700">{inscription.team.name}</span>
+      ) : (
+        // `primary-400` daba 3.75:1 sobre blanco (falla AA); `primary-500`
+        // llega a 6.52:1 y la itálica conserva el matiz de "no aplica".
+        <span className="text-primary-500 italic">Individual</span>
+      ),
+  },
+  {
+    id: 'status',
+    header: 'Estado',
+    mobile: 'secondary',
+    // El badge memoizado de T26: la tabla se re-renderiza en cada tecla del
+    // buscador y sus props son primitivas, así que el `memo` evita N renders.
+    cell: (inscription) => <InscriptionStatusBadge status={inscription.status} />,
+  },
+  {
+    id: 'action',
+    header: 'Acción',
+    mobile: 'actions',
+    interactive: true,
+    headClassName: 'text-right w-[110px]',
+    className: 'text-right',
+    cell: (inscription) => (
+      // Antes era `<Link><Button/></Link>`: un `<button>` dentro de un `<a>`,
+      // anidado inválido. `asChild` deja un único `<a>` con estilo de botón.
+      <Button asChild variant="outline" size="sm">
+        <Link to={`/admin/inscripciones/${inscription.id}`}>
+          Revisar
+          <span className="sr-only"> la inscripción {inscription.qrCode}</span>
+        </Link>
+      </Button>
+    ),
+  },
+];
+
 export function InscriptionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -55,80 +131,6 @@ export function InscriptionsPage() {
     setPage(1);
   };
 
-  const columns: DataTableColumn<Inscription>[] = [
-    {
-      id: 'qr',
-      header: 'Código QR',
-      mobile: 'secondary',
-      // Identidad de la fila. No lleva link primario: la navegación al detalle
-      // ya la ofrece el botón "Revisar", y la spec pide un solo `<a>` por fila.
-      rowHeader: true,
-      className: 'font-mono font-medium text-primary-600',
-      headClassName: 'min-w-[140px]',
-      cell: (inscription) => inscription.qrCode,
-    },
-    {
-      id: 'applicant',
-      header: 'Solicitante',
-      mobile: 'primary',
-      headClassName: 'min-w-[200px]',
-      cell: (inscription) => (
-        <>
-          <div className="font-medium text-primary-900">
-            {inscription.participant?.lastName}, {inscription.participant?.firstName}
-          </div>
-          <div className="text-xs text-primary-500">DNI <span className="tabular-nums">{inscription.participant?.dni}</span></div>
-        </>
-      ),
-    },
-    {
-      id: 'category',
-      header: 'Categoría',
-      mobile: 'secondary',
-      className: 'text-primary-600',
-      cell: (inscription) => inscription.category?.name,
-    },
-    {
-      id: 'team',
-      header: 'Equipo',
-      mobile: 'secondary',
-      cell: (inscription) =>
-        inscription.team ? (
-          <span className="font-medium text-primary-700">{inscription.team.name}</span>
-        ) : (
-          // `primary-400` daba 3.75:1 sobre blanco (falla AA); `primary-500`
-          // llega a 6.52:1 y la itálica conserva el matiz de "no aplica".
-          <span className="text-primary-500 italic">Individual</span>
-        ),
-    },
-    {
-      id: 'status',
-      header: 'Estado',
-      mobile: 'secondary',
-      // El badge memoizado de T26: la tabla se re-renderiza en cada tecla del
-      // buscador y sus props son primitivas, así que el `memo` evita N renders.
-      cell: (inscription) => <InscriptionStatusBadge status={inscription.status} />,
-    },
-    {
-      id: 'action',
-      header: 'Acción',
-      mobile: 'actions',
-      interactive: true,
-      headClassName: 'text-right w-[110px]',
-      className: 'text-right',
-      cell: (inscription) => (
-        // Antes era `<Link><Button/></Link>`: un `<button>` dentro de un `<a>`,
-        // anidado inválido. `asChild` deja un único `<a>` con estilo de botón.
-        <Button asChild variant="outline" size="sm">
-          <Link to={`/admin/inscripciones/${inscription.id}`}>
-            Revisar
-            <span className="sr-only"> la inscripción {inscription.qrCode}</span>
-          </Link>
-        </Button>
-      ),
-    },
-  ];
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -146,7 +148,7 @@ export function InscriptionsPage() {
 
       <DataTable
         entityName="inscripciones"
-        columns={columns}
+        columns={COLUMNS}
         rows={rows}
         getRowId={(inscription) => inscription.id}
         isLoading={isLoading}

@@ -2,13 +2,16 @@
 // useCalendarEventForm — estado y envío del formulario de eventos
 // ===========================================
 import { useEffect } from 'react';
-import { useForm, type Resolver, type SubmitHandler, type UseFormReturn } from 'react-hook-form';
+import { useForm, type SubmitHandler, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as z from 'zod';
 import { calendarEventSchema } from '@/schemas';
 import type { CalendarEvent } from '@/types';
 import { CompetitionStage } from '@/types';
 import { useCreateCalendarEvent, useUpdateCalendarEvent } from '@/hooks/useCalendar';
+
+/** Lo que el form maneja antes de validar (el schema tiene `.default()`/`.transform()`). */
+type CalendarEventFormInput = z.input<typeof calendarEventSchema>;
 
 export type CalendarEventFormValues = z.infer<typeof calendarEventSchema>;
 
@@ -20,7 +23,7 @@ export type CalendarEventFormValues = z.infer<typeof calendarEventSchema>;
  * (los atajos de hora escriben con `setValue` leyendo con `getValues`), así que
  * enumerarlas sería una lista de props que crece con cada atajo nuevo.
  */
-export type CalendarEventFormApi = UseFormReturn<CalendarEventFormValues>;
+export type CalendarEventFormApi = UseFormReturn<CalendarEventFormInput, unknown, CalendarEventFormValues>;
 
 /** Parte un ISO del backend en los dos campos separados que muestra el form. */
 function splitIso(iso?: string | null, defaultTime = '09:00'): { date: string; time: string } {
@@ -71,11 +74,10 @@ export function useCalendarEventForm({ initialData, onSuccess }: UseCalendarEven
   const createMutation = useCreateCalendarEvent();
   const updateMutation = useUpdateCalendarEvent();
 
-  const form = useForm<CalendarEventFormValues>({
-    // El schema tiene `.default()`, así que los tipos de entrada y salida de Zod
-    // difieren. RHF sólo lo modela con tres genéricos y `FormField` (shadcn)
-    // expone dos: el cast queda acotado acá en vez de repetirse en cada campo.
-    resolver: zodResolver(calendarEventSchema) as Resolver<CalendarEventFormValues>,
+  const form = useForm<CalendarEventFormInput, unknown, CalendarEventFormValues>({
+    // Entrada y salida de Zod difieren (`.default()`, `.transform()`): se
+    // tipan las dos con los tres genéricos de `useForm`, sin cast (M1).
+    resolver: zodResolver(calendarEventSchema),
     defaultValues: buildDefaultValues(initialData),
   });
 

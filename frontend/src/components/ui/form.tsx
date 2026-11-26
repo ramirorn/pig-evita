@@ -29,12 +29,17 @@ const FormFieldContext = React.createContext<FormFieldContextValue>(
   {} as FormFieldContextValue
 )
 
+// `TTransformedValues`: el tipo de salida del resolver. Con un schema de Zod
+// con `.default()` o `.transform()`, entrada y salida difieren; sin este
+// genérico, `control` de un `useForm<In, unknown, Out>` no encaja y había que
+// castear a `any` en cada campo (M1).
 const FormField = <
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
+  TTransformedValues = TFieldValues,
 >({
   ...props
-}: ControllerProps<TFieldValues, TName>) => {
+}: ControllerProps<TFieldValues, TName, TTransformedValues>) => {
   return (
     <FormFieldContext.Provider value={{ name: props.name }}>
       <Controller {...props} />

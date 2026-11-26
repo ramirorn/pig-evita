@@ -2,12 +2,16 @@
 // useVenueForm — estado y envío del formulario de sedes
 // ===========================================
 import { useEffect } from 'react';
-import { useForm, type Resolver, type SubmitHandler, type UseFormReturn } from 'react-hook-form';
+import { useForm, type SubmitHandler, type UseFormReturn } from 'react-hook-form';
+import type { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { venueSchema, type VenueFormValues } from '@/schemas';
 import type { Venue } from '@/types';
 import { useCreateVenue, useUpdateVenue } from '@/hooks/useVenues';
 import { logError } from '@/lib/logger';
+
+/** Lo que el form maneja antes de validar (el schema tiene `.default()`/`.transform()`). */
+type VenueFormInput = z.input<typeof venueSchema>;
 
 /**
  * Tipo del objeto de RHF que se pasa a las secciones de campos como un único
@@ -15,7 +19,7 @@ import { logError } from '@/lib/logger';
  * `control` y podrían necesitar `watch`, y enumerar cada pedazo como prop
  * suelto haría crecer la lista con cada campo nuevo.
  */
-export type VenueFormApi = UseFormReturn<VenueFormValues>;
+export type VenueFormApi = UseFormReturn<VenueFormInput, unknown, VenueFormValues>;
 
 /** Valores iniciales del form a partir de la sede que se está editando (o vacío). */
 function buildDefaultValues(initialData?: Venue): VenueFormValues {
@@ -52,10 +56,10 @@ export function useVenueForm({ initialData, onSuccess }: UseVenueFormOptions) {
   const createMutation = useCreateVenue();
   const updateMutation = useUpdateVenue();
 
-  const form = useForm<VenueFormValues>({
-    // El schema tiene `.default()`, así que los tipos de entrada y salida de Zod
-    // difieren. El cast queda acotado acá en vez de repetirse en cada campo.
-    resolver: zodResolver(venueSchema) as Resolver<VenueFormValues>,
+  const form = useForm<VenueFormInput, unknown, VenueFormValues>({
+    // Entrada y salida de Zod difieren (`.default()`, `.transform()`): se
+    // tipan las dos con los tres genéricos de `useForm`, sin cast (M1).
+    resolver: zodResolver(venueSchema),
     defaultValues: buildDefaultValues(initialData),
   });
 

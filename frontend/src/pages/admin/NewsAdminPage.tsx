@@ -1,47 +1,34 @@
 // ===========================================
 // News Admin Page
 // ===========================================
-import { formatDate } from '@/lib/utils';
-import { useState } from 'react';
-import {
-  Newspaper,
-  Search,
-  Plus,
-  Pencil,
-  Trash2,
-  MoreVertical,
-  Calendar,
-  RefreshCw,
-  ExternalLink,
-} from 'lucide-react';
+import { useMemo } from 'react';
+import { useCrudPageState } from '@/hooks/useCrudPageState';
+import { createNewsColumns } from './news/newsColumns';
+import { Newspaper, Search, Plus, RefreshCw } from 'lucide-react';
 import { useNewsList, useDeleteNews, useSyncNews } from '@/hooks/useNews';
 import { usePermisos } from '@/hooks/usePermisos';
 import { useDebounce } from '@/hooks/useDebounce';
-import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import type { News } from '@/types';
 import { NewsFormDialog } from './news/NewsFormDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { logError } from '@/lib/logger';
 
+interface SearchFilters {
+  search: string;
+}
+
+const EMPTY_FILTERS: SearchFilters = { search: '' };
+
 export function NewsAdminPage() {
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingNews, setEditingNews] = useState<News | undefined>();
-  const [deletingNews, setDeletingNews] = useState<News | null>(null);
+  const crud = useCrudPageState<News, SearchFilters>(EMPTY_FILTERS);
+  const { filters, page, limit, editing: editingNews, deleting: deletingNews } = crud;
+  const { search } = filters;
+  const { openEdit, askDelete } = crud;
 
   // S06 — el listado NO venía completo: venían las primeras 20 (el default de
   // `pagination.dto.ts`) y el filtrado en memoria sólo alcanzaba a esas. Es el
@@ -64,149 +51,21 @@ export function NewsAdminPage() {
 
   // Tocar el filtro vuelve a la primera página: el resultado es otro y la
   // página en la que estabas puede ya no existir.
-  const patchSearch = (value: string) => {
-    setSearch(value);
-    setPage(1);
-  };
-
-  const clearFilters = () => {
-    setSearch('');
-    setPage(1);
-  };
-
-  const handleCreate = () => {
-    setEditingNews(undefined);
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = (news: News) => {
-    setEditingNews(news);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingNews(undefined);
-  };
+  const patchSearch = (value: string) => crud.patchFilters({ search: value });
 
   const handleDeleteConfirm = async () => {
     if (!deletingNews) return;
     try {
       await deleteMutation.mutateAsync(deletingNews.id);
-      setDeletingNews(null);
+      crud.cancelDelete();
     } catch (error) {
       logError('NewsAdminPage.handleDeleteConfirm', error);
     }
   };
 
-  const columns: DataTableColumn<News>[] = [
-    {
-      id: 'news',
-      header: 'Noticia',
-      mobile: 'primary',
-      rowHeader: true,
-      headClassName: 'min-w-[280px]',
-      cell: (item) => (
-        <div className="max-w-md">
-          <div className="flex items-center gap-2">
-            <p className="font-semibold text-primary-900 line-clamp-1">{item.title}</p>
-            {item.isExternal && (
-              <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-celeste-50 text-celeste-900 border border-celeste-200">
-                <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                Portal
-              </span>
-            )}
-          </div>
-          {item.excerpt && (
-            <p className="text-xs text-primary-500 line-clamp-2 mt-0.5">{item.excerpt}</p>
-          )}
-        </div>
-      ),
-    },
-    {
-      id: 'published-at',
-      header: 'Fecha de Publicación',
-      mobile: 'secondary',
-      className: 'text-primary-600',
-      cell: (item) => (
-        <div className="flex items-center gap-1.5 text-xs">
-          {/* `primary-400` sirve como ícono decorativo (3.75:1 ≥ 3), nunca como texto. */}
-          <Calendar className="w-3.5 h-3.5 text-primary-400" aria-hidden="true" />
-          <span className="tabular-nums">
-            {item.publishedAt
-              ? formatDate(item.publishedAt)
-              : 'No publicada'}
-          </span>
-        </div>
-      ),
-    },
-    {
-      id: 'status',
-      header: 'Estado',
-      mobile: 'secondary',
-      cell: (item) =>
-        item.isPublished ? (
-          // `green-*` y `amber-*` están fuera de la paleta institucional;
-          // además el ámbar 600 sobre ámbar 50 no llegaba a AA.
-          <Badge
-            variant="outline"
-            className="bg-secondary-50 text-secondary-700 border-secondary-200"
-          >
-            Publicado
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="bg-accent-50 text-accent-800 border-accent-300">
-            Borrador
-          </Badge>
-        ),
-    },
-    {
-      id: 'actions',
-      header: 'Acciones',
-      mobile: 'actions',
-      hideHeader: true,
-      interactive: true,
-      headClassName: 'w-[80px]',
-      cell: (item) =>
-        // S19 — una noticia del portal no se edita ni se elimina, y el backend
-        // lo rechaza con 403. Peor todavía sería el borrado: la fila se iría y
-        // la próxima corrida del sync la volvería a crear. En vez de pintar dos
-        // botones que mienten, se explica de dónde viene la noticia.
-        item.isExternal ? (
-          <a
-            href={item.sourceUrl ?? '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-700 hover:text-primary-900 active:text-primary-950 underline underline-offset-2 pointer-coarse:min-h-11 transition-colors duration-120"
-            title="Se administra en el portal oficial: acá es un reflejo"
-          >
-            Ver en el portal
-            <ExternalLink className="w-3 h-3" aria-hidden="true" />
-          </a>
-        ) : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label={`Más acciones para ${item.title}`}>
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEdit(item)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setDeletingNews(item)}
-                className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
-    },
-  ];
+  // Memoizadas: sin esto el DataTable recibía columnas nuevas en cada render
+  // (cada tecla en el buscador) y re-renderizaba todas las celdas.
+  const columns = useMemo(() => createNewsColumns({ onEdit: openEdit, onDelete: askDelete }), [openEdit, askDelete]);
 
   return (
     <div className="space-y-6">
@@ -231,7 +90,7 @@ export function NewsAdminPage() {
                 {syncMutation.isPending ? 'Sincronizando…' : 'Sincronizar portal'}
               </Button>
             )}
-            <Button onClick={handleCreate} className="gap-2">
+            <Button onClick={crud.openCreate} className="gap-2">
               <Plus className="w-4 h-4" />
               Nueva Noticia
             </Button>
@@ -249,18 +108,15 @@ export function NewsAdminPage() {
         isError={isError}
         onRetry={() => void refetch()}
         meta={newsData?.meta}
-        onPageChange={setPage}
-        onLimitChange={(newLimit) => {
-          setLimit(newLimit);
-          setPage(1);
-        }}
+        onPageChange={crud.setPage}
+        onLimitChange={crud.changeLimit}
         hasActiveFilters={search.trim().length > 0}
-        onClearFilters={clearFilters}
+        onClearFilters={crud.clearFilters}
         emptyIcon={<Newspaper className="w-10 h-10" />}
         emptyTitle="Todavía no hay noticias"
         emptyDescription="Publicá la primera novedad para que aparezca en el sitio público."
         emptyAction={
-          <Button onClick={handleCreate} className="gap-2">
+          <Button onClick={crud.openCreate} className="gap-2">
             <Plus className="w-4 h-4" /> Crear Noticia
           </Button>
         }
@@ -283,8 +139,8 @@ export function NewsAdminPage() {
 
       {/* Modal Crear / Editar */}
       <NewsFormDialog
-        open={isModalOpen}
-        onOpenChange={(open) => (open ? setIsModalOpen(true) : closeModal())}
+        open={crud.isFormOpen}
+        onOpenChange={crud.onFormOpenChange}
         news={editingNews}
       />
 
@@ -295,7 +151,7 @@ export function NewsAdminPage() {
         description={`¿Estás seguro de que deseas eliminar la noticia "${deletingNews?.title}"? Esta acción no se puede deshacer.`}
         isLoading={deleteMutation.isPending}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeletingNews(null)}
+        onCancel={() => crud.cancelDelete()}
       />
     </div>
   );

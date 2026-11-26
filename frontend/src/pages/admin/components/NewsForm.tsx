@@ -4,6 +4,7 @@
 import { Switch } from '@/components/ui/switch';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Loader2,
@@ -74,8 +75,8 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  const form = useForm<NewsFormValues>({
-    resolver: zodResolver(newsSchema) as any,
+  const form = useForm<z.input<typeof newsSchema>, unknown, NewsFormValues>({
+    resolver: zodResolver(newsSchema),
     defaultValues: {
       title: initialData?.title || '',
       excerpt: initialData?.excerpt || '',
@@ -139,10 +140,10 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4 pt-1">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-1">
         {/* Título */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="title"
           render={({ field }) => (
             <FormItem>
@@ -164,7 +165,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
 
         {/* Resumen / Bajada (Excerpt) */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="excerpt"
           render={({ field }) => (
             <FormItem>
@@ -190,7 +191,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
 
         {/* Contenido Completo */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="content"
           render={({ field }) => (
             <FormItem>
@@ -250,7 +251,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
 
             <TabsContent value="url" className="pt-2 space-y-2">
               <FormField
-                control={form.control as any}
+                control={form.control}
                 name="imageUrl"
                 render={({ field }) => (
                   <FormItem>
@@ -286,7 +287,7 @@ export function NewsForm({ initialData, onSuccess, onCancel }: NewsFormProps) {
 
         {/* Estado Publicado */}
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="isPublished"
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary-200/80 p-3 bg-white">

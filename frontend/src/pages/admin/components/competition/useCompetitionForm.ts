@@ -2,7 +2,7 @@
 // useCompetitionForm — estado, catálogos y envío del formulario de competencias
 // ===========================================
 import { useEffect } from 'react';
-import { useForm, type Resolver, type SubmitHandler, type UseFormReturn } from 'react-hook-form';
+import { useForm, type SubmitHandler, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type * as z from 'zod';
 import { competitionSchema } from '@/schemas';
@@ -14,10 +14,13 @@ import { useAllCategories } from '@/hooks/useCategories';
 import type { CreateCompetitionPayload, UpdateCompetitionPayload } from '@/api/competitions.api';
 import { logError } from '@/lib/logger';
 
+/** Lo que el form maneja antes de validar (el schema tiene `.default()`/`.transform()`). */
+type CompetitionFormInput = z.input<typeof competitionSchema>;
+
 export type CompetitionFormValues = z.infer<typeof competitionSchema>;
 
 /** Tipo del objeto de RHF, por si alguna sección de campos necesita recibirlo. */
-export type CompetitionFormApi = UseFormReturn<CompetitionFormValues>;
+export type CompetitionFormApi = UseFormReturn<CompetitionFormInput, unknown, CompetitionFormValues>;
 
 /** Recorta un ISO del backend al `YYYY-MM-DD` que espera el `DatePicker`. */
 function formatDateForInput(dateValue?: string | Date | null): string {
@@ -68,10 +71,10 @@ export function useCompetitionForm({ initialData, onSuccess }: UseCompetitionFor
   // paginado ofrecía como mucho 20 opciones y la 21 era inelegible.
   const { data: disciplinesData } = useAllDisciplines({ isActive: true });
 
-  const form = useForm<CompetitionFormValues>({
-    // El schema cierra con `.refine()`, así que los tipos de entrada y salida de
-    // Zod difieren. El cast queda acotado acá en vez de repetirse en cada campo.
-    resolver: zodResolver(competitionSchema) as Resolver<CompetitionFormValues>,
+  const form = useForm<CompetitionFormInput, unknown, CompetitionFormValues>({
+    // Entrada y salida de Zod difieren (`.default()`, `.transform()`): se
+    // tipan las dos con los tres genéricos de `useForm`, sin cast (M1).
+    resolver: zodResolver(competitionSchema),
     defaultValues: buildDefaultValues(initialData),
   });
 

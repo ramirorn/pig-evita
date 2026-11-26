@@ -1,20 +1,19 @@
 // ===========================================
 // Disciplines Admin Page
 // ===========================================
-import { useState } from 'react';
-import { Trophy, Plus, Pencil, Trash2, MoreVertical, Search } from 'lucide-react';
+import { useMemo } from 'react';
+import { useCrudPageState } from '@/hooks/useCrudPageState';
+import { createDisciplineColumns } from './disciplines/disciplineColumns';
+import { Trophy, Plus, Search } from 'lucide-react';
 import { useDisciplines, useDeleteDiscipline } from '@/hooks/useDisciplines';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { Discipline } from '@/types';
-import { DisciplineType } from '@/types';
 import { DisciplineForm } from './components/DisciplineForm';
-import { DISCIPLINE_TYPE_LABELS, RESULT_TYPE_LABELS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -22,22 +21,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { logError } from '@/lib/logger';
-import { etiquetaEnum, rangoJugadores } from '@/lib/format';
+
+interface SearchFilters {
+  search: string;
+}
+
+const EMPTY_FILTERS: SearchFilters = { search: '' };
 
 export function DisciplinesAdminPage() {
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDiscipline, setEditingDiscipline] = useState<Discipline | undefined>();
-  const [deletingDiscipline, setDeletingDiscipline] = useState<Discipline | null>(null);
+  const crud = useCrudPageState<Discipline, SearchFilters>(EMPTY_FILTERS);
+  const { filters, page, limit, editing: editingDiscipline, deleting: deletingDiscipline } = crud;
+  const { search } = filters;
+  const { openEdit, askDelete } = crud;
 
   // S06 — el endpoint NO devolvía el catálogo completo: devolvía las primeras
   // 20 (el default de `pagination.dto.ts`) y el filtrado local sólo alcanzaba a
@@ -54,155 +50,21 @@ export function DisciplinesAdminPage() {
 
   // Tocar el filtro vuelve a la primera página: el resultado es otro y la
   // página en la que estabas puede ya no existir.
-  const patchSearch = (value: string) => {
-    setSearch(value);
-    setPage(1);
-  };
-
-  const clearFilters = () => {
-    setSearch('');
-    setPage(1);
-  };
-
-  const handleCreate = () => {
-    setEditingDiscipline(undefined);
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = (discipline: Discipline) => {
-    setEditingDiscipline(discipline);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingDiscipline(undefined);
-  };
+  const patchSearch = (value: string) => crud.patchFilters({ search: value });
 
   const handleDeleteConfirm = async () => {
     if (!deletingDiscipline) return;
     try {
       await deleteMutation.mutateAsync(deletingDiscipline.id);
-      setDeletingDiscipline(null);
+      crud.cancelDelete();
     } catch (error) {
       logError('DisciplinesAdminPage.handleDeleteConfirm', error);
     }
   };
 
-  const columns: DataTableColumn<Discipline>[] = [
-    {
-      id: 'name',
-      header: 'Nombre',
-      mobile: 'primary',
-      rowHeader: true,
-      className: 'font-medium text-primary-900',
-      headClassName: 'min-w-[180px]',
-      cell: (discipline) => discipline.name,
-    },
-    {
-      id: 'type',
-      header: 'Tipo',
-      mobile: 'secondary',
-      cell: (discipline) => (
-        // `variant="default"` y `variant="secondary"` no generan color:
-        // `bg-primary` y `bg-secondary` no existen en el `@theme`. El tipo se
-        // distingue con dos tonos de la paleta institucional que sí resuelven.
-        <Badge
-          variant="outline"
-          className={
-            discipline.type === DisciplineType.EQUIPO
-              ? 'bg-primary-50 text-primary-700 border-primary-200'
-              : 'bg-muted text-primary-700 border-primary-200'
-          }
-        >
-          {etiquetaEnum(DISCIPLINE_TYPE_LABELS, discipline.type)}
-        </Badge>
-      ),
-    },
-    {
-      id: 'result',
-      header: 'Resultado',
-      mobile: 'hidden',
-      cell: (discipline) => etiquetaEnum(RESULT_TYPE_LABELS, discipline.resultType),
-    },
-    {
-      id: 'players',
-      header: 'Jugadores',
-      mobile: 'secondary',
-      className: 'tabular-nums',
-      cell: (discipline) => rangoJugadores(discipline.minPlayers, discipline.maxPlayers),
-    },
-    {
-      id: 'roster',
-      header: 'Plantel',
-      mobile: 'secondary',
-      // Sólo las de equipo tienen plantel, y la que no lo tiene cargado no se
-      // puede inscribir por plantel completo: se marca acá para que se vea en
-      // el listado, sin tener que abrir cada una.
-      cell: (discipline) => {
-        if (discipline.type !== DisciplineType.EQUIPO) return '—';
-        if (typeof discipline.titulares !== 'number') {
-          return (
-            <Badge
-              variant="outline"
-              className="bg-warning-50 text-warning-800 border-warning-200"
-            >
-              Sin configurar
-            </Badge>
-          );
-        }
-        return `${discipline.titulares} titulares + ${discipline.maxSuplentes ?? 0} supl.`;
-      },
-    },
-    {
-      id: 'status',
-      header: 'Estado',
-      mobile: 'secondary',
-      cell: (discipline) =>
-        discipline.isActive ? (
-          <Badge
-            variant="outline"
-            className="bg-secondary-50 text-secondary-700 border-secondary-200"
-          >
-            Activo
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="bg-muted text-primary-700 border-primary-200">
-            Inactivo
-          </Badge>
-        ),
-    },
-    {
-      id: 'actions',
-      header: 'Acciones',
-      mobile: 'actions',
-      hideHeader: true,
-      interactive: true,
-      headClassName: 'w-[80px]',
-      cell: (discipline) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={`Más acciones para ${discipline.name}`}>
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEdit(discipline)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => setDeletingDiscipline(discipline)}
-              className="text-destructive-600 focus:text-destructive-700 focus:bg-destructive-50"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
-  ];
+  // Memoizadas: sin esto el DataTable recibía columnas nuevas en cada render
+  // (cada tecla en el buscador) y re-renderizaba todas las celdas.
+  const columns = useMemo(() => createDisciplineColumns({ onEdit: openEdit, onDelete: askDelete }), [openEdit, askDelete]);
 
   return (
     <div className="space-y-6">
@@ -211,7 +73,7 @@ export function DisciplinesAdminPage() {
         description="Gestión de deportes y disciplinas de los Juegos Evita"
         icon={<Trophy className="w-5 h-5 text-white" />}
         actions={
-          <Button onClick={handleCreate} className="gap-2">
+          <Button onClick={crud.openCreate} className="gap-2">
             <Plus className="w-4 h-4" />
             Nueva Disciplina
           </Button>
@@ -229,18 +91,15 @@ export function DisciplinesAdminPage() {
         onRetry={() => void refetch()}
         isRowInactive={(discipline) => !discipline.isActive}
         meta={data?.meta}
-        onPageChange={setPage}
-        onLimitChange={(newLimit) => {
-          setLimit(newLimit);
-          setPage(1);
-        }}
+        onPageChange={crud.setPage}
+        onLimitChange={crud.changeLimit}
         hasActiveFilters={search.trim().length > 0}
-        onClearFilters={clearFilters}
+        onClearFilters={crud.clearFilters}
         emptyIcon={<Trophy className="w-10 h-10" />}
         emptyTitle="Todavía no hay disciplinas"
         emptyDescription="Registrá la primera disciplina para empezar a organizar torneos y categorías."
         emptyAction={
-          <Button onClick={handleCreate} className="gap-2">
+          <Button onClick={crud.openCreate} className="gap-2">
             <Plus className="w-4 h-4" /> Crear Disciplina
           </Button>
         }
@@ -261,7 +120,7 @@ export function DisciplinesAdminPage() {
         }
       />
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={crud.isFormOpen} onOpenChange={crud.onFormOpenChange}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>
@@ -270,8 +129,8 @@ export function DisciplinesAdminPage() {
           </DialogHeader>
           <DisciplineForm
             initialData={editingDiscipline}
-            onSuccess={closeModal}
-            onCancel={closeModal}
+            onSuccess={crud.closeForm}
+            onCancel={crud.closeForm}
           />
         </DialogContent>
       </Dialog>
@@ -282,7 +141,7 @@ export function DisciplinesAdminPage() {
         description={`¿Estás seguro de que deseas eliminar la disciplina "${deletingDiscipline?.name}"? Si contiene torneos o partidos registrados, pasará a estado Inactivo.`}
         isLoading={deleteMutation.isPending}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeletingDiscipline(null)}
+        onCancel={() => crud.cancelDelete()}
       />
     </div>
   );

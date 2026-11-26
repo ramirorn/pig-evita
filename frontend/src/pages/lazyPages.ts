@@ -2,6 +2,7 @@
 // lazyPages — todas las páginas de rutas, cargadas bajo demanda
 // ===========================================
 import { lazy } from 'react';
+import { PAGE_LOADERS } from './pageLoaders';
 
 /**
  * Cada página del router se declara acá con su propio `lazy()`, y cada `lazy()`
@@ -9,12 +10,12 @@ import { lazy } from 'react';
  *
  * **Dos reglas que hay que respetar al agregar una página:**
  *
- * 1. Se importa desde **su archivo**, nunca desde el barrel (`@/pages/admin` o
- *    `@/pages/public`). Un `import('@/pages/public')` arrastra las nueve
+ * 1. Se importa desde **su archivo** (en `pageLoaders.ts`), nunca desde un
+ *    barrel. Un `import('@/pages/public')` arrastra las nueve
  *    páginas públicas al mismo chunk y anula el split entero: es el error que
  *    tenía el router antes de R28, donde un ciudadano que entraba a ver el
  *    calendario se bajaba también las noticias, las sedes, los rankings y el
- *    login. El barrel público directamente se borró para que no haya nada que
+ *    login. Los barrels público y admin se borraron para que no haya nada que
  *    importar por accidente.
  * 2. Va en este archivo y no en `router.tsx`. Es una separación de archivo, no
  *    de estilo: `router.tsx` exporta `router`, que no es un componente, y con
@@ -29,39 +30,39 @@ import { lazy } from 'react';
 
 // ============ AUTH ============
 export const LoginPage = lazy(() =>
-  import('@/pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })),
+  PAGE_LOADERS.LoginPage().then((m) => ({ default: m.LoginPage })),
 );
 
 // ============ PÁGINAS PÚBLICAS ============
 export const InscriptionInfoPage = lazy(() =>
-  import('@/pages/public/InscriptionInfoPage').then((m) => ({ default: m.InscriptionInfoPage })),
+  PAGE_LOADERS.InscriptionInfoPage().then((m) => ({ default: m.InscriptionInfoPage })),
 );
 export const DisciplinesPage = lazy(() =>
-  import('@/pages/public/DisciplinesPage').then((m) => ({ default: m.DisciplinesPage })),
+  PAGE_LOADERS.DisciplinesPage().then((m) => ({ default: m.DisciplinesPage })),
 );
 export const DisciplineDetailPage = lazy(() =>
-  import('@/pages/public/DisciplineDetailPage').then((m) => ({ default: m.DisciplineDetailPage })),
+  PAGE_LOADERS.DisciplineDetailPage().then((m) => ({ default: m.DisciplineDetailPage })),
 );
 export const NewsPage = lazy(() =>
-  import('@/pages/public/NewsPage').then((m) => ({ default: m.NewsPage })),
+  PAGE_LOADERS.NewsPage().then((m) => ({ default: m.NewsPage })),
 );
 export const NewsDetailPage = lazy(() =>
-  import('@/pages/public/NewsDetailPage').then((m) => ({ default: m.NewsDetailPage })),
+  PAGE_LOADERS.NewsDetailPage().then((m) => ({ default: m.NewsDetailPage })),
 );
 export const CalendarPage = lazy(() =>
-  import('@/pages/public/CalendarPage').then((m) => ({ default: m.CalendarPage })),
+  PAGE_LOADERS.CalendarPage().then((m) => ({ default: m.CalendarPage })),
 );
 export const VenuesPage = lazy(() =>
-  import('@/pages/public/VenuesPage').then((m) => ({ default: m.VenuesPage })),
+  PAGE_LOADERS.VenuesPage().then((m) => ({ default: m.VenuesPage })),
 );
 export const RankingsPage = lazy(() =>
-  import('@/pages/public/RankingsPage').then((m) => ({ default: m.RankingsPage })),
+  PAGE_LOADERS.RankingsPage().then((m) => ({ default: m.RankingsPage })),
 );
 export const CompetitionPublicPage = lazy(() =>
-  import('@/pages/public/CompetitionPublicPage').then((m) => ({ default: m.CompetitionPublicPage })),
+  PAGE_LOADERS.CompetitionPublicPage().then((m) => ({ default: m.CompetitionPublicPage })),
 );
 export const ImpactMapPage = lazy(() =>
-  import('@/pages/public/ImpactMapPage').then((m) => ({ default: m.ImpactMapPage })),
+  PAGE_LOADERS.ImpactMapPage().then((m) => ({ default: m.ImpactMapPage })),
 );
 
 /**
@@ -71,10 +72,10 @@ export const ImpactMapPage = lazy(() =>
  * tiene por qué viajar con ella.
  */
 export const SurveyLandingPage = lazy(() =>
-  import('@/pages/public/survey/SurveyLandingPage').then((m) => ({ default: m.SurveyLandingPage })),
+  PAGE_LOADERS.SurveyLandingPage().then((m) => ({ default: m.SurveyLandingPage })),
 );
 export const SurveyFormPage = lazy(() =>
-  import('@/pages/public/survey/form/SurveyFormPage').then((m) => ({ default: m.SurveyFormPage })),
+  PAGE_LOADERS.SurveyFormPage().then((m) => ({ default: m.SurveyFormPage })),
 );
 
 // ============ ADMIN ============
@@ -85,71 +86,69 @@ export const SurveyFormPage = lazy(() =>
  * entra a ver el calendario y nunca va a ver un panel.
  */
 export const AdminLayout = lazy(() =>
-  import('@/components/layout/AdminLayout').then((m) => ({ default: m.AdminLayout })),
+  PAGE_LOADERS.AdminLayout().then((m) => ({ default: m.AdminLayout })),
 );
 
 // ============ PÁGINAS ADMIN ============
 export const DashboardPage = lazy(() =>
-  import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+  PAGE_LOADERS.DashboardPage().then((m) => ({ default: m.DashboardPage })),
 );
 export const MetricsPage = lazy(() =>
-  import('@/pages/admin/MetricsPage').then((m) => ({ default: m.MetricsPage })),
+  PAGE_LOADERS.MetricsPage().then((m) => ({ default: m.MetricsPage })),
 );
 export const MetricsPresentationPage = lazy(() =>
-  import('@/pages/admin/MetricsPresentationPage').then((m) => ({
-    default: m.MetricsPresentationPage,
-  })),
+  PAGE_LOADERS.MetricsPresentationPage().then((m) => ({ default: m.MetricsPresentationPage })),
 );
 export const ImpactMapAdminPage = lazy(() =>
-  import('@/pages/admin/ImpactMapAdminPage').then((m) => ({ default: m.ImpactMapAdminPage })),
+  PAGE_LOADERS.ImpactMapAdminPage().then((m) => ({ default: m.ImpactMapAdminPage })),
 );
 export const ParticipantsPage = lazy(() =>
-  import('@/pages/admin/ParticipantsPage').then((m) => ({ default: m.ParticipantsPage })),
+  PAGE_LOADERS.ParticipantsPage().then((m) => ({ default: m.ParticipantsPage })),
 );
 export const ParticipantDetailPage = lazy(() =>
-  import('@/pages/admin/ParticipantDetailPage').then((m) => ({ default: m.ParticipantDetailPage })),
+  PAGE_LOADERS.ParticipantDetailPage().then((m) => ({ default: m.ParticipantDetailPage })),
 );
 export const InscriptionsPage = lazy(() =>
-  import('@/pages/admin/InscriptionsPage').then((m) => ({ default: m.InscriptionsPage })),
+  PAGE_LOADERS.InscriptionsPage().then((m) => ({ default: m.InscriptionsPage })),
 );
 export const InscriptionDetailPage = lazy(() =>
-  import('@/pages/admin/InscriptionDetailPage').then((m) => ({ default: m.InscriptionDetailPage })),
+  PAGE_LOADERS.InscriptionDetailPage().then((m) => ({ default: m.InscriptionDetailPage })),
 );
 export const DelegateInscriptionPage = lazy(() =>
-  import('@/pages/admin/DelegateInscriptionPage').then((m) => ({ default: m.DelegateInscriptionPage })),
+  PAGE_LOADERS.DelegateInscriptionPage().then((m) => ({ default: m.DelegateInscriptionPage })),
 );
 export const DisciplinesAdminPage = lazy(() =>
-  import('@/pages/admin/DisciplinesAdminPage').then((m) => ({ default: m.DisciplinesAdminPage })),
+  PAGE_LOADERS.DisciplinesAdminPage().then((m) => ({ default: m.DisciplinesAdminPage })),
 );
 export const CategoriesAdminPage = lazy(() =>
-  import('@/pages/admin/CategoriesAdminPage').then((m) => ({ default: m.CategoriesAdminPage })),
+  PAGE_LOADERS.CategoriesAdminPage().then((m) => ({ default: m.CategoriesAdminPage })),
 );
 export const TeamsAdminPage = lazy(() =>
-  import('@/pages/admin/TeamsAdminPage').then((m) => ({ default: m.TeamsAdminPage })),
+  PAGE_LOADERS.TeamsAdminPage().then((m) => ({ default: m.TeamsAdminPage })),
 );
 export const TeamDetailPage = lazy(() =>
-  import('@/pages/admin/TeamDetailPage').then((m) => ({ default: m.TeamDetailPage })),
+  PAGE_LOADERS.TeamDetailPage().then((m) => ({ default: m.TeamDetailPage })),
 );
 export const CompetitionsPage = lazy(() =>
-  import('@/pages/admin/CompetitionsPage').then((m) => ({ default: m.CompetitionsPage })),
+  PAGE_LOADERS.CompetitionsPage().then((m) => ({ default: m.CompetitionsPage })),
 );
 export const CompetitionDetailPage = lazy(() =>
-  import('@/pages/admin/CompetitionDetailPage').then((m) => ({ default: m.CompetitionDetailPage })),
+  PAGE_LOADERS.CompetitionDetailPage().then((m) => ({ default: m.CompetitionDetailPage })),
 );
 export const ResultsPage = lazy(() =>
-  import('@/pages/admin/ResultsPage').then((m) => ({ default: m.ResultsPage })),
+  PAGE_LOADERS.ResultsPage().then((m) => ({ default: m.ResultsPage })),
 );
 export const DocumentsPage = lazy(() =>
-  import('@/pages/admin/DocumentsPage').then((m) => ({ default: m.DocumentsPage })),
+  PAGE_LOADERS.DocumentsPage().then((m) => ({ default: m.DocumentsPage })),
 );
 export const NewsAdminPage = lazy(() =>
-  import('@/pages/admin/NewsAdminPage').then((m) => ({ default: m.NewsAdminPage })),
+  PAGE_LOADERS.NewsAdminPage().then((m) => ({ default: m.NewsAdminPage })),
 );
 export const CalendarAdminPage = lazy(() =>
-  import('@/pages/admin/CalendarAdminPage').then((m) => ({ default: m.CalendarAdminPage })),
+  PAGE_LOADERS.CalendarAdminPage().then((m) => ({ default: m.CalendarAdminPage })),
 );
 export const VenuesAdminPage = lazy(() =>
-  import('@/pages/admin/VenuesAdminPage').then((m) => ({ default: m.VenuesAdminPage })),
+  PAGE_LOADERS.VenuesAdminPage().then((m) => ({ default: m.VenuesAdminPage })),
 );
 /**
  * Encuesta (S20), también en dos chunks: el listado de campañas se abre seguido
@@ -157,17 +156,17 @@ export const VenuesAdminPage = lazy(() =>
  * métricas, que es lo pesado y sólo hace falta cuando se entra a una campaña.
  */
 export const SurveyAdminPage = lazy(() =>
-  import('@/pages/admin/SurveyAdminPage').then((m) => ({ default: m.SurveyAdminPage })),
+  PAGE_LOADERS.SurveyAdminPage().then((m) => ({ default: m.SurveyAdminPage })),
 );
 export const SurveyCampaignPage = lazy(() =>
-  import('@/pages/admin/SurveyCampaignPage').then((m) => ({ default: m.SurveyCampaignPage })),
+  PAGE_LOADERS.SurveyCampaignPage().then((m) => ({ default: m.SurveyCampaignPage })),
 );
 export const UsersPage = lazy(() =>
-  import('@/pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })),
+  PAGE_LOADERS.UsersPage().then((m) => ({ default: m.UsersPage })),
 );
 export const ReportsPage = lazy(() =>
-  import('@/pages/admin/ReportsPage').then((m) => ({ default: m.ReportsPage })),
+  PAGE_LOADERS.ReportsPage().then((m) => ({ default: m.ReportsPage })),
 );
 export const AuditPage = lazy(() =>
-  import('@/pages/admin/AuditPage').then((m) => ({ default: m.AuditPage })),
+  PAGE_LOADERS.AuditPage().then((m) => ({ default: m.AuditPage })),
 );

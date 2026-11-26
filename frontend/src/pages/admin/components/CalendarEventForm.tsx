@@ -74,6 +74,7 @@ export function CalendarEventForm({ initialData, onSuccess, onCancel }: Calendar
                   className="resize-none bg-white"
                   rows={2}
                   {...field}
+                  value={field.value ?? ''}
                 />
               </FormControl>
               <FormMessage />

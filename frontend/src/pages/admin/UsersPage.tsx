@@ -1,13 +1,14 @@
 // ===========================================
 // Users Admin Page
 // ===========================================
-import { useState } from 'react';
-import { UserCog, Search, Plus, Pencil } from 'lucide-react';
+import { useMemo } from 'react';
+import { useCrudPageState } from '@/hooks/useCrudPageState';
+import { createUserColumns } from './users/userColumns';
+import { UserCog, Search, Plus } from 'lucide-react';
 import { useUsers } from '@/hooks/useUsers';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -16,10 +17,15 @@ import {
 } from '@/components/ui/dialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { usePermisos } from '@/hooks/usePermisos';
-import { DataTable, type DataTableColumn } from '@/components/shared/DataTable';
+import { DataTable } from '@/components/shared/DataTable';
 import { UserForm } from './components/UserForm';
-import { ROLE_LABELS, DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import type { User } from '@/types';
+
+interface SearchFilters {
+  search: string;
+}
+
+const EMPTY_FILTERS: SearchFilters = { search: '' };
 
 export function UsersPage() {
   // R22 — la pantalla la ven SUPER_ADMIN y ADMIN_PROVINCIAL, pero el alta, la
@@ -28,11 +34,10 @@ export function UsersPage() {
   // un 403 al guardar.
   const { puede } = usePermisos();
   const puedeGestionar = puede('USER_MANAGE');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(DEFAULT_PAGE_SIZE);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | undefined>();
+  const crud = useCrudPageState<User, SearchFilters>(EMPTY_FILTERS);
+  const { filters, page, limit, editing: editingUser } = crud;
+  const { search } = filters;
+  const { openEdit } = crud;
 
   // S06 — el buscador filtraba con `.includes()` sobre las 20 filas que trae el
   // backend por defecto (`pagination.dto.ts`, `limit = 20`): con 25 usuarios,
@@ -48,119 +53,13 @@ export function UsersPage() {
 
   // Tocar el filtro vuelve a la primera página: el resultado es otro y la
   // página en la que estabas puede ya no existir.
-  const patchSearch = (value: string) => {
-    setSearch(value);
-    setPage(1);
-  };
-
-  const clearFilters = () => {
-    setSearch('');
-    setPage(1);
-  };
-
-  const handleCreate = () => {
-    setEditingUser(undefined);
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = (user: User) => {
-    setEditingUser(user);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingUser(undefined);
-  };
+  const patchSearch = (value: string) => crud.patchFilters({ search: value });
 
   // Las columnas se declaran fuera del JSX para que el bloque de la tabla no
   // vuelva a mezclar estructura, estados y contenido como antes de T27.
-  const columns: DataTableColumn<User>[] = [
-    {
-      id: 'user',
-      header: 'Usuario',
-      mobile: 'primary',
-      rowHeader: true,
-      cell: (user) => (
-        <div>
-          <p className="font-semibold text-primary-900">
-            {user.firstName} {user.lastName}
-          </p>
-          <p className="text-xs text-primary-500">{user.email}</p>
-        </div>
-      ),
-    },
-    {
-      id: 'role',
-      header: 'Rol',
-      mobile: 'secondary',
-      cell: (user) => (
-        <Badge variant="outline" className="bg-primary-50 text-primary-700 border-primary-200">
-          {ROLE_LABELS[user.role] || user.role}
-        </Badge>
-      ),
-    },
-    {
-      id: 'scope',
-      header: 'Departamento / Zona',
-      mobile: 'secondary',
-      className: 'text-sm text-primary-700',
-      cell: (user) =>
-        user.department ? (
-          <span>
-            {user.department} {user.zone ? `(${user.zone})` : ''}
-          </span>
-        ) : (
-          // `primary-400` daba 3.75:1 contra blanco (falla AA); `primary-500`
-          // llega a 6.52:1 y la itálica conserva el matiz de "no informado".
-          <span className="text-primary-500 italic">Provincial / General</span>
-        ),
-    },
-    {
-      id: 'status',
-      header: 'Estado',
-      mobile: 'secondary',
-      cell: (user) =>
-        user.isActive ? (
-          <Badge
-            variant="outline"
-            className="bg-secondary-50 text-secondary-700 border-secondary-200"
-          >
-            Activo
-          </Badge>
-        ) : (
-          // `variant="secondary"` no renderiza color: `bg-secondary` no existe
-          // en el `@theme`. Se usan tokens explícitos que sí resuelven.
-          <Badge variant="outline" className="bg-muted text-primary-700 border-primary-200">
-            Inactivo
-          </Badge>
-        ),
-    },
-  ];
-
-  if (puedeGestionar) {
-    columns.push({
-      id: 'actions',
-      header: 'Acciones',
-      mobile: 'actions',
-      hideHeader: true,
-      interactive: true,
-      headClassName: 'w-[100px] text-right',
-      className: 'text-right',
-      cell: (user) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-primary-600 hover:text-primary-900 hover:bg-primary-50"
-          onClick={() => handleEdit(user)}
-          // `title` no es un nombre accesible confiable: el nombre va en `aria-label`.
-          aria-label={`Editar a ${user.firstName} ${user.lastName}`}
-        >
-          <Pencil className="w-4 h-4" />
-        </Button>
-      ),
-    });
-  }
+  // Memoizadas: sin esto el DataTable recibía columnas nuevas en cada render
+  // (cada tecla en el buscador) y re-renderizaba todas las celdas.
+  const columns = useMemo(() => createUserColumns({ onEdit: puedeGestionar ? openEdit : undefined }), [puedeGestionar, openEdit]);
 
   return (
     <div className="space-y-6">
@@ -170,7 +69,7 @@ export function UsersPage() {
         icon={<UserCog className="w-5 h-5 text-white" />}
         actions={
           puedeGestionar ? (
-            <Button onClick={handleCreate} className="gap-2">
+            <Button onClick={crud.openCreate} className="gap-2">
               <Plus className="w-4 h-4" />
               Nuevo Usuario
             </Button>
@@ -189,19 +88,16 @@ export function UsersPage() {
         onRetry={() => void refetch()}
         isRowInactive={(user) => !user.isActive}
         meta={usersData?.meta}
-        onPageChange={setPage}
-        onLimitChange={(newLimit) => {
-          setLimit(newLimit);
-          setPage(1);
-        }}
+        onPageChange={crud.setPage}
+        onLimitChange={crud.changeLimit}
         hasActiveFilters={search.trim().length > 0}
-        onClearFilters={clearFilters}
+        onClearFilters={crud.clearFilters}
         emptyIcon={<UserCog className="w-10 h-10" />}
         emptyTitle="Todavía no hay usuarios"
         emptyDescription="Registrá el primer usuario para empezar a operar el sistema."
         emptyAction={
           puedeGestionar ? (
-            <Button onClick={handleCreate} className="gap-2">
+            <Button onClick={crud.openCreate} className="gap-2">
               <Plus className="w-4 h-4" /> Crear Usuario
             </Button>
           ) : undefined
@@ -223,7 +119,7 @@ export function UsersPage() {
         }
       />
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={crud.isFormOpen} onOpenChange={crud.onFormOpenChange}>
         <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-primary-900">
@@ -232,8 +128,8 @@ export function UsersPage() {
           </DialogHeader>
           <UserForm
             initialData={editingUser}
-            onSuccess={closeModal}
-            onCancel={closeModal}
+            onSuccess={crud.closeForm}
+            onCancel={crud.closeForm}
           />
         </DialogContent>
       </Dialog>

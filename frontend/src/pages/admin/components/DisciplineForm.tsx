@@ -32,7 +32,37 @@ import {
 } from '@/components/ui/select';
 import { logError } from '@/lib/logger';
 
-type DisciplineFormValues = z.infer<typeof disciplineSchema>;
+type DisciplineFormInput = z.input<typeof disciplineSchema>;
+type DisciplineFormValues = z.output<typeof disciplineSchema>;
+
+/** Valores del form a partir de la disciplina que se edita (o los del alta). */
+function toFormValues(initialData?: Discipline): DisciplineFormInput {
+  if (!initialData) {
+    return {
+      name: '',
+      type: DisciplineType.INDIVIDUAL,
+      resultType: ResultType.TIEMPO,
+      minPlayers: 1,
+      maxPlayers: 1,
+      sortOrder: 0,
+      isActive: true,
+    };
+  }
+  return {
+    name: initialData.name,
+    type: initialData.type,
+    resultType: initialData.resultType,
+    rules: initialData.rules || '',
+    minPlayers: initialData.minPlayers || undefined,
+    maxPlayers: initialData.maxPlayers || undefined,
+    // `?? undefined` y no `|| undefined`: `maxSuplentes: 0` es un valor
+    // legítimo ("no admite suplentes") y con `||` se perdería en cada edición.
+    titulares: initialData.titulares ?? undefined,
+    maxSuplentes: initialData.maxSuplentes ?? undefined,
+    sortOrder: initialData.sortOrder,
+    isActive: initialData.isActive,
+  };
+}
 
 interface DisciplineFormProps {
   initialData?: Discipline;
@@ -46,37 +76,15 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  const form = useForm<DisciplineFormValues>({
-    resolver: zodResolver(disciplineSchema) as any,
-    defaultValues: (initialData as any) || {
-      name: '',
-      type: DisciplineType.INDIVIDUAL,
-      resultType: ResultType.TIEMPO,
-      minPlayers: 1,
-      maxPlayers: 1,
-      sortOrder: 0,
-      isActive: true,
-    },
+  const form = useForm<DisciplineFormInput, unknown, DisciplineFormValues>({
+    resolver: zodResolver(disciplineSchema),
+    defaultValues: toFormValues(initialData),
   });
 
   // Populate form if editing
   useEffect(() => {
     if (initialData) {
-      form.reset({
-        name: initialData.name,
-        type: initialData.type,
-        resultType: initialData.resultType,
-        rules: initialData.rules || '',
-        minPlayers: initialData.minPlayers || undefined,
-        maxPlayers: initialData.maxPlayers || undefined,
-        // `?? undefined` y no `|| undefined`: `maxSuplentes: 0` es un valor
-        // legítimo ("no admite suplentes") y con `||` se perdería en cada
-        // edición, obligando a volver a cargarlo.
-        titulares: initialData.titulares ?? undefined,
-        maxSuplentes: initialData.maxSuplentes ?? undefined,
-        sortOrder: initialData.sortOrder,
-        isActive: initialData.isActive,
-      });
+      form.reset(toFormValues(initialData));
     }
   }, [initialData, form]);
 
@@ -105,9 +113,9 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
@@ -122,7 +130,7 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="type"
             render={({ field }) => (
               <FormItem>
@@ -147,7 +155,7 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="resultType"
             render={({ field }) => (
               <FormItem>
@@ -174,7 +182,7 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="minPlayers"
             render={({ field }) => (
               <FormItem>
@@ -195,7 +203,7 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
           />
 
           <FormField
-            control={form.control as any}
+            control={form.control}
             name="maxPlayers"
             render={({ field }) => (
               <FormItem>
@@ -234,7 +242,7 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormField
-                control={form.control as any}
+                control={form.control}
                 name="titulares"
                 render={({ field }) => (
                   <FormItem>
@@ -256,7 +264,7 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
               />
 
               <FormField
-                control={form.control as any}
+                control={form.control}
                 name="maxSuplentes"
                 render={({ field }) => (
                   <FormItem>
@@ -281,7 +289,7 @@ export function DisciplineForm({ initialData, onSuccess, onCancel }: DisciplineF
         )}
 
         <FormField
-          control={form.control as any}
+          control={form.control}
           name="isActive"
           render={({ field }) => (
             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">

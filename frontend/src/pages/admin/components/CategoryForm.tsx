@@ -33,7 +33,37 @@ import {
 } from '@/components/ui/select';
 import { logError } from '@/lib/logger';
 
-type CategoryFormValues = z.infer<typeof categorySchema>;
+type CategoryFormInput = z.input<typeof categorySchema>;
+type CategoryFormValues = z.output<typeof categorySchema>;
+
+/** Valores del form a partir de la categoría que se edita (o los del alta). */
+function toFormValues(initialData?: Category): CategoryFormInput {
+  if (!initialData) {
+    return {
+      disciplineId: '',
+      name: '',
+      ageCriterion: AgeCriterion.AGE,
+      minAge: 5,
+      maxAge: 99,
+      minBirthYear: null,
+      maxBirthYear: null,
+      sex: Sex.MIXTO,
+      isActive: true,
+    };
+  }
+  return {
+    disciplineId: initialData.disciplineId,
+    name: initialData.name,
+    // Las categorías creadas antes del criterio no lo traen: eran por edad.
+    ageCriterion: initialData.ageCriterion ?? AgeCriterion.AGE,
+    minAge: initialData.minAge ?? null,
+    maxAge: initialData.maxAge ?? null,
+    minBirthYear: initialData.minBirthYear ?? null,
+    maxBirthYear: initialData.maxBirthYear ?? null,
+    sex: initialData.sex,
+    isActive: initialData.isActive,
+  };
+}
 
 /** Input numérico vacío → `null`, que es lo que el schema y la API esperan. */
 // El campo numérico entrega `undefined` cuando queda vacío; acá un vacío viaja como `null`.
@@ -65,35 +95,14 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  const form = useForm<CategoryFormValues>({
-    resolver: zodResolver(categorySchema) as any,
-    defaultValues: (initialData as any) || {
-      disciplineId: '',
-      name: '',
-      ageCriterion: AgeCriterion.AGE,
-      minAge: 5,
-      maxAge: 99,
-      minBirthYear: null,
-      maxBirthYear: null,
-      sex: Sex.MIXTO,
-      isActive: true,
-    },
+  const form = useForm<CategoryFormInput, unknown, CategoryFormValues>({
+    resolver: zodResolver(categorySchema),
+    defaultValues: toFormValues(initialData),
   });
 
   useEffect(() => {
     if (initialData) {
-      form.reset({
-        disciplineId: initialData.disciplineId,
-        name: initialData.name,
-        // Las categorías creadas antes del criterio no lo traen: eran por edad.
-        ageCriterion: initialData.ageCriterion ?? AgeCriterion.AGE,
-        minAge: initialData.minAge ?? null,
-        maxAge: initialData.maxAge ?? null,
-        minBirthYear: initialData.minBirthYear ?? null,
-        maxBirthYear: initialData.maxBirthYear ?? null,
-        sex: initialData.sex,
-        isActive: initialData.isActive,
-      });
+      form.reset(toFormValues(initialData));
     }
   }, [initialData, form]);
 
@@ -131,7 +140,7 @@ export function CategoryForm({ initialData, onSuccess, onCancel }: CategoryFormP
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="disciplineId"

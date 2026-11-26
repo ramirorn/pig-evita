@@ -2,7 +2,7 @@
 // Survey Admin Page — listado de campañas de la encuesta (S20)
 // ===========================================
 import { NumberField } from '@/components/ui/number-field';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   HeartPulse,
@@ -150,110 +150,115 @@ export function SurveyAdminPage() {
     }
   };
 
-  const columns: DataTableColumn<SurveyCampaign>[] = [
-    {
-      id: 'campania',
-      header: 'Encuesta',
-      mobile: 'primary',
-      rowHeader: true,
-      headClassName: 'min-w-[260px]',
-      cell: (item) => (
-        <div className="max-w-md">
-          <p className="line-clamp-1 font-semibold text-primary-900">{item.titulo}</p>
-          <p className="mt-0.5 text-xs text-primary-500">
-            {SURVEY_WINDOW_LABELS[item.ventana]}
-            {/* El dato ausente se omite, no se rellena: sin etapa fija, la
-                campaña sirve para todas y eso se dice, no se deja en blanco. */}
-            {item.etapa ? ` · ${STAGE_LABELS[item.etapa]}` : ' · Todas las etapas'}
-          </p>
-        </div>
-      ),
-    },
-    {
-      id: 'anio',
-      header: 'Año',
-      mobile: 'secondary',
-      className: 'text-primary-700 tabular-nums',
-      cell: (item) => item.anio,
-    },
-    {
-      id: 'status',
-      header: 'Estado',
-      mobile: 'secondary',
-      cell: (item) => <SurveyCampaignStatusBadge status={item.status} />,
-    },
-    {
-      id: 'preguntas',
-      header: 'Preguntas',
-      mobile: 'secondary',
-      cell: (item) => (
-        <span className="inline-flex items-center gap-1.5 text-xs text-primary-700">
-          <MessageSquareText className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
-          <span className="tabular-nums">{item._count?.questions ?? 0}</span>
-        </span>
-      ),
-    },
-    {
-      id: 'respuestas',
-      header: 'Respuestas',
-      mobile: 'secondary',
-      cell: (item) => (
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-800 tabular-nums">
-          <Users className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
-          {textoRespuestas(item)}
-        </span>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'Acciones',
-      mobile: 'actions',
-      hideHeader: true,
-      interactive: true,
-      headClassName: 'w-[80px]',
-      cell: (item) => {
-        // El borrado es la única acción del listado que el backend puede
-        // rechazar: con respuestas cargadas responde 409 porque borrar la
-        // campaña las borraría en cascada. Se muestra igual, deshabilitada y
-        // con el motivo, en vez de desaparecer sin explicación.
-        const borrado = puedeEliminarCampania(item);
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label={`Más acciones para ${item.titulo}`}>
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(rutaCampania(item.id))}>
-                <MessageSquareText className="mr-2 h-4 w-4" />
-                Abrir preguntas y resultados
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  setEditando(item);
-                  setIsModalOpen(true);
-                }}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar datos
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={!borrado.permitido}
-                title={borrado.motivo}
-                onClick={() => setEliminando(item)}
-                className="text-destructive-600 focus:bg-destructive-50 focus:text-destructive-700"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
+  // Memoizadas: los setters y `navigate` son estables; sin esto el DataTable
+  // recibía columnas nuevas en cada tecla del buscador.
+  const columns = useMemo<DataTableColumn<SurveyCampaign>[]>(
+    () => [
+      {
+        id: 'campania',
+        header: 'Encuesta',
+        mobile: 'primary',
+        rowHeader: true,
+        headClassName: 'min-w-[260px]',
+        cell: (item) => (
+          <div className="max-w-md">
+            <p className="line-clamp-1 font-semibold text-primary-900">{item.titulo}</p>
+            <p className="mt-0.5 text-xs text-primary-500">
+              {SURVEY_WINDOW_LABELS[item.ventana]}
+              {/* El dato ausente se omite, no se rellena: sin etapa fija, la
+                  campaña sirve para todas y eso se dice, no se deja en blanco. */}
+              {item.etapa ? ` · ${STAGE_LABELS[item.etapa]}` : ' · Todas las etapas'}
+            </p>
+          </div>
+        ),
       },
-    },
-  ];
+      {
+        id: 'anio',
+        header: 'Año',
+        mobile: 'secondary',
+        className: 'text-primary-700 tabular-nums',
+        cell: (item) => item.anio,
+      },
+      {
+        id: 'status',
+        header: 'Estado',
+        mobile: 'secondary',
+        cell: (item) => <SurveyCampaignStatusBadge status={item.status} />,
+      },
+      {
+        id: 'preguntas',
+        header: 'Preguntas',
+        mobile: 'secondary',
+        cell: (item) => (
+          <span className="inline-flex items-center gap-1.5 text-xs text-primary-700">
+            <MessageSquareText className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
+            <span className="tabular-nums">{item._count?.questions ?? 0}</span>
+          </span>
+        ),
+      },
+      {
+        id: 'respuestas',
+        header: 'Respuestas',
+        mobile: 'secondary',
+        cell: (item) => (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-800 tabular-nums">
+            <Users className="h-3.5 w-3.5 text-primary-400" aria-hidden="true" />
+            {textoRespuestas(item)}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Acciones',
+        mobile: 'actions',
+        hideHeader: true,
+        interactive: true,
+        headClassName: 'w-[80px]',
+        cell: (item) => {
+          // El borrado es la única acción del listado que el backend puede
+          // rechazar: con respuestas cargadas responde 409 porque borrar la
+          // campaña las borraría en cascada. Se muestra igual, deshabilitada y
+          // con el motivo, en vez de desaparecer sin explicación.
+          const borrado = puedeEliminarCampania(item);
+
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label={`Más acciones para ${item.titulo}`}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate(rutaCampania(item.id))}>
+                  <MessageSquareText className="mr-2 h-4 w-4" />
+                  Abrir preguntas y resultados
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEditando(item);
+                    setIsModalOpen(true);
+                  }}
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar datos
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!borrado.permitido}
+                  title={borrado.motivo}
+                  onClick={() => setEliminando(item)}
+                  className="text-destructive-600 focus:bg-destructive-50 focus:text-destructive-700"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
+    ],
+    [navigate],
+  );
 
   return (
     <div className="space-y-6">
