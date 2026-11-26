@@ -8,7 +8,7 @@
 // de documentos (`@/lib/documents/documentRules`, `npm run check:documents`);
 // la foto de sede pasa las suyas (`@/lib/venues/venueImageRules`,
 // `npm run check:venues`). Un solo componente, dos contratos.
-import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import {
   Camera,
   CheckCircle2,
@@ -23,25 +23,15 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DOCUMENT_STATUS_LABELS } from '@/lib/constants';
-import {
-  DOCUMENT_STATUS_BADGE_CLASSES,
-  DOCUMENT_UPLOADER_RULES,
-  isCanceledUpload,
-  uploadPercent,
-} from '@/lib/documents/documentRules';
-import type {
-  UploadErrorMessage,
-  UploadPreviewKind,
-  UploaderRules,
-} from '@/lib/uploads/uploaderRules';
-import { logError } from '@/lib/logger';
+import { DOCUMENT_STATUS_BADGE_CLASSES, DOCUMENT_UPLOADER_RULES } from '@/lib/documents/documentRules';
+import type { UploaderRules } from '@/lib/uploads/uploaderRules';
 import { cn, formatFileSize } from '@/lib/utils';
 import { DocumentStatus, type DocumentEntity } from '@/types';
 
-export interface DocumentUploadRequest {
-  onProgress: (loaded: number, total: number | undefined) => void;
-  signal: AbortSignal;
-}
+import { useDocumentUpload, type DocumentUploadRequest } from './useDocumentUpload';
+
+// Se reexporta: quien arma el `onUpload` lo importa desde el componente.
+export type { DocumentUploadRequest };
 
 interface DocumentUploaderProps {
   /** Nombre visible del papel ("DNI (frente)"). */
@@ -71,20 +61,6 @@ interface DocumentUploaderProps {
   onUpload: (file: File, request: DocumentUploadRequest) => Promise<unknown>;
 }
 
-type Phase =
-  | { name: 'empty' }
-  | { name: 'preparing' }
-  | { name: 'selected' }
-  | { name: 'uploading'; percent: number | null }
-  | { name: 'done' };
-
-interface Selection {
-  file: File;
-  preview: UploadPreviewKind;
-  /** `blob:` URL para la miniatura de imágenes; se revoca al reemplazar. */
-  objectUrl: string | null;
-}
-
 export function DocumentUploader({
   title,
   hint,
@@ -104,68 +80,26 @@ export function DocumentUploader({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const objectUrlRef = useRef<string | null>(null);
-
-  const [selection, setSelection] = useState<Selection | null>(null);
-  const [phase, setPhase] = useState<Phase>({ name: 'empty' });
-  // `fromServer`: el backend ya rechazó ESTE archivo; si el error no es de
-  // reintentar (pesado, tipo), volver a mandarlo no tiene sentido.
-  const [error, setError] = useState<{ message: UploadErrorMessage; fromServer: boolean } | null>(null);
-  const [replacing, setReplacing] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-
-  // Al desmontar: cortar la subida en vuelo y soltar la miniatura.
-  useEffect(
-    () => () => {
-      abortRef.current?.abort();
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    },
-    [],
-  );
 
   const fullTitle = contextLabel ? `${title} ${contextLabel}` : title;
+  const {
+    selection,
+    phase,
+    error,
+    replacing,
+    setReplacing,
+    dragActive,
+    acceptFile,
+    clearSelection,
+    startUpload,
+    cancelUpload,
+    handleDrag,
+    handleDrop,
+  } = useDocumentUpload({ rules, onUpload });
+  // Se derivan acá y no en el hook: así TypeScript estrecha `phase` (el % de subida).
   const uploading = phase.name === 'uploading';
   const preparing = phase.name === 'preparing';
-  const busy = uploading || preparing;
   const Heading = headingLevel === 3 ? 'h3' : 'h4';
-
-  function releasePreview() {
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    objectUrlRef.current = null;
-  }
-
-  async function acceptFile(picked: File | undefined) {
-    if (!picked || busy) return;
-    const previousPhase = phase;
-
-    // Optimización opcional (foto de sede): va ANTES de validar, así una foto
-    // de 8 MB que queda en 600 KB no se rechaza por pesada.
-    let file = picked;
-    if (rules.prepare) {
-      setPhase({ name: 'preparing' });
-      try {
-        file = await rules.prepare(picked);
-      } catch {
-        file = picked;
-      }
-    }
-
-    const result = rules.validate(file);
-    if (!result.ok) {
-      // Se descarta el archivo inválido pero se deja la selección anterior
-      // (si había una) para no perder una foto buena por un toque de más.
-      setError({ message: result.error, fromServer: false });
-      setPhase(previousPhase);
-      return;
-    }
-    releasePreview();
-    const objectUrl = result.preview === 'image' ? URL.createObjectURL(file) : null;
-    objectUrlRef.current = objectUrl;
-    setSelection({ file, preview: result.preview, objectUrl });
-    setError(null);
-    setPhase({ name: 'selected' });
-  }
 
   function openPicker(kind: 'file' | 'camera') {
     const input = kind === 'camera' ? cameraInputRef.current : fileInputRef.current;
@@ -173,58 +107,6 @@ export function DocumentUploader({
     // Sin esto, elegir dos veces el mismo archivo no dispara `change`.
     input.value = '';
     input.click();
-  }
-
-  function clearSelection() {
-    releasePreview();
-    setSelection(null);
-    setError(null);
-    setPhase({ name: 'empty' });
-  }
-
-  async function startUpload() {
-    if (!selection || uploading) return;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setError(null);
-    setPhase({ name: 'uploading', percent: 0 });
-
-    try {
-      await onUpload(selection.file, {
-        signal: controller.signal,
-        onProgress: (loaded, total) =>
-          setPhase({ name: 'uploading', percent: uploadPercent(loaded, total) }),
-      });
-      releasePreview();
-      setSelection(null);
-      setReplacing(false);
-      setPhase({ name: 'done' });
-    } catch (err) {
-      if (isCanceledUpload(err)) {
-        setPhase({ name: 'selected' });
-        return;
-      }
-      logError('DocumentUploader.startUpload', err);
-      setError({ message: rules.describeError(err), fromServer: true });
-      setPhase({ name: 'selected' });
-    } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-    }
-  }
-
-  function cancelUpload() {
-    abortRef.current?.abort();
-  }
-
-  function handleDrag(event: DragEvent<HTMLDivElement>, active: boolean) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!busy) setDragActive(active);
-  }
-
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
-    handleDrag(event, false);
-    void acceptFile(event.dataTransfer.files[0]);
   }
 
   // Qué se ve: lo recién elegido manda; si no hay nada elegido, lo que ya está
