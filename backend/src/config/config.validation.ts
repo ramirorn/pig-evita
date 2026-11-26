@@ -35,9 +35,12 @@ const PRODUCTION_ONLY_SECRETS: Array<{ key: string; minLength: number }> = [
 export const envSchema = z
   .object({
     // App
-    NODE_ENV: z
-      .enum(['development', 'production', 'test'])
-      .default('development'),
+    // VULN-13 — obligatorio y sin valor por defecto: antes faltaba y la app
+    // arrancaba como 'development' en un servidor (falla abierta: Swagger,
+    // CORS y cookies de desarrollo). Todos los entornos del repo lo definen.
+    NODE_ENV: z.enum(['development', 'production', 'test'], {
+      error: 'NODE_ENV es obligatorio: development, production o test.',
+    }),
     PORT: z.coerce.number().default(3000),
     API_PREFIX: z.string().default('api/v1'),
     APP_NAME: z.string().default('Juegos Evita Formosa'),

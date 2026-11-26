@@ -71,18 +71,12 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger / OpenAPI (se omite en producción, ver swagger.ts)
-  // VULN-13: Swagger mira el NODE_ENV crudo, no el valor con default. Si un
-  // despliegue arranca sin NODE_ENV, la config cae en 'development' (para no
-  // romper el arranque local), pero la documentación de la API no se publica.
-  if (!process.env.NODE_ENV) {
-    app
-      .get(PinoLogger)
-      .warn(
-        'NODE_ENV no está definido: se arranca con la configuración de desarrollo, pero sin Swagger. Definilo explícitamente.',
-      );
-  }
-  const swaggerHabilitado = setupSwagger(app, process.env.NODE_ENV);
+  // Swagger / OpenAPI (se omite en producción, ver swagger.ts). NODE_ENV ya
+  // es obligatorio en la validación del arranque (VULN-13).
+  const swaggerHabilitado = setupSwagger(
+    app,
+    app.get(ConfigService).get<string>('app.nodeEnv'),
+  );
 
   await app.listen(port);
 

@@ -84,26 +84,50 @@ export { urlParaLog };
       validate: validateEnv,
     }),
 
-    // Logging (Pino)
-    LoggerModule.forRoot({
-      // Sintaxis de path-to-regexp v8: el `*` por defecto de nestjs-pino hace
-      // que Nest avise "Unsupported route path" al arrancar (O-5).
-      forRoutes: [{ path: '{*path}', method: RequestMethod.ALL }],
-      pinoHttp: {
-        transport:
-          process.env.NODE_ENV !== 'production'
-            ? { target: 'pino-pretty', options: { colorize: true } }
-            : undefined,
-        level: process.env.NODE_ENV !== 'production' ? 'debug' : 'info',
-        serializers: {
-          req: (req) => ({
-            method: req.method,
-            url: urlParaLog(req.url),
-          }),
-          res: (res) => ({
-            statusCode: res.statusCode,
-          }),
-        },
+    // Logging (Pino). El entorno sale de ConfigService, validado al arrancar.
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const production = config.get<string>('app.nodeEnv') === 'production';
+        return {
+          // Sintaxis de path-to-regexp v8: el `*` por defecto de nestjs-pino
+          // hace que Nest avise "Unsupported route path" al arrancar (O-5).
+          forRoutes: [{ path: '{*path}', method: RequestMethod.ALL }],
+          pinoHttp: {
+            transport: production
+              ? undefined
+              : { target: 'pino-pretty', options: { colorize: true } },
+            level: production ? 'info' : 'debug',
+            // Defensa en profundidad (VULN-25): los serializers de abajo ya
+            // dejan afuera headers y body; si alguien loguea un objeto con
+            // estas claves, igual salen censuradas.
+            redact: {
+              paths: [
+                'req.headers.authorization',
+                'req.headers.cookie',
+                'res.headers["set-cookie"]',
+                '*.password',
+                '*.passwordHash',
+                '*.refreshToken',
+                '*.accessToken',
+                '*.dni',
+                '*.email',
+                '*.phone',
+                '*.address',
+              ],
+              censor: '[oculto]',
+            },
+            serializers: {
+              req: (req) => ({
+                method: req.method,
+                url: urlParaLog(req.url),
+              }),
+              res: (res) => ({
+                statusCode: res.statusCode,
+              }),
+            },
+          },
+        };
       },
     }),
 

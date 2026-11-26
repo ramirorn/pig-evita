@@ -7,6 +7,7 @@ import {
   OnModuleDestroy,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
@@ -19,9 +20,10 @@ export class PrismaService
   private readonly logger = new Logger(PrismaService.name);
   private pool: pg.Pool;
 
-  constructor() {
+  constructor(config: ConfigService) {
+    // La URL validada al arrancar (namespace `database`), no `process.env`.
     const pool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: config.get<string>('database.url'),
     });
 
     const adapter = new PrismaPg(pool);

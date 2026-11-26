@@ -177,3 +177,16 @@ describe('validateEnv — NEWS_SYNC_PORTAL_URL (O-3)', () => {
     ).toThrow('NEWS_SYNC_PORTAL_URL');
   });
 });
+
+describe('validateEnv — NODE_ENV obligatorio (VULN-13)', () => {
+  it('sin NODE_ENV no arranca (antes caía en development)', () => {
+    const { NODE_ENV: _omitido, ...sinNodeEnv } = VALID_ENV;
+    expect(() => validateEnv(sinNodeEnv)).toThrow(/NODE_ENV/);
+  });
+
+  it('un valor desconocido tampoco', () => {
+    expect(() => validateEnv({ ...VALID_ENV, NODE_ENV: 'staging' })).toThrow(
+      /NODE_ENV/,
+    );
+  });
+});
