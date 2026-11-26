@@ -16,6 +16,7 @@ import {
   ParticipantFilterDto,
   CAMPOS_ORDEN_PARTICIPANT,
 } from './dto';
+import { PARTICIPANT_LIST_ROW } from '../../common/prisma-selects';
 import { buildOrderBy, buildPaginatedResponse } from '../../common/dto';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction, DNI_EDITORS, Role } from '../../common/constants';
@@ -150,6 +151,7 @@ export class ParticipantsService {
     const [participants, total] = await Promise.all([
       this.prisma.participant.findMany({
         where: whereConAlcance,
+        select: PARTICIPANT_LIST_ROW,
         skip: filterDto.skip,
         take: filterDto.take,
         // R11 — el campo de orden se valida contra la whitelist antes de

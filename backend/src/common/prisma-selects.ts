@@ -50,6 +50,19 @@ export const PARTICIPANT_SUMMARY = {
   dni: true,
 } satisfies Prisma.ParticipantSelect;
 
+/**
+ * Fila del listado de participantes: lo que muestra la tabla (y el buscador de
+ * documentos). Sin domicilio ni contacto: la edición carga el detalle (paso 1.8).
+ */
+export const PARTICIPANT_LIST_ROW = {
+  ...PARTICIPANT_SUMMARY,
+  birthDate: true,
+  sex: true,
+  locality: true,
+  department: true,
+  createdAt: true,
+} satisfies Prisma.ParticipantSelect;
+
 /** Participante en vistas de detalle, donde sí se muestran datos de contacto. */
 export const PARTICIPANT_CONTACT = {
   ...PARTICIPANT_SUMMARY,
