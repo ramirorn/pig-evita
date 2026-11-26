@@ -6,8 +6,8 @@
 | **Autor** | Lucas Zigaran |
 | **Última actualización** | 26/11/2026 |
 | **Fases del plan** | **9**: Fase 0 (red de seguridad) + Módulos 1 a 8 |
-| **Estado** | Fases 0, 1 y 4 **terminadas**. Fases 2 y 3 **en curso**: solo les faltan cambios funcionales (VULN-23, VULN-20 y VULN-35) que primero necesitan `spec.md`/`tasks.md` y una decisión. Fases 5 a 8 **pendientes**. |
-| **Avance global** | 3 fases cerradas, 2 en curso y 4 pendientes. 25 de 49 pasos hechos, 2 diferidos con motivo, 22 pendientes. |
+| **Estado** | Fases 0, 1 y 4 **terminadas**. Fases 2 y 3 **en curso**: solo les faltan cambios funcionales (VULN-23, VULN-20 y VULN-35) que primero necesitan `spec.md`/`tasks.md` y una decisión. Fase 5 **en curso** (3 de 5). Fases 6 a 8 **pendientes**. |
+| **Avance global** | 3 fases cerradas, 3 en curso y 3 pendientes. 28 de 49 pasos hechos, 2 diferidos con motivo, 19 pendientes. |
 | **Seguimiento detallado** | [`odd/tasks/refactor-solid.md`](../../odd/tasks/refactor-solid.md) |
 | **Análisis de origen** | [`analisis-buenas-practicas.pdf`](analisis-buenas-practicas.pdf) (en esta carpeta) |
 | **Relevamiento de seguridad** | [`../seguridad/relevamiento-owasp-2025.md`](../seguridad/relevamiento-owasp-2025.md) |
@@ -41,7 +41,7 @@ El plan del PDF (sección 8) proponía 9 pasos ordenados por impacto. Se reorgan
 | **2** | Autenticación y usuarios | 2–3 días | 🟡 En curso | 5 / 6 |
 | **3** | Encuesta y métricas | 3 días | 🟡 En curso | 4 / 6 |
 | **4** | Competencias y resultados | 1½ días | ✅ Terminada | 5 / 5 |
-| **5** | Plataforma transversal | 1½ días | ⬜ Pendiente | 0 / 5 |
+| **5** | Plataforma transversal | 1½ días | 🟡 En curso | 3 / 5 |
 | **6** | Reportes y documentos | 1 día | ⬜ Pendiente | 0 / 4 |
 | **7** | Frontend de administración | 2–3 días | ⬜ Pendiente | 0 / 5 |
 | **8** | Frontend público y componentes grandes | 2 días | ⬜ Pendiente | 0 / 5 |
@@ -201,16 +201,16 @@ Pasos 3.5 (VULN-20) y 3.6 (VULN-35), los dos funcionales, y cierre con Playwrigh
 
 VULN-07 (vínculo árbitro ↔ partido) sigue esperando la decisión del cliente (sección 6).
 
-### Fase 5 — Plataforma transversal (1½ días) ⬜
+### Fase 5 — Plataforma transversal 🟡 en curso (3 de 5 pasos)
 Resuelve el hallazgo **M4** y las vulnerabilidades **VULN-13**, **VULN-17**, **VULN-29**, **VULN-46** y el resto de **VULN-16**.
 
-| Paso | Qué hay que hacer |
-|---|---|
-| 5.1 `ConfigService` en todos lados | Quedan **7 lecturas de `process.env`** fuera de la configuración (`prisma.service.ts`, `global-exception.filter.ts`, `main.ts`, `image.util.ts`, entre otras). Pasan a `ConfigService` y al esquema de `config.validation.ts`. **VULN-13:** `NODE_ENV` obligatorio. **VULN-17:** `MINIO_PUBLIC_USE_SSL` obligatorio en producción. |
-| 5.2 `redact` en los logs | Configurar `redact` de pino para tokens, contraseñas, cookies y datos personales. |
-| 5.3 Caché unificada | `DashboardService` y `StatsService` usan el `RedisCacheService` compartido en vez de abrir su propia conexión a Redis. |
-| 5.4 Paginación por cursor común | Un helper en `common/`, reutilizado por reportes y métricas. |
-| 5.5 Dependencias e imágenes | **VULN-29, 46 y 16:** Prisma 7.10.1 y `overrides`, `SCARF_ANALYTICS=false`, `npm ci --ignore-scripts` e imágenes de Docker fijadas por digest. |
+| Paso | Estado | Commit | Qué se hizo / qué falta |
+|---|---|---|---|
+| 5.1 `ConfigService` en todos lados | ✅ (parcial con motivo) | `8eda7bd` | `LoggerModule.forRootAsync`, `PrismaService` (namespace `database`) y Swagger en `main.ts` leen de `ConfigService`. **VULN-13 cerrada:** `NODE_ENV` es obligatorio (antes caía en `development`, falla abierta). De 7 lecturas de `process.env` quedan 2 con motivo: el filtro global (varios specs lo crean con `new`) y una constante de `image.util.ts`. **VULN-17** queda para cuando se defina la topología de producción: exigir SSL en MinIO depende de si va detrás de un proxy con TLS. |
+| 5.2 `redact` en los logs | ✅ | `8eda7bd` | `redact` de pino para `authorization`, cookies, contraseñas, tokens, DNI, email, teléfono y domicilio, como defensa en profundidad sobre los serializers mínimos. |
+| 5.3 Caché unificada | ✅ | `9412492` | `DashboardService` y `StatsService` usan el `RedisCacheService` compartido: dos conexiones a Redis menos y una sola forma de degradar sin Redis. |
+| 5.4 Paginación por cursor común | ⬜ | — | Un helper en `common/` (hoy `paginarPorCursor` vive en reportes), reutilizado por reportes y por la proyección de respuestas de métricas. |
+| 5.5 Dependencias e imágenes | ⬜ | — | **VULN-29, 46 y 16:** Prisma 7.10.1 y `overrides`, `SCARF_ANALYTICS=false`, `npm ci --ignore-scripts` + `prisma generate` explícito en el Dockerfile e imágenes fijadas por digest. Conviene hacerlo en un PR aparte, porque cambia el lockfile y las imágenes. |
 
 ### Fase 6 — Reportes y documentos (1 día) ⬜
 Resuelve los hallazgos **M2** (parte de `where: any`), **M3** y lo que queda de **B5**. Con esta fase el backend debería quedar en **0 avisos de `any`**.
