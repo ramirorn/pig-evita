@@ -58,7 +58,9 @@ import { ZonesController } from '../src/modules/zones/zones.controller';
 import { DashboardController } from '../src/modules/dashboard/dashboard.controller';
 import { SurveyController } from '../src/modules/survey/survey.controller';
 import { MetricsController } from '../src/modules/metrics/metrics.controller';
-import { MetricsService } from '../src/modules/metrics/metrics.service';
+import { MetricsQueryService } from '../src/modules/metrics/metrics-query.service';
+import { MetricsKpisService } from '../src/modules/metrics/metrics-kpis.service';
+import { MetricsHighlightsService } from '../src/modules/metrics/metrics-highlights.service';
 import { ZonesService } from '../src/modules/zones/zones.service';
 
 import { JwtStrategy } from '../src/modules/auth/strategies';
@@ -308,7 +310,9 @@ describe('Permisos por acción (R22)', () => {
           { provide: UsersService, useValue: servicioMudo },
           { provide: ZonesService, useValue: servicioMudo },
           { provide: AuditService, useValue: servicioMudo },
-          { provide: MetricsService, useValue: servicioMudo },
+          { provide: MetricsQueryService, useValue: servicioMudo },
+          { provide: MetricsKpisService, useValue: servicioMudo },
+          { provide: MetricsHighlightsService, useValue: servicioMudo },
           { provide: MinioService, useValue: servicioMudo },
           { provide: PrismaService, useValue: servicioMudo },
           {

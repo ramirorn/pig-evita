@@ -15,7 +15,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { MetricsController } from '../src/modules/metrics/metrics.controller';
-import { MetricsService } from '../src/modules/metrics/metrics.service';
+import { METRICS_PROVIDERS } from '../src/modules/metrics/metrics.providers';
+import { SurveyVersionCache } from '../src/modules/survey/survey-version.cache';
 import { PrismaService } from '../src/database/prisma.service';
 import {
   MOTIVO_SUPRESION,
@@ -266,7 +267,11 @@ describe('/metrics (e2e) — k-anonimato', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [MetricsController],
-      providers: [MetricsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ...METRICS_PROVIDERS,
+        SurveyVersionCache,
+        { provide: PrismaService, useValue: prisma },
+      ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -873,14 +878,14 @@ describe('/metrics (e2e) — k-anonimato', () => {
   });
 
   // -------------------------------------------------
-  // Presupuesto de consultas (refactor, Fase 0)
+  // Presupuesto de consultas (refactor)
   // -------------------------------------------------
-  // Con la caché cargada, un `overview` repetido no debería tocar la base. Hoy
-  // busca la campaña **antes** de mirar la caché, así que cada acierto cuesta
-  // igual una consulta. El módulo 3 del refactor invierte el orden y baja este
-  // techo a 0.
+  // Con la caché cargada, un `overview` repetido no toca la base. Antes de la
+  // fase 3 buscaba la campaña antes de mirar la caché: cada acierto costaba una
+  // consulta. Si alguien vuelve a poner una lectura delante de la caché, el
+  // techo lo corta.
   describe('presupuesto de consultas con caché', () => {
-    const TECHO_CONSULTAS_OVERVIEW_CACHEADO = 1;
+    const TECHO_CONSULTAS_OVERVIEW_CACHEADO = 0;
 
     /** Redis en memoria con la API de `RedisCacheService` que usa el service. */
     const cacheEnMemoria = () => {
@@ -913,7 +918,8 @@ describe('/metrics (e2e) — k-anonimato', () => {
       const moduleFixture: TestingModule = await Test.createTestingModule({
         controllers: [MetricsController],
         providers: [
-          MetricsService,
+          ...METRICS_PROVIDERS,
+          SurveyVersionCache,
           { provide: PrismaService, useValue: prismaFalso },
           { provide: RedisCacheService, useValue: cache },
         ],
@@ -928,6 +934,23 @@ describe('/metrics (e2e) — k-anonimato', () => {
         }),
       );
       await app.init();
+    });
+
+    it('overview con dos filtros y sin caché lee cada corte una sola vez', async () => {
+      respuestas.push(
+        ...repetir(12, () => respuesta(LOC_PIRANE, OPC.no, null)),
+      );
+      const consultas = await medirConsultas(prismaFalso, async () => {
+        const res = await get(
+          `/metrics/survey/${CAMPAIGN_ID}/overview?zona=INTERIOR&localityId=${LOC_PIRANE}`,
+        );
+        expect(res.status).toBe(200);
+      });
+
+      // 8 = campaña + 3 cortes (sin filtros, sin zona, sin localidad) +
+      // 3 resoluciones de localidades + el corte pedido. Antes de memoizar los
+      // cortes padre eran 9: el corte sin filtros se leía en las dos ramas.
+      expect(consultas).toBeLessThanOrEqual(8);
     });
 
     it('overview repetido con la caché cargada no supera el techo', async () => {

@@ -20,7 +20,9 @@ import {
 } from '@nestjs/swagger';
 import { Audit, Roles } from '../../common/decorators';
 import { ACCIONES } from '../../common/constants';
-import { MetricsService } from './metrics.service';
+import { MetricsQueryService } from './metrics-query.service';
+import { MetricsKpisService } from './metrics-kpis.service';
+import { MetricsHighlightsService } from './metrics-highlights.service';
 import {
   CreateSurveyHighlightDto,
   CreateSurveyKpiDto,
@@ -35,7 +37,11 @@ import {
 @Controller('metrics')
 @ApiBearerAuth('access-token')
 export class MetricsController {
-  constructor(private readonly metricsService: MetricsService) {}
+  constructor(
+    private readonly metrics: MetricsQueryService,
+    private readonly kpiDefinitions: MetricsKpisService,
+    private readonly highlightDefinitions: MetricsHighlightsService,
+  ) {}
 
   @Get('catalog')
   @Roles(...ACCIONES.METRICS_READ)
@@ -46,7 +52,7 @@ export class MetricsController {
       'departamentos con sus localidades y zona, disciplinas y categorías. Sin datos personales.',
   })
   catalog(@Query() query: MetricsCatalogQueryDto) {
-    return this.metricsService.catalog(query.campaignId);
+    return this.metrics.catalog(query.campaignId);
   }
 
   @Get('survey/:id/version')
@@ -60,7 +66,7 @@ export class MetricsController {
   })
   @ApiOkResponse({ schema: { example: { version: 128 } } })
   async version(@Param('id', ParseUUIDPipe) id: string) {
-    return { version: await this.metricsService.version(id) };
+    return { version: await this.metrics.version(id) };
   }
 
   @Get('survey/:id/overview')
@@ -76,7 +82,7 @@ export class MetricsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query() query: MetricsQueryDto,
   ) {
-    return this.metricsService.overview(id, query);
+    return this.metrics.overview(id, query);
   }
 
   @Get('survey/:id/cross')
@@ -92,7 +98,7 @@ export class MetricsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query() query: MetricsCrossQueryDto,
   ) {
-    return this.metricsService.cross(id, query);
+    return this.metrics.cross(id, query);
   }
 
   @Get('survey/:id/kpis')
@@ -107,7 +113,7 @@ export class MetricsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query() query: MetricsQueryDto,
   ) {
-    return this.metricsService.kpis(id, query);
+    return this.metrics.kpis(id, query);
   }
 
   @Get('survey/:id/highlights')
@@ -122,7 +128,7 @@ export class MetricsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Query() query: MetricsQueryDto,
   ) {
-    return this.metricsService.highlights(id, query);
+    return this.metrics.highlights(id, query);
   }
 
   // ===========================================
@@ -135,14 +141,14 @@ export class MetricsController {
     summary: 'Definiciones de destacados (de la campaña y reutilizables)',
   })
   listHighlights(@Query() query: MetricsCatalogQueryDto) {
-    return this.metricsService.listHighlights(query.campaignId);
+    return this.highlightDefinitions.list(query.campaignId);
   }
 
   @Post('highlights')
   @Roles(...ACCIONES.SURVEY_MANAGE)
   @ApiOperation({ summary: 'Crear un destacado' })
   createHighlight(@Body() dto: CreateSurveyHighlightDto) {
-    return this.metricsService.createHighlight(dto);
+    return this.highlightDefinitions.create(dto);
   }
 
   @Patch('highlights/:id')
@@ -152,14 +158,14 @@ export class MetricsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSurveyHighlightDto,
   ) {
-    return this.metricsService.updateHighlight(id, dto);
+    return this.highlightDefinitions.update(id, dto);
   }
 
   @Delete('highlights/:id')
   @Roles(...ACCIONES.SURVEY_MANAGE)
   @ApiOperation({ summary: 'Borrar un destacado' })
   removeHighlight(@Param('id', ParseUUIDPipe) id: string) {
-    return this.metricsService.removeHighlight(id);
+    return this.highlightDefinitions.remove(id);
   }
 
   // ===========================================
@@ -172,14 +178,14 @@ export class MetricsController {
     summary: 'Definiciones de KPI (de la campaña y reutilizables)',
   })
   listKpis(@Query() query: MetricsCatalogQueryDto) {
-    return this.metricsService.listKpis(query.campaignId);
+    return this.kpiDefinitions.list(query.campaignId);
   }
 
   @Post('kpis')
   @Roles(...ACCIONES.SURVEY_MANAGE)
   @ApiOperation({ summary: 'Crear un KPI' })
   createKpi(@Body() dto: CreateSurveyKpiDto) {
-    return this.metricsService.createKpi(dto);
+    return this.kpiDefinitions.create(dto);
   }
 
   @Patch('kpis/:id')
@@ -189,13 +195,13 @@ export class MetricsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSurveyKpiDto,
   ) {
-    return this.metricsService.updateKpi(id, dto);
+    return this.kpiDefinitions.update(id, dto);
   }
 
   @Delete('kpis/:id')
   @Roles(...ACCIONES.SURVEY_MANAGE)
   @ApiOperation({ summary: 'Borrar un KPI' })
   removeKpi(@Param('id', ParseUUIDPipe) id: string) {
-    return this.metricsService.removeKpi(id);
+    return this.kpiDefinitions.remove(id);
   }
 }

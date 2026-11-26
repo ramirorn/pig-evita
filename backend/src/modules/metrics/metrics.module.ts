@@ -2,17 +2,20 @@
 // Metrics Module
 // ===========================================
 import { Module } from '@nestjs/common';
+import { SurveyModule } from '../survey/survey.module';
 import { MetricsController } from './metrics.controller';
-import { MetricsService } from './metrics.service';
+import { METRICS_PROVIDERS } from './metrics.providers';
+import { MetricsQueryService } from './metrics-query.service';
 
 /**
  * Separado de `SurveyModule` a propósito: survey es el ciclo de vida del
- * cuestionario y el envío público; esto es lectura analítica que mañana puede
- * cruzar otras fuentes (inscripciones, resultados) sin tocar la encuesta.
+ * cuestionario y el envío público; esto es lectura analítica. Importa
+ * `SurveyModule` sólo por la caché por versión que comparten.
  */
 @Module({
+  imports: [SurveyModule],
   controllers: [MetricsController],
-  providers: [MetricsService],
-  exports: [MetricsService],
+  providers: [...METRICS_PROVIDERS],
+  exports: [MetricsQueryService],
 })
 export class MetricsModule {}
