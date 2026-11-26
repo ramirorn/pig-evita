@@ -22,10 +22,10 @@
 | 4 — Competencias | ✅ | Renombrar `bracket.ts`/`standings.ts` a inglés; VULN-07 (decisión) |
 | 5 — Plataforma | 🟡 4/5 | Dependencias/imágenes (5.5, PR aparte); VULN-17 (decisión) |
 | 6 — Reportes y documentos | ✅ | — |
-| 7 — Frontend de administración | ⬜ | Todo |
+| 7 — Frontend de administración | ✅ | — |
 | 8 — Frontend público | ⬜ | Todo |
 
-**Próximo paso recomendado:** la **Fase 7** (frontend de administración). No depende de ninguna decisión y su receta está en la sección 5.4.
+**Próximo paso recomendado:** la **Fase 8** (frontend público y componentes grandes). Solo Vitest necesita decisión; su receta está en la sección 5.5.
 
 Antes de empezar, conviene abrir el PR de lo hecho hasta ahora (sección 6).
 
@@ -57,7 +57,7 @@ Estos son los comandos de cada paso. Así tiene que quedar **antes** de tocar na
 | `backend/` | `npm run build` | sin errores |
 | `backend/` | `npx jest` | 361 / 361 |
 | `backend/` | `npm run test:e2e` | 1.064 / 1.064 (~80 s) |
-| `frontend/` | `npm run lint` | 0 errores, 28 avisos de `any` |
+| `frontend/` | `npm run lint` | 0 errores, 0 avisos de `any` |
 | `frontend/` | `npm run build` | sin errores |
 | `frontend/` | `npm run check:all` | 14 / 14 checks OK |
 | `e2e/` (Docker) | `npm run stack:up`, `npm test`, `npm run stack:down` | 409 OK, 1 omitido a propósito |
@@ -174,8 +174,9 @@ JwtModule.register({ secret: ACCESS_SECRET, signOptions: ACCESS_SIGN_OPTIONS })
    - Renderizar QR bajo Jest tarda ~650 ms por imagen: el spec de planteles simula `qrcode`.
    - En Playwright móvil, esperá a que el menú termine de desplegarse (`toBeInViewport({ ratio: 1 })`).
 9. **`backend/.gitignore` ignora `reports/` en cualquier carpeta** (para no versionar reportes con PII). Ya hay una excepción para `src/modules/reports/`, pero si creás otra carpeta llamada `reports`, revisá `git status -uall` o `git check-ignore -v <archivo>`.
-10. **Supuestos del plan que no se sostuvieron al leer el código.** Por eso conviene leer antes de mover:
-   - **Listado de participantes:** recortar su proyección habría borrado datos al editar, porque el formulario usa la fila del listado.
+10. **Algunos `check:*` del frontend leen archivos fuente por ruta** (por ejemplo `check-format.mjs` busca `rangoJugadores(` en un archivo concreto, y `check-nav-roles.mjs` revisa los permisos de cada página). Si movés código de un archivo a otro, corré `npm run check:all` y actualizá la ruta en el script.
+11. **Supuestos del plan que no se sostuvieron al leer el código.** Por eso conviene leer antes de mover:
+   - **Listado de participantes:** recortar su proyección habría borrado datos al editar, porque el formulario usaba la fila del listado (se resolvió en la Fase 7 cargando el detalle antes de recortar).
    - **VULN-28:** el UUID también sale en `participant.id` y en el ranking.
    - **Carrera del fixture:** cerrarla "por estado" no servía, porque el estado se edita por PATCH.
    - **Recursión de k-anonimato:** reemplazarla cambiaba la regla de anonimato; se memoizó.
@@ -229,7 +230,9 @@ Deja el backend en **0 avisos de `any`**.
 6. **Otro `any`:** `backend/src/modules/competitions/dto/competitions.dto.ts:72`.
 7. **Verificar:** `lint:check` con **0 avisos de `any` en el backend**; `reports-streaming`, `csv-formula-injection`, `public-pii`, `audit-pii-fields` y `scope-sweep` en verde.
 
-### 5.4 Fase 7 — Frontend de administración
+### 5.4 Fase 7 — Frontend de administración ✅ HECHA (`62b0525`, `62c6514`)
+Diferencias con la receta: el hook se llama `useCrudPageState<T, F>(emptyFilters)` y también lo usa Participants (con `T = id`); las rutas de chunks quedaron en `pages/pageLoaders.ts`; el debounce de borradores se descartó (ver README, 2.7 ter); `lib/utils.ts` pasó a la carpeta `lib/utils/`. Para una página CRUD nueva: copiar `TeamsAdminPage.tsx` + `teams/teamColumns.tsx`. Receta original como referencia:
+
 1. **Formularios tipados** (28 `as any`):
    - `frontend/src/pages/admin/components/CategoryForm.tsx` (3), `DisciplineForm.tsx` (11), `NewsForm.tsx` (7) y `TeamForm.tsx` (7);
    - usar `useForm<z.input<typeof schema>, unknown, z.output<typeof schema>>` con un mapper tipado `toFormValues(entity)`;

@@ -42,7 +42,7 @@ Como el sistema **todavía no está en producción** y nadie más estaba modific
 | **4** | Competencias y resultados | ✅ Terminada | 5 / 5 |
 | **5** | Plataforma transversal | 🟡 Casi completa | 4 / 5 (falta dependencias e imágenes, PR aparte) |
 | **6** | Reportes y documentos | ✅ Terminada | 4 / 4 (paginación de documentos descartada con motivo) |
-| **7** | Frontend de administración | ⬜ Pendiente | 0 / 5 |
+| **7** | Frontend de administración | ✅ Terminada | 5 / 5 (debounce de borradores descartado con motivo) |
 | **8** | Frontend público y componentes grandes | ⬜ Pendiente | 0 / 5 |
 
 ### 1.2 Resultados medidos
@@ -72,7 +72,7 @@ Como el sistema **todavía no está en producción** y nadie más estaba modific
 | Backend: lint | 8 errores escondidos por `--fix`, regla de `any` apagada | 0 errores, **0** avisos de `any` (eran 15) |
 | Backend: tests unitarios | 309 | **361** |
 | Backend: tests e2e | 1.046, con 3–5 fallos intermitentes; ~176 s | **1.064**, estables; ~80 s |
-| Frontend: lint, build y checks | 14/14, pero no corrían en CI | 14/14 en CI (28 avisos de `any`, se resuelven en la Fase 7) |
+| Frontend: lint, build y checks | 14/14, pero no corrían en CI | 14/14 en CI, **0** avisos de `any` (eran 28) |
 | Playwright | No corría en CI | **409 OK** + 1 omitido a propósito, en CI |
 
 ---
@@ -115,7 +115,7 @@ Resuelve **A1** y **A2**, y la parte de inscripciones de **B2**, **B3** y **B4**
 
 **Diferidos con motivo:**
 - **VULN-28:** el UUID del participante sale también en `participant.id` y en el ranking. Depende de la decisión sobre qué se publica de los menores (sección 4).
-- **Listado de participantes con `PARTICIPANT_SUMMARY`:** el formulario de edición usa la fila del listado, así que recortarlo borraría datos al editar. Pasa a la Fase 7.
+- **Listado de participantes con `PARTICIPANT_SUMMARY`:** el formulario de edición usaba la fila del listado, así que recortarlo borraba datos al editar. **Resuelto en la Fase 7** (`62b0525`, `62c6514`).
 
 Verificado en CI con Playwright (`45447753101`).
 
@@ -186,6 +186,21 @@ Resuelve **M2**, **M3** y **B5**. El backend queda con **0 avisos de `any`**.
 | DTO sin `any` | `08c13cf` | `file?: Express.Multer.File` en documentos y `config?: Record<string, unknown>` en competencias. |
 | Documentos | — | `findByParticipant` **no** se paginó: un participante tiene pocos documentos (uno por tipo) y paginar cambia la forma de la respuesta que consume el frontend. Ya devuelve solo lo necesario (sin `fileKey`). |
 
+### 2.7 ter Fase 7 — Frontend de administración ✅
+
+Resuelve **M1**, **M5** y **M6**. El frontend queda con **0 avisos de `any`** (eran 28).
+
+| Paso | Commit | Qué se hizo |
+|---|---|---|
+| Formularios tipados | `62b0525` | `useForm<z.input<S>, unknown, z.output<S>>` con un mapper `toFormValues(entity)` en Category, Discipline, News y Team. `FormField` (shadcn) acepta el tercer genérico de RHF, que era lo que obligaba a castear cada `control`. Se quitaron 6 de los 8 `as Resolver<X>`: quedan el de usuarios (elige el schema en runtime) y el diálogo de preguntas de la encuesta, los dos documentados. |
+| Bug latente | `62b0525` | Al tipar la entrada, TypeScript mostró que la hora de fin del calendario podía llegar `null` a `ClockTimePicker`, que hace `.split` sobre el valor. Ahora llega `undefined` y aplica su default. |
+| Edición de participantes (paso 1.8) | `62b0525`, `62c6514` | El modal carga el detalle con `useParticipant(id)` (con estado de carga y de error) en vez de usar la fila del listado. Recién entonces el backend recorta el listado con `PARTICIPANT_LIST_ROW`: sin domicilio ni contacto. Tipo `ParticipantListItem` en el frontend: el compilador ya no deja editar desde una fila. |
+| `useCrudPageState` | `62b0525` | Un hook para filtros (que vuelven a la página 1), paginación, modal y registro a eliminar, con handlers estables. Lo usan Categories, Disciplines, News, Users, Venues, Teams y Participants. Las columnas de las cuatro primeras pasan a `<dominio>/<x>Columns.tsx`, como equipos y sedes. |
+| Rendimiento | `62b0525` | Columnas con `useMemo` en las 7 páginas y en Survey; las de Audit e Inscriptions no dependen del estado y pasan a nivel de módulo. `pageLoaders.ts` es la única fuente de los `import()` de rutas (lo usan `lazyPages` y `routePrefetch`). Se borró el barrel muerto `pages/admin/index.tsx`. |
+| Archivos por dominio | `62b0525` | `schemas/` (12 módulos), `types/` (5) y `lib/utils/` (4). Cada `index.ts` reexporta exactamente la misma API: se comparó la lista de exports antes y después. |
+| Descartado: debounce de borradores | — | La encuesta guarda en cada cambio a propósito, para sobrevivir a un cierre abrupto del navegador; demorar la escritura perdería las últimas teclas y el costo ahorrado (una escritura chica en `localStorage`) es despreciable. Lo mismo para el plantel. |
+| Pendiente menor | — | Las toolbars de Categories, Disciplines, News y Users siguen dentro de la página (son un solo control cada una). La tabla del calendario no se memoizó: la página le pasa handlers no estables. |
+
 ### 2.8 Problemas que destapó la red de seguridad (corregidos)
 
 | Commit | Problema | Corrección |
@@ -211,11 +226,10 @@ El detalle y la receta de cada punto están en la [guía de traspaso](GUIA-DE-TR
 | 3 | VULN-35: hora truncada en las respuestas | Confirmar la resolución del panel | 5.6 |
 | 4 | Nombres en inglés en `bracket.ts`/`standings.ts` | No | 5.7 |
 | 5 | Dependencias e imágenes (VULN-29, 46, 16) | No (PR aparte) | 5.2 |
-| 7 | Formularios tipados, edición de participantes, `useCrudPageState`, rendimiento, archivos por dominio | No | 5.4 |
 | 8 | Hooks del mapa, uploader y noticias; `metricsRules` por tema; Vitest | Vitest: sí | 5.5 |
 | — | VULN-07, VULN-17, VULN-28, purga de auditoría | Sí | 5.7 |
 
-**Próximo paso recomendado:** abrir el PR de lo hecho (guía, sección 6) y seguir con la **Fase 7** (frontend de administración), que no depende de decisiones.
+**Próximo paso recomendado:** abrir el PR de lo hecho (guía, sección 6) y seguir con la **Fase 8** (frontend público y componentes grandes); solo Vitest necesita decisión.
 
 ---
 
@@ -247,12 +261,12 @@ Quedan aceptados y no se tocan: VULN-21, 36 y 44 (inherentes al diseño) y VULN-
 | A2 | `InscriptionsService` "clase dios" | Alta | 1 | ✅ Resuelto |
 | A3 | `MetricsService` mezcla consultas, dos CRUD y caché | Alta | 3 | ✅ Resuelto |
 | A4 | El CI no cubre frontend ni e2e | Alta | 0 | ✅ Resuelto |
-| M1 | `as any` en formularios (28) | Media | 7 | ⬜ Pendiente |
+| M1 | `as any` en formularios (28) | Media | 7 | ✅ Resuelto |
 | M2 | `no-explicit-any` apagado y `where: any` en reportes | Media | 0 y 6 | ✅ Resuelto: regla activa y 0 `any` en el backend |
 | M3 | Reportes traen la fila completa del participante | Media | 6 | ✅ Resuelto |
 | M4 | `process.env` fuera del `ConfigService` | Media | 2 y 5 | 🟡 De 9 lecturas a 2, ambas con motivo |
-| M5 | Páginas CRUD con el mismo estado copiado | Media | 7 | ⬜ Pendiente |
-| M6 | Archivos "cajón de sastre" | Media | 7 | ⬜ Pendiente |
+| M5 | Páginas CRUD con el mismo estado copiado | Media | 7 | ✅ Resuelto (`useCrudPageState`) |
+| M6 | Archivos "cajón de sastre" | Media | 7 | ✅ Resuelto |
 | M7 | Fixture: inserts uno por uno y carrera | Media | 4 | ✅ Resuelto |
 | M8 | El frontend no tiene runner de tests | Media | 8 | ⬜ Espera decisión |
 | B1 | Servicios atados a `PrismaService` concreto | Baja | — | Sin capa de repositorios: se usan tipos acotados (`ClienteFixture`) y puertos |
@@ -261,7 +275,7 @@ Quedan aceptados y no se tocan: VULN-21, 36 y 44 (inherentes al diseño) y VULN-
 | B4 | Comentarios muy extensos o desactualizados | Baja | todas | 🟡 Se corrige en cada fase |
 | B5 | `any` en guard, interceptor, auth y DTO | Baja | 2 y 6 | ✅ Resuelto |
 
-**Resumen:** 8 resueltos, 5 en parte, 3 pendientes, 1 esperando decisión y 1 reemplazado por un patrón existente.
+**Resumen:** 11 resueltos, 5 en parte, 0 pendientes, 1 esperando decisión y 1 reemplazado por un patrón existente.
 
 ---
 
